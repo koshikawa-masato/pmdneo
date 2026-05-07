@@ -349,91 +349,139 @@ WebApp の機能:
 
 ## §2-1 Phase 区切りの根拠
 
-PMDNEO は機能カバレッジ型で Phase を区切る。 OPNA / OPNB chip 仕様の互換性
-(§1-2-2 参照)を活かし、 chip 差影響の小さい部分から段階的に実装する。
+PMDNEO は機能カバレッジ型 4 Phase 構造で進化する。 OPNA / OPNB chip 仕様の
+互換性(§1-2-2 参照)を活かし、 PoC で動作確認を早期に取った後、 段階的に
+フルスクラッチ実装を積み上げる。
 
-過去 PMD88 V3.9 driver の Z80 流用試行(R2 sprint v1/v2 redesign) で偽完了
-が連発した経験を踏まえ、 driver はフルスクラッチで OPNB(YM2610B 仕様) 専用
-に新規実装する。 段階ごとに動作確認できる粒度で進化させる。
+設計判断の根拠:
 
-## §2-2 Phase 1: FM / SSG 核実装
+- **FM/SSG レジスタ仕様完全互換**: 既存 PMDDotNET の出力 .M + 既存 PMD V4.8s
+  driver Z80 binary を NEOGEO ROM に組み込んで MAME で再生確認可能。 PoC は
+  既存技術組合わせで早期達成
+- **MAME OPNB エンジンの動作観察**: K/R command も A/D ch も chip / エミュ
+  側で適切に無視される(誤動作なし) = driver は OPNA 流儀の dispatch を
+  そのまま出して OK
+- **過去の R2 sprint 偽完了反省**: 「Z80 共通だから流用できる」 思い込みで
+  失敗した経験から、 driver はフルスクラッチで段階的に置換していく(Phase 1
+  PoC → Phase 2 自作driver置換)
+
+各 Phase で動作確認できる粒度を維持し、 R2 sprint で起きた「大きいまま実装
+して偽完了」 のパターンを回避する。
+
+## §2-2 Phase 1: PoC(既存技術組合わせ動作確認)
 
 ### §2-2-1 ゴール
 
-PMDDotNET ベース mc compiler の OPNB 拡張と、 OPNB 駆動 driver(FM 6ch +
-SSG 3ch) の核を完成させる。 chip 差影響のない FM/SSG 部分のみを対象とし、
-動作確認を簡素化する。
+既存技術(PMDDotNET + 既存 PMD V4.8s driver Z80 binary) を組合わせて、
+NEOGEO ROM 上で FM/SSG 楽曲が MAME で再生できる状態を作る。 PMDNEO の実装
+方針(YM2610B 仕様 + chip 互換性活用)を実証する。
 
 ### §2-2-2 実装範囲
 
-- **compiler(PMDDotNET 改良)**:
-  - OPNB 準拠の `.M` 出力(FM/SSG 部分)
-  - V4.8s 文法の上位互換維持
-  - dispatch entry の OPNB 拡張枠を確保(中身は Phase 2 以降で埋める)
-- **driver(フルスクラッチ Z80 binary)**:
-  - FM 6ch dispatch(YM2610B 仕様)
-  - SSG 3ch dispatch
-  - `.M` 解釈ループ
-  - TIMER-B IRQ 駆動
-- **WebApp(最小)**:
-  - MML エディタ(基本機能)
-  - ビルド(MML → `.M` → ROM 連結)
-  - 即時プレビュー(MAME ベース、 FM/SSG のみ確認)
+- **compiler 流用**: 既存 PMDDotNET をそのまま使い、 V4.8s OPNA 用 .M を
+  出力(改造なし)
+- **driver 流用**: 既存 PMD V4.8s driver の Z80 binary を NEOGEO ROM に
+  組み込み、 OPNB(MAME)で再生(改造なし)
+- **NEOGEO ROM ビルドフロー(最小)**: ngdevkit 等を参考に、 .M + driver
+  binary を NEOGEO ROM 形式にパッケージ
+- **MAME 再生確認**: ROM を MAME に通して FM/SSG 楽曲を鳴らす
 
 ### §2-2-3 完了基準
 
-- MML で FM 6ch + SSG 3ch を駆動する楽曲が NEOGEO 上(MAME)で再生可能
-- chip 差影響なく動作(YM2610 無印で A/D mute、 YM2610B / MAME で全 ch
-  動作を確認)
-- PMD V4.8s 系の既存楽曲(FM/SSG のみ部分)が小修正で動く
+- 既存 PMD V4.8s 楽曲(FM/SSG のみ) が MAME 上の NEOGEO で再生可能
+- K/R / A,D ch の楽曲データが含まれていても誤動作しないことを確認
+- driver Z80 binary 流用での動作確認が取れる(= chip 互換性検証完了)
 
-## §2-3 Phase 2: ADPCM-A 6ch 拡張
+### §2-2-4 規模感
+
+1 週間程度。 既存技術組合わせのため新規実装は ROM ビルドフローのみ。
+
+## §2-3 Phase 2: フルスクラッチ driver の FM/SSG 部分
 
 ### §2-3-1 ゴール
 
-ADPCM-A 6ch を完全新規実装し、 サンプルパック `.PNE` 形式と WAV→ADPCM-A
-変換を整備する。 過去 PMDAES で「K/R command → ADPCM-A 流用」 で楽していた
-path は廃棄、 OPNB chip 仕様に合わせて 専用 dispatch を新規実装する。
+PoC で使った既存 PMD V4.8s driver Z80 binary を、 PMDNEO 専用フルスクラッチ
+driver(YM2610B 仕様、 OPNB 専用設計)に置換する。 Phase 3 以降の ADPCM-A /
+ADPCM-B 拡張のための driver 基盤を確立する。
 
 ### §2-3-2 実装範囲
 
-- **compiler 拡張**:
-  - ADPCM-A 用 dispatch entry 追加
-  - `.PNE` 形式パース、 `#PNEFile` コマンド実装
-  - サンプルバンク管理(複数楽曲での `.PNE` 共有対応)
-- **driver 拡張**:
-  - ADPCM-A 6ch dispatch
-  - サンプルバンク読み込み(NEOGEO V-ROM 経由)
-- **WebApp 拡張**:
-  - WAV → ADPCM-A コンバータ(18.5kHz 4bit Mono、 ブラウザ内変換)
-  - `.PNE` 生成 + 管理 UI
-  - サンプル割り当て UI
+- **driver フルスクラッチ実装(FM/SSG 部分)**:
+  - .M 解釈ループ(V4.8s 互換 dispatch table 構造)
+  - FM 6ch dispatch(YM2610B 仕様)
+  - SSG 3ch dispatch
+  - TIMER-B IRQ 駆動
+  - K/R / A,D 関連 opcode は通常 dispatch(chip 側で無視されるため driver 側で特別処理不要)
+- **PMDDotNET 改良(最小)**:
+  - 既存 V4.8s OPNA 出力 .M をそのまま使う(Phase 2 では改造なし)
+  - Phase 3 以降の OPNB 拡張準備として dispatch entry の調査のみ
 
 ### §2-3-3 完了基準
 
-- ADPCM-A サンプル(リズムキット等)を含む楽曲が NEOGEO 上で再生可能
-- WebApp で WAV ファイルから `.PNE` を生成して MML から参照できる
+- 自作 driver で MAME 再生、 PoC(Phase 1)と同等動作
+- driver は OPNB 専用設計、 PMD88 V3.9 / V4.8s driver からの流用ゼロ
+- Phase 3 で ADPCM-A 拡張する準備が整った driver 基盤
 
-## §2-4 Phase 3: ADPCM-B + WebApp 全機能 + プレイヤー V1 + リリース統合
+### §2-3-4 規模感
+
+数週間。
+
+## §2-4 Phase 3: ADPCM-A 6ch + .PNE + WebApp 連携
 
 ### §2-4-1 ゴール
 
-ADPCM-B(可変サンプリングレート、 delta-T) 対応、 WebApp 全機能完成、
-IPL + プレイヤー V1 実装、 ROM ビルドフローのリリース統合まで完成させる。
-PMDNEO の最初の公開リリース(V1) に到達する。
+ADPCM-A 6ch を完全新規実装し、 サンプルパック .PNE 形式と WAV→ADPCM-A 変換
+を整備する。 WebApp の最小骨格(MML エディタ + ビルド + プレビュー) を立ち
+上げ、 ブラウザから 1 ループ通る状態にする。 過去 PMDAES で「K/R command →
+ADPCM-A 流用」 で楽していた path は廃棄、 OPNB chip 仕様に合わせて専用
+dispatch を新規実装する。
 
 ### §2-4-2 実装範囲
+
+- **compiler 拡張(PMDDotNET 改良)**:
+  - ADPCM-A 用 dispatch entry 追加
+  - .PNE 形式パース、 #PNEFile コマンド実装
+  - サンプルバンク管理(複数楽曲での .PNE 共有対応)
+- **driver 拡張**:
+  - ADPCM-A 6ch dispatch
+  - サンプルバンク読み込み(NEOGEO V-ROM 経由)
+- **WebApp 最小骨格**:
+  - MML エディタ(基本機能)
+  - ビルド(MML → .M → ROM 連結)
+  - 即時プレビュー(MAME ベース)
+  - WAV → ADPCM-A コンバータ(18.5kHz 4bit Mono、 ブラウザ内変換)
+  - .PNE 生成 + 管理 UI
+
+### §2-4-3 完了基準
+
+- ADPCM-A サンプル(リズムキット等) を含む楽曲が NEOGEO 上で再生可能
+- WebApp で WAV ファイルから .PNE を生成して MML から参照できる
+- ブラウザだけで MML 作成 → ビルド → MAME プレビューが通る
+
+### §2-4-4 規模感
+
+1〜2 ヶ月。
+
+## §2-5 Phase 4: ADPCM-B + WebApp 完成 + IPL + プレイヤー V1 + リリース統合
+
+### §2-5-1 ゴール
+
+ADPCM-B(可変サンプリングレート、 delta-T) 対応、 WebApp 全機能完成、 IPL +
+プレイヤー V1 実装、 ROM ビルドフローのリリース統合まで完成させる。 PMDNEO
+の最初の公開リリース(V1) に到達する。
+
+### §2-5-2 実装範囲
 
 - **driver 拡張**:
   - ADPCM-B 1ch dispatch(可変サンプリングレート)
 - **WebApp 全機能**:
   - FM / SSG 音色エディタ(VEDSE 相当)
-  - MAME ベース 完全プレビュー(FM/SSG/ADPCM-A/ADPCM-B 統合)
+  - MAME ベース完全プレビュー(FM/SSG/ADPCM-A/ADPCM-B 統合)
   - リリース用ファイル生成(MAME 用 zip + 実機用 ROM)
   - 簡易ビルド後表示
 - **IPL(バイナリのみ別配布)**:
   - サウンド・テキスト・グラフィックの最小限初期化
-  - 起動画面ロゴ表示(ngdevkit 風、 純正NEOGEO ロゴ非使用)
+  - 起動画面ロゴ表示(ngdevkit 風、 純正 NEOGEO ロゴ非使用)
 - **プレイヤー V1**:
   - 楽曲名表示
   - 楽曲選択再生(最小 UI)
@@ -445,14 +493,18 @@ PMDNEO の最初の公開リリース(V1) に到達する。
   - PMDNEO 本体 GPL-3.0 ソース公開
   - LICENSE / README 整備
 
-### §2-4-3 完了基準
+### §2-5-3 完了基準
 
 - 一般ユーザーが WebApp 経由で MML を書いて NEOGEO ROM をリリースできる
 - AES+ または MAME で楽曲再生確認(audio gate)
 - 公開ホスティングされた WebApp に第三者がアクセスして利用可能
 - GitHub repo に PMDNEO 本体ソース + IPL Releases 配布が揃う
 
-## §2-5 Phase 後の継続(V2 以降)
+### §2-5-4 規模感
+
+2〜3 ヶ月。
+
+## §2-6 Phase 後の継続(V2 以降)
 
 WebApp 公開後の改変期間で V2 機能を順次追加する:
 
@@ -462,32 +514,34 @@ WebApp 公開後の改変期間で V2 機能を順次追加する:
 
 V2 はリリース必須ではなく、 V1 公開後の継続開発として位置付ける。
 
-## §2-6 Phase 間の依存関係
+## §2-7 Phase 間の依存関係
 
-	Phase 1 (FM/SSG 核) ────┐
-	  │                    │
-	  └─→ Phase 2 (ADPCM-A) ─┐
-	        │              │
-	        └─→ Phase 3 (ADPCM-B + WebApp + V1 + リリース)
+	Phase 1 (PoC) ────────┐
+	  │                  │
+	  └─→ Phase 2 (フルスクラッチ driver の FM/SSG) ─┐
+	        │                                       │
+	        └─→ Phase 3 (ADPCM-A + .PNE + WebApp 連携) ─┐
+	              │                                    │
+	              └─→ Phase 4 (ADPCM-B + WebApp 完成 + IPL + V1 + リリース)
 
-各 Phase は前 Phase の成果に依存する。 Phase 1 で driver/compiler の核が
-動かなければ Phase 2 で ADPCM-A 拡張しても動作確認ができない。
+各 Phase は前 Phase の成果に依存する。 Phase 1 で chip 互換性が実証されな
+ければ Phase 2 で driver フルスクラッチを始めても基準点が失われる。
 
-ただし WebApp の簡素な部分は Phase 1 から並行で着手できる(MML エディタ +
-ビルド + プレビューの最小機能)。 Phase 進行中に WebApp 機能が段階的に
-増えていくイメージ。
+WebApp の機能は Phase 3 から本格着手し、 Phase 4 で完成。 Phase 1/2 は
+ROM ビルドフローと driver に集中する。
 
-## §2-7 Phase の進化と PMDDotNET の関係
+## §2-8 Phase の進化と PMDDotNET の関係
 
 各 Phase で PMDDotNET の改良範囲が広がっていく:
 
-- Phase 1: PMDDotNET の OPNA 駆動部分を OPNB 出力に置換、 FM/SSG レジスタ
-  アクセスは V4.8s と同じ流れで OPNB に向ける
-- Phase 2: PMDDotNET にない ADPCM-A 6ch 機能を新規追加実装
-- Phase 3: ADPCM-B 対応 + ROM 出力部分(NEOGEO 用)を完成
+- Phase 1: そのまま使用(改良なし、 既存 V4.8s OPNA .M 出力)
+- Phase 2: そのまま使用(改良なし、 driver 側で .M 解釈)
+- Phase 3: PMDDotNET にない ADPCM-A 6ch + .PNE 形式 + #PNEFile コマンドを
+  新規追加実装、 OPNB 出力 .M に拡張
+- Phase 4: ADPCM-B 対応 + ROM 出力部分(NEOGEO 用)を完成
 
-PMDDotNET の構想段階の OPNB 拡張範囲(§1-12-1) は、 Phase 進行に応じて
-具体化していく。
+PMDDotNET の OPNB 拡張範囲(§1-12-1) は、 Phase 3 から本格的に手を入れる。
+Phase 1/2 では既存 PMDDotNET の OPNA 出力をそのまま使う。
 
 # §3 各 Phase のゴール / deliverable / 完了基準
 
