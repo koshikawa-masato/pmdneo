@@ -532,7 +532,7 @@ dispatch** がある。 PMD.ASM L2058-(special_0c0h):
 
 ```
 special_0c0h:
-    cmp al, com_end_0c0h     ; com_end_0c0h = 0xF7
+    cmp al, com_end_0c0h     ; com_end_0c0h = 0xF5(なお L2077 に定義)
     jc out_of_commands
     not al
     add al, al
@@ -543,23 +543,55 @@ special_0c0h:
 
 comtbl0c0h:
     dw vd_fm        ;0FFh
-    dw _vd_fm
-    dw vd_ssg
-    dw _vd_ssg
-    dw vd_pcm
-    dw _vd_pcm
-    dw vd_rhythm
+    dw _vd_fm       ;0FEh
+    dw vd_ssg       ;0FDh
+    dw _vd_ssg      ;0FCh
+    dw vd_pcm       ;0FBh
+    dw _vd_pcm      ;0FAh
+    dw vd_rhythm    ;0F9h
     dw _vd_rhythm   ;0F8h
-    dw pmd86_s
-    dw vd_ppz
+    dw pmd86_s      ;0F7h
+    dw vd_ppz       ;0F6h
     dw _vd_ppz      ;0F5h
 ```
 
-つまり 0xC0 系コマンドは「マスター volume」 や「音源 mute / unmute」 を
-chip 別に細分化する用途。 二段階 dispatch:
+二段階 dispatch:
 
-1. opcode 0xC0 → fm_mml_part_mask 等(part 種別で分岐)
-2. 続く byte が 0xF5〜0xFF なら comtbl0c0h で sub-dispatch
+1. opcode 0xC0 → fm_mml_part_mask 等(part 種別で分岐)、 続く 1 byte を
+   `lodsb` で読込
+2. 続く byte が 0〜1 なら part mask on/off
+3. 続く byte が 2〜0xF4 なら out_of_commands(終了)
+4. 続く byte が 0xF5〜0xFF なら comtbl0c0h で sub-dispatch
+
+#### 4-5-1. comtbl0c0h sub-handler 引数 byte 数
+
+各 sub-handler は全て **1 byte 引数**(PMD.ASM L2082-2154):
+
+| sub byte | sub-handler | byte | 機能 |
+|---|---|---|---|
+| 0xFF | vd_fm | 1 | FM 音源 voldown 設定 |
+| 0xFE | _vd_fm | 1 | FM 相対 voldown |
+| 0xFD | vd_ssg | 1 | SSG voldown 設定 |
+| 0xFC | _vd_ssg | 1 | SSG 相対 voldown |
+| 0xFB | vd_pcm | 1 | PCM voldown 設定 |
+| 0xFA | _vd_pcm | 1 | PCM 相対 voldown |
+| 0xF9 | vd_rhythm | 1 | Rhythm voldown 設定 |
+| 0xF8 | _vd_rhythm | 1 | Rhythm 相対 voldown |
+| 0xF7 | pmd86_s | 1 | PMD86 PCM volume mode |
+| 0xF6 | vd_ppz | 1 | PPZ voldown 設定 |
+| 0xF5 | _vd_ppz | 1 | PPZ 相対 voldown |
+
+つまり 0xC0 sub-dispatch シーケンス全長 = **3 byte**:
+
+```
+0xC0 + [sub byte (0xF5〜0xFF)] + [voldown 値 (1 byte)]
+```
+
+通常の 0xC0 part mask シーケンス = **2 byte**:
+
+```
+0xC0 + [0 or 1 (part mask off/on)]
+```
 
 ### 4-6. dispatch ループの仕組み
 
@@ -718,7 +750,7 @@ dispatch あり、 v3 で精緻化)。
 | fm3_extpartset | 6 | L2549 | FM3 ext part set (3 × lodsw) |
 | volmask_set | 1 | L2493 | volume mask |
 | _volmask_set | 1 | L2510 | sub volume mask |
-| panset_ex | ? | - | pan set 拡張 |
+| panset_ex | 2 | L3972 | pan set 拡張 (pan 値 + 付加 flag) |
 
 #### 4-7-10. 効果音 / その他
 
@@ -954,6 +986,34 @@ rhy_shot:
 
 kshot_dat = 14 bit、 各 bit が rhythm channel の trigger mask に対応。
 
+#### 5-6-3-1. kshot_dat 14 bit → rhythm channel mapping(rhydat L8014)
+
+PMD V4.8s OPNA built-in rhythm の rhydat 構造 11 entry × 3 byte:
+
+| bit | rhydat index | rhythm 音 | OPNA register | KEYON bit |
+|---|---|---|---|---|
+| 0 | rhydat[0] | バス(BD) | 0x18 | 0x01 |
+| 1 | rhydat[1] | スネア(SD) | 0x19 | 0x02 |
+| 2 | rhydat[2] | 太鼓 LOW | 0x1C | 0x10 |
+| 3 | rhydat[3] | 太鼓 MID | 0x1C | 0x10 |
+| 4 | rhydat[4] | 太鼓 HIGH | 0x1C | 0x10 |
+| 5 | rhydat[5] | 拍子木(RIM) | 0x1D | 0x20 |
+| 6 | rhydat[6] | クラップ | 0x19 | 0x02 |
+| 7 | rhydat[7] | C ハイハット | 0x1B | 0x88 |
+| 8 | rhydat[8] | O ハイハット | 0x1A | 0x04 |
+| 9 | rhydat[9] | シンバル | 0x1A | 0x04 |
+| 10 | rhydat[10] | RIDE シンバル | 0x1A | 0x04 |
+| 11-13 | (拡張) | PPSDRV / KP_rhythm 拡張用 | - | - |
+
+各 rhydat entry は 3 byte: `[port (= 0x18+ch)][PAN | VOLUME][KEYON bit]`。
+
+`rhy_shot` ルーチンの `rsb2lp`(L1641)で 14 bit を逐次 ror チェックし、
+bit 立った channel ごとに rhydat 参照 → register 書込 → keyon 発行。
+
+PMDNEO(YM2610/B)では OPNA built-in rhythm 非搭載のため、 この 11 ch
+mapping は **ADPCM-A 6 ch + ADPCM-B 1 ch + 拡張**で代替設計する必要あり
+(設計書 §1-8 で扱う)。
+
 #### 5-6-4. radtbl(rhythm address table)の構造
 
 `.m` ファイル byte 23-24(m_buf header の最後 2 byte)が radtbl の
@@ -1066,23 +1126,55 @@ PMD.ASM `neiroset_main` の register 書込ループで:
 
 OPN/OPNA/OPNB の register 0x30〜0x9F(operator parameter)に対応。
 
-#### 5-7-3. operator 順序
+#### 5-7-3. operator 順序(YM2610/B register slot 順)
 
-PMD.ASM の書込順序:
+PMD.ASM `neiroset_main`(L5159) の書込ループ:
 
 ```
-DT/ML  → register 0x30+offset (op1, op3, op2, op4)
-TL     → register 0x40+offset
-KS/AR  → register 0x50+offset
-AM/DR  → register 0x60+offset
-SR     → register 0x70+offset
-RR/SL  → register 0x80+offset
-ALG/FB → register 0xB0+ch (1 byte for ch)
+mov  dh, 0x30 - 1
+add  dh, [partb]            ; dh = DT/ML 開始 register
+
+mov  cx, 4    ; DT/ML loop
+ns01:
+    mov  dl, [bx]; inc bx   ; .m 内 1 byte 読込
+    rol  al, 1
+    jnc  ns_ns
+    call opnset
+ns_ns:
+    add  dh, 4              ; register +4 = 次 slot
+    loop ns01
 ```
 
-(YM2610/B では op1→op3→op2→op4 の特殊順序で register に並ぶが、 .m
-バイナリ内では op1→op2→op3→op4 の順で格納されている可能性あり。
-実際の operator order mapping は v3 で確認)
+dh は `+4` で進むので、 register 書込は 0x30 → 0x34 → 0x38 → 0x3C
+**slot 1 → slot 2 → slot 3 → slot 4** の順。
+
+YM2610 / YM2608 / YM2151 等 OPNX 系の register 上の slot 番号 と OP 番号
+の対応は:
+
+| register slot | OP 番号(MML 上) | 役割(典型 ALG=4 時) |
+|---|---|---|
+| slot 1 | OP1 | modulator 1(M1) |
+| slot 2 | OP3 | modulator 2(M2) |
+| slot 3 | OP2 | carrier 1(C1) |
+| slot 4 | OP4 | carrier 2(C2) |
+
+つまり **.m バイナリ内格納順は YM2610 register slot 順(1, 2, 3, 4)
+= OP 番号順では(OP1, OP3, OP2, OP4)** という固有順序。
+
+各 parameter block の格納:
+
+| .m offset | register | 内容 | 格納順 |
+|---|---|---|---|
+| 1-4 | 0x30〜0x3C | DT / ML | OP1, OP3, OP2, OP4 |
+| 5-8 | 0x40〜0x4C | TL | OP1, OP3, OP2, OP4 |
+| 9-12 | 0x50〜0x5C | KS / AR | OP1, OP3, OP2, OP4 |
+| 13-16 | 0x60〜0x6C | AM / DR | OP1, OP3, OP2, OP4 |
+| 17-20 | 0x70〜0x7C | SR | OP1, OP3, OP2, OP4 |
+| 21-24 | 0x80〜0x8C | RR / SL | OP1, OP3, OP2, OP4 |
+| 25 | 0xB0 | ALG / FB | (ch 単位) |
+
+PMDNEO(YM2610/B)も同じ register layout のため、 この固有順序を
+そのまま採用する。
 
 #### 5-7-4. PMDNEO 設計への含意
 
@@ -1110,19 +1202,18 @@ ALG/FB → register 0xB0+ch (1 byte for ch)
 - ✅ opcode 0x81〜0xB0 = out_of_commands(終了処理)
 - ✅ Phase 2 driver メインループ擬似コード(§5-5)
 - ✅ Rhythm part 2 段構造(R part body + radtbl + rhythm pattern body)解明(§5-6)
+- ✅ kshot_dat 14 bit → rhythm channel mapping(rhydat 11 entry)解明(§5-6-3-1)
 - ✅ 音色データ format(prgdat 26 byte / tondat 32 byte 経路)解明(§5-7)
+- ✅ 音色データ operator 順序(register slot 順 = OP1, OP3, OP2, OP4)確定(§5-7-3)
+- ✅ comtbl0c0h sub-handler 11 個の引数 byte 数(全て 1 byte)解明(§4-5-1)
 
 ### 6-2. v3 で精緻化する課題
 
-1. **comtbl0c0h sub-handler 引数 byte 数**: vd_fm / vd_ssg / vd_pcm /
-   vd_rhythm / pmd86_s / vd_ppz の引数仕様。
-2. **panset_ex 引数 byte 数**: cmdtbl 0xC3 entry の handler。
-3. **SAMPLE.M file byte 1108〜1141 の rhythm addr table 実体解析**。
-4. **SAMPLE2.M / SSGEG_S.M との比較解析**(複数 R パターン / 拡張機能例)。
-5. **comt(tempo)の 251 以上 mode 解析**(comt_sp0/sp1/sp2 分岐)。
-6. **kshot_dat の 14 bit bitmap → rhythm channel mapping 詳細**(board2 ⁄ KP rhythm ⁄ PPSDRV の差異)。
-7. **音色データ operator 順序 mapping**: .m バイナリ内格納順 vs OPN/OPNB register 書込順(op1→op3→op2→op4)。
-8. **音色データ SSG-EG bit 配置**: 拡張 envelope generator の register field。
+1. **SAMPLE.M file byte 1108〜1141 の rhythm addr table 実体解析**。
+2. **SAMPLE2.M / SSGEG_S.M との比較解析**(複数 R パターン / 拡張機能例)。
+3. **comt(tempo)の 251 以上 mode 解析**(comt_sp0/sp1/sp2 分岐)。
+4. **音色データ SSG-EG bit 配置**: 拡張 envelope generator の register field。
+5. **kshot_dat 上位 3 bit(bit 11-13)の PPSDRV / KP_rhythm 拡張動作詳細**(rhydat 11 entry を超えた範囲の挙動)。
 
 ---
 
