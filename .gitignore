@@ -1,0 +1,69 @@
+# build artifacts
+build/
+dist/
+out/
+*.o
+*.lst
+*.bin
+*.M
+*.M2
+*.hex
+*.ihx
+*.rel
+*.rom
+
+# OS / editor
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node / WebApp
+node_modules/
+.npm
+package-lock.json
+yarn.lock
+.next/
+.nuxt/
+.cache/
+
+# log / temporary
+*.log
+*.tmp
+/tmp/
+.cache/
+
+# user-supplied (NEOGEO BIOS romset, copyrighted)
+neogeo.zip
+NEOGEO.ZIP
+*.bios
+
+# IPL binary distribution (separate repo / releases)
+ipl_binary/
+*.ipl
+
+# claude / agent harness
+.claude/USER_STATUS.md
+.claude/worktrees/
+
+# diary (個人記録、 git 管理外)
+dev-diary/
+
+# secrets
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+credentials.json
+
+# CLAUDE.md は内部開発用、 git 管理外
+CLAUDE.md
