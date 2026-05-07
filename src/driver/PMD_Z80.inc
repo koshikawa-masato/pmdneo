@@ -117,9 +117,11 @@ test_play_c4::
         ld      c, #0x0E
         call    ym2610_write_port_a
 
-        ;; SSG volume A (0x08) = 0x08 (中音量)
+        ;; SSG volume A (0x08) = 0x0F (max)
+        ;; (SubB-3 試行: 中音量 0x08 で無音だったため max に変更、
+        ;;  「volume 値が低すぎて聴感不能」 仮説を排除)
         ld      b, #REG_SSG_A_VOLUME
-        ld      c, #0x08
+        ld      c, #0x0F
         call    ym2610_write_port_a
 
         ret

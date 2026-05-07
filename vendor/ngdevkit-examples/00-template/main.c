@@ -42,6 +42,8 @@ int main(void) {
   // 1) cmd 3 = reset_driver (NMI 経由で driver init を発火、 nullsound 慣習)
   // 2) cmd 2 = play_song (= test_play_c4)
   *REG_SOUND = 3;
+  // Z80 側の reset/NMI 完了と mainloop 再開を待ってから次 command を送る。
+  ng_wait_vblank();
   ng_wait_vblank();
   *REG_SOUND = 2;
 
