@@ -45,7 +45,9 @@ cmd_jmptable::
 ;;; PMDNEO 独自 sound command (= 0x02 以降、 nullsound と被らない)
 
 snd_command_02_play_song::
-        ;; SubB-F で楽曲再生開始 routine を実装
+        ;; SubB-1: driver init (= SSG silent init) を発火
+        ;; SubB-2 以降で TIMER-B 起動、 SubB-3 以降で楽曲解釈ループ起動
+        call    pmdneo_init
         ret
 
 snd_command_03_stop_song::

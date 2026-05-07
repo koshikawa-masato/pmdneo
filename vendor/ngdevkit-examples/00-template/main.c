@@ -19,6 +19,8 @@
 #include <ngdevkit/bios-calls.h>
 #include <ngdevkit/ng-fix.h>
 
+// REG_SOUND: M68K → Z80 sound command 発行 port
+#define REG_SOUND ((volatile u8*)0x320000)
 
 int main(void) {
   bios_fix_clear();
@@ -34,6 +36,11 @@ int main(void) {
   ng_center_text(11, 0, "Phase 1 PoC");
   ng_center_text(14, 0, "ROM build flow check");
   ng_center_text(17, 0, "(C) M.Koshikawa.");
+
+  // SubB-1: PMDNEO driver init を発火 (= sound cmd 0x02 = play_song)
+  // 動作: Z80 driver が SSG mixer 0x07 = 0x38 + volume A/B/C = 0x00 を chip に書込
+  // 期待結果: chip register write 発生、 audio 出力なし (volume 0 のため無音)
+  *REG_SOUND = 2;
 
   // ngdevkit のデフォルト VBlank handler が watchdog を rearm する
   for(;;) {}
