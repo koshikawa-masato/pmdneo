@@ -89,3 +89,37 @@ pmd_z80_main::
         inc     hl
         ld      (pmdneo_irq_count), hl
         ret
+
+
+;;; ----- test_play_c4: SubB-3 最初の音発生 (hardcoded C4 in SSG ch A) -----
+;;;
+;;; PMD V4.8s psg_tune_data (= analysis_m_data_structure.md §5-1-1) で
+;;; ONKAI 0 (= C) の SSG 周波数値 = 0x0EE8。
+;;; YM2610 master clock 8 MHz、 SSG counter = clock / (16 × n) で発音。
+;;; n = 0x0EE8 = 3816 → freq = 8e6 / (16 × 3816) ≈ 131 Hz (= C3 or C4 周辺)
+;;;
+;;; SSG fine tune (0x00) = 周波数 LSB
+;;; SSG coarse tune (0x01) = 周波数 MSB (上位 4 bit、 12-bit counter)
+;;; SSG volume A (0x08) = 0x08 (= 中音量、 max は 0x0F)
+;;;
+;;; SubB-3 動作: 起動時に 1 回だけ呼び、 chip register に値を書く。
+;;; mixer (0x07) は pmdneo_init で 0x38 (= tone 3 ch enable) に設定済。
+;;; volume を 0 から 0x08 に変えるため、 連続音が出る。
+
+test_play_c4::
+        ;; SSG ch A fine tune (0x00) = 0xE8 (LSB of 0x0EE8)
+        ld      b, #REG_SSG_A_FINE_TUNE
+        ld      c, #0xE8
+        call    ym2610_write_port_a
+
+        ;; SSG ch A coarse tune (0x01) = 0x0E (MSB of 0x0EE8)
+        ld      b, #REG_SSG_A_COARSE_TUNE
+        ld      c, #0x0E
+        call    ym2610_write_port_a
+
+        ;; SSG volume A (0x08) = 0x08 (中音量)
+        ld      b, #REG_SSG_A_VOLUME
+        ld      c, #0x08
+        call    ym2610_write_port_a
+
+        ret
