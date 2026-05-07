@@ -37,9 +37,10 @@ int main(void) {
   ng_center_text(14, 0, "ROM build flow check");
   ng_center_text(17, 0, "(C) M.Koshikawa.");
 
-  // SubB-1: PMDNEO driver init を発火 (= sound cmd 0x02 = play_song)
-  // 動作: Z80 driver が SSG mixer 0x07 = 0x38 + volume A/B/C = 0x00 を chip に書込
-  // 期待結果: chip register write 発生、 audio 出力なし (volume 0 のため無音)
+  // SubB-3: PMDNEO driver 起動経路 (06-sound-adpcma 流儀踏襲)
+  // 1) cmd 3 = reset_driver (NMI 経由で driver init を発火、 nullsound 慣習)
+  // 2) cmd 2 = play_song (= test_play_c4 + polling loop に入る)
+  *REG_SOUND = 3;
   *REG_SOUND = 2;
 
   // ngdevkit のデフォルト VBlank handler が watchdog を rearm する

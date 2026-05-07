@@ -29,30 +29,42 @@ pmd_main::
 ;;;
 ;;; SubA: stub のみ (受付するが何もしない、 silent ROM)
 
-;;; cmd_jmptable: nullsound 公式の slot 0x00, 0x01 は nullsound.lib に
-;;; 既に定義済 (snd_command_unused / snd_command_01_prepare_for_rom_switch)、
-;;; 本 file では call のみ。 PMDNEO 独自 cmd は 0x02 以降に追加。
+;;; cmd_jmptable: nullsound 公式の slot 0x00, 0x01, 0x03 は nullsound NMI
+;;; handler が直接参照する予約 cmd。 user は 0x02 と 0x04 以降を独自 cmd
+;;; として使用可能。
+;;;
+;;; nullsound NMI handler 経路:
+;;;   *REG_SOUND = 1 → snd_command_01_prepare_for_rom_switch (NMI 内直接 jp、 nullsound.lib 提供)
+;;;   *REG_SOUND = 3 → snd_command_03_reset_driver (NMI 内直接 jp、 user 実装必須)
+;;;   *REG_SOUND = 2/4-N → fifo に push、 snd_mainloop polling で cmd_jmptable[N] dispatch
 cmd_jmptable::
         jp      snd_command_unused                       ; 0x00 no-op
         jp      snd_command_01_prepare_for_rom_switch    ; 0x01 ngdevkit reserved (nullsound.lib)
-        jp      snd_command_02_play_song                 ; 0x02 楽曲再生開始
-        jp      snd_command_03_stop_song                 ; 0x03 楽曲再生停止
-        jp      snd_command_04_fade_out                  ; 0x04 fade out
+        jp      snd_command_02_play_song                 ; 0x02 PMDNEO 楽曲再生開始
+        jp      snd_command_03_reset_driver              ; 0x03 ngdevkit reserved (user 実装)
+        jp      snd_command_04_fade_out                  ; 0x04 fade out (将来)
         ;; 残り 123 entry を未使用 cmd で padding (nullsound 慣習、 helpers.inc macro)
         init_unused_cmd_jmptable
 
 
-;;; PMDNEO 独自 sound command (= 0x02 以降、 nullsound と被らない)
+;;; snd_command_03_reset_driver は nullsound.lib に default 実装あり
+;;; (= chip silence + driver state reset)。 PMDNEO 側で再定義しない。
+;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
+
+
+;;; ----- snd_command_02_play_song: 楽曲再生開始 (polling 経由、 polling loop 入る) -----
+;;;
+;;; cmd 3 (= nullsound default reset) で chip silence 後、 cmd 2 で:
+;;; 1. pmdneo_init (= SSG silent init + TIMER-B 起動)
+;;; 2. test_play_c4 (= 最初の音発生)
+;;; 3. polling loop で TIMER-B tick から pmd_z80_main を呼び出す
+;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd は受付不可。
 
 snd_command_02_play_song::
-        ;; SubB-1: driver init (= SSG silent init) を発火
-        ;; SubB-2: TIMER-B 起動 + 無限 loop で tick 待ち + pmd_z80_main 呼出
-        ;; SubB-3: 最初の音発生 (= SSG ch A で C4 を hardcoded で鳴らす)
-        ;; SubB-4 以降: psg_tune_data + MML 解釈で本格 per-part main 実装
+        ;; SubB-1: driver init (= SSG silent init + TIMER-B 起動)
         call    pmdneo_init
         ;; SubB-3: 最初の音発生
         call    test_play_c4
-        ;; ↓ ret せず無限 loop に入る (= snd_mainloop に戻らない)
         ;; nullsound 提供の update_timer_state_tracker (= IRQ 0x0038 で呼ばれる)
         ;; が state_timer_tick_reached を set する。 PMDNEO はそれを polling
         ;; して tick が立つたびに pmd_z80_main を 1 回 call。
@@ -66,9 +78,6 @@ pmdneo_play_loop::
         call    pmd_z80_main
         jp      pmdneo_play_loop
 
-snd_command_03_stop_song::
-        ;; SubB-F で楽曲停止 + chip silence routine を実装
-        ret
 
 snd_command_04_fade_out::
         ;; SubF で fade out 実装
