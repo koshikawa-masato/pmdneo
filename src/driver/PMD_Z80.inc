@@ -54,13 +54,38 @@ pmdneo_init::
         ld      c, #0x00
         call    ym2610_write_port_a
 
+        ;; SubB-2: TIMER-B 起動
+        ;; pmdneo_irq_count を 0 に初期化
+        ld      hl, #0
+        ld      (pmdneo_irq_count), hl
+
+        ;; TIMER-B counter (0x26) = 0xC0
+        ;; → tick 周期 = (256 - 0xC0) × 16 × 8 / (8 MHz / 2) = 64 × 128 / 4M = 約 488 µs
+        ;; → 約 2050 Hz (= TIMER-B 単位、 BPM 換算は SubB-5 で精緻化)
+        ;; SubB-2 では「TIMER-B が周期発火」 することのみ確認、 値は仮置き
+        ld      b, #REG_TIMER_B_COUNTER
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+
+        ;; TIMER-B enable + IRQ enable + reset (REG_TIMER_FLAGS = 0x27)
+        ;;   bit 1: TIMER-B reset (write 1 で reset)
+        ;;   bit 3: TIMER-B enable
+        ;;   bit 5: TIMER-B IRQ enable
+        ;; = 0b00101010 = 0x2A
+        ld      b, #REG_TIMER_FLAGS
+        ld      c, #0x2A
+        call    ym2610_write_port_a
+
         ret
 
 
-;;; ----- pmd_z80_main: TIMER-B IRQ から呼ばれる main 処理 -----
+;;; ----- pmd_z80_main: TIMER-B tick で呼ばれる main 処理 -----
 ;;;
-;;; SubB-1: 即 ret (silent ROM、 TIMER-B IRQ は SubB-2 で実装)
-;;; SubB-2 以降: tempo / fade 更新、 per-part main loop dispatcher
+;;; SubB-2: pmdneo_irq_count を 16-bit increment (= 動作証跡)。
+;;; SubB-3 以降で per-part main loop dispatcher を実装。
 
 pmd_z80_main::
+        ld      hl, (pmdneo_irq_count)
+        inc     hl
+        ld      (pmdneo_irq_count), hl
         ret

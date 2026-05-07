@@ -55,3 +55,11 @@ part_workarea::
 
 driver_state::
         .ds 16
+
+;;; SubB-2: TIMER-B IRQ count (= 周期発火の動作証跡)
+;;; nullsound の TIMER-B IRQ で update_timer_state_tracker が呼ばれた後、
+;;; PMDNEO の polling loop が state_timer_tick_reached を読み取って
+;;; pmd_z80_main を call。 pmd_z80_main で本 counter を 16-bit increment。
+
+pmdneo_irq_count::
+        .ds 2

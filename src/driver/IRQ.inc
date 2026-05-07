@@ -46,9 +46,22 @@ cmd_jmptable::
 
 snd_command_02_play_song::
         ;; SubB-1: driver init (= SSG silent init) を発火
-        ;; SubB-2 以降で TIMER-B 起動、 SubB-3 以降で楽曲解釈ループ起動
+        ;; SubB-2: TIMER-B 起動 + 無限 loop で tick 待ち + pmd_z80_main 呼出
+        ;; SubB-3 以降: pmd_z80_main 内に per-part main loop を実装
         call    pmdneo_init
-        ret
+        ;; ↓ ret せず無限 loop に入る (= snd_mainloop に戻らない)
+        ;; nullsound 提供の update_timer_state_tracker (= IRQ 0x0038 で呼ばれる)
+        ;; が state_timer_tick_reached を set する。 PMDNEO はそれを polling
+        ;; して tick が立つたびに pmd_z80_main を 1 回 call。
+pmdneo_play_loop::
+        ld      a, (state_timer_tick_reached)
+        or      a
+        jp      z, pmdneo_play_loop
+        ;; tick 立った: 消費 + main 実行
+        xor     a
+        ld      (state_timer_tick_reached), a
+        call    pmd_z80_main
+        jp      pmdneo_play_loop
 
 snd_command_03_stop_song::
         ;; SubB-F で楽曲停止 + chip silence routine を実装
