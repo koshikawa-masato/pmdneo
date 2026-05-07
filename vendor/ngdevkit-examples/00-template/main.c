@@ -18,6 +18,7 @@
 #include <ngdevkit/neogeo.h>
 #include <ngdevkit/bios-calls.h>
 #include <ngdevkit/ng-fix.h>
+#include <ngdevkit/ng-video.h>
 
 // REG_SOUND: M68K → Z80 sound command 発行 port
 #define REG_SOUND ((volatile u8*)0x320000)
@@ -39,8 +40,9 @@ int main(void) {
 
   // SubB-3: PMDNEO driver 起動経路 (06-sound-adpcma 流儀踏襲)
   // 1) cmd 3 = reset_driver (NMI 経由で driver init を発火、 nullsound 慣習)
-  // 2) cmd 2 = play_song (= test_play_c4 + polling loop に入る)
+  // 2) cmd 2 = play_song (= test_play_c4)
   *REG_SOUND = 3;
+  ng_wait_vblank();
   *REG_SOUND = 2;
 
   // ngdevkit のデフォルト VBlank handler が watchdog を rearm する

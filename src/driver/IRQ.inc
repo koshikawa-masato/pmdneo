@@ -52,31 +52,18 @@ cmd_jmptable::
 ;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
 
 
-;;; ----- snd_command_02_play_song: 楽曲再生開始 (polling 経由、 polling loop 入る) -----
+;;; ----- snd_command_02_play_song: 楽曲再生開始 (one-shot C4 tone) -----
 ;;;
-;;; cmd 3 (= nullsound default reset) で chip silence 後、 cmd 2 で:
-;;; 1. pmdneo_init (= SSG silent init + TIMER-B 起動)
-;;; 2. test_play_c4 (= 最初の音発生)
-;;; 3. polling loop で TIMER-B tick から pmd_z80_main を呼び出す
-;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd は受付不可。
+;;; cmd 3 (= nullsound default reset) で chip silence 後、 cmd 2 で
+;;; SSG ch A に C4 の固定音を 1 回だけ書き込む。
+;;; SubB-4 までは polling loop を使わず、 ここで return する。
 
 snd_command_02_play_song::
         ;; SubB-1: driver init (= SSG silent init + TIMER-B 起動)
         call    pmdneo_init
         ;; SubB-3: 最初の音発生
         call    test_play_c4
-        ;; nullsound 提供の update_timer_state_tracker (= IRQ 0x0038 で呼ばれる)
-        ;; が state_timer_tick_reached を set する。 PMDNEO はそれを polling
-        ;; して tick が立つたびに pmd_z80_main を 1 回 call。
-pmdneo_play_loop::
-        ld      a, (state_timer_tick_reached)
-        or      a
-        jp      z, pmdneo_play_loop
-        ;; tick 立った: 消費 + main 実行
-        xor     a
-        ld      (state_timer_tick_reached), a
-        call    pmd_z80_main
-        jp      pmdneo_play_loop
+        ret
 
 
 snd_command_04_fade_out::
