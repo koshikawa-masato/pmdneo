@@ -82,14 +82,18 @@ $(CROM2): $(BUILDDIR)/assets/base-crom-logo.c2
 
 
 
-# sound driver ROM: nullsound + your configured sound commands
-# Add your dependencies below to compile your z80 sources into a HEX binary
-# that is used as the sound driver ROM (referenced by symbol MROM1)
-#
-# By default, this makefile uses the empty sound driver provided by ngdevkit
+# sound driver ROM: PMDNEO Phase 2 SubA driver (silent stub)
+# PMDNEO の Z80 driver source は src/driver/ に配置、 build 時に scripts/build-poc.sh
+# で 00-template/ に symlink される (= .gitignore で除外)
 # Note: build rules (%.s -> %.o -> %.ihx) are defined in Makefile.build
-SOUND_DRIVER=$(NGSHAREDIR)/nullsound_driver.ihx
+SOUND_DRIVER=$(BUILDDIR)/pmdneo_driver.ihx
 $(MROM1): $(SOUND_DRIVER)
+
+$(SOUND_DRIVER): $(BUILDDIR)/PMDNEO.rel
+
+# PMDNEO.s が include する file 群への依存 (build.mk の %.rel: %.s rule で
+# sdasz80 が compile、 cwd 相対の include は scripts/build-poc.sh で symlink される)
+$(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD_Z80.inc ADPCMB_DRV.inc ADPCMA_DRV.inc
 
 
 

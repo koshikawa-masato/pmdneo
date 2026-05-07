@@ -67,3 +67,29 @@ credentials.json
 
 # CLAUDE.md は内部開発用、 git 管理外
 CLAUDE.md
+
+# vendor/ngdevkit-examples/ の generated file (= ./configure 実行で生成)
+vendor/ngdevkit-examples/config.mk
+vendor/ngdevkit-examples/configure
+vendor/ngdevkit-examples/config.log
+vendor/ngdevkit-examples/config.status
+vendor/ngdevkit-examples/autom4te.cache/
+vendor/ngdevkit-examples/aclocal.m4
+
+# 各 example の build artifact
+vendor/ngdevkit-examples/*/build/
+vendor/ngdevkit-examples/*/snap/
+vendor/ngdevkit-examples/*/setup/.checkin
+vendor/ngdevkit-examples/*/Makefile.config
+
+# 06-sound-adpcma 等の configure で 00-template から rsync される generated file
+vendor/ngdevkit-examples/*/build.mk
+vendor/ngdevkit-examples/*/emu.mk
+vendor/ngdevkit-examples/*/config.mk
+# ただし 00-template/ の build.mk + emu.mk は git tracked (= 上流原本)
+!vendor/ngdevkit-examples/00-template/build.mk
+!vendor/ngdevkit-examples/00-template/emu.mk
+
+# 00-template/ に scripts/build-poc.sh で生成される symlink (src/driver/ への参照)
+vendor/ngdevkit-examples/00-template/PMDNEO.s
+vendor/ngdevkit-examples/00-template/*.inc

@@ -29,22 +29,20 @@ pmd_main::
 ;;;
 ;;; SubA: stub のみ (受付するが何もしない、 silent ROM)
 
+;;; cmd_jmptable: nullsound 公式の slot 0x00, 0x01 は nullsound.lib に
+;;; 既に定義済 (snd_command_unused / snd_command_01_prepare_for_rom_switch)、
+;;; 本 file では call のみ。 PMDNEO 独自 cmd は 0x02 以降に追加。
 cmd_jmptable::
         jp      snd_command_unused                       ; 0x00 no-op
-        jp      snd_command_01_prepare_for_rom_switch    ; 0x01 ngdevkit reserved
+        jp      snd_command_01_prepare_for_rom_switch    ; 0x01 ngdevkit reserved (nullsound.lib)
         jp      snd_command_02_play_song                 ; 0x02 楽曲再生開始
         jp      snd_command_03_stop_song                 ; 0x03 楽曲再生停止
         jp      snd_command_04_fade_out                  ; 0x04 fade out
-        ;; 0x05-0xFF は将来予約
+        ;; 残り 123 entry を未使用 cmd で padding (nullsound 慣習、 helpers.inc macro)
+        init_unused_cmd_jmptable
 
 
-snd_command_unused::
-        ret
-
-snd_command_01_prepare_for_rom_switch::
-        ;; ngdevkit reserved: ROM bank 切替時の preparation
-        ;; SubA: 何もせず帰る
-        ret
+;;; PMDNEO 独自 sound command (= 0x02 以降、 nullsound と被らない)
 
 snd_command_02_play_song::
         ;; SubB-F で楽曲再生開始 routine を実装
