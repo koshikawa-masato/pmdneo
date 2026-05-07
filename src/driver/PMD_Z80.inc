@@ -91,20 +91,25 @@ pmd_z80_main::
         ret
 
 
-;;; ----- test_play_c4: SubB-3 最初の音発生 (hardcoded C4 in SSG ch A) -----
+;;; ----- test_play_c4: SubB-3 最初の音発生 (hardcoded C3 in SSG ch A) -----
 ;;;
 ;;; PMD V4.8s psg_tune_data (= analysis_m_data_structure.md §5-1-1) で
-;;; ONKAI 0 (= C) の SSG 周波数値 = 0x0EE8。
-;;; YM2610 master clock 8 MHz、 SSG counter = clock / (16 × n) で発音。
-;;; n = 0x0EE8 = 3816 → freq = 8e6 / (16 × 3816) ≈ 131 Hz (= C3 or C4 周辺)
+;;; OCT 0 + ONKAI 0 (= C) の SSG 周波数値 = 0x0EE8。
+;;; YM2610 SSG counter = clock / (16 × n) で発音。
+;;; n = 0x0EE8 = 3816 → freq ≈ 131 Hz = **C3** (低音「ぶぶぶ」 帯域)。
+;;; (関数名は test_play_c4 だが、 PMD V4.8s の table の OCT 0 = C3 が出る。
+;;;  octave shift は SubB-4 で OCT/ONKAI 解釈実装時に対応)
 ;;;
 ;;; SSG fine tune (0x00) = 周波数 LSB
 ;;; SSG coarse tune (0x01) = 周波数 MSB (上位 4 bit、 12-bit counter)
-;;; SSG volume A (0x08) = 0x08 (= 中音量、 max は 0x0F)
+;;; SSG volume A (0x08) = 0x0F (= max、 audible)
 ;;;
 ;;; SubB-3 動作: 起動時に 1 回だけ呼び、 chip register に値を書く。
 ;;; mixer (0x07) は pmdneo_init で 0x38 (= tone 3 ch enable) に設定済。
-;;; volume を 0 から 0x08 に変えるため、 連続音が出る。
+;;; volume を 0 から 0x0F に変えるため、 連続音が出る。
+;;;
+;;; user 聴感確認 (commit ef6929b): 「ぶぶぶ」 と低音が鳴る。
+;;; SubB-3 達成 (= 最初の音発生、 audio gate Step 0.5 通過)。
 
 test_play_c4::
         ;; SSG ch A fine tune (0x00) = 0xE8 (LSB of 0x0EE8)
