@@ -52,18 +52,28 @@ cmd_jmptable::
 ;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
 
 
-;;; ----- snd_command_02_play_song: 楽曲再生開始 (one-shot C4 tone) -----
+;;; ----- snd_command_02_play_song: 楽曲再生開始 (= 1 octave スケール演奏) -----
 ;;;
-;;; cmd 3 (= nullsound default reset) で chip silence 後、 cmd 2 で
-;;; SSG ch A に C4 の固定音を 1 回だけ書き込む。
-;;; SubB-4 までは polling loop を使わず、 ここで return する。
+;;; cmd 3 (= nullsound default reset) で chip silence + Z80 init 後、 cmd 2 で:
+;;; 1. pmdneo_init (= SSG mixer + TIMER-B 起動 + scale state init)
+;;; 2. test_play_scale (= 最初の note 発音 + scale_step = 1 で次に進む準備)
+;;; 3. polling loop 再導入: TIMER-B tick 毎に pmd_z80_main を call、
+;;;    pmd_z80_main 内で scale_tick decrement + scale_step 進行
+;;;
+;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd 受付不可 (SubB-4 範囲)。
+;;; SubB-7 で MML 解釈実装後に polling loop を refactor。
 
 snd_command_02_play_song::
-        ;; SubB-1: driver init (= SSG silent init + TIMER-B 起動)
         call    pmdneo_init
-        ;; SubB-3: 最初の音発生
-        call    test_play_c4
-        ret
+        call    test_play_scale
+pmdneo_play_loop::
+        ld      a, (state_timer_tick_reached)
+        or      a
+        jp      z, pmdneo_play_loop
+        xor     a
+        ld      (state_timer_tick_reached), a
+        call    pmd_z80_main
+        jp      pmdneo_play_loop
 
 
 snd_command_04_fade_out::

@@ -63,3 +63,14 @@ driver_state::
 
 pmdneo_irq_count::
         .ds 2
+
+;;; SubB-4: scale 演奏 state (= G part でドレミファソラシド)
+;;; scale_step: 0-7 が現在の scale step、 8 で end
+;;; scale_tick: TIMER-B tick の残り、 0 になったら次 step へ
+;;;             (= note duration を tick 単位で表現)
+
+scale_step::
+        .ds 1
+
+scale_tick::
+        .ds 1
