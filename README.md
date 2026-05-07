@@ -24,9 +24,17 @@ driver をフルスクラッチで新規開発し、 NEOGEO homebrew 環境に P
 
 ## 状態
 
-現在は設計書を作成中の壁打ちフェーズです。 実装着手前。
+設計書 3 種完成 + Phase 1 PoC ビルドフロー検証済 (2026-05 現在)。 Phase 2
+driver 実装着手準備完了。
 
-詳細は [docs/design/PMDNEO_DESIGN.md](docs/design/PMDNEO_DESIGN.md) 参照。
+- Phase 1 (α): NEOGEO ROM ビルドフロー検証完了 (= [docs/poc-build.md](docs/poc-build.md) 参照)
+- Phase 1 (δ): `.m` バイナリ format 解析 v3 完了 (= [docs/design/analysis_m_data_structure.md](docs/design/analysis_m_data_structure.md))
+- Phase 2 着手前 設計書 3 種完成 (= 計 2296 行):
+  - [docs/design/mn_binary_layout.md](docs/design/mn_binary_layout.md) (`.mn` binary layout 仕様)
+  - [docs/design/ppz_to_adpcma_mapping.md](docs/design/ppz_to_adpcma_mapping.md) (PPZ → ADPCM-A 翻訳 mapping)
+  - [docs/design/phase2_driver_plan.md](docs/design/phase2_driver_plan.md) (Phase 2 driver 実装計画)
+
+全体設計は [docs/design/PMDNEO_DESIGN.md](docs/design/PMDNEO_DESIGN.md) 参照。
 
 ## ライセンス
 
@@ -49,7 +57,13 @@ driver をフルスクラッチで新規開発し、 NEOGEO homebrew 環境に P
 
 | ドキュメント | 用途 |
 |---|---|
-| [`docs/design/PMDNEO_DESIGN.md`](docs/design/PMDNEO_DESIGN.md) | 設計書(章1〜章6) |
+| [`docs/design/PMDNEO_DESIGN.md`](docs/design/PMDNEO_DESIGN.md) | 全体設計書(章1-2 完成、 章3 = 設計書 3 種 index 完成、 章4-6 は壁打ち継続) |
+| [`docs/design/analysis_m_data_structure.md`](docs/design/analysis_m_data_structure.md) | `.m` バイナリ format 解析 (Phase 1 (δ) v3 完了、 1377 行) |
+| [`docs/design/mn_binary_layout.md`](docs/design/mn_binary_layout.md) | `.mn` binary layout 仕様 (Phase 2 着手前 設計書 1) |
+| [`docs/design/ppz_to_adpcma_mapping.md`](docs/design/ppz_to_adpcma_mapping.md) | PPZ → ADPCM-A 翻訳 mapping (Phase 2 着手前 設計書 2) |
+| [`docs/design/phase2_driver_plan.md`](docs/design/phase2_driver_plan.md) | Phase 2 driver 実装計画 (Phase 2 着手前 設計書 3) |
+| [`docs/poc-build.md`](docs/poc-build.md) | Phase 1 PoC ビルド手順 |
 | [`docs/manual/PMDMML_MAN_V48s_utf8.txt`](docs/manual/PMDMML_MAN_V48s_utf8.txt) | PMD V4.8s 公式マニュアル(参照、 W コマンド等補完追記済) |
 | [`docs/adr/`](docs/adr/) | 設計判断記録(順次起票) |
 | [`vendor/pmd48s/`](vendor/pmd48s/) | PMD V4.8s 公式 source(GPL-3.0、 PMDDotNET 移植参照) |
+| [`vendor/ngdevkit-examples/`](vendor/ngdevkit-examples/) | ngdevkit-examples (GPL-3.0、 PoC ビルドベース、 [VENDOR_INFO.md](vendor/ngdevkit-examples/VENDOR_INFO.md) 参照) |

@@ -1,0 +1,46 @@
+# Object files
+*.o
+*.elf
+*.ihx
+*.rel
+*.lst
+*.rst
+*.def
+
+# Libraries
+*.a
+*.so
+
+# autoconf's cache
+autom4te.cache
+aclocal.m4
+configure
+config.*
+
+# Config
+Makefile.config
+
+# generated build files
+build
+
+# generated ROM file
+*.zip
+
+# gngeo log file on MinGW/MSYS2
+gngeo_log.txt
+
+# MAME history files
+history/
+
+# Editors tmp
+*~
+\#*#
+.#*
+
+# ngdevkit readme, makefiles and assets
+*/assets/README.md
+*/setup/README.md
+*/setup/ngdevkit-assets/
+*/setup/ngdevkit-assets/
+*/build.mk
+*/emu.mk

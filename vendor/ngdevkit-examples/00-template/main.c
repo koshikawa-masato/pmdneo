@@ -1,17 +1,16 @@
 /// PMDNEO Phase 1 PoC - dummy ROM
-/// 目的: NEOGEO ROM ビルドフロー検証(ngdevkit-examples 00-template ベース)
+/// 目的: NEOGEO ROM ビルドフロー検証(ngdevkit + sdasz80 経路の動作確認)
 ///
-/// 動作: 起動画面に「PMDNEO POC」 を表示してそのまま無限ループ。
+/// 動作: 起動画面に「PMDNEO Phase 1 PoC」 を表示してそのまま無限ループ。
 ///       sound driver は dummy(busy loop、 無音)。
 ///       Phase 2 で フルスクラッチ driver に置換、 Phase 3+ で ADPCM 対応。
 ///
 /// build:
-///   cd ~/Projects/neo-sisters/vendor/ngdevkit-examples/00-template
-///   (このファイルを 00-template/main.c に上書き or symlink)
+///   cd vendor/ngdevkit-examples/00-template   (= pmdneo repo root から相対)
 ///   make
 ///   make gngeo  # = ngdevkit-gngeo で起動
 ///
-/// ベース: ngdevkit-examples/00-template/main.c (GPL-3.0)
+/// ベース: ngdevkit-examples/00-template/main.c (GPL-3.0、 Damien Ciabrini氏作)
 ///
 /// SPDX-License-Identifier: GPL-3.0-or-later
 /// Copyright (C) 2026 越川将人 (M.Koshikawa.)
