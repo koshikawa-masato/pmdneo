@@ -642,7 +642,7 @@ dispatch あり、 v3 で精緻化)。
 | comq3 | 1 | L3386 | gate time 3 |
 | comq4 | 1 | L3390 | gate time 4 |
 | comv | 1 | L3406 | `v` volume |
-| comt | 1+ | L3417 | `t` tempo (251 以上で別 mode) |
+| comt | 1〜3 | L3417 | `t` tempo (251 以上で 2 段、 詳細 §4-7-12) |
 | comtie | 0 | L3524 | `&` tie / slur (tieflag セットのみ) |
 | comd | 2 | L3531 | `D` detune (lodsw) |
 | comdd | 2 | L3538 | `DD` 相対 detune (lodsw) |
@@ -714,7 +714,7 @@ dispatch あり、 v3 で精緻化)。
 | psgnoise | 1 | L3886 | `w` PSG noise pitch |
 | psgnoise_move | 1 | L3892 | PSG noise relative move |
 | psgsel | 1 | L3906 | `P` PSG TONE/NOISE/MIX |
-| extend_psgenvset | 5 | L2638 | 拡張 PSG envelope (eenv_ar/dr/sr/sl + alm) |
+| extend_psgenvset | 5 | L2638 | 拡張 PSG envelope (詳細 §4-7-13) |
 | envelope_extend | 1 | L2618 | envelope mode |
 | detune_extend | 1 | L2597 | 拡張 detune mode |
 
@@ -774,6 +774,67 @@ dispatch あり、 v3 で精緻化)。
 al ≥ 2 のとき `special_0c0h` ルートに分岐し、 続く byte が 0xF5〜0xFF
 なら comtbl0c0h で sub-dispatch (vd_fm/vd_ssg/vd_pcm/vd_rhythm 等)。
 sub-handler の引数 byte 数は別途要解析(v3)。
+
+#### 4-7-12. comt(0xFC tempo)の可変長 byte 列
+
+PMD.ASM `comt`(L3417) で、 **1 byte 目の値で長さが変わる**:
+
+```
+comt:
+    lodsb              ; 1 byte 目読込
+    cmp al, 251
+    jnc comt_sp0       ; 251 以上なら拡張 mode
+
+    ; 0〜250: T cmd (固定 tempo)
+    mov [tempo_d], al
+    jmp calc_tb_tempo
+
+comt_sp0:
+    inc al
+    jnz comt_sp1
+    ; 1 byte 目 = 0xFF: t cmd (FAST tempo)
+    lodsb              ; 値読込
+    ...
+
+comt_sp1:
+    inc al
+    lodsb              ; 値読込
+    jnz comt_sp2
+    ; 1 byte 目 = 0xFE: T± cmd (相対 tempo)
+    ...
+
+comt_sp2:
+    ; 1 byte 目 = 0xFB〜0xFD: t± cmd (相対 FAST tempo)
+    ...
+```
+
+| .m バイナリ列 | MML cmd | byte 数 | 機能 |
+|---|---|---|---|
+| 0xFC [0〜0xFA] | `T n` | 2 | 固定 tempo (TIMER-B 値) |
+| 0xFC 0xFF [val] | `t n` | 3 | FAST tempo (1〜18) |
+| 0xFC 0xFE [val] | `T±n` | 3 | 相対 tempo |
+| 0xFC 0xFD [val] | `t±n` | 3 | 相対 FAST tempo |
+| 0xFC 0xFB / 0xFC | (予約) | 3 | sp2 ルートで t± 扱い、 通常 compiler 出力外 |
+
+#### 4-7-13. extend_psgenvset(0xCD PSG 拡張 envelope)の field 配置
+
+PMD.ASM `extend_psgenvset`(L2638) の解析より、 5 byte 引数の bit 配置:
+
+| .m offset | bit 抽出 | field | 値域 |
+|---|---|---|---|
+| byte 1 | bit 4-0 (& 0x1F) | AR (Attack Rate) | 0-31 |
+| byte 2 | bit 4-0 (& 0x1F) | DR (Decay Rate) | 0-31 |
+| byte 3 | bit 4-0 (& 0x1F) | SR (Sustain Rate) | 0-31 |
+| byte 4 | bit 3-0 (& 0x0F) | RR (Release Rate) | 0-15 |
+| byte 4 | bit 7-4 ((>> 4) ^ 0x0F) | SL (Sustain Level、 invert) | 0-15 |
+| byte 5 | bit 3-0 (& 0x0F) | AL (Attack Level) | 0-15 |
+
+driver 側の格納先は `eenv_ar` / `eenv_dr` / `eenv_sr` / `eenv_rr` /
+`eenv_sl` / `eenv_al`(各 part の workarea)。
+
+PSG ソフトウェア envelope generator(SSG-EG)で 6 段階(AR/DR/SR/SL/RR/AL)
+のソフト ADSR を実装する仕組み。 OPNB の SSG にも適用可能(register 仕様
+はチップ非依存、 driver 内で計算 → register 0x08-0x0A に出力)。
 
 ### 4-8. v2 解析の到達点
 
@@ -1028,6 +1089,34 @@ radtbl[2] = R2 pattern offset
 
 R 番号の数は MML から決まる(.m に明示記録なし、 末端は次の領域で判定)。
 
+#### 5-6-4-1. SAMPLE.M の rhythm addr table 実体(byte 1107-1118)
+
+SAMPLE.M(rhythm 未使用)の radtbl 領域を解析:
+
+```
+byte 1107: 0x80                         ; radtbl[0] 下位 = R part 終端 byte と共有
+byte 1108: 0x00                         ; radtbl[0] 上位 → entry 0 = 0x0080 = 128
+byte 1109-1110: 0x06 0x00               ; radtbl[1] = 0x0006 = 6
+byte 1111-1112: 0x00 0x00               ; radtbl[2] = 0
+byte 1113-1114: 0x00 0x00               ; radtbl[3] = 0
+byte 1115-1116: 0x00 0x67               ; radtbl[4] = 0x6700 (異常値、 file size 超過)
+byte 1117-1118: 0x04 0x48               ; radtbl[5] = 0x4804 (異常値)
+```
+
+注目すべき点:
+
+- **R part body の 0x80(= part end)が radtbl[0] の下位 byte と共有**:
+  SAMPLE.M の part R offset (= byte 21-22) は 0x0452 = 1106、 つまり file
+  byte 1107 が R part 開始。 ここの 0x80 が part end + radtbl[0] の下位
+  byte 両方の役目。 R part empty 時の 1 byte 節約最適化。
+- entry 0 = 128 は mmlbuf + 128 = file byte 129 を指すが、 SAMPLE.M で
+  実際には R part 空なので参照されない(該当領域は part body でなく)。
+- entry 4-5 の異常値は radtbl 末端後の prgdat / 効果音データ領域に
+  含まれる byte で、 「未使用 entry」 として扱う(driver は R 番号が
+  R0/R1 まで しか踏まないため安全)。
+
+詳細な radtbl 末端判定ロジックは v3 で SAMPLE2.M(rhythm 実利用)解析時に確定。
+
 #### 5-6-5. rhythm pattern 解釈 擬似コード
 
 ```
@@ -1206,14 +1295,14 @@ PMDNEO(YM2610/B)も同じ register layout のため、 この固有順序を
 - ✅ 音色データ format(prgdat 26 byte / tondat 32 byte 経路)解明(§5-7)
 - ✅ 音色データ operator 順序(register slot 順 = OP1, OP3, OP2, OP4)確定(§5-7-3)
 - ✅ comtbl0c0h sub-handler 11 個の引数 byte 数(全て 1 byte)解明(§4-5-1)
+- ✅ comt(0xFC tempo)の可変長 byte 列(2〜3 byte)解明(§4-7-12)
+- ✅ extend_psgenvset(SSG-EG) field 配置(AR/DR/SR/SL/RR/AL)解明(§4-7-13)
 
 ### 6-2. v3 で精緻化する課題
 
 1. **SAMPLE.M file byte 1108〜1141 の rhythm addr table 実体解析**。
 2. **SAMPLE2.M / SSGEG_S.M との比較解析**(複数 R パターン / 拡張機能例)。
-3. **comt(tempo)の 251 以上 mode 解析**(comt_sp0/sp1/sp2 分岐)。
-4. **音色データ SSG-EG bit 配置**: 拡張 envelope generator の register field。
-5. **kshot_dat 上位 3 bit(bit 11-13)の PPSDRV / KP_rhythm 拡張動作詳細**(rhydat 11 entry を超えた範囲の挙動)。
+3. **kshot_dat 上位 3 bit(bit 11-13)の PPSDRV / KP_rhythm 拡張動作詳細**(rhydat 11 entry を超えた範囲の挙動)。
 
 ---
 
