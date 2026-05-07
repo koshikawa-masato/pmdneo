@@ -5,7 +5,7 @@
 	補助資料: `vendor/pmd48s/source/pmd48s/PMD.ASM`(x86 アセンブリ、 10864 行)
 	目的: PMDNEO Phase 2 driver(Z80 フルスクラッチ)の仕様基盤
 
-	状態: v2 解析完了(dispatch table 完全マップ + handler 引数 byte 数 + opcode 0x00〜0xFF 解釈ルール + Phase 2 driver 擬似コード)、 v3 残課題は §6-2 参照
+	状態: v3 解析完了(Phase 2 driver 実装に必要な仕様基盤確定)、 残課題は実装フェーズで現物検証(§6-2)
 
 ---
 
@@ -1117,6 +1117,24 @@ byte 1117-1118: 0x04 0x48               ; radtbl[5] = 0x4804 (異常値)
 
 詳細な radtbl 末端判定ロジックは v3 で SAMPLE2.M(rhythm 実利用)解析時に確定。
 
+#### 5-6-4-2. SAMPLE2.M / SSGEG_S.M でも R part empty を確認(2026-05-07)
+
+vendor/pmd48s の公式 sample 3 個を全て header 解析:
+
+| sample | size | A〜I | J | R | rhythm addr |
+|---|---|---|---|---|---|
+| SAMPLE.M | 1142 byte | A-F empty / G-I 使用 | empty | empty | 1107 |
+| SAMPLE2.M | 4872 byte | A/B/C 使用 / D-I empty | empty | empty | 4650 |
+| SSGEG_S.M | 531 byte | A 使用 / B-F 一部 / G-I 使用 | empty | empty | 338 |
+
+3 個とも **R part offset と次の rhythm addr table offset の差が 1 byte**
+= R part = 0x80 で empty。 つまり PMD V4.8s 公式 sample からは radtbl
+実利用例を取れない。
+
+radtbl 末端判定ロジック / kshot_dat 14 bit bitmap → rhythm channel
+mapping 詳細 / 拡張 PPSDRV 動作 等は、 **PMDDotNET の test 楽曲 / 既存 PMD
+楽曲 (= ぱろでぃうす等) を素材として実装フェーズで現物検証** が必要。
+
 #### 5-6-5. rhythm pattern 解釈 擬似コード
 
 ```
@@ -1297,12 +1315,18 @@ PMDNEO(YM2610/B)も同じ register layout のため、 この固有順序を
 - ✅ comtbl0c0h sub-handler 11 個の引数 byte 数(全て 1 byte)解明(§4-5-1)
 - ✅ comt(0xFC tempo)の可変長 byte 列(2〜3 byte)解明(§4-7-12)
 - ✅ extend_psgenvset(SSG-EG) field 配置(AR/DR/SR/SL/RR/AL)解明(§4-7-13)
+- ✅ SAMPLE.M / SAMPLE2.M / SSGEG_S.M の radtbl 領域実体解析(§5-6-4-1, 4-2)
+  - 3 sample 全て R part empty、 radtbl 実利用検証は実装フェーズで現物検証
 
-### 6-2. v3 で精緻化する課題
+### 6-2. v3 で残る課題(実装フェーズで詰める)
 
-1. **SAMPLE.M file byte 1108〜1141 の rhythm addr table 実体解析**。
-2. **SAMPLE2.M / SSGEG_S.M との比較解析**(複数 R パターン / 拡張機能例)。
-3. **kshot_dat 上位 3 bit(bit 11-13)の PPSDRV / KP_rhythm 拡張動作詳細**(rhydat 11 entry を超えた範囲の挙動)。
+1. **rhythm 実利用 .m での radtbl 末端判定 / kshot_dat 14 bit mapping
+   現物検証**: 公式 sample(SAMPLE.M / SAMPLE2.M / SSGEG_S.M)は全て
+   R part empty のため、 既存 PMD 楽曲を素材として Phase 2 driver 実装
+   時に検証する。
+2. **kshot_dat 上位 3 bit(bit 11-13)の PPSDRV / KP_rhythm 拡張動作詳細**:
+   rhydat 11 entry を超えた範囲の挙動。 board2 / kp_rhythm_flag の分岐
+   仕様。 こちらも実利用 .m を素材とする。
 
 ---
 
@@ -1350,4 +1374,4 @@ Phase 3 で `.mn` 拡張時、 V4.8s 互換 24 byte header 構造を維持し、
 
 ---
 
-[v2 解析完了 — dispatch table 完全マップ + handler 別引数 byte 数 + opcode 0x00〜0xFF 解釈ルール確定 + Phase 2 driver メインループ擬似コード確立。 v3 残課題は §6-2 参照]
+[v3 解析完了 — Phase 2 driver 実装に必要な仕様基盤は確定。 残 v3 課題は実装フェーズで現物検証する位置付けに整理(§6-2)]
