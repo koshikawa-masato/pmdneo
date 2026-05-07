@@ -5,7 +5,7 @@
 	補助資料: `vendor/pmd48s/source/pmd48s/PMD.ASM`(x86 アセンブリ、 10864 行)
 	目的: PMDNEO Phase 2 driver(Z80 フルスクラッチ)の仕様基盤
 
-	状態: v1 解析完了、 §5(part body opcode)以降は v2 で詰める
+	状態: v2 解析完了(dispatch table 完全マップ + handler 引数 byte 数 + opcode 0x00〜0xFF 解釈ルール + Phase 2 driver 擬似コード)、 v3 残課題は §6-2 参照
 
 ---
 
@@ -291,96 +291,838 @@ dispatch table は 3 種類:
 - **cmdtblp** (PSG 用、 PMD.ASM L1888-)
 - **cmdtblr** (Rhythm 用、 別所)
 
-### 4-1. cmdtbl(FM/PCM)主要 entry
+### 4-1. jump0〜jump16(引数 N byte skip routine)
 
-PMD.ASM L1746-(opcode 0xFF から逆順):
+PMD.ASM L2035-2049 で `inc si` チェーンとして実装:
 
-| opcode | handler | 機能 |
-|---|---|---|
-| 0xFF | com@ | 音色番号指定 |
-| 0xFE | comq | gate time |
-| 0xFD | comv | volume |
-| 0xFC | comt | tempo |
-| 0xFB | comtie | tie / slur |
-| 0xFA | comd | detune |
-| 0xF9 | comstloop | ループ start |
-| 0xF8 | comedloop | ループ end |
-| 0xF7 | comexloop | ループ exit |
-| 0xF6 | comlopset | loop set |
-| 0xF5 | comshift | shift(オクターブ 等) |
-| 0xF4 | comvolup | volume up |
-| 0xF3 | comvoldown | volume down |
-| 0xF2 | lfoset | LFO 設定 |
-| 0xF1 | lfoswitch_f | LFO switch |
-| 0xF0 | jump4 | (FM/PCM では未使用、 PSG では psgenvset) |
-| 0xEF | comy | OPN(A) reg 直接書込み |
-| 0xEC | panset | pan set |
-| 0xEB | rhykey | rhythm keyon |
-| 0xEA | rhyvs | rhythm volume set(per ch) |
-| 0xE9 | rpnset | rhythm pattern set |
-| 0xE8 | rmsvs | rhythm master volume set |
-| 0xE7 | comshift2 | shift 2 |
-| 0xDA | porta | portamento |
-| 0xCB | lfowave_set | LFO wave |
-| 0xCA | lfo_extend | LFO extend mode |
-| 0xC8 | slotdetune_set | FM3 slot detune |
-| 0xC0 | fm_mml_part_mask | part mask |
-| 0xB7 | mdepth_count | MD count |
-| 0xB1 | comq4 | (com_end、 dispatch table 末尾) |
+```
+jump16:  add si, 10  ; → fall through
+jump6:   inc si      ; → fall through
+jump5:   inc si      ; → fall through
+jump4:   inc si      ; → fall through
+jump3:   inc si      ; → fall through
+jump2:   inc si      ; → fall through
+jump1:   inc si      ; → fall through
+jump0:   ret
+```
 
-(全 entry は §5 で詳細化、 v2 で完成)
+つまり `jumpN` = N byte の引数を skip して次の opcode に進む。 これは
+**「opcode 自身は機能を持たず、 後続の N byte の引数を消費するだけの
+プレースホルダ entry」**を意味する:
 
-### 4-2. cmdtblp(PSG)差分
+- `jump0` (= 0 byte skip) = 引数なし、 即 ret(機能なし)
+- `jump1` (= 1 byte skip) = 1 byte 引数を消費するが何もしない
+- `jump2` (= 2 byte skip) = 2 byte 引数を消費するが何もしない
+- ...
+- `jump16` (= 10 byte skip)
 
-PMD.ASM L1888-(同じ opcode 範囲、 一部 entry が異なる):
+dispatch table の `jumpN` entry は、 当該 opcode が「該当 driver で
+未実装」 または「予約済」 であり、 引数 byte 数だけ skip する仕様。
 
-| opcode | cmdtbl(FM/PCM) | cmdtblp(PSG) |
-|---|---|---|
-| 0xF4 | comvolup | comvolupp |
-| 0xF3 | comvoldown | comvoldownp |
-| 0xF1 | lfoswitch_f | lfoswitch |
-| 0xF0 | jump4 | **psgenvset** |
-| 0xEE | jump1 | psgnoise |
-| 0xED | jump1 | psgsel |
-| 0xEC | panset | jump1(PSG に pan なし) |
-| 0xDE | vol_one_up_fm | vol_one_up_psg |
-| 0xDA | porta | portap |
+### 4-2. cmdtbl 完全マップ(FM/PCM 用、 PMD.ASM L1745-1842)
+
+cmdtbl は opcode 0xFF から 0xB1 まで降順に 79 entry。 `[arg]` 列は
+jumpN entry から判定した引数 byte 数(handler 系は不明、 別途要解析)。
+
+| opcode | handler | [arg] | 機能 |
+|---|---|---|---|
+| 0xFF | com@ | ? | `@` 音色番号指定 |
+| 0xFE | comq | ? | `q` gate time |
+| 0xFD | comv | ? | `v` volume |
+| 0xFC | comt | ? | `t` tempo |
+| 0xFB | comtie | ? | `&` tie / slur |
+| 0xFA | comd | ? | `D` detune |
+| 0xF9 | comstloop | ? | `[` ループ start |
+| 0xF8 | comedloop | ? | `]` ループ end |
+| 0xF7 | comexloop | ? | `:` ループ exit |
+| 0xF6 | comlopset | ? | loop set |
+| 0xF5 | comshift | ? | shift |
+| 0xF4 | comvolup | ? | volume up |
+| 0xF3 | comvoldown | ? | volume down |
+| 0xF2 | lfoset | ? | `M` LFO 設定 |
+| 0xF1 | lfoswitch_f | ? | `*` LFO switch |
+| 0xF0 | jump4 | **4** | (FM/PCM では未実装、 4 byte 引数 skip) |
+| 0xEF | comy | ? | `y` OPN(A) reg 直接書込み |
+| 0xEE | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xED | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xEC | panset | ? | `p` pan set |
+| 0xEB | rhykey | ? | rhythm keyon |
+| 0xEA | rhyvs | ? | rhythm volume set(per ch) |
+| 0xE9 | rpnset | ? | rhythm pattern set |
+| 0xE8 | rmsvs | ? | rhythm master volume set |
+| 0xE7 | comshift2 | ? | shift 2 (V2.0 追加) |
+| 0xE6 | rmsvs_sft | ? | rhythm master vol shift |
+| 0xE5 | rhyvs_sft | ? | rhythm vol shift |
+| 0xE4 | hlfo_delay | ? | hardware LFO delay |
+| 0xE3 | comvolup2 | ? | volume up 2 (V2.3 追加) |
+| 0xE2 | comvoldown2 | ? | volume down 2 (V2.3 追加) |
+| 0xE1 | hlfo_set | ? | hardware LFO 設定 (V2.4) |
+| 0xE0 | hlfo_onoff | ? | hardware LFO on/off (V2.4) |
+| 0xDF | syousetu_lng_set | ? | 小節長 設定 |
+| 0xDE | vol_one_up_fm | ? | 1ノートのみ volume up |
+| 0xDD | vol_one_down | ? | 1ノートのみ volume down |
+| 0xDC | status_write | ? | STATUS write |
+| 0xDB | status_add | ? | STATUS add |
+| 0xDA | porta | ? | `{}` portamento |
+| 0xD9 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xD8 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xD7 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xD6 | mdepth_set | ? | MDepth 設定 |
+| 0xD5 | comdd | ? | `DD` 相対 detune |
+| 0xD4 | ssg_efct_set | ? | SSG 効果音設定 |
+| 0xD3 | fm_efct_set | ? | FM 効果音設定 |
+| 0xD2 | fade_set | ? | fade out 設定 |
+| 0xD1 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xD0 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xCF | slotmask_set | ? | slot mask |
+| 0xCE | jump6 | **6** | (未実装、 6 byte skip) |
+| 0xCD | jump5 | **5** | (未実装、 5 byte skip) |
+| 0xCC | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xCB | lfowave_set | ? | LFO wave 形 |
+| 0xCA | lfo_extend | ? | LFO 拡張 mode |
+| 0xC9 | jump1 | **1** | (未実装、 1 byte skip) |
+| 0xC8 | slotdetune_set | ? | FM3 slot detune |
+| 0xC7 | slotdetune_set2 | ? | FM3 slot detune 2 |
+| 0xC6 | fm3_extpartset | ? | FM3 extend part set |
+| 0xC5 | volmask_set | ? | volume mask |
+| 0xC4 | comq2 | ? | gate time 2 |
+| 0xC3 | panset_ex | ? | pan set extended |
+| 0xC2 | lfoset_delay | ? | LFO delay |
+| 0xC1 | jump0 | **0** | sular(slur)、 引数なし |
+| 0xC0 | fm_mml_part_mask | ? | part mask(2-step dispatch、 §4-5 参照) |
+| 0xBF | _lfoset | ? | sub LFO 設定 |
+| 0xBE | _lfoswitch_f | ? | sub LFO switch |
+| 0xBD | _mdepth_set | ? | sub MDepth |
+| 0xBC | _lfowave_set | ? | sub LFO wave |
+| 0xBB | _lfo_extend | ? | sub LFO extend |
+| 0xBA | _volmask_set | ? | sub vol mask |
+| 0xB9 | _lfoset_delay | ? | sub LFO delay |
+| 0xB8 | tl_set | ? | TL 設定 |
+| 0xB7 | mdepth_count | ? | MD count |
+| 0xB6 | fb_set | ? | FB 設定 |
+| 0xB5 | slot_delay | ? | slot delay |
+| 0xB4 | jump16 | **10** | (未実装、 add si,10 で 10 byte skip) |
+| 0xB3 | comq3 | ? | gate time 3 |
+| 0xB2 | comshift_master | ? | master shift |
+| 0xB1 | comq4 | ? | gate time 4(com_end = 0xB1、 dispatch table 末尾) |
+
+合計 79 entry (0xFF - 0xB1 + 1 = 79)。 jumpN(未実装) = 11 entry、
+実装ありの handler = 68 entry。
+
+### 4-3. cmdtblp 完全マップ(PSG 用、 PMD.ASM L1843-1938)
+
+cmdtbl と差分があるところを ★ 印で示す:
+
+| opcode | cmdtbl(FM/PCM) | cmdtblp(PSG) | 備考 |
+|---|---|---|---|
+| 0xFF | com@ | jump1 | ★ PSG に音色番号指定なし |
+| 0xFE | comq | comq | |
+| 0xFD | comv | comv | |
+| 0xFC | comt | comt | |
+| 0xFB | comtie | comtie | |
+| 0xFA | comd | comd | |
+| 0xF9 | comstloop | comstloop | |
+| 0xF8 | comedloop | comedloop | |
+| 0xF7 | comexloop | comexloop | |
+| 0xF6 | comlopset | comlopset | |
+| 0xF5 | comshift | comshift | |
+| 0xF4 | comvolup | comvolupp | ★ PSG 用 vol up |
+| 0xF3 | comvoldown | comvoldownp | ★ PSG 用 vol down |
+| 0xF2 | lfoset | lfoset | |
+| 0xF1 | lfoswitch_f | lfoswitch | ★ PSG では `_f` なし版 |
+| 0xF0 | jump4 | **psgenvset** | ★ PSG では psg envelope set(`E` コマンド) |
+| 0xEF | comy | comy | |
+| 0xEE | jump1 | **psgnoise** | ★ PSG noise |
+| 0xED | jump1 | **psgsel** | ★ PSG select(TONE/NOISE/MIX) |
+| 0xEC | panset | jump1 | ★ PSG に pan なし |
+| 0xEB | rhykey | rhykey | |
+| 0xEA | rhyvs | rhyvs | |
+| 0xE9 | rpnset | rpnset | |
+| 0xE8 | rmsvs | rmsvs | |
+| 0xE7 | comshift2 | comshift2 | |
+| 0xE6 | rmsvs_sft | rmsvs_sft | |
+| 0xE5 | rhyvs_sft | rhyvs_sft | |
+| 0xE4 | hlfo_delay | jump1 | ★ PSG に hardware LFO なし |
+| 0xE3 | comvolup2 | comvolupp2 | ★ PSG 用 |
+| 0xE2 | comvoldown2 | comvoldownp2 | ★ PSG 用 |
+| 0xE1 | hlfo_set | jump1 | ★ PSG に hardware LFO なし |
+| 0xE0 | hlfo_onoff | jump1 | ★ PSG に hardware LFO なし |
+| 0xDF | syousetu_lng_set | syousetu_lng_set | |
+| 0xDE | vol_one_up_fm | vol_one_up_psg | ★ PSG 用 |
+| 0xDD | vol_one_down | vol_one_down | |
+| 0xDC | status_write | status_write | |
+| 0xDB | status_add | status_add | |
+| 0xDA | porta | portap | ★ PSG 用 portamento |
+| 0xD9-D7 | jump1 ×3 | jump1 ×3 | |
+| 0xD6 | mdepth_set | mdepth_set | |
+| 0xD5 | comdd | comdd | |
+| 0xD4 | ssg_efct_set | ssg_efct_set | |
+| 0xD3 | fm_efct_set | fm_efct_set | |
+| 0xD2 | fade_set | fade_set | |
+| 0xD1 | jump1 | jump1 | |
+| 0xD0 | jump1 | **psgnoise_move** | ★ PSG noise 平均周波数移動 |
+| 0xCF | slotmask_set | jump1 | ★ PSG に slot mask なし |
+| 0xCE | jump6 | jump6 | |
+| 0xCD | jump5 | **extend_psgenvset** | ★ PSG 拡張 envelope set(SSG-EG ソフト) |
+| 0xCC | jump1 | **detune_extend** | ★ PSG 拡張 detune |
+| 0xCB | lfowave_set | lfowave_set | |
+| 0xCA | lfo_extend | lfo_extend | |
+| 0xC9 | jump1 | **envelope_extend** | ★ PSG 拡張 envelope mode |
+| 0xC8 | slotdetune_set | jump3 | ★ PSG では未実装(3 byte skip) |
+| 0xC7 | slotdetune_set2 | jump3 | ★ PSG では未実装(3 byte skip) |
+| 0xC6 | fm3_extpartset | jump6 | ★ PSG では未実装(6 byte skip) |
+| 0xC5 | volmask_set | jump1 | ★ PSG では未実装 |
+| 0xC4 | comq2 | comq2 | |
+| 0xC3 | panset_ex | jump2 | ★ PSG では未実装(2 byte skip) |
+| 0xC2 | lfoset_delay | lfoset_delay | |
+| 0xC1 | jump0 | jump0 | sular |
+| 0xC0 | fm_mml_part_mask | **ssg_mml_part_mask** | ★ PSG 用 part mask |
+| 0xBF | _lfoset | _lfoset | |
+| 0xBE | _lfoswitch_f | _lfoswitch | |
+| 0xBD | _mdepth_set | _mdepth_set | |
+| 0xBC | _lfowave_set | _lfowave_set | |
+| 0xBB | _lfo_extend | _lfo_extend | |
+| 0xBA | _volmask_set | jump1 | ★ |
+| 0xB9 | _lfoset_delay | _lfoset_delay | |
+| 0xB8 | tl_set | jump2 | ★ PSG で TL なし |
+| 0xB7 | mdepth_count | mdepth_count | |
+| 0xB6 | fb_set | jump1 | ★ PSG で FB なし |
+| 0xB5 | slot_delay | jump2 | ★ PSG で slot delay なし |
+| 0xB4 | jump16 | jump16 | |
+| 0xB3 | comq3 | comq3 | |
+| 0xB2 | comshift_master | comshift_master | |
+| 0xB1 | comq4 | comq4 | |
+
+PSG 拡張機能(PMDAES の R2 sprint で扱った):
+
+- 0xCD `extend_psgenvset` = SSG-EG ソフトウェアエンベロープ
+- 0xCC `detune_extend` = 拡張 detune
+- 0xC9 `envelope_extend` = エンベロープ拡張 mode 切替
+
+### 4-4. cmdtblr 完全マップ(Rhythm 用、 PMD.ASM L1939-)
+
+K/R パート専用。 cmdtbl との差分:
+
+| opcode | cmdtbl(FM/PCM) | cmdtblr(Rhythm) | 備考 |
+|---|---|---|---|
+| 0xFF | com@ | jump1 | ★ Rhythm では @ なし |
+| 0xFE | comq | jump1 | ★ Rhythm では q なし |
+| 0xFD | comv | comv | |
+| 0xFC〜0xF6 | (各種) | (同) | tempo / tie / detune / loop |
+| 0xF5 | comshift | jump1 | ★ Rhythm では shift なし |
+| 0xF4 | comvolup | comvolupp | |
+| 0xF3 | comvoldown | comvoldownp | |
+| 0xF2 | lfoset | jump4 | ★ Rhythm では LFO なし |
+| 0xF1 | lfoswitch_f | **pdrswitch** | ★ Rhythm では PDR switch |
+| 0xF0 | jump4 | jump4 | |
+| 0xDA | porta | jump1 | ★ Rhythm では porta なし(通常音程コマンドに) |
+| 0xC0 | fm_mml_part_mask | **rhythm_mml_part_mask** | ★ Rhythm 用 part mask |
+| (他) | (jumpN 多数) | (同等) | 多くは cmdtblp 同様、 jumpN で未実装 |
+
+Rhythm 専用機能はかなり限定的。 大半の opcode が `jump1`〜`jump6` で
+未実装、 必要最小限の音楽制御コマンドのみ active。
+
+### 4-5. 0xC0 sub-dispatch(comtbl0c0h)
+
+cmdtbl の 0xC0 = `fm_mml_part_mask`(L1824)、 cmdtblp の 0xC0 =
+`ssg_mml_part_mask`、 cmdtblr の 0xC0 = `rhythm_mml_part_mask`。
+
+これらの handler 内で part mask をかけるが、 さらに **追加のサブ
+dispatch** がある。 PMD.ASM L2058-(special_0c0h):
+
+```
+special_0c0h:
+    cmp al, com_end_0c0h     ; com_end_0c0h = 0xF7
+    jc out_of_commands
+    not al
+    add al, al
+    xor ah, ah
+    mov bx, ax
+    mov ax, cs:comtbl0c0h[bx]
+    jmp ax
+
+comtbl0c0h:
+    dw vd_fm        ;0FFh
+    dw _vd_fm
+    dw vd_ssg
+    dw _vd_ssg
+    dw vd_pcm
+    dw _vd_pcm
+    dw vd_rhythm
+    dw _vd_rhythm   ;0F8h
+    dw pmd86_s
+    dw vd_ppz
+    dw _vd_ppz      ;0F5h
+```
+
+つまり 0xC0 系コマンドは「マスター volume」 や「音源 mute / unmute」 を
+chip 別に細分化する用途。 二段階 dispatch:
+
+1. opcode 0xC0 → fm_mml_part_mask 等(part 種別で分岐)
+2. 続く byte が 0xF5〜0xFF なら comtbl0c0h で sub-dispatch
+
+### 4-6. dispatch ループの仕組み
+
+PMD.ASM L1713-1737:
+
+```
+commands:                    ; FM/PCM 用 entry
+    mov bx, offset cmdtbl
+    jmp command00
+
+commandsr:                   ; Rhythm 用 entry
+    mov bx, offset cmdtblr
+    jmp command00
+
+commandsp:                   ; PSG 用 entry
+    mov bx, offset cmdtblp
+
+command00:
+    cmp al, com_end          ; com_end = 0xB1
+    jc out_of_commands       ; al < 0xB1 なら part END
+    not al                   ; al = 0xFF - al
+    add al, al               ; *2(2 byte entry)
+    xor ah, ah
+    add bx, ax
+    mov ax, cs:[bx]
+    jmp ax
+```
+
+- 各 part 種別ごとに `commands` / `commandsp` / `commandsr` のいずれかが
+  呼ばれる
+- 共通 routine `command00` で `al`(opcode)から `cmdtbl[0xFF - opcode]`
+  の handler を呼び出す
+- `al < 0xB1` なら `out_of_commands` → part END(`mov byte ptr [si], 80h`)
+
+### 4-7. handler 別引数 byte 数表
+
+PMD.ASM の各 handler の冒頭 `lodsb`(1 byte) / `lodsw`(2 byte) を読
+取って引数 byte 数を判定した結果。 `?` は未確定(複雑な分岐 / sub
+dispatch あり、 v3 で精緻化)。
+
+#### 4-7-1. 基本コマンド系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| com@ | 1 | L3336 | `@` 音色番号 |
+| comq | 1 | L3381 | `q` gate time |
+| comq2 | 1 | L3398 | gate time 2 |
+| comq3 | 1 | L3386 | gate time 3 |
+| comq4 | 1 | L3390 | gate time 4 |
+| comv | 1 | L3406 | `v` volume |
+| comt | 1+ | L3417 | `t` tempo (251 以上で別 mode) |
+| comtie | 0 | L3524 | `&` tie / slur (tieflag セットのみ) |
+| comd | 2 | L3531 | `D` detune (lodsw) |
+| comdd | 2 | L3538 | `DD` 相対 detune (lodsw) |
+| comy | 2 | L3878 | `y` OPN reg/val 直書込 (lodsw) |
+| panset | 1 | L3914 | `p` pan set |
+| comshift | 1 | L3620 | `_` shift |
+| comshift2 | 1 | L3628 | `__` shift 2 |
+| comshift_master | 1 | L3636 | `_M` master shift |
+
+#### 4-7-2. ループ系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| comstloop | 2 | L3545 | `[` loop start (loop addr lodsw) |
+| comedloop | 5 | L3561 | `]` loop end (count + addr 等、 複雑) |
+| comexloop | 2 | L3590 | `:` loop exit (lodsw) |
+| comlopset | 0 | L3613 | `L` loop set (現在 si を partloop 保存) |
+
+#### 4-7-3. LFO 系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| lfoset | 4 | L3813 | `M` LFO 設定 (delay/speed/step/time) |
+| lfoset_delay | 1 | L3827 | LFO delay only |
+| lfoswitch | 1 | L3836 | LFO switch (PSG 用) |
+| lfoswitch_f | 1 | L3847 | `*` LFO switch FM(lfoswitch + ch3) |
+| lfowave_set | 1 | L2630 | LFO wave 形 |
+| lfo_extend | 1 | L2607 | LFO extend mode |
+| _lfoset | 4 | L3720 | sub LFO 設定 |
+| _lfoswitch | 1 | L3749 | sub LFO switch |
+| _lfoswitch_f | 1 | L3762 | sub LFO switch FM |
+| _lfowave_set | 1 | L3737 | sub LFO wave |
+| _lfo_extend | 1 | L3741 | sub LFO extend |
+| _lfoset_delay | 1 | L3745 | sub LFO delay |
+| mdepth_set | 2 | L3037 | MDepth 設定 (mdspd + mdepth) |
+| _mdepth_set | 2 | L3733 | sub MDepth |
+| mdepth_count | 1 | L3045 | MD count |
+
+#### 4-7-4. ハードウェア LFO(YM2608/YM2610B 専用)
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| hlfo_set | 1 | L3260 | hardware LFO 設定 |
+| hlfo_onoff | 1 | L3304 | hardware LFO on/off |
+| hlfo_delay | 1 | L3318 | hardware LFO delay |
+
+#### 4-7-5. ボリューム系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| comvolup | 0 | L3646 | `)` volume up (FM 固定 +4) |
+| comvolup2 | 1 | L3657 | `)+n` volume up (相対値) |
+| comvolupp | 0 | L3663 | `)` volume up (PSG 固定 +1) |
+| comvolupp2 | 1 | L3673 | `)+n` volume up (PSG 相対) |
+| comvoldown | 0 | L3682 | `(` volume down (FM 固定 -4) |
+| comvoldown2 | 1 | L3690 | `(+n` volume down |
+| comvoldownp | 0 | L3700 | `(` volume down (PSG 固定 -1) |
+| comvoldownp2 | 1 | L3708 | `(+n` volume down (PSG 相対) |
+| vol_one_up_fm | 1 | L3218 | 1 ノートのみ vol up (FM) |
+| vol_one_up_psg | 1 | L3229 | 1 ノートのみ vol up (PSG) |
+| vol_one_up_pcm | 1 | L3237 | 1 ノートのみ vol up (PCM) |
+| vol_one_down | 1 | L3248 | 1 ノートのみ vol down |
+
+#### 4-7-6. PSG 系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| psgenvset | 4 | L3854 | `E` PSG envelope set (4 byte) |
+| psgnoise | 1 | L3886 | `w` PSG noise pitch |
+| psgnoise_move | 1 | L3892 | PSG noise relative move |
+| psgsel | 1 | L3906 | `P` PSG TONE/NOISE/MIX |
+| extend_psgenvset | 5 | L2638 | 拡張 PSG envelope (eenv_ar/dr/sr/sl + alm) |
+| envelope_extend | 1 | L2618 | envelope mode |
+| detune_extend | 1 | L2597 | 拡張 detune mode |
+
+#### 4-7-7. Portamento 系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| porta | 2 | L3085 | `{}` FM portamento (start/end onkai) |
+| portap | 2 | L3155 | `{}` PSG portamento (start/end onkai) |
+
+#### 4-7-8. リズム系(K/R パート関連)
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| rhykey | 1 | L3994 | rhythm keyon (rhythm trigger bitmap) |
+| rhyvs | 1 | L4064 | rhythm volume (per ch) |
+| rhyvs_sft | 2 | L4097 | rhythm vol shift (per ch + 値) |
+| rpnset | 1 | L4136 | rhythm pattern set (pan + ch) |
+| rmsvs | 1 | L4155 | `\V` rhythm master vol set |
+| rmsvs_sft | 1 | L4184 | rhythm master vol shift |
+| pdrswitch | 1 | L2478 | PDR switch (PPSDRV mode) |
+
+#### 4-7-9. FM 拡張 / slot 系
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| tl_set | 2 | L2248 | TL 設定 |
+| fb_set | 1 | L2176 | FB 設定 |
+| slot_delay | 2 | L2159 | slot delay (m + count) |
+| slotmask_set | 1 | L2839 | slot mask |
+| slotdetune_set | 3 | L2704 | FM3 slot detune (mask + lodsw) |
+| slotdetune_set2 | 3 | L2674 | FM3 slot detune2 (相対) |
+| fm3_extpartset | 6 | L2549 | FM3 ext part set (3 × lodsw) |
+| volmask_set | 1 | L2493 | volume mask |
+| _volmask_set | 1 | L2510 | sub volume mask |
+| panset_ex | ? | - | pan set 拡張 |
+
+#### 4-7-10. 効果音 / その他
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| ssg_efct_set | 1 | L2957 | SSG 効果音設定 |
+| fm_efct_set | 1 | L2981 | FM 効果音設定 |
+| fade_set | 1 | L3029 | fade out |
+| status_write | 1 | L3200 | STATUS write |
+| status_add | 1 | L3208 | STATUS add |
+| syousetu_lng_set | 1 | L3328 | `Z` 小節長設定 |
+
+#### 4-7-11. Part mask 系(2 段 dispatch)
+
+| handler | byte | 行 | 機能 |
+|---|---|---|---|
+| fm_mml_part_mask | 1 | L2357 | FM part mask (al = 0/1 で mask on/off、 al ≥ 2 で 0xC0 sub-dispatch) |
+| ssg_mml_part_mask | 1 | L2378 | SSG part mask |
+| rhythm_mml_part_mask | 1 | L2402 | rhythm part mask |
+
+al ≥ 2 のとき `special_0c0h` ルートに分岐し、 続く byte が 0xF5〜0xFF
+なら comtbl0c0h で sub-dispatch (vd_fm/vd_ssg/vd_pcm/vd_rhythm 等)。
+sub-handler の引数 byte 数は別途要解析(v3)。
+
+### 4-8. v2 解析の到達点
+
+- **dispatch table 全 79 entry × 3 種(cmdtbl/cmdtblp/cmdtblr) 完全マップ完成**
+- **jump0〜jump16 = N byte skip(未実装プレースホルダ) と判明**
+- **dispatch ループ実装(command00) 解読完了**
+- **0xC0 sub-dispatch(comtbl0c0h) 構造解明**
+- **handler 別引数 byte 数 ~70 個判明**
+
+### 4-9. v2 残課題(v3 で精緻化)
+
+1. **opcode 0x00〜0x7F の音程 + 音長解釈**: ノート on の bit field 構造、 12半音 × オクターブ → opcode 値の mapping を解読。 PMD.ASM L1072(mp0 LENGTH CHECK)〜L1110(porta_return) の routine 解析。
+2. **opcode 0x80〜0xB0 の用途**: 0x80 = empty / part end、 0x81〜0xB0 はレスト + 音長 / 拡張ノートが含まれる。 該当 routine 特定。
+3. **rhythm address table 構造詳細**: cmdtblr で参照される radtbl(L8043)の format。 SAMPLE2.M(rhythm 使用)で複数 R パターン例を解析。
+4. **prgdat 領域 format**: 音色データ 1 entry の byte 数 / FM operator 4 個の TL/AR/DR/SR/RR/SL/AM/KS/MUL/DT 等の field 配置。
+5. **comtbl0c0h sub-handler 引数 byte 数**: vd_fm / vd_ssg / vd_pcm / vd_rhythm / pmd86_s / vd_ppz の引数仕様。
+6. **handler 引数 byte 数 ? 残り**: rhykey / rhyvs / rpnset / rmsvs / rmsvs_sft / rhyvs_sft / panset_ex の確認。
 
 ---
 
-## 5. part body の opcode 列詳細(v2 で詰める)
+## 5. part body の opcode 列詳細
 
 ### 5-1. 音程 + 音長(opcode 0x00〜0x7F)
 
-opcode 0x00〜0x7F は dispatch table 範囲外、 「音程 + 音長」 として解釈。
+opcode 0x00〜0x7F は dispatch table 範囲外、 PMD.ASM の `fmmain` /
+`psgmain` / `rhythmmain` の mp1/mp2 routine(L1077-1110)で **音程 + 音長
+の 2 byte 単位**として解釈される。
 
-PMD.ASM では別 routine(`mml_main` 系)で処理。 詳細解析は v2 で。
+#### 5-1-1. 音程 byte の bit field 構造
 
-### 5-2. レスト + 拡張(opcode 0x80〜0xB0)
+PMD.ASM `fnumset`(L4266) と `oshift`(L4208) の解析より、 1 byte 音程
+の bit 配置:
 
-opcode 0x80 = part END / empty marker(driver L538「先頭が80hなら演奏しない」)。
+```
+bit 7 6 5 4 | 3 2 1 0
++-----------+-----------+
+|    OCT    |   ONKAI   |
++-----------+-----------+
+```
 
-opcode 0x81〜0xB0 はレスト + 各種拡張。 詳細解析は v2 で。
+- 上位 4 bit (bit 4-7) = OCT (オクターブ、 0-7)
+- 下位 4 bit (bit 0-3) = ONKAI (音名、 0-11、 `0x0F` = 休符)
 
-### 5-3. 制御コマンド(opcode 0xB1〜0xFF)
+| ONKAI 値 | 音名 | fnum_data(FM) | psg_tune_data(PSG) |
+|---|---|---|---|
+| 0 | C | 0x026A | 0x0EE8 |
+| 1 | C# (D-) | 0x028F | 0x0E12 |
+| 2 | D | 0x02B6 | 0x0D48 |
+| 3 | D# (E-) | 0x02DF | 0x0C89 |
+| 4 | E | 0x030B | 0x0BD5 |
+| 5 | F | 0x0339 | 0x0B2B |
+| 6 | F# (G-) | 0x036A | 0x0A8A |
+| 7 | G | 0x039E | 0x09F3 |
+| 8 | G# (A-) | 0x03D5 | 0x0964 |
+| 9 | A | 0x0410 | 0x08DD |
+| 10 | A# (B-) | 0x044E | 0x085E |
+| 11 | B | 0x048F | 0x07E6 |
+| 12-14 | (未使用) | - | - |
+| 15 (0x0F) | 休符 | (FNUM = 0) | (FNUM = 0) |
 
-§4 の dispatch table マップで一部判明。 各 handler の引数 byte 数 / 解釈
-ルールの完全マップは v2 で。
+PMD.ASM L7925 `fnum_data`、 L7940 `psg_tune_data` 由来。
+
+FM の発音時:
+- BLOCK = OCT bits を再配置(`ror al,1; and ch,38h`)
+- F-NUMBER = `fnum_data[ONKAI × 2]`
+- 最終 `[fnum] = (BLOCK << 8) | F-NUMBER`
+
+#### 5-1-2. 音長 byte
+
+音程 byte の直後に **1 byte の音長(length)** が続く:
+
+```
+.m バイナリ:
++--------+--------+
+| 音程    | 音長   |
+| (1B)   | (1B)   |
++--------+--------+
+```
+
+PMD.ASM `mp2`(L1101)で `lodsb` → `mov leng[di], al` され、 各 part の
+残り tick として cycle 毎に減算される。
+
+つまり opcode 0x00〜0x7F の **1 ノートは 2 byte 単位**(音程 + 音長)。
+
+### 5-2. opcode 0x80(part end / loop)
+
+PMD.ASM `mp15`(L1088):
+
+```
+mp15:   dec     si                ; 0x80 を読み戻す
+        mov     [di], si          ; 現在位置を更新せずに part 停止
+        mov     loopcheck[di], 3  ; loop check = 3 (= part 終了)
+        mov     onkai[di], -1
+        mov     bx, partloop[di]
+        test    bx, bx
+        jz      mpexit            ; partloop 設定なしなら終了
+        mov     si, bx            ; "L" loop set 済なら loop 戻り
+        mov     loopcheck[di], 1
+        jmp     mp1
+```
+
+つまり opcode 0x80 = **part END / loop マーカー**。 partloop[di](L コマンド
+で設定)があれば loop 戻り、 なければ part 終了。
+
+empty part(MML body 全くない) では byte 0 から `0x80` 1 byte で
+即座に終了 → 「演奏しない」。
+
+### 5-3. opcode 0x81〜0xB0(out_of_commands → 終了処理)
+
+`commands`(L1713) → `command00`(L1724) で:
+
+```
+command00:
+    cmp     al, com_end       ; com_end = 0xB1
+    jc      out_of_commands   ; al < 0xB1 なら part END
+```
+
+つまり 0x81〜0xB0 は **個別の opcode 機能を持たない**。 全て
+`out_of_commands` ルートで「無効 opcode → 即 part 終了」 として扱われる。
+
+PMD MML には「`r` 休符 + 音長」 は 0x0F 音程 + 音長で表現されるため、
+0x81〜0xB0 は事実上の予約領域(将来拡張用)と考えられる。
+
+### 5-4. 制御コマンド(opcode 0xB1〜0xFF)
+
+§4 の dispatch table 完全マップ + handler 別引数 byte 数表で網羅済。
+
+### 5-5. .m バイナリ走査の擬似コード
+
+```
+si = part_offset_table[part]
+while True:
+    al = read_byte(si)
+    si += 1
+    if al < 0x80:
+        # 音程
+        leng = read_byte(si)
+        si += 1
+        # OCT = (al >> 4) & 0x07
+        # ONKAI = al & 0x0F
+        # ONKAI == 0x0F なら休符
+        play_note(part, OCT, ONKAI, leng)
+    elif al == 0x80:
+        # part 終了 / loop 戻り
+        if partloop[part]:
+            si = partloop[part]
+        else:
+            break
+    elif al < 0xB1:
+        # out_of_commands → 終了
+        break
+    else:
+        # 制御コマンド (dispatch table)
+        handler = dispatch_table[part_kind][0xFF - al]
+        handler(si)  # handler が必要な byte を消費
+```
+
+これで Phase 2 driver(Z80 フルスクラッチ)の **メインループ実装の
+青写真** が確定。
+
+### 5-6. Rhythm part(R part)の 2 段構造
+
+K / R パート関連の処理は他 part(FM/SSG/PCM)と異なり、 **2 段の opcode
+解釈**を持つ。 PMD.ASM `rhythmmain`(L1539-1670)の解析より:
+
+#### 5-6-1. R part body(11 番目の part)
+
+R part body 自体は通常の part body と似た構造だが、 **opcode 0x00〜0x7F の
+意味が「R 番号(rhythm pattern index)」**:
+
+| opcode | 意味 |
+|---|---|
+| 0x00〜0x7F | R 番号 = `radtbl[al]` 経由で rhythm pattern body にジャンプ |
+| 0x80 | part end / loop 戻り(通常 part と同じ) |
+| 0x81〜0xB0 | out_of_commands(終了) |
+| 0xB1〜0xFF | cmdtblr の handler |
+
+R 番号を踏むと、 `[radtbl + al × 2]` で 2 byte LE の pattern offset を
+取得し、 `[rhyadr] = mmlbuf + offset` を設定して rhythm pattern body の
+解釈を開始する(`re00` ルート、 L1577)。
+
+#### 5-6-2. rhythm pattern body(radtbl が指す各 R# pattern)
+
+各 R# pattern は別の opcode 体系を持つ:
+
+| opcode | 意味 | byte 数 |
+|---|---|---|
+| 0x00〜0x7F | rest(休符)+ 音長 | 2 byte |
+| 0x80〜0xBF | shot(rhythm trigger 14 bit bitmap)+ 音長 | 3 byte |
+| 0xC0〜0xFE | command shot(bit 6 set、 commandsr 経由) | 可変 |
+| 0xFF | pattern 終端 → R part body に戻る | 1 byte |
+
+#### 5-6-3. shot opcode(0x80〜0xBF)の bitmap 構造
+
+bit 7 set + bit 6 clear のとき、 shot 処理(`rhy_shot`、 L1616):
+
+```
+rhythmon:
+    test    al, 01000000b    ; bit 6 = command 分岐
+    jz      rhy_shot
+    ... (commandsr ルート)
+
+rhy_shot:
+    mov     ah, al           ; 上位 byte = 現 byte
+    mov     al, [bx]         ; 下位 byte = 続く 1 byte
+    inc     bx
+    and     ax, 03FFFh       ; 上位 2 bit を mask、 14 bit 値
+    mov     [kshot_dat], ax  ; 14 bit rhythm trigger bitmap
+```
+
+kshot_dat = 14 bit、 各 bit が rhythm channel の trigger mask に対応。
+
+#### 5-6-4. radtbl(rhythm address table)の構造
+
+`.m` ファイル byte 23-24(m_buf header の最後 2 byte)が radtbl の
+file offset を示す。 radtbl 自体は:
+
+```
+radtbl[0] = R0 pattern offset  (2 byte LE、 mmlbuf 相対)
+radtbl[1] = R1 pattern offset
+radtbl[2] = R2 pattern offset
+...
+```
+
+R 番号の数は MML から決まる(.m に明示記録なし、 末端は次の領域で判定)。
+
+#### 5-6-5. rhythm pattern 解釈 擬似コード
+
+```
+[bx] = current rhythm pattern position ([rhyadr])
+while True:
+    al = read_byte(bx); bx += 1
+    if al == 0xFF:
+        # pattern 終端、 R part body に戻る
+        break_to_R_part_body()
+        continue
+    if al & 0x80:
+        # shot or command
+        if al & 0x40:
+            # command shot (commandsr)
+            handler = cmdtblr[0xFF - al]
+            handler(bx)
+        else:
+            # rhythm shot
+            ah = al
+            al = read_byte(bx); bx += 1
+            kshot_dat = ((ah << 8) | al) & 0x3FFF
+            trigger_rhythm_channels(kshot_dat)
+            leng = read_byte(bx); bx += 1
+            wait(leng)
+    else:
+        # rest
+        kshot_dat = 0
+        leng = read_byte(bx); bx += 1
+        wait(leng)
+```
+
+これで rhythm pattern body の解釈ロジックも Phase 2 driver 実装に
+落とし込める。
+
+### 5-7. 音色データ(prgdat / tondat)の format
+
+PMD.ASM `neiroset_main`(L5159) と `toneadr_calc`(L5274) の解析より、
+音色データは 2 種類の経路がある。
+
+#### 5-7-1. 音色データ access 経路
+
+```
+toneadr_calc:
+    if [prg_flg] != 0 OR di == part_e:
+        # prgdat 経路 (.m 内蔵)
+        bx = [prgdat_adr]
+        if di == part_e: bx = [prgdat_adr2]
+        loop:
+            if [bx] == tone_number: jump gpd_exit
+            bx += 26
+        gpd_exit:
+            bx += 1   # 番号 byte を skip、 残り 25 byte が音色データ
+    else:
+        # tondat 経路 (外部音色 file = .FF / .OPM 等)
+        bx = [tondat] + tone_number × 32
+```
+
+つまり:
+
+- **prgdat 経路**(`.m` 内蔵モード): 26 byte / entry、 番号 byte 1 + 音色 25 byte
+- **tondat 経路**(外部音色ファイル): 32 byte / entry、 番号は index で直接
+
+#### 5-7-2. 音色データ 1 entry の field 配置
+
+prgdat 経路の場合:
+
+| offset | byte | 内容 |
+|---|---|---|
+| 0 | 1 | tone_number(検索 key) |
+| 1-4 | 4 | DT / ML × 4 op (bit 7=0、 bit 6-4=DT、 bit 3-0=ML) |
+| 5-8 | 4 | TL × 4 op (bit 6-0=TL、 bit 7=0) |
+| 9-12 | 4 | KS / AR × 4 op (bit 7-6=KS、 bit 4-0=AR) |
+| 13-16 | 4 | AM / DR × 4 op (bit 7=AM、 bit 4-0=DR) |
+| 17-20 | 4 | SR × 4 op (bit 4-0=SR) |
+| 21-24 | 4 | RR / SL × 4 op (bit 7-4=SL、 bit 3-0=RR) |
+| 25 | 1 | ALG / FB (bit 5-3=FB、 bit 2-0=ALG、 bit 6 = SSG-EG 領域?) |
+
+合計 26 byte。
+
+tondat 経路の場合:
+
+- byte 0-3: DT / ML × 4 op
+- byte 4-7: TL × 4 op
+- byte 8-11: KS / AR × 4 op
+- byte 12-15: AM / DR × 4 op
+- byte 16-19: SR × 4 op
+- byte 20-23: RR / SL × 4 op
+- byte 24: ALG / FB
+- byte 25-31: padding / 拡張 field(SSG-EG 等)
+
+合計 32 byte。
+
+PMD.ASM `neiroset_main` の register 書込ループで:
+- `mov dl, 24[bx]` → ALG/FB(register 0xB0+ch)
+- `mov cx, 4; ns01: ...; add dh, 4` → DT/ML, TL, KS/AR, ... を operator 順に書込
+
+OPN/OPNA/OPNB の register 0x30〜0x9F(operator parameter)に対応。
+
+#### 5-7-3. operator 順序
+
+PMD.ASM の書込順序:
+
+```
+DT/ML  → register 0x30+offset (op1, op3, op2, op4)
+TL     → register 0x40+offset
+KS/AR  → register 0x50+offset
+AM/DR  → register 0x60+offset
+SR     → register 0x70+offset
+RR/SL  → register 0x80+offset
+ALG/FB → register 0xB0+ch (1 byte for ch)
+```
+
+(YM2610/B では op1→op3→op2→op4 の特殊順序で register に並ぶが、 .m
+バイナリ内では op1→op2→op3→op4 の順で格納されている可能性あり。
+実際の operator order mapping は v3 で確認)
+
+#### 5-7-4. PMDNEO 設計への含意
+
+- prgdat 経路の 26 byte / entry format をそのまま採用可能
+- ただし PMDNEO は OPNB(YM2610/B) なので、 SSG-EG bit の扱いを v3 で要確認
+- 音色データを `.mn` ファイルに内蔵する場合、 prgdat_adr 経路で参照
 
 ---
 
-## 6. 残課題(v2 で詰める)
+## 6. v2 までで完了した解析と残課題
 
-1. **dispatch table の opcode → handler 完全マップ**(全 80 entry × 3 table)
-2. **各 handler の引数 byte 数 / 解釈ルール**
-3. **opcode 0x00〜0x7F の音程 + 音長 解釈ルール**
-4. **opcode 0x80〜0xB0 のレスト + 拡張**
-5. **rhythm address table 構造**(SAMPLE2.M で複数 R パターン解析)
-6. **prgdat 領域の中身**(音色データ format)
-7. **SAMPLE.M file byte 1108〜1141 の解析**(rhythm addr + prgdat の実体)
-8. **SAMPLE2.M / SSGEG_S.M との比較解析**
-9. **PMDDotNET driver(PMD.cs)の dispatch ループ実装読解** → Phase 2 driver
-   実装の参考
+### 6-1. v2 完了項目
+
+- ✅ `.m` 全体構造(m_start + m_buf header + part body + rhythm + prgdat)
+- ✅ 11 part offset table の解読
+- ✅ rhythm address table offset / prgdat_adr の格納位置
+- ✅ SAMPLE.M(1142 byte)完全 byte map
+- ✅ dispatch table 全 79 entry × 3 種(cmdtbl/cmdtblp/cmdtblr) 完全マップ
+- ✅ jump0〜jump16(N byte skip プレースホルダ)の意味解明
+- ✅ dispatch ループ(command00) routine 解読
+- ✅ 0xC0 sub-dispatch(comtbl0c0h) 構造解明
+- ✅ handler 別引数 byte 数 ~75 個判明(rhythm 系含む)
+- ✅ opcode 0x00〜0x7F = 音程 + 音長(2 byte 単位、 OCT 4 bit + ONKAI 4 bit)
+- ✅ opcode 0x80 = part end / loop マーカー
+- ✅ opcode 0x81〜0xB0 = out_of_commands(終了処理)
+- ✅ Phase 2 driver メインループ擬似コード(§5-5)
+- ✅ Rhythm part 2 段構造(R part body + radtbl + rhythm pattern body)解明(§5-6)
+- ✅ 音色データ format(prgdat 26 byte / tondat 32 byte 経路)解明(§5-7)
+
+### 6-2. v3 で精緻化する課題
+
+1. **comtbl0c0h sub-handler 引数 byte 数**: vd_fm / vd_ssg / vd_pcm /
+   vd_rhythm / pmd86_s / vd_ppz の引数仕様。
+2. **panset_ex 引数 byte 数**: cmdtbl 0xC3 entry の handler。
+3. **SAMPLE.M file byte 1108〜1141 の rhythm addr table 実体解析**。
+4. **SAMPLE2.M / SSGEG_S.M との比較解析**(複数 R パターン / 拡張機能例)。
+5. **comt(tempo)の 251 以上 mode 解析**(comt_sp0/sp1/sp2 分岐)。
+6. **kshot_dat の 14 bit bitmap → rhythm channel mapping 詳細**(board2 ⁄ KP rhythm ⁄ PPSDRV の差異)。
+7. **音色データ operator 順序 mapping**: .m バイナリ内格納順 vs OPN/OPNB register 書込順(op1→op3→op2→op4)。
+8. **音色データ SSG-EG bit 配置**: 拡張 envelope generator の register field。
 
 ---
 
@@ -393,7 +1135,12 @@ opcode 0x81〜0xB0 はレスト + 各種拡張。 詳細解析は v2 で。
 - rhythm address table offset(2 byte LE)
 - option prgdat_adr(2 byte LE、 part A offset != 24 のみ存在)
 - 各 part body 先頭 0x80 で empty 判定
-- dispatch table 3 種類(FM/PCM / PSG / Rhythm)、 opcode 0xB1〜0xFF を扱う
+- opcode 0x00〜0x7F = 音程(OCT 4 bit + ONKAI 4 bit)+ 音長(1 byte) の 2 byte 単位
+- opcode 0x80 = part end / loop 戻り
+- opcode 0x81〜0xB0 = 無効(out_of_commands → 終了処理)
+- opcode 0xB1〜0xFF = dispatch table 3 種類(FM/PCM / PSG / Rhythm)
+- jumpN entry = N byte 引数 skip(プレースホルダ)
+- 0xC0 = part mask + 2 段 dispatch(comtbl0c0h)
 
 ### 7-2. PMDNEO 専用拡張(`.mn`)の方針
 
@@ -423,4 +1170,4 @@ Phase 3 で `.mn` 拡張時、 V4.8s 互換 24 byte header 構造を維持し、
 
 ---
 
-[v1 解析完了、 §5(opcode 詳細)・§6 残課題 は v2 で詰める]
+[v2 解析完了 — dispatch table 完全マップ + handler 別引数 byte 数 + opcode 0x00〜0xFF 解釈ルール確定 + Phase 2 driver メインループ擬似コード確立。 v3 残課題は §6-2 参照]
