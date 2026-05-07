@@ -66,6 +66,14 @@ pmdneo_init::
         ld      c, #0x2A
         call    ym2610_write_port_a
 
+        ;; SubB-4 修正: Z80 IRQ enable
+        ;; nullsound default は IRQ disable で snd_mainloop polling (= 06-sound-adpcma
+        ;; 等は IRQ 不要)。 PMDNEO は TIMER-B IRQ で per-tick 駆動するため、
+        ;; user 側で明示的に ei が必要。
+        ;; 経路: 0x0038 IRQ handler (entrypoint.s) → update_timer_state_tracker
+        ;; → state_timer_tick_reached set。 PMDNEO の polling loop はこれを待つ。
+        ei
+
         ret
 
 
