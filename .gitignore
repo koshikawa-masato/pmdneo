@@ -60,6 +60,14 @@ dev-diary/
 # work memo (個人作業メモ、 git 管理外)
 docs/work/
 
+# MAME / gngeo 起動の副作用 (= cfg / nvram / snap directory)
+cfg/
+nvram/
+snap/
+vendor/ngdevkit-examples/*/cfg/
+vendor/ngdevkit-examples/*/nvram/
+vendor/ngdevkit-examples/*/snap/
+
 # secrets
 .env
 .env.*
