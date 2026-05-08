@@ -58,6 +58,7 @@ pmdneo_init::
         ld      (driver_song_ready), hl
         ld      (driver_song_base), hl
         ld      (driver_song_end), hl
+        ld      (mmlbuf), hl
 
         ;; SubB-4: scale state init
         xor     a
@@ -323,6 +324,84 @@ test_play_psgmain::
         ret
 
 
+;;; ----- pmdneo_load_m: SubB-7 SAMPLE.M load -----
+;;;
+;;; sample_m_data に組み込んだ PMD V4.8s SAMPLE.M の header を読み、
+;;; part 0-10 の body address を per-part workarea に設定する。
+;;;
+;;; .m part offset は mmlbuf (= sample_m_data + 1) からの相対 offset。
+;;; pmdneo_psgmain は絶対 address を読むため、 load 時に絶対化する。
+;;;
+;;; 入力: なし
+;;; 破壊: A、 B、 C、 D、 E、 H、 L、 IX
+
+pmdneo_load_m::
+        ;; m_start = 0x00 (OPNA mode flag) を想定
+        ld      hl, #sample_m_data
+        ld      a, (hl)
+        or      a
+        jr      nz, pmdneo_load_m_abort
+
+        ;; mmlbuf = sample_m_data + 1 (= m_buf 先頭)
+        inc     hl
+        ld      (mmlbuf), hl
+
+        ;; 念のため mixer を再設定
+        ld      b, #REG_SSG_ENABLE
+        ld      c, #0x38
+        call    ym2610_write_port_a
+
+        ;; m_buf の part offset table から part 0-10 を設定
+        ld      de, (mmlbuf)            ; DE = 現在の offset table pointer
+        ld      c, #0                   ; C = part number
+
+pmdneo_load_m_loop:
+        push    bc
+        push    de
+
+        ld      a, c
+        call    pmdneo_part_ix_from_part
+
+        ;; offset = *(DE) little endian、 table pointer を 2 byte 進める
+        pop     hl
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        inc     hl
+        push    hl                      ; next offset table pointer
+
+        ;; PART_OFF_ADDR = mmlbuf + offset
+        ld      hl, (mmlbuf)
+        add     hl, de
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+
+        ;; loop なし、 即 parse、 初期 volume max
+        xor     a
+        ld      PART_OFF_LOOP(ix), a
+        ld      PART_OFF_LOOP+1(ix), a
+        ld      PART_OFF_LEN(ix), a
+        ld      a, #0x0F
+        ld      PART_OFF_VOLUME(ix), a
+
+        pop     de                      ; 次の offset table pointer
+        pop     bc
+        inc     c
+        ld      a, c
+        cp      #11
+        jr      nz, pmdneo_load_m_loop
+
+        ;; song mode に切替
+        ld      a, #1
+        ld      (driver_song_ready), a
+        ret
+
+pmdneo_load_m_abort:
+        xor     a
+        ld      (driver_song_ready), a
+        ret
+
+
 ;;; ----- psg_tune_data: 12 半音 × 2 byte (LE)、 OCT 0 ベース counter 値 -----
 ;;;
 ;;; PMD V4.8s 公式 psg_tune_data (= analysis_m_data_structure.md §5-1-1)。
@@ -369,6 +448,9 @@ scale_notes::
 ;;; SubB-4 では 0x0800 / 40 ≒ 0x0033 を 1 note の duration にする。
 
 SCALE_TICK_INITIAL = 0x0033
+
+;;; SubB-7 暫定: SAMPLE.M の raw length を 2^3 = 8 倍して鳴らす。
+PMDNEO_MML_LEN_SHIFT = 3
 
 
 ;;; ----- test_mml_data: PSG main 検証用 hardcoded MML -----
@@ -508,6 +590,7 @@ pmdneo_psgmain_parse:
 pmdneo_psgmain_note:
         ld      PART_OFF_NOTE(ix), a
         call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
         ld      PART_OFF_LEN(ix), a
 
         ld      a, PART_OFF_NOTE(ix)
@@ -531,6 +614,38 @@ pmdneo_psgmain_clear:
         ld      PART_OFF_ADDR+1(ix), a
 
 pmdneo_psgmain_done:
+        ret
+
+
+;;; pmdneo_scale_mml_length:
+;;;   input : A = raw MML length byte
+;;;   output: A = PSG main 用 tick length
+;;;
+;;; SubB-7 暫定: PMD V4.8s の本来の tempo / length 換算は未実装。
+;;; SAMPLE.M は length 1 の note が多く、そのままだと聴感確認不能なため、
+;;; raw length を 8 倍して audio gate 用の速度に落とす。
+
+pmdneo_scale_mml_length::
+        push    bc
+        or      a
+        jr      nz, pmdneo_scale_mml_length_start
+        inc     a                       ; 0 length は最低 1 tick にする
+        jr      pmdneo_scale_mml_length_done
+
+pmdneo_scale_mml_length_start:
+        ld      c, #PMDNEO_MML_LEN_SHIFT
+pmdneo_scale_mml_length_loop:
+        add     a, a
+        jr      c, pmdneo_scale_mml_length_saturate
+        dec     c
+        jr      nz, pmdneo_scale_mml_length_loop
+        jr      pmdneo_scale_mml_length_done
+
+pmdneo_scale_mml_length_saturate:
+        ld      a, #0xFF
+
+pmdneo_scale_mml_length_done:
+        pop     bc
         ret
 
 
@@ -729,21 +844,14 @@ comstloop:
         ret
 
 comedloop:
+        ;; SubB-7 では ROM 上の SAMPLE.M を直接読むため、 PMD 本家のように
+        ;; loop counter byte を MML buffer 内へ自己書き換えできない。
+        ;; audio gate Step 1 では loop を展開せず、 4 byte 引数だけ消費して
+        ;; 次の opcode へ進めることで hang up を避ける。
         call    pmdneo_part_fetch_byte
-        ld      PART_OFF_LOOPCNT(ix), a
         call    pmdneo_part_fetch_byte
-        ld      a, PART_OFF_LOOPCNT(ix)
-        or      a
-        jr      z, comedloop_back
-        dec     a
-        ld      PART_OFF_LOOPCNT(ix), a
-        jr      nz, comedloop_back
-        ret
-comedloop_back:
-        ld      l, PART_OFF_LOOP(ix)
-        ld      h, PART_OFF_LOOP+1(ix)
-        ld      PART_OFF_ADDR(ix), l
-        ld      PART_OFF_ADDR+1(ix), h
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
         ret
 
 comexloop:

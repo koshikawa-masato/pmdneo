@@ -72,6 +72,10 @@ PART_OFF_FLAGS    = 22   ; 1 byte future use
 
         .area BSS
 
+;;; SubB-7: SAMPLE.M load 用 mmlbuf (= m_buf 開始位置の絶対 address)
+mmlbuf::
+        .ds 2
+
 ;;; per-part workarea 領域: PART_COUNT × PART_WORKAREA_SIZE = 17 × 64 = 1088 byte
 ;;; NEOGEO Z80 RAM (約 2 KB) のうち約半分を workarea で確保
 part_workarea::

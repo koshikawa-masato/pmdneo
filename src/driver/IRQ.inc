@@ -52,20 +52,20 @@ cmd_jmptable::
 ;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
 
 
-;;; ----- snd_command_02_play_song: 楽曲再生開始 (= PSG main 単体検証) -----
+;;; ----- snd_command_02_play_song: 楽曲再生開始 (= SAMPLE.M 駆動) -----
 ;;;
 ;;; cmd 3 (= nullsound default reset) で chip silence + Z80 init 後、 cmd 2 で:
 ;;; 1. pmdneo_init (= SSG mixer + TIMER-B 起動 + driver state init)
-;;; 2. test_play_psgmain (= hardcoded MML を SSG1 workarea に設定)
+;;; 2. pmdneo_load_m (= SAMPLE.M header を解析して workarea に設定)
 ;;; 3. polling loop 再導入: TIMER-B tick 毎に pmd_z80_main を call、
 ;;;    pmd_z80_main 内で pmdneo_psgmain を駆動
 ;;;
-;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd 受付不可 (SubB-5/6 検証範囲)。
+;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd 受付不可 (SubB-7 検証範囲)。
 ;;; SubB-7 で MML 解釈実装後に polling loop を refactor。
 
 snd_command_02_play_song::
         call    pmdneo_init
-        call    test_play_psgmain
+        call    pmdneo_load_m
 pmdneo_play_loop::
         ld      a, (state_timer_tick_reached)
         or      a

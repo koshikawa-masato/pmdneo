@@ -39,3 +39,6 @@
         .if adpcma
         .include "ADPCMA_DRV.inc"
         .endif
+
+        ;;; SubB-7: PMD V4.8s 公式 SAMPLE.M の組み込み data
+        .include "sample_m.s"

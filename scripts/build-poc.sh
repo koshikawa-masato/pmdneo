@@ -52,6 +52,13 @@ for f in "$DRIVER_SRC"/*.s "$DRIVER_SRC"/*.inc; do
     echo "  $base -> ../../../src/driver/$base"
 done
 
+echo "=== SAMPLE.M を sdasz80 用 .db source に変換 ==="
+python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
+    "$PMDNEO_ROOT/vendor/pmd48s/SAMPLE.M" \
+    "$TEMPLATE_DIR/sample_m.s" \
+    "sample_m_data"
+echo "  sample_m.s <- vendor/pmd48s/SAMPLE.M"
+
 echo
 echo "=== make ==="
 make
