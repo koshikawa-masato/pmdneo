@@ -135,7 +135,8 @@ nmi_cmd_2_play_song:
         ld      (driver_song_ready), a
 
         ld      a, #0x40
-        call    fnumset_fm_ch2
+        ld      b, #1                   ; ch index 1 = chip ch 2
+        call    fnumset_fm
         call    fm_ch2_keyon
         jp      nmi_done
 
@@ -193,7 +194,8 @@ irq_scale_step_next:
         ld      hl, #scale_notes_fm
         add     hl, de
         ld      a, (hl)
-        call    fnumset_fm_ch2
+        ld      b, #1                   ; ch index 1 = chip ch 2
+        call    fnumset_fm
         call    fm_ch2_keyon
 
         ld      hl, #SCALE_TICK_INITIAL
@@ -243,20 +245,20 @@ ym2610_write_port_b:
         ret
 
         .org 0x0220
-fnumset_fm_ch2:
+fnumset_fm:
         push    af
-        push    de
+        push    bc
         and     #0x0F
         ld      l, a
         ld      h, #0
         add     hl, hl
-        ld      de, #fnum_data
-        add     hl, de
+        ld      bc, #fnum_data
+        add     hl, bc
         ld      e, (hl)
         inc     hl
         ld      d, (hl)
 
-        pop     hl
+        pop     bc
         pop     af
         rrca
         rrca
@@ -277,13 +279,44 @@ fnumset_fm_ch2:
         ;;   FNUM_LOW で latch 確定」 が OPNB working order。 spec lower→upper 想定だが MAME ymfm
         ;;   実装 で逆順 latch (= upper 書込時に旧 lower、 lower 書込時に新 lower で正規 latch)、
         ;;   2026-05-09 user 「出鱈目音階 + 7 音」 audio 解析で確証。
-        ld      b, #0xA5
+        ld      a, b
+        cp      #3
+        jr      c, fnumset_fm_porta
+
+        sub     #3
+        ld      l, a
+        ld      a, #0xA4
+        add     a, l
+        ld      b, a
         ld      c, h
         push    de
-        call    ym2610_write_port_a
+        push    hl
+        call    ym2610_write_port_b
+        pop     hl
         pop     de
 
-        ld      b, #0xA1
+        ld      a, #0xA0
+        add     a, l
+        ld      b, a
+        ld      c, e
+        call    ym2610_write_port_b
+        ret
+
+fnumset_fm_porta:
+        ld      l, a
+        ld      a, #0xA4
+        add     a, l
+        ld      b, a
+        ld      c, h
+        push    de
+        push    hl
+        call    ym2610_write_port_a
+        pop     hl
+        pop     de
+
+        ld      a, #0xA0
+        add     a, l
+        ld      b, a
         ld      c, e
         call    ym2610_write_port_a
         ret
