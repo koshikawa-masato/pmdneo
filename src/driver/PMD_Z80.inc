@@ -277,6 +277,52 @@ test_play_scale::
         ret
 
 
+;;; ----- test_play_psgmain: SubB-5/6 PSG main 単体検証開始 -----
+;;;
+;;; hardcoded MML byte 列を SSG1 workarea に設定し、 driver_song_ready を
+;;; 立てて pmd_z80_main の PSG 解析ルートを駆動する。
+;;;
+;;; 入力: なし
+;;; 破壊: A、 B、 C、 D、 E、 H、 L、 IX
+
+test_play_psgmain::
+        ;; SSG volume A = 0x0F (max)
+        ld      b, #REG_SSG_A_VOLUME
+        ld      c, #0x0F
+        call    ym2610_write_port_a
+
+        ;; SSG1 (G part) に test_mml_data を設定
+        ld      a, #PART_SSG1
+        call    pmdneo_part_ix_from_part
+        ld      hl, #test_mml_data
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        xor     a
+        ld      PART_OFF_LOOP(ix), a
+        ld      PART_OFF_LOOP+1(ix), a
+        ld      PART_OFF_LEN(ix), a
+        ld      a, #0x0F
+        ld      PART_OFF_VOLUME(ix), a
+
+        ;; 念のため未使用 PSG part は停止状態に固定
+        ld      a, #PART_SSG2
+        call    pmdneo_part_ix_from_part
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ld      a, #PART_SSG3
+        call    pmdneo_part_ix_from_part
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+
+        ;; song mode に切替
+        ld      a, #1
+        ld      (driver_song_ready), a
+
+        ret
+
+
 ;;; ----- psg_tune_data: 12 半音 × 2 byte (LE)、 OCT 0 ベース counter 値 -----
 ;;;
 ;;; PMD V4.8s 公式 psg_tune_data (= analysis_m_data_structure.md §5-1-1)。
@@ -323,6 +369,22 @@ scale_notes::
 ;;; SubB-4 では 0x0800 / 40 ≒ 0x0033 を 1 note の duration にする。
 
 SCALE_TICK_INITIAL = 0x0033
+
+
+;;; ----- test_mml_data: PSG main 検証用 hardcoded MML -----
+;;;
+;;; note byte, length byte の列。 0x80 で part end。
+
+test_mml_data:
+        .db     0x10, 0x33              ; C4 (ド)
+        .db     0x12, 0x33              ; D4 (レ)
+        .db     0x14, 0x33              ; E4 (ミ)
+        .db     0x15, 0x33              ; F4 (ファ)
+        .db     0x17, 0x33              ; G4 (ソ)
+        .db     0x19, 0x33              ; A4 (ラ)
+        .db     0x1B, 0x33              ; B4 (シ)
+        .db     0x20, 0x33              ; C5 (1 octave 上のド)
+        .db     0x80                    ; part end
 
 
 ;;; ----- PSG / part helper -----
@@ -391,6 +453,7 @@ pmdneo_psg_keyon::
         ret
 
 pmdneo_psg_keyoff::
+        push    bc
         ld      hl, #psg_volume_regs
         ld      a, b
         ld      e, a
@@ -399,6 +462,7 @@ pmdneo_psg_keyoff::
         ld      b, (hl)
         ld      c, #0x00
         call    ym2610_write_port_a
+        pop     bc
         ret
 
 
