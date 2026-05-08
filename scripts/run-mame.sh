@@ -30,12 +30,16 @@ GAMEROM="puzzledp"
 ISOLATED_ROM_DIR="/tmp/pmdneo-mame-rom"
 DO_TRACE=0
 TRACE_DIR="/tmp/pmdneo-trace"
+DO_WAVWRITE=0
+WAVWRITE_SECONDS=8
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --build) DO_BUILD=1; shift ;;
         --gamerom) GAMEROM="$2"; shift 2 ;;
         --trace) DO_TRACE=1; shift ;;
+        --wavwrite) DO_WAVWRITE=1; shift ;;
+        --wavwrite-seconds) WAVWRITE_SECONDS="$2"; shift 2 ;;
         -h|--help) sed -n '4,25p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
@@ -143,15 +147,32 @@ if [[ $DO_TRACE -eq 1 ]]; then
     echo "      Z80_MEM_TRACE: $Z80_MEM_TRACE"
     echo ""
     echo "    終了後 trace file を解析: ls -la $TRACE_DIR/"
+    if [[ $DO_WAVWRITE -eq 1 ]]; then
+        rm -f "$TRACE_DIR/audio.wav"
+        echo "      wav 録音: $TRACE_DIR/audio.wav (= ${WAVWRITE_SECONDS} 秒、 window モード維持)"
+    fi
     echo ""
-    exec "$MAME_BIN" "$GAMEROM" \
-        -rompath "$ISOLATED_ROM_DIR" \
-        -window \
-        -nomaximize \
-        -resolution 960x672 \
-        -noautosave \
-        -skip_gameinfo \
-        -sound coreaudio
+    if [[ $DO_WAVWRITE -eq 1 ]]; then
+        exec "$MAME_BIN" "$GAMEROM" \
+            -rompath "$ISOLATED_ROM_DIR" \
+            -window \
+            -nomaximize \
+            -resolution 960x672 \
+            -noautosave \
+            -skip_gameinfo \
+            -sound coreaudio \
+            -wavwrite "$TRACE_DIR/audio.wav" \
+            -seconds_to_run "$WAVWRITE_SECONDS"
+    else
+        exec "$MAME_BIN" "$GAMEROM" \
+            -rompath "$ISOLATED_ROM_DIR" \
+            -window \
+            -nomaximize \
+            -resolution 960x672 \
+            -noautosave \
+            -skip_gameinfo \
+            -sound coreaudio
+    fi
 fi
 
 echo "    mame $GAMEROM -rompath $ISOLATED_ROM_DIR -window -skip_gameinfo -sound coreaudio"
