@@ -402,6 +402,169 @@ pmdneo_load_m_abort:
         ret
 
 
+;;; ----- test_play_fm_c4: SubC-1 FM chip ch 2 hardcoded C4 -----
+;;;
+;;; YM2610 無印 chip では chip ch 1/4 が internal に存在するが output 配線
+;;; なし (= 既知仕様、 memory reference_opna_opnb_chip_comparison.md)。
+;;; PMDNEO 楽曲は (C) 方針 (= Part A/D 不使用の自己規律) で chip ch 2/3/5/6
+;;; のみ運用する。 SubC-1 では chip ch 2 (= ch index 1、 port A、 末尾 +1)
+;;; に 25 byte 音色を設定し、 C4 (= OCT 4 + ONKAI 0) を keyon して保持する。
+;;; nullsound 命名 FM1_YM2610 = 1 と一致 (= 末尾 +1)。
+;;;
+;;; 入力: なし
+;;; 破壊: A、 B、 C、 D、 E、 H、 L、 IX
+
+test_play_fm_c4::
+        ;; ALG/FB = ALG 7, FB 0
+        ld      hl, #fm_voice_data_default
+        ld      de, #24
+        add     hl, de
+        ld      b, #0xB1
+        ld      c, (hl)
+        call    ym2610_write_port_a
+
+        ld      hl, #fm_voice_data_default
+
+        ;; DT/ML × 4 (OP1, OP3, OP2, OP4)
+        ld      d, #0x31
+        call    pmdneo_fm_write_voice_group
+
+        ;; TL × 4 (ALG 7 なので全 op carrier)
+        ld      d, #0x41
+        call    pmdneo_fm_write_voice_group
+
+        ;; KS/AR × 4
+        ld      d, #0x51
+        call    pmdneo_fm_write_voice_group
+
+        ;; AM/DR × 4
+        ld      d, #0x61
+        call    pmdneo_fm_write_voice_group
+
+        ;; SR × 4
+        ld      d, #0x71
+        call    pmdneo_fm_write_voice_group
+
+        ;; RR/SL × 4
+        ld      d, #0x81
+        call    pmdneo_fm_write_voice_group
+
+        ;; SSG-EG は未使用なので明示的に 0
+        call    pmdneo_fm_clear_ssg_eg
+
+        ;; C4: OCT 4 + ONKAI 0
+        ld      a, #0x40
+        call    fnumset_fm
+
+        ;; L/R pan on, AMS/PMS off
+        ld      b, #0xB5
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+
+        ;; chip ch 2 (= nullsound FM1, ch index 1) all operators keyon
+        ld      b, #REG_FM_KEY_ON_OFF_OPS
+        ld      c, #0xF1
+        call    ym2610_write_port_a
+
+        ret
+
+
+;;; pmdneo_fm_write_voice_group:
+;;;   input : HL = voice data pointer, D = first register in group
+;;;   output: HL += 4
+
+pmdneo_fm_write_voice_group:
+        ld      e, #4
+pmdneo_fm_write_voice_group_loop:
+        ld      b, d
+        ld      c, (hl)
+        push    de
+        push    hl
+        call    ym2610_write_port_a
+        pop     hl
+        pop     de
+        inc     hl
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_write_voice_group_loop
+        ret
+
+
+pmdneo_fm_clear_ssg_eg:
+        ld      d, #0x91
+        ld      e, #4
+pmdneo_fm_clear_ssg_eg_loop:
+        ld      b, d
+        ld      c, #0x00
+        push    de
+        call    ym2610_write_port_a
+        pop     de
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_clear_ssg_eg_loop
+        ret
+
+
+;;; ----- fnumset_fm: note byte → FM chip ch 2 block/fnum -----
+;;;
+;;; 入力: A = note byte (= OCT 4 bit 上位 + ONKAI 4 bit 下位)
+;;; 動作:
+;;;   1. ONKAI で fnum_data[ONKAI × 2] (= OCT 0 base fnum) を取得
+;;;   2. OCT を block として 0xA5 bit 5-3 へ設定
+;;;   3. 0xA5 (= block + fnum upper) → 0xA1 (= fnum lower) の順で書込
+;;;      (= chip ch 2、 末尾 +1)
+;;; 破壊: A、 B、 C、 D、 E、 H、 L
+
+fnumset_fm::
+        push    af                      ; note byte 保存
+
+        ;; ONKAI を取り出して fnum_data の index に
+        and     #0x0F
+        ld      l, a
+        ld      h, #0
+        add     hl, hl                  ; HL = ONKAI × 2
+        ld      bc, #fnum_data
+        add     hl, bc
+
+        ;; DE = fnum (little endian)
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+
+        ;; OCT を block に変換
+        pop     af
+        rrca
+        rrca
+        rrca
+        rrca
+        and     #0x07
+        add     a, a
+        add     a, a
+        add     a, a                    ; A = block << 3
+        ld      l, a
+
+        ld      a, d
+        and     #0x07                   ; fnum upper 3 bit
+        or      l
+
+        ;; 0xA5 → 0xA1 の順で反映 (= chip ch 2)
+        push    de
+        ld      b, #0xA5
+        ld      c, a
+        call    ym2610_write_port_a
+        pop     de
+
+        ld      b, #0xA1
+        ld      c, e
+        call    ym2610_write_port_a
+
+        ret
+
+
 ;;; ----- psg_tune_data: 12 半音 × 2 byte (LE)、 OCT 0 ベース counter 値 -----
 ;;;
 ;;; PMD V4.8s 公式 psg_tune_data (= analysis_m_data_structure.md §5-1-1)。
@@ -423,6 +586,44 @@ psg_tune_data::
         .dw     0x08DD                  ; ONKAI 9  = A
         .dw     0x085E                  ; ONKAI 10 = A# (B♭)
         .dw     0x07E6                  ; ONKAI 11 = B
+
+
+;;; ----- fnum_data: FM 用 12 半音 × 2 byte (LE)、 OCT 0 base fnum -----
+
+fnum_data::
+        .dw     0x026A                  ; ONKAI 0  = C
+        .dw     0x028F                  ; ONKAI 1  = C#
+        .dw     0x02B6                  ; ONKAI 2  = D
+        .dw     0x02DF                  ; ONKAI 3  = D#
+        .dw     0x030B                  ; ONKAI 4  = E
+        .dw     0x0339                  ; ONKAI 5  = F
+        .dw     0x036A                  ; ONKAI 6  = F#
+        .dw     0x039E                  ; ONKAI 7  = G
+        .dw     0x03D5                  ; ONKAI 8  = G#
+        .dw     0x0410                  ; ONKAI 9  = A
+        .dw     0x044E                  ; ONKAI 10 = A#
+        .dw     0x048F                  ; ONKAI 11 = B
+
+
+;;; ----- fm_voice_data_default: PMD prgdat 25 byte voice -----
+;;;
+;;; byte order is register slot order: OP1, OP3, OP2, OP4.
+
+fm_voice_data_default::
+        ;; DT/ML × 4
+        .db     0x01, 0x01, 0x01, 0x01
+        ;; TL × 4
+        .db     0x18, 0x18, 0x18, 0x18
+        ;; KS/AR × 4
+        .db     0x1F, 0x1F, 0x1F, 0x1F
+        ;; AM/DR × 4
+        .db     0x00, 0x00, 0x00, 0x00
+        ;; SR × 4
+        .db     0x00, 0x00, 0x00, 0x00
+        ;; RR/SL × 4
+        .db     0x0F, 0x0F, 0x0F, 0x0F
+        ;; ALG/FB
+        .db     0x07
 
 
 ;;; ----- scale_notes: 1 octave スケール (= ドレミファソラシド) -----
