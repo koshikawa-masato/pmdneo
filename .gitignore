@@ -57,6 +57,9 @@ ipl_binary/
 # diary (個人記録、 git 管理外)
 dev-diary/
 
+# work memo (個人作業メモ、 git 管理外)
+docs/work/
+
 # secrets
 .env
 .env.*
