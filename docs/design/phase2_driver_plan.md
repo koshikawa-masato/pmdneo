@@ -154,8 +154,9 @@ Sub-phase 単位は §8 で詳細化。
         adpcmb  = 1     ; ADPCM-B 1ch 対応 (Phase 2 から有効)
         adpcma  = 0     ; ADPCM-A 6ch 対応 (Phase 2 では 0、 Phase 3 で 1)
 
-        ;; chip type (Phase 2 では YM2610B 想定、 YM2610 でも互換動作)
-        ym2610b = 1     ; FM 6ch (A/D 含む) 有効
+        ;; chip type (Phase 2 では YM2610B 想定、 YM2610 無印で audio gate)
+        ;; ADR-0001 (C 方針): driver は 6 ch 実装、 楽曲 Part A/D は不使用
+        ym2610b = 1     ; FM 6ch dispatch 有効 (= chip ch 1-6 全部 register write)
 
         .include "WORKAREA.INC"
         .include "REGMAP.INC"
@@ -182,13 +183,27 @@ Phase 2 では `adpcma = 0` で組み、 ADPCMA_DRV.ASM は include されない
 書き始める)。
 
 Phase 2 完成時の機能:
-- FM 6ch (A-F)
+- FM 6ch dispatch (A-F、 driver 全部実装、 ADR-0001 の (C) 方針で楽曲は
+  Part A/D 不使用 = chip ch 1/4 が YM2610 無印で output 配線なしのため)
 - SSG 3ch (G-I)
 - ADPCM-B 1ch (J)
 - K/R no-op stub (R = K)
 
 ADPCM-A 6ch (L-Q) は **silent**(= driver は MML body を解釈しない、
 そもそも `.m`/`.m2` には L-Q part が存在しない)。
+
+#### Part A/D 不使用の自己規律 (ADR-0001 (C) 方針)
+
+driver は 6 ch FM dispatch を YM2610B 仕様で実装するが、 楽曲 (`.m` / `.mn`)
+は Part B/C/E/F の 4 ch FM のみ運用する。 これは:
+
+- YM2610 無印 chip (= NEOGEO 標準) で chip ch 1/4 の output 配線がないため、
+  Part A/D を楽曲で使うと無音になる
+- PMD driver の不変条件 (= 無効 ch register write は破綻せず無音) が物理仕様と
+  整合し、 楽曲が誤って Part A/D を使っても破綻しない
+- audio gate は YM2610 無印基準で行い、 Part B/C/E/F のみで FM 音色を確認する
+
+詳細は [`docs/adr/0001-fm-ch1-ch4-no-use-policy.md`](../adr/0001-fm-ch1-ch4-no-use-policy.md)。
 
 ### 2-3. assembler 選定 — sdasz80 (推奨、 user judgment 9)
 
@@ -680,13 +695,15 @@ SubF (統合): SAMPLE2.M 等の長尺楽曲を投入し、 FM/SSG/ADPCM-B 統合
 - 不合格時: cmdtblp の dispatch / fnumset PSG / volset PSG の routine
   を見直す
 
-### 7-2. Step 2: FM 6 part 試料楽曲
+### 7-2. Step 2: FM 4 part 試料楽曲 (ADR-0001 (C) 方針)
 
-- 対象: 簡単な FM 楽曲 (= 試料 .m を 1 つ作成、 PMDDotNET で compile)
-- 期待: FM 6 ch 全てが正しい音色で鳴る (音色データ format = analysis
-  §5-7 通りに解釈される)
+- 対象: 簡単な FM 楽曲 (= 試料 .m を 1 つ作成、 PMDDotNET で compile、
+  Part B/C/E/F の 4 ch のみ使用)
+- 期待: chip ch 2/3/5/6 (= Part B/C/E/F) が正しい音色で鳴る
+  (音色データ format = analysis §5-7 通りに解釈される)
 - 合格基準:
-  - 6 ch の FM 音色が全て発音
+  - 4 ch の FM 音色が全て発音 (= chip ch 2/3/5/6)
+  - Part A/D に note を書いた場合は無音 (= ADR-0001 で許容、 driver 破綻なし)
   - operator 順序 (slot 1, 2, 3, 4 = OP1, OP3, OP2, OP4) が正しく
     register に書かれている (MAME ログ確認)
   - ALG/FB が正しく設定される

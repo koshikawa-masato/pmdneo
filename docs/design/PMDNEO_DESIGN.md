@@ -95,6 +95,16 @@ PMDNEO 設計含意:
 - ADPCM-A 6ch は OPNB 専用機能、 内蔵リズム音源(K/R)は OPNA 専用機能
 - PMDNEO は **OPNB 専用にとどめ、 K/R(OPNA 内蔵リズム)は実装しない**方針(2026-05-07 確定)
 
+A/D 使わない自己規律の正式化(2026-05-08 ADR-0001 確定):
+
+Phase 2 SubC-1 audio gate で chip ch 1 出力が無音であることが実証された
+(YM2610 無印で chip ch 1/4 = output 配線なし)。 PMD driver の不変条件
+(無効 ch register write は破綻せず無音) と物理仕様が二重整合し、 楽曲が
+誤って Part A/D を使っても driver は破綻しない。 これを根拠に **(C) 方針
+= 楽曲は Part B/C/E/F の 4 ch FM のみ運用** を ADR-0001 で正式確定した。
+
+詳細: [`docs/adr/0001-fm-ch1-ch4-no-use-policy.md`](../adr/0001-fm-ch1-ch4-no-use-policy.md)
+
 ## §1-3 ターゲット利用者
 
 PMDNEO の主要な利用者像は次の通り:

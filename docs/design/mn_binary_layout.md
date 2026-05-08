@@ -78,6 +78,25 @@ sub-part 拡張の literal 模倣ではない。
 - mc compiler の OPNA 出力経路は無改造で温存できる (= `.mn` 出力は追加
   経路として別実装)
 
+### 1-1-1. Part A/D 不使用の自己規律 (ADR-0001 (C) 方針)
+
+`.mn` の letter mapping は PMD V4.8s OPNA 慣習を温存 (= Part A-F = FM 6ch)
+するが、 楽曲生成側で **Part A / Part D は不使用** とする自己規律を持つ。
+理由:
+
+- NEOGEO 標準の YM2610 無印 chip では chip ch 1/4 (= Part A/D) に output
+  配線がない (= register write は通るが音が出ない)
+- PMD driver の不変条件 (= 無効 ch register write は破綻せず無音) と物理仕様が
+  二重整合
+- 楽曲は Part B/C/E/F の 4 ch FM + Part G-I の SSG 3ch + Part J の ADPCM-B +
+  Part L-Q の ADPCM-A 6ch の計 14 ch で運用
+
+driver は YM2610B 仕様で 6 ch FM dispatch を実装する (= 楽曲が誤って Part A/D
+を使っても破綻しない)。 mc compiler は Part A/D に note が書かれた場合 warning
+を出す (= error にはしない)。
+
+詳細は [`docs/adr/0001-fm-ch1-ch4-no-use-policy.md`](../adr/0001-fm-ch1-ch4-no-use-policy.md)。
+
 ### 1-2. K/R workarea / address は OPNA layout 通り確保
 
 K/R (内蔵 rhythm) part は PMDNEO では使用しない (YM2610/B に内蔵 rhythm
