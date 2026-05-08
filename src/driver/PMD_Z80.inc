@@ -70,6 +70,12 @@ pmdneo_init::
         ;; SubC-2: scale_mode = 0 (= SSG default)
         ld      (scale_mode), a
 
+        ;; SubF-1.1: sub-tick accumulator init + tempo default = t120
+        xor     a
+        ld      (driver_subtick_acc), a
+        ld      a, #24                  ; t120 → tempo_d = (120 * 13) >> 6 = 24
+        ld      (driver_tempo_d), a
+
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
@@ -83,9 +89,10 @@ pmdneo_init::
         ld      b, #5                   ; chip ch 6 = Part F
         call    pmdneo_fm_voice_set_default
 
-        ;; TIMER-B counter (0x26) = 0xC0 (= 約 488 µs 周期、 ≈ 2050 Hz)
+        ;; SubF-1.1: TIMER-B counter = 0xE1 (= 1 ms 周期固定、 sub-tick model
+        ;; で tempo を可変、 chip 周期は不変)
         ld      b, #REG_TIMER_B_COUNTER
-        ld      c, #0xC0
+        ld      c, #0xE1
         call    ym2610_write_port_a
 
         ;; TIMER-B enable + IRQ enable + reset (0x2A)
@@ -120,7 +127,19 @@ pmd_z80_main::
         or      a
         ret     nz
 
-        ;; driver_song_ready が立っている場合は PSG 解析ルートへ
+        ;; SubF-1.1: sub-tick gating
+        ;;   acc += driver_tempo_d、 overflow (= 8-bit carry) で internal_tick
+        ;;   t120 → tempo_d = 24 → 256/24 ≈ 10.67 IRQ で 1 internal_tick
+        ;;   = ~10.67 ms / tick @ 1ms TIMER-B → l4 (= 48 tick) = ~512 ms = 0.5 s
+        ld      a, (driver_subtick_acc)
+        ld      b, a
+        ld      a, (driver_tempo_d)
+        add     a, b
+        ld      (driver_subtick_acc), a
+        ret     nc                      ; overflow なし → song dispatch しない
+
+        ;; overflow → song dispatch 1 回 (= internal_tick boundary)
+        ;; driver_song_ready が立っている場合は part 駆動経路へ
         ld      a, (driver_song_ready)
         or      a
         jr      z, pmd_z80_main_scale
@@ -1501,13 +1520,16 @@ rhythm_main_done:
 ;;; raw length を 8 倍して audio gate 用の速度に落とす。
 
 pmdneo_scale_mml_length::
-        push    bc
+        ;; SubF-1.1: × 8 倍 scale 撤廃 (= sub-tick gating で internal_tick rate
+        ;; が tempo に応じて自動調整、 raw length byte をそのまま PART_OFF_LEN へ)
         or      a
-        jr      nz, pmdneo_scale_mml_length_start
+        ret     nz
         inc     a                       ; 0 length は最低 1 tick にする
-        jr      pmdneo_scale_mml_length_done
+        ret
 
-pmdneo_scale_mml_length_start:
+;;; legacy 経路 (= 旧 PMDNEO_MML_LEN_SHIFT、 sub-tick model 化で不要):
+pmdneo_scale_mml_length_legacy:
+        push    bc
         ld      c, #PMDNEO_MML_LEN_SHIFT
 pmdneo_scale_mml_length_loop:
         add     a, a

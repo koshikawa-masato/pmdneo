@@ -105,7 +105,10 @@ driver_song_end::
         .ds 2
 driver_fade_state::
         .ds 1
-        .ds 4
+;;; SubF-1.1: sub-tick accumulator (= IRQ ごとに driver_tempo_d 加算、 overflow で internal_tick)
+driver_subtick_acc::
+        .ds 1
+        .ds 3
 
 ;;; SubB-2: TIMER-B IRQ count (= 周期発火の動作証跡)
 ;;; nullsound の TIMER-B IRQ で update_timer_state_tracker が呼ばれた後、
