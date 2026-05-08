@@ -49,12 +49,22 @@ pmdneo_init::
         ld      hl, #0
         ld      (pmdneo_irq_count), hl
 
+        ;; driver 共通 state を初期化
+        ld      hl, #0
+        ld      (driver_tempo_d), hl
+        ld      (driver_tempo_48), hl
+        ld      (driver_psg_noise), hl
+        ld      (driver_tieflag), hl
+        ld      (driver_song_ready), hl
+        ld      (driver_song_base), hl
+        ld      (driver_song_end), hl
+
         ;; SubB-4: scale state init
         xor     a
         ld      (scale_step), a
 
-        ld      a, #SCALE_TICK_INITIAL
-        ld      (scale_tick), a
+        ld      hl, #SCALE_TICK_INITIAL
+        ld      (scale_tick_lo), hl
 
         ;; TIMER-B counter (0x26) = 0xC0 (= 約 488 µs 周期、 ≈ 2050 Hz)
         ld      b, #REG_TIMER_B_COUNTER
@@ -88,17 +98,34 @@ pmd_z80_main::
         inc     hl
         ld      (pmdneo_irq_count), hl
 
-        ;; scale_tick decrement
-        ld      a, (scale_tick)
-        dec     a
-        ld      (scale_tick), a
+        ;; driver_song_ready が立っている場合は PSG 解析ルートへ
+        ld      a, (driver_song_ready)
         or      a
+        jr      z, pmd_z80_main_scale
+
+        call    pmdneo_song_main
+        ret
+
+pmd_z80_main_scale:
+
+        ;; scale_tick decrement (16 bit)
+        ld      hl, (scale_tick_lo)
+        ld      a, h
+        or      l
+        jr      z, pmd_z80_main_scale_step
+        dec     hl
+        ld      (scale_tick_lo), hl
+        ld      a, h
+        or      l
         ret     nz                      ; tick 残ってる → return
 
         ;; tick 0 → 次 step に進む
+pmd_z80_main_scale_step:
         ld      a, (scale_step)
+        cp      #0xFF
+        ret     z                       ; scale test stopped
         cp      #8
-        ret     nc                      ; 8 step 終わった → return (= 最後の音保持)
+        jr      nc, pmd_z80_main_scale_stop
 
         ;; scale_notes[scale_step] を fnumsetp で発音
         ld      hl, #scale_notes
@@ -114,9 +141,24 @@ pmd_z80_main::
         ld      (scale_step), a
 
         ;; scale_tick reset
-        ld      a, #SCALE_TICK_INITIAL
-        ld      (scale_tick), a
+        ld      hl, #SCALE_TICK_INITIAL
+        ld      (scale_tick_lo), hl
 
+        ret
+
+pmd_z80_main_scale_stop:
+        ;; 最後の音を約 1 秒鳴らした後に停止
+        ld      b, #0
+        call    pmdneo_psg_keyoff
+        ld      b, #1
+        call    pmdneo_psg_keyoff
+        ld      b, #2
+        call    pmdneo_psg_keyoff
+        ld      a, #0xFF
+        ld      (scale_step), a
+        xor     a
+        ld      (scale_tick_lo), a
+        ld      (scale_tick_hi), a
         ret
 
 
@@ -128,9 +170,16 @@ pmd_z80_main::
 ;;;   2. OCT 回 right shift (= 1 octave あたり counter / 2)
 ;;;   3. SSG ch A fine tune (LSB) + coarse tune (MSB) に書込
 ;;; 破壊: A、 B、 C、 D、 E、 H、 L
+;;;
+;;; SubB-5 以降は B = channel index (0=A, 1=B, 2=C) で他 ch へ再利用する。
 
 fnumsetp::
+        ld      b, #0
+        jp      fnumsetp_ch
+
+fnumsetp_ch::
         push    af                      ; note byte 保存
+        push    bc                      ; channel index 保存
 
         ;; ONKAI を取り出して psg_tune_data の index に
         and     #0x0F
@@ -146,6 +195,7 @@ fnumsetp::
         ld      d, (hl)
 
         ;; OCT を取り出し (note byte の上位 4 bit)
+        pop     bc                      ; channel index 復帰
         pop     af
         rrca
         rrca
@@ -163,15 +213,33 @@ fnumsetp_shift:
         jr      nz, fnumsetp_shift
 
 fnumsetp_set:
-        ;; SSG ch A fine tune (0x00) = E (LSB)
-        ld      b, #REG_SSG_A_FINE_TUNE
+        ;; ch ごとの register を引く
+        push    bc                      ; channel index を保持
+        push    de
+        ld      hl, #psg_fine_regs
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, (hl)
+        pop     de
         ld      c, e
         call    ym2610_write_port_a
 
-        ;; SSG ch A coarse tune (0x01) = D (MSB)
-        ld      b, #REG_SSG_A_COARSE_TUNE
+        pop     bc                      ; channel index を戻す
+        push    bc
+        push    de
+        ld      hl, #psg_coarse_regs
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, (hl)
+        pop     de
         ld      c, d
         call    ym2610_write_port_a
+
+        pop     bc                      ; channel index 保存を解除
 
         ret
 
@@ -202,9 +270,9 @@ test_play_scale::
         ld      a, #1
         ld      (scale_step), a
 
-        ;; scale_tick reset (次の note までの時間)
-        ld      a, #SCALE_TICK_INITIAL
-        ld      (scale_tick), a
+        ;; scale_tick reset (次の note までの時間、 実測 0x0800 の約 1/40)
+        ld      hl, #SCALE_TICK_INITIAL
+        ld      (scale_tick_lo), hl
 
         ret
 
@@ -251,8 +319,635 @@ scale_notes::
 
 ;;; ----- SCALE_TICK_INITIAL: 各 note の duration (= TIMER-B tick 数) -----
 ;;;
-;;; TIMER-B 周期 ≈ 488 µs。 256 tick ≈ 125 ms。
-;;; SubB-4 では 0xFF (= 255 tick ≈ 125 ms) を 1 note の duration にする。
-;;; 8 note × 125 ms = 1 sec のスケール。
+;;; 実機/エミュレータ実測で 0x0800 が約 38 sec だったため、
+;;; SubB-4 では 0x0800 / 40 ≒ 0x0033 を 1 note の duration にする。
 
-SCALE_TICK_INITIAL = 0xFF
+SCALE_TICK_INITIAL = 0x0033
+
+
+;;; ----- PSG / part helper -----
+
+pmdneo_song_main::
+        ld      a, #PART_SSG1
+        call    pmdneo_psgmain
+        ld      a, #PART_SSG2
+        call    pmdneo_psgmain
+        ld      a, #PART_SSG3
+        call    pmdneo_psgmain
+        ret
+
+
+;;; pmdneo_part_ix_from_part:
+;;;   input : A = part index
+;;;   output: IX = part_workarea + A * PART_WORKAREA_SIZE
+
+pmdneo_part_ix_from_part::
+        ld      l, a
+        ld      h, #0
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl                      ; *64
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ret
+
+
+;;; pmdneo_part_fetch_byte:
+;;;   IX = current part workarea
+;;;   返値 A = *addr、 addr を 1 byte 進める
+
+pmdneo_part_fetch_byte::
+        ld      l, PART_OFF_ADDR(ix)
+        ld      h, PART_OFF_ADDR+1(ix)
+        ld      a, (hl)
+        inc     hl
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        ret
+
+
+;;; pmdneo_psg_keyon / keyoff
+
+pmdneo_psg_keyon::
+        ;; A = note byte, B = channel index
+        call    fnumsetp_ch
+
+        ld      hl, #psg_volume_regs
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, (hl)
+        ld      c, PART_OFF_VOLUME(ix)
+        ld      a, c
+        and     #0x0F
+        ld      c, a
+        call    ym2610_write_port_a
+        ret
+
+pmdneo_psg_keyoff::
+        ld      hl, #psg_volume_regs
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, (hl)
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ret
+
+
+;;; ----- pmdneo_psgmain: PSG part 1 step -----
+;;;
+;;; いまは SubB-5/6 の骨格。 driver_song_ready が立った後に
+;;; .m stream を part_workarea に流し込む前提で動かす。
+;;; 未初期化 part は addr=0 で即 return。
+
+pmdneo_psgmain::
+        push    af
+        call    pmdneo_part_ix_from_part
+        pop     af
+        sub     #PART_SSG1
+        ld      b, a                        ; channel index (0-2)
+
+        ld      a, PART_OFF_ADDR(ix)
+        or      PART_OFF_ADDR+1(ix)
+        ret     z
+
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jr      z, pmdneo_psgmain_parse
+
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        jr      nz, pmdneo_psgmain_done
+
+        ;; length == 0 になったら keyoff して次 token へ進む
+        call    pmdneo_psg_keyoff
+
+pmdneo_psgmain_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jr      z, pmdneo_psgmain_end
+        jr      c, pmdneo_psgmain_note
+        cp      #0xB1
+        jr      c, pmdneo_psgmain_clear
+
+        call    commandsp
+        jr      pmdneo_psgmain_parse
+
+pmdneo_psgmain_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_LEN(ix), a
+
+        ld      a, PART_OFF_NOTE(ix)
+        call    pmdneo_psg_keyon
+        ret
+
+pmdneo_psgmain_end:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jr      z, pmdneo_psgmain_clear
+
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jr      pmdneo_psgmain_parse
+
+pmdneo_psgmain_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+
+pmdneo_psgmain_done:
+        ret
+
+
+;;; ----- commandsp / cmdtblp -----
+
+commandsp::
+        cp      #0xB1
+        ret     c
+
+        cpl
+        add     a, a
+        ld      l, a
+        ld      h, #0
+        ld      de, #cmdtblp
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        push    de
+        ret
+
+
+;;; PSG 用 dispatch table
+;;;
+;;; 0xFF から 0xB1 までの 79 entry。 未実装 entry は jumpN で
+;;; arg byte を消費して無害化する。
+
+cmdtblp:
+        .dw     jump1                       ; 0xFF @
+        .dw     comq                        ; 0xFE q
+        .dw     comv                        ; 0xFD v
+        .dw     comt                        ; 0xFC t
+        .dw     comtie                      ; 0xFB &
+        .dw     comd                        ; 0xFA D
+        .dw     comstloop                   ; 0xF9 [
+        .dw     comedloop                   ; 0xF8 ]
+        .dw     comexloop                   ; 0xF7 :
+        .dw     comlopset                   ; 0xF6 L
+        .dw     comshift                    ; 0xF5 _
+        .dw     comvolupp                   ; 0xF4 )
+        .dw     comvoldownp                 ; 0xF3 (
+        .dw     lfoset                      ; 0xF2 M
+        .dw     lfoswitch                   ; 0xF1 *
+        .dw     psgenvset                   ; 0xF0 E
+        .dw     comy                        ; 0xEF y
+        .dw     psgnoise                    ; 0xEE w
+        .dw     psgsel                      ; 0xED P
+        .dw     jump1                       ; 0xEC p (PSG pan なし)
+        .dw     rhykey                      ; 0xEB
+        .dw     rhyvs                       ; 0xEA
+        .dw     rpnset                      ; 0xE9
+        .dw     rmsvs                       ; 0xE8
+        .dw     comshift2                   ; 0xE7
+        .dw     rmsvs_sft                   ; 0xE6
+        .dw     rhyvs_sft                   ; 0xE5
+        .dw     jump1                       ; 0xE4 hardware LFO delay なし
+        .dw     comvolupp2                  ; 0xE3
+        .dw     comvoldownp2                ; 0xE2
+        .dw     jump1                       ; 0xE1 hardware LFO なし
+        .dw     jump1                       ; 0xE0 hardware LFO なし
+        .dw     syousetu_lng_set            ; 0xDF
+        .dw     vol_one_up_psg              ; 0xDE
+        .dw     vol_one_down                ; 0xDD
+        .dw     status_write                ; 0xDC
+        .dw     status_add                  ; 0xDB
+        .dw     portap                      ; 0xDA
+        .dw     jump1                       ; 0xD9
+        .dw     jump1                       ; 0xD8
+        .dw     jump1                       ; 0xD7
+        .dw     mdepth_set                  ; 0xD6
+        .dw     comdd                       ; 0xD5
+        .dw     ssg_efct_set                ; 0xD4
+        .dw     fm_efct_set                 ; 0xD3
+        .dw     fade_set                    ; 0xD2
+        .dw     jump1                       ; 0xD1
+        .dw     psgnoise_move               ; 0xD0
+        .dw     jump1                       ; 0xCF
+        .dw     jump6                       ; 0xCE
+        .dw     extend_psgenvset            ; 0xCD
+        .dw     detune_extend               ; 0xCC
+        .dw     lfowave_set                 ; 0xCB
+        .dw     lfo_extend                  ; 0xCA
+        .dw     envelope_extend             ; 0xC9
+        .dw     jump3                       ; 0xC8
+        .dw     jump3                       ; 0xC7
+        .dw     jump6                       ; 0xC6
+        .dw     jump1                       ; 0xC5
+        .dw     comq2                       ; 0xC4
+        .dw     jump2                       ; 0xC3
+        .dw     lfoset_delay                ; 0xC2
+        .dw     jump0                       ; 0xC1
+        .dw     ssg_mml_part_mask           ; 0xC0
+        .dw     _lfoset                     ; 0xBF
+        .dw     _lfoswitch                  ; 0xBE
+        .dw     _mdepth_set                 ; 0xBD
+        .dw     _lfowave_set                ; 0xBC
+        .dw     _lfo_extend                 ; 0xBB
+        .dw     jump1                       ; 0xBA
+        .dw     _lfoset_delay               ; 0xB9
+        .dw     jump2                       ; 0xB8
+        .dw     mdepth_count                ; 0xB7
+        .dw     jump1                       ; 0xB6
+        .dw     jump2                       ; 0xB5
+        .dw     jump16                      ; 0xB4
+        .dw     comq3                       ; 0xB3
+        .dw     comshift_master             ; 0xB2
+        .dw     comq4                       ; 0xB1
+
+
+;;; ----- jumpN -----
+
+jump16:
+        ld      de, #10
+        add     hl, de
+        ret
+
+jump6:
+        inc     hl
+jump5:
+        inc     hl
+jump4:
+        inc     hl
+jump3:
+        inc     hl
+jump2:
+        inc     hl
+jump1:
+        inc     hl
+jump0:
+        ret
+
+
+;;; ----- PSG command handlers -----
+
+comq:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDATA(ix), a
+        xor     a
+        ld      PART_OFF_QDAT3(ix), a
+        ret
+
+comq2:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDATB(ix), a
+        ret
+
+comq3:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDAT2(ix), a
+        ret
+
+comq4:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDAT3(ix), a
+        ret
+
+comv:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+comt:
+        call    pmdneo_part_fetch_byte
+        ld      (driver_tempo_d), a
+        ld      (driver_tempo_48), a
+        ret
+
+comtie:
+        ld      a, #1
+        ld      PART_OFF_TIEFLAG(ix), a
+        ld      (driver_tieflag), a
+        ret
+
+comd:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comdd:
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, PART_OFF_SHIFT(ix)
+        add     a, b
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comstloop:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
+        ld      l, PART_OFF_ADDR(ix)
+        ld      h, PART_OFF_ADDR+1(ix)
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        xor     a
+        ld      PART_OFF_LOOPCNT(ix), a
+        ret
+
+comedloop:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_LOOPCNT(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      a, PART_OFF_LOOPCNT(ix)
+        or      a
+        jr      z, comedloop_back
+        dec     a
+        ld      PART_OFF_LOOPCNT(ix), a
+        jr      nz, comedloop_back
+        ret
+comedloop_back:
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        ret
+
+comexloop:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
+        ld      a, PART_OFF_LOOPCNT(ix)
+        or      a
+        ret     nz
+        ret
+
+comlopset:
+        ld      l, PART_OFF_ADDR(ix)
+        ld      h, PART_OFF_ADDR+1(ix)
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ret
+
+comshift:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comshift2:
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, PART_OFF_SHIFT(ix)
+        add     a, b
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comvolupp:
+        ld      a, PART_OFF_VOLUME(ix)
+        inc     a
+        cp      #16
+        jr      c, comvolupp_set
+        ld      a, #15
+comvolupp_set:
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+comvolupp2:
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        add     a, b
+        cp      #16
+        jr      c, comvolupp2_set
+        ld      a, #15
+comvolupp2_set:
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+comvoldownp:
+        ld      a, PART_OFF_VOLUME(ix)
+        or      a
+        ret     z
+        dec     a
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+comvoldownp2:
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        sub     b
+        jr      nc, comvoldownp2_set
+        xor     a
+comvoldownp2_set:
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+lfoset:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_LFOSWI(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_FLAGS(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      (driver_tempo_d_push), a
+        call    pmdneo_part_fetch_byte
+        ld      (driver_tempo_48_push), a
+        ret
+
+lfoset_delay:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_FLAGS(ix), a
+        ret
+
+lfoswitch:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_LFOSWI(ix), a
+        ret
+
+psgenvset:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PAT(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PV2(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PR1(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PR2(ix), a
+        ret
+
+extend_psgenvset:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PAT(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PV2(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PR1(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PR2(ix), a
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_ENVVOL(ix), a
+        ret
+
+psgnoise:
+        call    pmdneo_part_fetch_byte
+        ld      (driver_psg_noise), a
+        ret
+
+psgnoise_move:
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, (driver_psg_noise)
+        add     a, b
+        ld      (driver_psg_noise), a
+        ret
+
+psgsel:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_PSGPAT(ix), a
+        ret
+
+;;; --- PSG 以外の PSG table entry で触る no-op 群 ---
+
+comy:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
+        ret
+
+comvolup:
+        jp      comvolupp
+
+comvoldown:
+        jp      comvoldownp
+
+comvolup2:
+        jp      comvolupp2
+
+comvoldown2:
+        jp      comvoldownp2
+
+comshift_master:
+        call    pmdneo_part_fetch_byte
+        ret
+
+status_write:
+        call    pmdneo_part_fetch_byte
+        ret
+
+status_add:
+        call    pmdneo_part_fetch_byte
+        ret
+
+porta:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
+        ret
+
+portap:
+        call    pmdneo_part_fetch_byte
+        ret
+
+mdepth_set:
+        call    pmdneo_part_fetch_byte
+        ret
+
+fade_set:
+        call    pmdneo_part_fetch_byte
+        ret
+
+ssg_efct_set:
+        call    pmdneo_part_fetch_byte
+        ret
+
+fm_efct_set:
+        call    pmdneo_part_fetch_byte
+        ret
+
+syousetu_lng_set:
+        call    pmdneo_part_fetch_byte
+        ret
+
+ssg_mml_part_mask:
+        call    pmdneo_part_fetch_byte
+        ret
+
+vol_one_up_psg:
+        ld      a, PART_OFF_VOLUME(ix)
+        inc     a
+        cp      #16
+        jr      c, vol_one_up_psg_set
+        ld      a, #15
+vol_one_up_psg_set:
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+vol_one_down:
+        ld      a, PART_OFF_VOLUME(ix)
+        or      a
+        ret     z
+        dec     a
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
+lfowave_set:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_FLAGS(ix), a
+        ret
+
+lfo_extend:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_FLAGS(ix), a
+        ret
+
+_lfoset:
+        jp      lfoset
+
+_lfoswitch:
+        jp      lfoswitch
+
+_mdepth_set:
+        jp      mdepth_set
+
+_lfowave_set:
+        jp      lfowave_set
+
+_lfo_extend:
+        jp      lfo_extend
+
+_lfoset_delay:
+        jp      lfoset_delay
+
+mdepth_count:
+        ret
+
+detune_extend:
+        call    pmdneo_part_fetch_byte
+        ret
+
+envelope_extend:
+        call    pmdneo_part_fetch_byte
+        ret
+
+;;; ----- PSG register table -----
+
+psg_fine_regs:
+        .db     REG_SSG_A_FINE_TUNE
+        .db     REG_SSG_B_FINE_TUNE
+        .db     REG_SSG_C_FINE_TUNE
+
+psg_coarse_regs:
+        .db     REG_SSG_A_COARSE_TUNE
+        .db     REG_SSG_B_COARSE_TUNE
+        .db     REG_SSG_C_COARSE_TUNE
+
+psg_volume_regs:
+        .db     REG_SSG_A_VOLUME
+        .db     REG_SSG_B_VOLUME
+        .db     REG_SSG_C_VOLUME

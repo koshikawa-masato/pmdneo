@@ -41,6 +41,33 @@ PART_COUNT   = 17
 
 PART_WORKAREA_SIZE = 64
 
+;;; ----- per-part field offset -----
+;;;
+;;; PMD V4.8s の qq struc から、 Phase 2 SubB で PSG 解析に必要な最小
+;;; 部分を先に固定する。 FM / ADPCM-B 側は後続 sub-phase で拡張する。
+
+PART_OFF_ADDR     = 0    ; 2 byte current stream pointer
+PART_OFF_LOOP     = 2    ; 2 byte loop start pointer
+PART_OFF_LEN      = 4    ; 1 byte length counter
+PART_OFF_QDATA    = 5    ; 1 byte q
+PART_OFF_QDATB    = 6    ; 1 byte Q
+PART_OFF_QDAT2    = 7    ; 1 byte q2
+PART_OFF_QDAT3    = 8    ; 1 byte q3
+PART_OFF_VOLUME   = 9    ; 1 byte volume
+PART_OFF_SHIFT    = 10   ; 1 byte transposition
+PART_OFF_NOTE     = 11   ; 1 byte last note
+PART_OFF_LOOPCNT  = 12   ; 1 byte loop counter
+PART_OFF_LFOSWI   = 13   ; 1 byte LFO switch flag
+PART_OFF_PSGPAT   = 14   ; 1 byte PSG tone/noise/mix
+PART_OFF_TIEFLAG  = 15   ; 1 byte tie flag
+PART_OFF_ENVF     = 16   ; 1 byte PSG envelope mode
+PART_OFF_PAT      = 17   ; 1 byte PSG envelope pat
+PART_OFF_PV2      = 18   ; 1 byte PSG envelope pv2
+PART_OFF_PR1      = 19   ; 1 byte PSG envelope pr1
+PART_OFF_PR2      = 20   ; 1 byte PSG envelope pr2
+PART_OFF_ENVVOL   = 21   ; 1 byte PSG envelope volume
+PART_OFF_FLAGS    = 22   ; 1 byte future use
+
 ;;; ----- workarea 領域 (BSS) -----
 
         .area BSS
@@ -54,7 +81,26 @@ part_workarea::
 ;;; SubA 暫定 16 byte、 Phase 2 SubB-F で field 確定
 
 driver_state::
-        .ds 16
+driver_tempo_d::
+        .ds 1
+driver_tempo_d_push::
+        .ds 1
+driver_tempo_48::
+        .ds 1
+driver_tempo_48_push::
+        .ds 1
+driver_psg_noise::
+        .ds 1
+driver_tieflag::
+        .ds 1
+driver_song_ready::
+        .ds 1
+driver_song_base::
+        .ds 2
+driver_song_end::
+        .ds 2
+        .ds 1
+        .ds 4
 
 ;;; SubB-2: TIMER-B IRQ count (= 周期発火の動作証跡)
 ;;; nullsound の TIMER-B IRQ で update_timer_state_tracker が呼ばれた後、
@@ -66,11 +112,14 @@ pmdneo_irq_count::
 
 ;;; SubB-4: scale 演奏 state (= G part でドレミファソラシド)
 ;;; scale_step: 0-7 が現在の scale step、 8 で end
-;;; scale_tick: TIMER-B tick の残り、 0 になったら次 step へ
+;;; scale_tick_hi/lo: TIMER-B tick の残り、 0 になったら次 step へ
 ;;;             (= note duration を tick 単位で表現)
 
 scale_step::
         .ds 1
 
-scale_tick::
+scale_tick_lo::
+        .ds 1
+
+scale_tick_hi::
         .ds 1
