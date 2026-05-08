@@ -127,3 +127,7 @@ scale_tick_lo::
 
 scale_tick_hi::
         .ds 1
+
+;;; SubC-2: scale 駆動 mode (0 = SSG ch A 既存、 1 = FM chip ch 2)
+scale_mode::
+        .ds 1

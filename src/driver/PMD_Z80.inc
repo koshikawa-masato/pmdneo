@@ -64,6 +64,9 @@ pmdneo_init::
         xor     a
         ld      (scale_step), a
 
+        ;; SubC-2: scale_mode = 0 (= SSG default)
+        ld      (scale_mode), a
+
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
@@ -128,14 +131,36 @@ pmd_z80_main_scale_step:
         cp      #8
         jr      nc, pmd_z80_main_scale_stop
 
-        ;; scale_notes[scale_step] を fnumsetp で発音
+        ;; SubC-2: scale_mode で table 選択 (= note byte は OCT base が違う、
+        ;; SSG OCT 1 ≈ C4 / FM OCT 4 = C4)
+        push    af                      ; A = scale_step を保存
+        ld      a, (scale_mode)
+        or      a
+        jr      nz, pmd_z80_main_scale_step_fm_table
         ld      hl, #scale_notes
+        jr      pmd_z80_main_scale_step_table_done
+pmd_z80_main_scale_step_fm_table:
+        ld      hl, #scale_notes_fm
+pmd_z80_main_scale_step_table_done:
+        pop     af                      ; A = scale_step 復元
         ld      e, a
         ld      d, #0
         add     hl, de
-        ld      a, (hl)
-        call    fnumsetp
+        ld      a, (hl)                 ; A = note byte
 
+        ;; SubC-2: scale_mode で fnumset routine 切替
+        push    af
+        ld      a, (scale_mode)
+        or      a
+        jr      nz, pmd_z80_main_scale_step_fm
+        pop     af
+        call    fnumsetp
+        jr      pmd_z80_main_scale_step_advance
+pmd_z80_main_scale_step_fm:
+        pop     af
+        call    fnumset_fm
+
+pmd_z80_main_scale_step_advance:
         ;; scale_step++
         ld      a, (scale_step)
         inc     a
@@ -148,13 +173,27 @@ pmd_z80_main_scale_step:
         ret
 
 pmd_z80_main_scale_stop:
-        ;; 最後の音を約 1 秒鳴らした後に停止
+        ;; SubC-2: scale_mode で keyoff routine 切替
+        ld      a, (scale_mode)
+        or      a
+        jr      nz, pmd_z80_main_scale_stop_fm
+
+        ;; SSG keyoff (= 既存 SubB-4)
         ld      b, #0
         call    pmdneo_psg_keyoff
         ld      b, #1
         call    pmdneo_psg_keyoff
         ld      b, #2
         call    pmdneo_psg_keyoff
+        jr      pmd_z80_main_scale_stop_done
+
+pmd_z80_main_scale_stop_fm:
+        ;; FM chip ch 2 keyoff (= slot mask 0x00 + ch index 1 = 0x01)
+        ld      b, #REG_FM_KEY_ON_OFF_OPS
+        ld      c, #0x01
+        call    ym2610_write_port_a
+
+pmd_z80_main_scale_stop_done:
         ld      a, #0xFF
         ld      (scale_step), a
         xor     a
@@ -469,6 +508,72 @@ test_play_fm_c4::
         ret
 
 
+;;; ----- test_play_fm_scale_b: SubC-2 chip ch 2 で FM スケール -----
+;;;
+;;; SubC-1 の test_play_fm_c4 と同じ音色 + PAN + ALG/FB 設定後、 scale_mode
+;;; を 1 にして SubB-4 の scale 駆動経路 (= pmd_z80_main_scale_step) に乗せる。
+;;; scale_notes_fm (= OCT 4 ベースの 8 note) を順に発音、 keyon は 1 回だけで
+;;; envelope 維持のまま fnum 変更で legato。 終端で keyoff。
+;;;
+;;; 入力: なし
+;;; 破壊: A、 B、 C、 D、 E、 H、 L、 IX
+
+test_play_fm_scale_b::
+        ;; ALG/FB
+        ld      hl, #fm_voice_data_default
+        ld      de, #24
+        add     hl, de
+        ld      b, #0xB1
+        ld      c, (hl)
+        call    ym2610_write_port_a
+
+        ld      hl, #fm_voice_data_default
+
+        ld      d, #0x31
+        call    pmdneo_fm_write_voice_group
+
+        ld      d, #0x41
+        call    pmdneo_fm_write_voice_group
+
+        ld      d, #0x51
+        call    pmdneo_fm_write_voice_group
+
+        ld      d, #0x61
+        call    pmdneo_fm_write_voice_group
+
+        ld      d, #0x71
+        call    pmdneo_fm_write_voice_group
+
+        ld      d, #0x81
+        call    pmdneo_fm_write_voice_group
+
+        call    pmdneo_fm_clear_ssg_eg
+
+        ;; 最初の note (= scale_notes_fm[0] = C4) を fnumset
+        ld      a, (#scale_notes_fm)
+        call    fnumset_fm
+
+        ;; PAN L/R on
+        ld      b, #0xB5
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+
+        ;; keyon (= chip ch 2 全 op、 envelope 開始)
+        ld      b, #REG_FM_KEY_ON_OFF_OPS
+        ld      c, #0xF1
+        call    ym2610_write_port_a
+
+        ;; SubC-2 scale 駆動 state init: mode = 1 (FM)、 step = 1 (= 既に [0] 発音済)、
+        ;; tick = SCALE_TICK_INITIAL
+        ld      a, #1
+        ld      (scale_mode), a
+        ld      (scale_step), a
+        ld      hl, #SCALE_TICK_INITIAL
+        ld      (scale_tick_lo), hl
+
+        ret
+
+
 ;;; pmdneo_fm_write_voice_group:
 ;;;   input : HL = voice data pointer, D = first register in group
 ;;;   output: HL += 4
@@ -641,6 +746,11 @@ fm_voice_data_default::
 
 scale_notes::
         .db     0x10, 0x12, 0x14, 0x15, 0x17, 0x19, 0x1B, 0x20
+
+;;; SubC-2: FM 用 scale_notes (= OCT 4 ベース、 C4 = 0x40)
+;;; SSG OCT 1 (= 0x10) ≈ FM OCT 4 (= 0x40) ≒ 261 Hz
+scale_notes_fm::
+        .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
 
 
 ;;; ----- SCALE_TICK_INITIAL: 各 note の duration (= TIMER-B tick 数) -----
