@@ -43,7 +43,8 @@ cmd_jmptable::
         jp      snd_command_02_play_song                 ; 0x02 PMDNEO 楽曲再生開始
         jp      snd_command_03_reset_driver              ; 0x03 ngdevkit reserved (user 実装)
         jp      snd_command_04_fade_out                  ; 0x04 fade out (将来)
-        ;; 残り 123 entry を未使用 cmd で padding (nullsound 慣習、 helpers.inc macro)
+        jp      snd_command_05_play_adpcmb_test          ; 0x05 ADPCM-B beat 単発再生
+        ;; 残り 122 entry を未使用 cmd で padding (nullsound 慣習、 helpers.inc macro)
         init_unused_cmd_jmptable
 
 
@@ -78,4 +79,14 @@ pmdneo_play_loop::
 
 snd_command_04_fade_out::
         ;; SubF で fade out 実装
+        ret
+
+
+;;; ----- snd_command_05_play_adpcmb_test: SubE-1 ADPCM-B 単発再生 -----
+;;;
+;;; cmd 2 (FM song) と並列発火。即 ret するため polling loop に入らず、
+;;; FM song 駆動を妨げない。
+
+snd_command_05_play_adpcmb_test::
+        call    test_play_adpcmb_beat
         ret

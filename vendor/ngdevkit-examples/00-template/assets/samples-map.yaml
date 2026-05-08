@@ -1,0 +1,3 @@
+- adpcm_b:
+    name: beat
+    uri: file://assets/beat.wav

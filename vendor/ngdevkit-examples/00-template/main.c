@@ -45,6 +45,11 @@ int main(void) {
   // Z80 側の reset/NMI 完了と mainloop 再開を待ってから次 command を送る。
   ng_wait_vblank();
   ng_wait_vblank();
+  // SubE-1: cmd 5 (ADPCM-B beat、 即 ret) を cmd 2 より先に発火する。
+  // cmd 2 は polling loop に入って driver が新 cmd を受け付けないため、
+  // ADPCM-B は cmd 2 の前に dispatch しないと無音になる。
+  *REG_SOUND = 5;
+  ng_wait_vblank();
   *REG_SOUND = 2;
 
   // ngdevkit のデフォルト VBlank handler が watchdog を rearm する

@@ -38,6 +38,7 @@ include config.mk
 # You can customize it to match your requirements
 include rom.mk
 
+# SubE-1 (lastbld2 template): VROMTEMPLATE は rom.mk で定義済 (= 243-vX.vX)
 # All the generic build targets (68k, Z80, assets, run)
 include build.mk
 
@@ -93,7 +94,7 @@ $(SOUND_DRIVER): $(BUILDDIR)/PMDNEO.rel
 
 # PMDNEO.s が include する file 群への依存 (build.mk の %.rel: %.s rule で
 # sdasz80 が compile、 cwd 相対の include は scripts/build-poc.sh で symlink される)
-$(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD_Z80.inc ADPCMB_DRV.inc ADPCMA_DRV.inc
+$(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD_Z80.inc ADPCMB_DRV.inc ADPCMA_DRV.inc $(BUILDDIR)/assets/samples.inc
 
 
 
@@ -105,6 +106,7 @@ $(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD
 # the dependencies automatically.
 # By default, no sample is used, so the VROM is empty
 # Note: build rules (%.wav-> %.adpcm<a,b>) are defined in Makefile.build
+$(VROM1): assets/samples-map.yaml
 
 
 
@@ -125,7 +127,12 @@ $(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD
 #     the right ROM bank based on your input assets
 # Those actions can be achieved by creating custom make targets
 # that get invoked automatically when added to the variable below.
-CUSTOM_GENERATE_TARGETS=
+CUSTOM_GENERATE_TARGETS=generate-sfx
+
+generate-sfx: $(BUILDDIR)/assets/samples.inc
+
+$(BUILDDIR)/assets/samples.inc: assets/samples-map.yaml
+	$(VROMTOOL) --asm -s $(VROMSIZE) $< -o $(VROM1) -m $@
 
 
 

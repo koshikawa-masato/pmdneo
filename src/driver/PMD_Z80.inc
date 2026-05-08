@@ -17,6 +17,8 @@
 
         .area CODE
 
+        .include "assets/samples.inc"
+
 
 ;;; ----- pmdneo_init: driver 起動時の SSG silent init + TIMER-B 起動 -----
 ;;;
@@ -1853,3 +1855,36 @@ fm_keyon_values:
 
 fm_keyoff_values:
         .db     0x00, 0x01, 0x02, 0x04, 0x05, 0x06
+
+
+;;; ----- adpcm_b_beat_struct: ngdevkit snd_adpcm_b_play 用 8 byte 構造体 -----
+;;;
+;;; layout:
+;;;   byte 0-1: start address LSB/MSB (= 256 byte unit)
+;;;   byte 2-3: stop address LSB/MSB
+;;;   byte 4-5: delta-N (= playback frequency coefficient, LE)
+;;;   byte 6: L/R output (0xC0 = both)
+;;;   byte 7: volume (0x00-0xFF)
+
+adpcm_b_beat_struct::
+        .db     BEAT_START_LSB
+        .db     BEAT_START_MSB
+        .db     BEAT_STOP_LSB
+        .db     BEAT_STOP_MSB
+        ;; SubE-1: delta-N = 24000 * 65536 / 55555 = 0x6E96 (= sample native 24 kHz、
+        ;; o5a 基準確認用、 ngdevkit 15 の 0xcb6b は 44.1 kHz で 1.84x 速かったため)
+        .dw     0x6E96
+        .db     0xC0
+        .db     0xFF
+
+
+;;; ----- test_play_adpcmb_beat: SubE-1 ADPCM-B 単発再生 -----
+;;;
+;;; 入力: なし
+;;; 動作: nullsound snd_adpcm_b_play (IX = config struct) で beat sample 再生
+;;; 破壊: A, IX
+
+test_play_adpcmb_beat::
+        ld      ix, #adpcm_b_beat_struct
+        call    snd_adpcm_b_play
+        ret
