@@ -6,6 +6,61 @@
         .equ    scale_tick_hi,           0xF815
         .equ    pmdneo_irq_count,        0xF816
 
+;;; ----- per-part workarea field offsets -----
+
+        .equ    PART_OFF_ADDR,           0
+        .equ    PART_OFF_LOOP,           2
+        .equ    PART_OFF_LEN,            4
+        .equ    PART_OFF_QDATA,          5
+        .equ    PART_OFF_QDATB,          6
+        .equ    PART_OFF_VOLUME,         7
+        .equ    PART_OFF_SHIFT,          8
+        .equ    PART_OFF_NOTE,           9
+        .equ    PART_OFF_LOOPCNT,        10
+        .equ    PART_OFF_LFOSWI,         11
+        .equ    PART_OFF_TIEFLAG,        12
+        .equ    PART_OFF_FNUM,           13
+        .equ    PART_OFF_PAN,            15
+        .equ    PART_OFF_DETUNE,         16
+        .equ    PART_OFF_VOICE,          17
+        .equ    PART_OFF_FLAGS,          18
+        ;; reserved 19-23 (5 bytes padding)
+        .equ    PART_WORKAREA_SIZE,      24
+
+;;; ----- part number constants -----
+
+        .equ    PART_FM1,                0    ;; A
+        .equ    PART_FM2,                1    ;; B (= chip ch 2 = audible)
+        .equ    PART_FM3,                2    ;; C
+        .equ    PART_FM4,                3    ;; D (chip ch 4 = mute on YM2610)
+        .equ    PART_FM5,                4    ;; E
+        .equ    PART_FM6,                5    ;; F
+        .equ    PART_SSG1,               6    ;; G
+        .equ    PART_SSG2,               7    ;; H
+        .equ    PART_SSG3,               8    ;; I
+        .equ    PART_PCM,                9    ;; J (= ADPCM-B)
+        .equ    PART_RHYTHM,             10   ;; K (= no-op stub on PMDNEO)
+        .equ    PART_ADPCMA1,            11   ;; L
+        .equ    PART_ADPCMA2,            12   ;; M
+        .equ    PART_ADPCMA3,            13   ;; N
+        .equ    PART_ADPCMA4,            14   ;; O
+        .equ    PART_ADPCMA5,            15   ;; P
+        .equ    PART_ADPCMA6,            16   ;; Q
+        .equ    PART_COUNT,              17
+
+        .equ    part_workarea,           0xF820
+        ;; 17 x 24 = 408 bytes occupies 0xF820-0xF9C7
+
+;;; ----- Z80 SRAM layout (= 2 KB at 0xF800-0xFFFF) -----
+;;;
+;;;   0xF800 - 0xF80F   reserved future (16 bytes、cmd FIFO 検討中)
+;;;   0xF810 - 0xF81F   driver_state (= 16 bytes 既存)
+;;;   0xF820 - 0xF9C7   part_workarea (= 17 x 24 = 408 bytes、Phase 1 新規)
+;;;   0xF9C8 - 0xFFBF   free / 後続 phase 用 (= 1528 bytes 余裕)
+;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
+;;;
+;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
+
         .equ    SCALE_TICK_INITIAL,      0x01F4
 
         .area _HEADER (ABS)
