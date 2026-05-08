@@ -1018,7 +1018,7 @@ test_fm_song_data::
         .dw     test_fm_song_empty - test_fm_song_data      ; G (SSG)
         .dw     test_fm_song_empty - test_fm_song_data      ; H
         .dw     test_fm_song_empty - test_fm_song_data      ; I
-        .dw     test_fm_song_empty - test_fm_song_data      ; J (ADPCM-B)
+        .dw     test_fm_song_part_j - test_fm_song_data     ; J (ADPCM-B)
         .dw     test_fm_song_part_k - test_fm_song_data     ; K (Rhythm)
         .dw     test_fm_song_empty - test_fm_song_data      ; rhythm addr
         .dw     test_fm_song_empty - test_fm_song_data      ; prgdat_adr
@@ -1074,6 +1074,14 @@ test_fm_song_part_f:
         .db     0x44, 0x20              ; E4
         .db     0x80
 
+test_fm_song_part_j:
+        .db     0x40, 0x40
+        .db     0x40, 0x40
+        .db     0x40, 0x40
+        .db     0x40, 0x40
+        .db     0x40, 0x40
+        .db     0x80
+
 test_fm_song_part_k:
         .db     0xEB, 0x01              ; rhykey arg=0x01
         .db     0xEA, 0x10              ; rhyvs arg=0x10
@@ -1109,6 +1117,8 @@ pmdneo_song_main::
         call    pmdneo_psgmain
         ld      a, #PART_SSG3
         call    pmdneo_psgmain
+        ld      a, #PART_PCM
+        call    adpcmb_main
         ld      a, #PART_RHYTHM
         call    rhythm_main
         ret
@@ -1350,6 +1360,69 @@ pmdneo_psgmain_clear:
         ld      PART_OFF_ADDR+1(ix), a
 
 pmdneo_psgmain_done:
+        ret
+
+
+;;; ----- adpcmb_main: Part J ADPCM-B part 1 step -----
+;;;
+;;; Part J note byte triggers the hardcoded beat sample. length 0 stops ADPCM-B.
+
+adpcmb_main::
+        push    af
+        call    pmdneo_part_ix_from_part
+        pop     af
+
+        ld      a, PART_OFF_ADDR(ix)
+        or      PART_OFF_ADDR+1(ix)
+        ret     z
+
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jr      z, adpcmb_main_parse
+
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        jr      nz, adpcmb_main_done
+
+        call    adpcmb_keyoff
+
+adpcmb_main_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jr      z, adpcmb_main_end
+        jr      c, adpcmb_main_note
+        cp      #0xB1
+        jr      c, adpcmb_main_clear
+
+        call    commandsp
+        jr      adpcmb_main_parse
+
+adpcmb_main_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+
+        call    adpcmb_keyon
+        ret
+
+adpcmb_main_end:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jr      z, adpcmb_main_clear
+
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jr      adpcmb_main_parse
+
+adpcmb_main_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+
+adpcmb_main_done:
         ret
 
 

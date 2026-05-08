@@ -24,12 +24,17 @@
 ;;;       → 0x19/0x1A に delta-N 書込 → 0x1B に volume 書込 → 0x11 に pan
 ;;;       → 0x10 に start bit (0x80) 書込
 adpcmb_keyon::
+        ld      ix, #adpcm_b_beat_struct
+        call    snd_adpcm_b_play
         ret
 
 ;;; ----- adpcmb_keyoff: SubE で実装 -----
 ;;;
 ;;; 動作: register 0x10 ← 0x01 (= reset bit、 = stop)
 adpcmb_keyoff::
+        ld      b, #REG_ADPCM_B_START_STOP
+        ld      c, #0x01
+        call    ym2610_write_port_a
         ret
 
 ;;; ----- adpcmb_volset / adpcmb_panset / adpcmb_setfreq: SubE で実装 -----
