@@ -52,11 +52,11 @@ cmd_jmptable::
 ;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
 
 
-;;; ----- snd_command_02_play_song: SubC-2 chip ch 2 FM スケール -----
+;;; ----- snd_command_02_play_song: SubC-3 4 ch FM MML song -----
 ;;;
 ;;; cmd 3 (= nullsound default reset) で chip silence + Z80 init 後、 cmd 2 で:
 ;;; 1. pmdneo_init (= SSG mixer + TIMER-B 起動 + driver state init)
-;;; 2. test_play_fm_scale_b (= chip ch 2 で 1 octave スケール、 ADR-0001 (C) 方針)
+;;; 2. test_play_fm_song (= chip ch 2/3/5/6 で 4 ch FM MML song)
 ;;; 3. polling loop 再導入: TIMER-B tick 毎に pmd_z80_main を call、
 ;;;    TIMER-B IRQ count を継続確認
 ;;;
@@ -65,7 +65,7 @@ cmd_jmptable::
 
 snd_command_02_play_song::
         call    pmdneo_init
-        call    test_play_fm_scale_b
+        call    test_play_fm_song
 pmdneo_play_loop::
         ld      a, (state_timer_tick_reached)
         or      a

@@ -70,6 +70,16 @@ pmdneo_init::
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
+        ;; SubC-3: default FM voice for audible PMDNEO FM parts (B/C/E/F).
+        ld      b, #1                   ; chip ch 2 = Part B
+        call    pmdneo_fm_voice_set_default
+        ld      b, #2                   ; chip ch 3 = Part C
+        call    pmdneo_fm_voice_set_default
+        ld      b, #4                   ; chip ch 5 = Part E
+        call    pmdneo_fm_voice_set_default
+        ld      b, #5                   ; chip ch 6 = Part F
+        call    pmdneo_fm_voice_set_default
+
         ;; TIMER-B counter (0x26) = 0xC0 (= 約 488 µs 周期、 ≈ 2050 Hz)
         ld      b, #REG_TIMER_B_COUNTER
         ld      c, #0xC0
@@ -158,6 +168,7 @@ pmd_z80_main_scale_step_table_done:
         jr      pmd_z80_main_scale_step_advance
 pmd_z80_main_scale_step_fm:
         pop     af
+        ld      b, #1                   ; chip ch 2 = ch index 1
         call    fnumset_fm
 
 pmd_z80_main_scale_step_advance:
@@ -188,10 +199,9 @@ pmd_z80_main_scale_stop:
         jr      pmd_z80_main_scale_stop_done
 
 pmd_z80_main_scale_stop_fm:
-        ;; FM chip ch 2 keyoff (= slot mask 0x00 + ch index 1 = 0x01)
-        ld      b, #REG_FM_KEY_ON_OFF_OPS
-        ld      c, #0x01
-        call    ym2610_write_port_a
+        ;; FM chip ch 2 keyoff
+        ld      b, #1
+        call    pmdneo_fm_keyoff
 
 pmd_z80_main_scale_stop_done:
         ld      a, #0xFF
@@ -441,6 +451,63 @@ pmdneo_load_m_abort:
         ret
 
 
+;;; ----- test_play_fm_song: SubC-3 4 ch FM MML song load -----
+;;;
+;;; test_fm_song_data の OPNA 互換 part offset table を読み、 part 0-10 の
+;;; body address を per-part workarea に設定する。
+;;;
+;;; 入力: なし
+;;; 破壊: A、 B、 C、 D、 E、 H、 L、 IX
+
+test_play_fm_song::
+        ld      hl, #test_fm_song_data
+        ld      (mmlbuf), hl
+
+        ld      de, (mmlbuf)            ; DE = offset table pointer
+        ld      c, #0                   ; C = part number
+
+test_play_fm_song_loop:
+        push    bc
+        push    de
+
+        ld      a, c
+        call    pmdneo_part_ix_from_part
+
+        ;; offset = *(DE) little endian、 table pointer を 2 byte 進める
+        pop     hl
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        inc     hl
+        push    hl                      ; next offset table pointer
+
+        ;; PART_OFF_ADDR = mmlbuf + offset
+        ld      hl, (mmlbuf)
+        add     hl, de
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+
+        ;; loop なし、 即 parse、 初期 volume max
+        xor     a
+        ld      PART_OFF_LOOP(ix), a
+        ld      PART_OFF_LOOP+1(ix), a
+        ld      PART_OFF_LEN(ix), a
+        ld      a, #0x0F
+        ld      PART_OFF_VOLUME(ix), a
+
+        pop     de                      ; 次の offset table pointer
+        pop     bc
+        inc     c
+        ld      a, c
+        cp      #11
+        jr      nz, test_play_fm_song_loop
+
+        ;; song mode に切替
+        ld      a, #1
+        ld      (driver_song_ready), a
+        ret
+
+
 ;;; ----- test_play_fm_c4: SubC-1 FM chip ch 2 hardcoded C4 -----
 ;;;
 ;;; YM2610 無印 chip では chip ch 1/4 が internal に存在するが output 配線
@@ -493,6 +560,7 @@ test_play_fm_c4::
 
         ;; C4: OCT 4 + ONKAI 0
         ld      a, #0x40
+        ld      b, #1                   ; chip ch 2 = ch index 1
         call    fnumset_fm
 
         ;; L/R pan on, AMS/PMS off
@@ -551,6 +619,7 @@ test_play_fm_scale_b::
 
         ;; 最初の note (= scale_notes_fm[0] = C4) を fnumset
         ld      a, (#scale_notes_fm)
+        ld      b, #1                   ; chip ch 2 = ch index 1
         call    fnumset_fm
 
         ;; PAN L/R on
@@ -614,18 +683,138 @@ pmdneo_fm_clear_ssg_eg_loop:
         ret
 
 
-;;; ----- fnumset_fm: note byte → FM chip ch 2 block/fnum -----
+;;; pmdneo_fm_write_reg_ch:
+;;;   input : B = FM ch index (0..5), D = base register, C = data
+;;;   output: write to port A for ch 0..2, port B for ch 3..5
+
+pmdneo_fm_write_reg_ch:
+        push    bc
+        push    de
+
+        ld      a, b
+        cp      #3
+        jr      c, pmdneo_fm_write_reg_ch_porta
+
+        sub     #3                      ; port B register suffix 0..2
+        ld      e, a
+        ld      a, d
+        add     a, e
+        ld      b, a
+        call    ym2610_write_port_b
+        jr      pmdneo_fm_write_reg_ch_done
+
+pmdneo_fm_write_reg_ch_porta:
+        ld      e, a                    ; port A register suffix 0..2
+        ld      a, d
+        add     a, e
+        ld      b, a
+        call    ym2610_write_port_a
+
+pmdneo_fm_write_reg_ch_done:
+        pop     de
+        pop     bc
+        ret
+
+
+;;; pmdneo_fm_write_voice_group_ch:
+;;;   input : B = FM ch index, HL = voice data pointer, D = first base register
+;;;   output: HL += 4
+
+pmdneo_fm_write_voice_group_ch:
+        ld      e, #4
+pmdneo_fm_write_voice_group_ch_loop:
+        ld      c, (hl)
+        push    hl
+        call    pmdneo_fm_write_reg_ch
+        pop     hl
+        inc     hl
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_write_voice_group_ch_loop
+        ret
+
+
+pmdneo_fm_clear_ssg_eg_ch:
+        ld      d, #0x90
+        ld      e, #4
+pmdneo_fm_clear_ssg_eg_ch_loop:
+        ld      c, #0x00
+        push    hl
+        call    pmdneo_fm_write_reg_ch
+        pop     hl
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_clear_ssg_eg_ch_loop
+        ret
+
+
+;;; pmdneo_fm_voice_set_default:
+;;;   input : B = FM ch index (0..5)
+
+pmdneo_fm_voice_set_default:
+        ;; ALG/FB
+        ld      hl, #fm_voice_data_default
+        ld      de, #24
+        add     hl, de
+        ld      d, #0xB0
+        ld      c, (hl)
+        call    pmdneo_fm_write_reg_ch
+
+        ld      hl, #fm_voice_data_default
+
+        ;; DT/ML × 4 (OP1, OP3, OP2, OP4)
+        ld      d, #0x30
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; TL × 4 (ALG 7 なので全 op carrier)
+        ld      d, #0x40
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; KS/AR × 4
+        ld      d, #0x50
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; AM/DR × 4
+        ld      d, #0x60
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; SR × 4
+        ld      d, #0x70
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; RR/SL × 4
+        ld      d, #0x80
+        call    pmdneo_fm_write_voice_group_ch
+
+        ;; SSG-EG は未使用なので明示的に 0
+        call    pmdneo_fm_clear_ssg_eg_ch
+
+        ;; L/R pan on, AMS/PMS off
+        ld      d, #0xB4
+        ld      c, #0xC0
+        call    pmdneo_fm_write_reg_ch
+
+        ret
+
+
+;;; ----- fnumset_fm: note byte → FM block/fnum per ch -----
 ;;;
 ;;; 入力: A = note byte (= OCT 4 bit 上位 + ONKAI 4 bit 下位)
+;;;       B = FM ch index (0..5)
 ;;; 動作:
 ;;;   1. ONKAI で fnum_data[ONKAI × 2] (= OCT 0 base fnum) を取得
-;;;   2. OCT を block として 0xA5 bit 5-3 へ設定
-;;;   3. 0xA5 (= block + fnum upper) → 0xA1 (= fnum lower) の順で書込
-;;;      (= chip ch 2、 末尾 +1)
+;;;   2. OCT を block として 0xA4+ch bit 5-3 へ設定
+;;;   3. 0xA4+ch (= block + fnum upper) → 0xA0+ch (= fnum lower) の順で書込
+;;;      ch 0..2 は port A、 ch 3..5 は port B
 ;;; 破壊: A、 B、 C、 D、 E、 H、 L
 
 fnumset_fm::
         push    af                      ; note byte 保存
+        push    bc                      ; ch index 保存
 
         ;; ONKAI を取り出して fnum_data の index に
         and     #0x0F
@@ -641,6 +830,7 @@ fnumset_fm::
         ld      d, (hl)
 
         ;; OCT を block に変換
+        pop     bc
         pop     af
         rrca
         rrca
@@ -655,15 +845,46 @@ fnumset_fm::
         ld      a, d
         and     #0x07                   ; fnum upper 3 bit
         or      l
+        ld      h, a                    ; H = block + fnum upper
 
-        ;; 0xA5 → 0xA1 の順で反映 (= chip ch 2)
+        ld      a, b
+        cp      #3
+        jr      c, fnumset_fm_porta
+
+        sub     #3                      ; port B register suffix 0..2
+        ld      l, a
+        ld      a, #0xA4
+        add     a, l
+        ld      b, a
+        ld      c, h
         push    de
-        ld      b, #0xA5
-        ld      c, a
-        call    ym2610_write_port_a
+        push    hl
+        call    ym2610_write_port_b
+        pop     hl
         pop     de
 
-        ld      b, #0xA1
+        ld      a, #0xA0
+        add     a, l
+        ld      b, a
+        ld      c, e
+        call    ym2610_write_port_b
+        ret
+
+fnumset_fm_porta:
+        ld      l, a                    ; port A register suffix 0..2
+        ld      a, #0xA4
+        add     a, l
+        ld      b, a
+        ld      c, h
+        push    de
+        push    hl
+        call    ym2610_write_port_a
+        pop     hl
+        pop     de
+
+        ld      a, #0xA0
+        add     a, l
+        ld      b, a
         ld      c, e
         call    ym2610_write_port_a
 
@@ -780,9 +1001,96 @@ test_mml_data:
         .db     0x80                    ; part end
 
 
+;;; ----- test_fm_song_data: SubC-3 4 ch FM sample song -----
+;;;
+;;; OPNA m_buf 互換の 11 part offset table。 Part A/D は ADR-0001 (C)
+;;; 方針に従い即 end、 B/C/E/F のみ note sequence を持つ。
+
+test_fm_song_data::
+        .dw     test_fm_song_part_a - test_fm_song_data
+        .dw     test_fm_song_part_b - test_fm_song_data
+        .dw     test_fm_song_part_c - test_fm_song_data
+        .dw     test_fm_song_part_d - test_fm_song_data
+        .dw     test_fm_song_part_e - test_fm_song_data
+        .dw     test_fm_song_part_f - test_fm_song_data
+        .dw     test_fm_song_empty - test_fm_song_data      ; G (SSG)
+        .dw     test_fm_song_empty - test_fm_song_data      ; H
+        .dw     test_fm_song_empty - test_fm_song_data      ; I
+        .dw     test_fm_song_empty - test_fm_song_data      ; J (ADPCM-B)
+        .dw     test_fm_song_empty - test_fm_song_data      ; K (Rhythm)
+        .dw     test_fm_song_empty - test_fm_song_data      ; rhythm addr
+        .dw     test_fm_song_empty - test_fm_song_data      ; prgdat_adr
+
+test_fm_song_part_a:
+        .db     0x80                    ; Part A empty (chip ch 1)
+
+test_fm_song_part_b:
+        ;; 全 part 8 note × 0x20 tick で揃え (= 同時開始 / 同時終了)
+        .db     0x40, 0x20              ; C4
+        .db     0x42, 0x20              ; D4
+        .db     0x44, 0x20              ; E4
+        .db     0x45, 0x20              ; F4
+        .db     0x47, 0x20              ; G4
+        .db     0x49, 0x20              ; A4
+        .db     0x4B, 0x20              ; B4
+        .db     0x50, 0x20              ; C5
+        .db     0x80
+
+test_fm_song_part_c:
+        .db     0x47, 0x20              ; G4
+        .db     0x4B, 0x20              ; B4
+        .db     0x52, 0x20              ; D5
+        .db     0x57, 0x20              ; G5
+        .db     0x55, 0x20              ; F5
+        .db     0x52, 0x20              ; D5
+        .db     0x4B, 0x20              ; B4
+        .db     0x47, 0x20              ; G4
+        .db     0x80
+
+test_fm_song_part_d:
+        .db     0x80                    ; Part D empty (chip ch 4)
+
+test_fm_song_part_e:
+        .db     0x30, 0x20              ; C3
+        .db     0x37, 0x20              ; G3
+        .db     0x39, 0x20              ; A3
+        .db     0x35, 0x20              ; F3
+        .db     0x30, 0x20              ; C3
+        .db     0x37, 0x20              ; G3
+        .db     0x39, 0x20              ; A3
+        .db     0x30, 0x20              ; C3
+        .db     0x80
+
+test_fm_song_part_f:
+        .db     0x44, 0x20              ; E4
+        .db     0x47, 0x20              ; G4
+        .db     0x49, 0x20              ; A4
+        .db     0x4B, 0x20              ; B4
+        .db     0x50, 0x20              ; C5
+        .db     0x4B, 0x20              ; B4
+        .db     0x47, 0x20              ; G4
+        .db     0x44, 0x20              ; E4
+        .db     0x80
+
+test_fm_song_empty:
+        .db     0x80
+
+
 ;;; ----- PSG / part helper -----
 
 pmdneo_song_main::
+        ld      a, #PART_FM1
+        call    fmmain
+        ld      a, #PART_FM2
+        call    fmmain
+        ld      a, #PART_FM3
+        call    fmmain
+        ld      a, #PART_FM4
+        call    fmmain
+        ld      a, #PART_FM5
+        call    fmmain
+        ld      a, #PART_FM6
+        call    fmmain
         ld      a, #PART_SSG1
         call    pmdneo_psgmain
         ld      a, #PART_SSG2
@@ -856,6 +1164,109 @@ pmdneo_psg_keyoff::
         ld      c, #0x00
         call    ym2610_write_port_a
         pop     bc
+        ret
+
+
+;;; pmdneo_fm_keyon / keyoff
+
+pmdneo_fm_keyon::
+        ;; A = note byte, B = FM ch index
+        push    bc
+        call    fnumset_fm
+        pop     bc
+
+        push    bc
+        ld      hl, #fm_keyon_values
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, #REG_FM_KEY_ON_OFF_OPS
+        ld      c, (hl)
+        call    ym2610_write_port_a
+        pop     bc
+        ret
+
+pmdneo_fm_keyoff::
+        ;; B = FM ch index
+        push    bc
+        ld      hl, #fm_keyoff_values
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, #REG_FM_KEY_ON_OFF_OPS
+        ld      c, (hl)
+        call    ym2610_write_port_a
+        pop     bc
+        ret
+
+
+;;; ----- fmmain: FM part 1 step -----
+;;;
+;;; pmdneo_psgmain と同じ MML state machine を使い、 note 経路のみ
+;;; FM keyon/keyoff + fnumset_fm に差し替える。
+
+fmmain::
+        push    af
+        call    pmdneo_part_ix_from_part
+        pop     af
+        sub     #PART_FM1
+        ld      b, a                        ; FM ch index (0-5)
+
+        ld      a, PART_OFF_ADDR(ix)
+        or      PART_OFF_ADDR+1(ix)
+        ret     z
+
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jr      z, fmmain_parse
+
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        jr      nz, fmmain_done
+
+        ;; length == 0 になったら keyoff して次 token へ進む
+        call    pmdneo_fm_keyoff
+
+fmmain_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jr      z, fmmain_end
+        jr      c, fmmain_note
+        cp      #0xB1
+        jr      c, fmmain_clear
+
+        call    commandsp
+        jr      fmmain_parse
+
+fmmain_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+
+        ld      a, PART_OFF_NOTE(ix)
+        call    pmdneo_fm_keyon
+        ret
+
+fmmain_end:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jr      z, fmmain_clear
+
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jr      fmmain_parse
+
+fmmain_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+
+fmmain_done:
         ret
 
 
@@ -1434,3 +1845,11 @@ psg_volume_regs:
         .db     REG_SSG_A_VOLUME
         .db     REG_SSG_B_VOLUME
         .db     REG_SSG_C_VOLUME
+
+;;; ----- FM keyon/keyoff value table -----
+
+fm_keyon_values:
+        .db     0xF0, 0xF1, 0xF2, 0xF4, 0xF5, 0xF6
+
+fm_keyoff_values:
+        .db     0x00, 0x01, 0x02, 0x04, 0x05, 0x06
