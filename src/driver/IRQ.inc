@@ -78,7 +78,32 @@ pmdneo_play_loop::
 
 
 snd_command_04_fade_out::
-        ;; SubF で fade out 実装
+        ;; SubF-1 minimum fade: immediately silence supported chips and stop song.
+        ld      b, #REG_SSG_A_VOLUME
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #REG_SSG_B_VOLUME
+        call    ym2610_write_port_a
+        ld      b, #REG_SSG_C_VOLUME
+        call    ym2610_write_port_a
+
+        ld      b, #0
+        call    pmdneo_fm_keyoff
+        ld      b, #1
+        call    pmdneo_fm_keyoff
+        ld      b, #2
+        call    pmdneo_fm_keyoff
+        ld      b, #3
+        call    pmdneo_fm_keyoff
+        ld      b, #4
+        call    pmdneo_fm_keyoff
+        ld      b, #5
+        call    pmdneo_fm_keyoff
+
+        call    adpcmb_keyoff
+
+        ld      a, #1
+        ld      (driver_fade_state), a
         ret
 
 

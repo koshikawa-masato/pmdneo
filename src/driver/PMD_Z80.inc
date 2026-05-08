@@ -64,6 +64,7 @@ pmdneo_init::
 
         ;; SubB-4: scale state init
         xor     a
+        ld      (driver_fade_state), a
         ld      (scale_step), a
 
         ;; SubC-2: scale_mode = 0 (= SSG default)
@@ -113,6 +114,11 @@ pmd_z80_main::
         ld      hl, (pmdneo_irq_count)
         inc     hl
         ld      (pmdneo_irq_count), hl
+
+        ;; SubF-1: fade command stops song dispatch immediately.
+        ld      a, (driver_fade_state)
+        or      a
+        ret     nz
 
         ;; driver_song_ready が立っている場合は PSG 解析ルートへ
         ld      a, (driver_song_ready)
@@ -1782,6 +1788,7 @@ comt:
         call    pmdneo_part_fetch_byte
         ld      (driver_tempo_d), a
         ld      (driver_tempo_48), a
+        ;; SubF-1.0: TIMER-B 直書きは撤回 (= SubF-1.1 で sub-tick model に redesign)
         ret
 
 comtie:
@@ -1815,22 +1822,62 @@ comstloop:
         ret
 
 comedloop:
-        ;; SubB-7 では ROM 上の SAMPLE.M を直接読むため、 PMD 本家のように
-        ;; loop counter byte を MML buffer 内へ自己書き換えできない。
-        ;; audio gate Step 1 では loop を展開せず、 4 byte 引数だけ消費して
-        ;; 次の opcode へ進めることで hang up を避ける。
+        ;; PMD V4.8s ']' args: count, mutable counter byte, loop-start offset.
+        ;; PMDNEO keeps the counter in RAM because song data can live in ROM.
+        call    pmdneo_part_fetch_byte      ; A = loop count
+        ld      b, a
+        or      a
+        jr      z, comedloop_reloop
+
+        ld      a, PART_OFF_LOOPCNT(ix)
+        inc     a
+        ld      PART_OFF_LOOPCNT(ix), a
+        cp      b
+        jr      c, comedloop_reloop
+
+        ;; Completed: consume counter + loop-start offset and continue.
         call    pmdneo_part_fetch_byte
         call    pmdneo_part_fetch_byte
         call    pmdneo_part_fetch_byte
+        xor     a
+        ld      PART_OFF_LOOPCNT(ix), a
+        ret
+
+comedloop_reloop:
+        call    pmdneo_part_fetch_byte      ; PMD mutable counter byte (ignored)
         call    pmdneo_part_fetch_byte
+        ld      e, a
+        call    pmdneo_part_fetch_byte
+        ld      d, a
+        ld      hl, (mmlbuf)
+        add     hl, de
+        inc     hl
+        inc     hl                          ; PMD offset points at '[' args
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
         ret
 
 comexloop:
         call    pmdneo_part_fetch_byte
+        ld      e, a
         call    pmdneo_part_fetch_byte
+        ld      d, a
+        ld      hl, (mmlbuf)
+        add     hl, de                      ; HL = matching ']' count byte
+        ld      a, (hl)
+        dec     a
+        ld      b, a
+        inc     hl                          ; HL = PMD mutable counter byte
         ld      a, PART_OFF_LOOPCNT(ix)
-        or      a
+        cp      b
         ret     nz
+        inc     hl
+        inc     hl
+        inc     hl                          ; HL = first byte after matching ']'
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        xor     a
+        ld      PART_OFF_LOOPCNT(ix), a
         ret
 
 comlopset:

@@ -103,6 +103,7 @@ driver_song_base::
         .ds 2
 driver_song_end::
         .ds 2
+driver_fade_state::
         .ds 1
         .ds 4
 
