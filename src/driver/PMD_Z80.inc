@@ -1019,7 +1019,7 @@ test_fm_song_data::
         .dw     test_fm_song_empty - test_fm_song_data      ; H
         .dw     test_fm_song_empty - test_fm_song_data      ; I
         .dw     test_fm_song_empty - test_fm_song_data      ; J (ADPCM-B)
-        .dw     test_fm_song_empty - test_fm_song_data      ; K (Rhythm)
+        .dw     test_fm_song_part_k - test_fm_song_data     ; K (Rhythm)
         .dw     test_fm_song_empty - test_fm_song_data      ; rhythm addr
         .dw     test_fm_song_empty - test_fm_song_data      ; prgdat_adr
 
@@ -1074,6 +1074,16 @@ test_fm_song_part_f:
         .db     0x44, 0x20              ; E4
         .db     0x80
 
+test_fm_song_part_k:
+        .db     0xEB, 0x01              ; rhykey arg=0x01
+        .db     0xEA, 0x10              ; rhyvs arg=0x10
+        .db     0xE9, 0x80              ; rpnset arg=0x80
+        .db     0xE8, 0x10              ; rmsvs arg=0x10
+        .db     0xE6, 0x01              ; rmsvs_sft arg=0x01
+        .db     0xE5, 0x10, 0x01        ; rhyvs_sft arg=0x10, 0x01
+        .db     0xF1, 0x00              ; pdrswitch arg=0x00
+        .db     0x80
+
 test_fm_song_empty:
         .db     0x80
 
@@ -1099,6 +1109,8 @@ pmdneo_song_main::
         call    pmdneo_psgmain
         ld      a, #PART_SSG3
         call    pmdneo_psgmain
+        ld      a, #PART_RHYTHM
+        call    rhythm_main
         ret
 
 
@@ -1341,6 +1353,66 @@ pmdneo_psgmain_done:
         ret
 
 
+;;; ----- rhythm_main: K/R part 1 step -----
+;;;
+;;; K/R 内蔵 rhythm は YM2610/B に存在しないため、 MML stream と length
+;;; state だけ進める。 chip register write は行わない。
+
+rhythm_main::
+        push    af
+        call    pmdneo_part_ix_from_part
+        pop     af
+
+        ld      a, PART_OFF_ADDR(ix)
+        or      PART_OFF_ADDR+1(ix)
+        ret     z
+
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jr      z, rhythm_main_parse
+
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        jr      nz, rhythm_main_done
+
+rhythm_main_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jr      z, rhythm_main_end
+        jr      c, rhythm_main_note
+        cp      #0xB1
+        jr      c, rhythm_main_clear
+
+        call    commandsr
+        jr      rhythm_main_parse
+
+rhythm_main_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ret
+
+rhythm_main_end:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jr      z, rhythm_main_clear
+
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jr      rhythm_main_parse
+
+rhythm_main_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+
+rhythm_main_done:
+        ret
+
+
 ;;; pmdneo_scale_mml_length:
 ;;;   input : A = raw MML length byte
 ;;;   output: A = PSG main 用 tick length
@@ -1391,6 +1463,22 @@ commandsp::
         push    de
         ret
 
+commandsr::
+        cp      #0xB1
+        ret     c
+
+        cpl
+        add     a, a
+        ld      l, a
+        ld      h, #0
+        ld      de, #cmdtblr
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        push    de
+        ret
+
 
 ;;; PSG 用 dispatch table
 ;;;
@@ -1413,6 +1501,92 @@ cmdtblp:
         .dw     comvoldownp                 ; 0xF3 (
         .dw     lfoset                      ; 0xF2 M
         .dw     lfoswitch                   ; 0xF1 *
+        .dw     psgenvset                   ; 0xF0 E
+        .dw     comy                        ; 0xEF y
+        .dw     psgnoise                    ; 0xEE w
+        .dw     psgsel                      ; 0xED P
+        .dw     jump1                       ; 0xEC p (PSG pan なし)
+        .dw     rhykey                      ; 0xEB
+        .dw     rhyvs                       ; 0xEA
+        .dw     rpnset                      ; 0xE9
+        .dw     rmsvs                       ; 0xE8
+        .dw     comshift2                   ; 0xE7
+        .dw     rmsvs_sft                   ; 0xE6
+        .dw     rhyvs_sft                   ; 0xE5
+        .dw     jump1                       ; 0xE4 hardware LFO delay なし
+        .dw     comvolupp2                  ; 0xE3
+        .dw     comvoldownp2                ; 0xE2
+        .dw     jump1                       ; 0xE1 hardware LFO なし
+        .dw     jump1                       ; 0xE0 hardware LFO なし
+        .dw     syousetu_lng_set            ; 0xDF
+        .dw     vol_one_up_psg              ; 0xDE
+        .dw     vol_one_down                ; 0xDD
+        .dw     status_write                ; 0xDC
+        .dw     status_add                  ; 0xDB
+        .dw     portap                      ; 0xDA
+        .dw     jump1                       ; 0xD9
+        .dw     jump1                       ; 0xD8
+        .dw     jump1                       ; 0xD7
+        .dw     mdepth_set                  ; 0xD6
+        .dw     comdd                       ; 0xD5
+        .dw     ssg_efct_set                ; 0xD4
+        .dw     fm_efct_set                 ; 0xD3
+        .dw     fade_set                    ; 0xD2
+        .dw     jump1                       ; 0xD1
+        .dw     psgnoise_move               ; 0xD0
+        .dw     jump1                       ; 0xCF
+        .dw     jump6                       ; 0xCE
+        .dw     extend_psgenvset            ; 0xCD
+        .dw     detune_extend               ; 0xCC
+        .dw     lfowave_set                 ; 0xCB
+        .dw     lfo_extend                  ; 0xCA
+        .dw     envelope_extend             ; 0xC9
+        .dw     jump3                       ; 0xC8
+        .dw     jump3                       ; 0xC7
+        .dw     jump6                       ; 0xC6
+        .dw     jump1                       ; 0xC5
+        .dw     comq2                       ; 0xC4
+        .dw     jump2                       ; 0xC3
+        .dw     lfoset_delay                ; 0xC2
+        .dw     jump0                       ; 0xC1
+        .dw     ssg_mml_part_mask           ; 0xC0
+        .dw     _lfoset                     ; 0xBF
+        .dw     _lfoswitch                  ; 0xBE
+        .dw     _mdepth_set                 ; 0xBD
+        .dw     _lfowave_set                ; 0xBC
+        .dw     _lfo_extend                 ; 0xBB
+        .dw     jump1                       ; 0xBA
+        .dw     _lfoset_delay               ; 0xB9
+        .dw     jump2                       ; 0xB8
+        .dw     mdepth_count                ; 0xB7
+        .dw     jump1                       ; 0xB6
+        .dw     jump2                       ; 0xB5
+        .dw     jump16                      ; 0xB4
+        .dw     comq3                       ; 0xB3
+        .dw     comshift_master             ; 0xB2
+        .dw     comq4                       ; 0xB1
+
+
+;;; K/R 用 dispatch table
+;;;
+;;; cmdtblp と同じ 79 entry。 K/R specific cmd だけ no-op stub に差替える。
+
+cmdtblr:
+        .dw     jump1                       ; 0xFF @
+        .dw     comq                        ; 0xFE q
+        .dw     comv                        ; 0xFD v
+        .dw     comt                        ; 0xFC t
+        .dw     comtie                      ; 0xFB &
+        .dw     comd                        ; 0xFA D
+        .dw     comstloop                   ; 0xF9 [
+        .dw     comedloop                   ; 0xF8 ]
+        .dw     comexloop                   ; 0xF7 :
+        .dw     comlopset                   ; 0xF6 L
+        .dw     comshift                    ; 0xF5 _
+        .dw     comvolupp                   ; 0xF4 )
+        .dw     comvoldownp                 ; 0xF3 (
+        .dw     lfoset                      ; 0xF2 M
+        .dw     pdrswitch                   ; 0xF1 *
         .dw     psgenvset                   ; 0xF0 E
         .dw     comy                        ; 0xEF y
         .dw     psgnoise                    ; 0xEE w

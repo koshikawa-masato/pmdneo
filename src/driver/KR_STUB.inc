@@ -3,8 +3,8 @@
 ;;; K/R 内蔵 rhythm no-op stub
 ;;;
 ;;; PMD ファミリ「未対応 cmd スルー」 思想 (= 設計書 2 §0-2 / 設計書 3
-;;; §3 参照) の literal 実装。 各 handler は引数 byte を si pointer
-;;; (HL) から消費するだけで chip 書込なし、 ret で帰る。
+;;; §3 参照) の literal 実装。 各 handler は引数 byte を PMDNEO の
+;;; PART_OFF_ADDR(IX) から消費するだけで chip 書込なし、 ret で帰る。
 ;;;
 ;;; YM2610/B には OPNA 内蔵 rhythm 機構が存在しないため、 cmdtblr の
 ;;; rhythm 関連 cmd は全て本 stub に dispatch される。
@@ -17,36 +17,36 @@
 
 ;;; rhykey (引数 1 byte): rhythm trigger bitmap
 rhykey::
-        inc     hl              ; si pointer (HL) を 1 byte 進める
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; rhyvs (引数 1 byte): rhythm volume (per ch)
 rhyvs::
-        inc     hl
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; rhyvs_sft (引数 2 byte): rhythm vol shift (per ch + 値)
 rhyvs_sft::
-        inc     hl
-        inc     hl
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; rpnset (引数 1 byte): rhythm pattern set (pan + ch)
 rpnset::
-        inc     hl
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; rmsvs (引数 1 byte): \V rhythm master vol set
 rmsvs::
-        inc     hl
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; rmsvs_sft (引数 1 byte): rhythm master vol shift
 rmsvs_sft::
-        inc     hl
+        call    pmdneo_part_fetch_byte
         ret
 
 ;;; pdrswitch (引数 1 byte): PDR switch (PPSDRV mode、 PMDNEO では完全 no-op)
 pdrswitch::
-        inc     hl
+        call    pmdneo_part_fetch_byte
         ret
