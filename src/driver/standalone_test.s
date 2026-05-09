@@ -5,6 +5,8 @@
         .equ    scale_tick_lo,           0xF814
         .equ    scale_tick_hi,           0xF815
         .equ    pmdneo_irq_count,        0xF816
+        .equ    driver_tempo_d,          0xF817   ; 1 byte BPM-encoded accumulator delta
+        .equ    driver_subtick_acc,      0xF818   ; 1 byte 8-bit overflow accumulator
 
         ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
         .equ    TEST_FM_CH_INDEX,        1
@@ -125,7 +127,7 @@ nmi_clear_driver_state:
         ld      c, #0x00                ; multi-freq disable + TIMER 全 reset
         call    ym2610_write_port_a
         ld      b, #0x26
-        ld      c, #0xFC                ; TIMER-B counter
+        ld      c, #0xF9                ; NB=249 -> TB=7*144=1008 us ~= 1 ms IRQ
         call    ym2610_write_port_a
         ld      b, #0x27
         ld      c, #0x2A                ; TIMER-B reset(b1) + IRQ enable(b3) + run(b5)、 multi-freq disable
@@ -280,6 +282,7 @@ nmi_cmd_5_adpcmb_beat:
 
         .org 0x0100
 irq_handler_body:
+        di
         push    af
         push    bc
         push    de
@@ -289,15 +292,20 @@ irq_handler_body:
         ld      c, #0x2A                ; TIMER-B re-arm (multi-freq disable for ch 3 fnum)
         call    ym2610_write_port_a
 
-        ld      hl, (pmdneo_irq_count)
-        inc     hl
-        ld      (pmdneo_irq_count), hl
+        ld      a, (pmdneo_irq_count)
+        inc     a
+        ld      (pmdneo_irq_count), a
 
         ld      a, (driver_song_ready)
         or      a
         jp      z, irq_done
 
         .if TEST_MODE_CHORD == 5
+        ld      a, (driver_subtick_acc)
+        ld      hl, #driver_tempo_d
+        add     a, (hl)
+        ld      (driver_subtick_acc), a
+        jp      nc, irq_done              ; no overflow -> skip song dispatch
         call    pmdneo_song_main
         jp      irq_done
         .endif
@@ -1045,6 +1053,10 @@ nmi_cmd_5_init_mml_song:
         call    ym2610_write_port_b
 
         call    init_ssg_voice
+        ld      a, #24                  ; t120 default: (120*13)>>6 = 24
+        ld      (driver_tempo_d), a
+        xor     a
+        ld      (driver_subtick_acc), a
         call    pmdneo5_clear_part_workarea
 
         ld      a, #PART_FM2
@@ -1111,9 +1123,9 @@ pmdneo5_init_part:
 
         ld      PART_OFF_ADDR(ix), l
         ld      PART_OFF_ADDR+1(ix), h
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         xor     a
+        ld      PART_OFF_LOOP(ix), a
+        ld      PART_OFF_LOOP+1(ix), a
         ld      PART_OFF_LEN(ix), a
         ld      PART_OFF_GATE(ix), a
         ld      PART_OFF_TRANSPOSE(ix), a
@@ -1217,9 +1229,18 @@ pmdneo_scale_mml_length:
         inc     a
         ret
 
+comt:
+        call    pmdneo_part_fetch_byte
+        ld      (driver_tempo_d), a
+        ret
+
 commandsp:
+        cp      #0xFC
+        jp      z, commandsp_t
         call    pmdneo_part_fetch_byte
         ret
+commandsp_t:
+        jp      comt
 
 fnumsetp_ch:
         jp      fnumset_ssg
@@ -1247,16 +1268,27 @@ fmmain_note:
         call    pmdneo_scale_mml_length
         ld      PART_OFF_LEN(ix), a
         ld      a, PART_OFF_NOTE(ix)
+        push    bc
         call    fnumset_fm
+        pop     bc
         call    fm_keyon
         ret
 
 fmmain_loop:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jp      z, fmmain_clear
         ld      l, PART_OFF_LOOP(ix)
         ld      h, PART_OFF_LOOP+1(ix)
         ld      PART_OFF_ADDR(ix), l
         ld      PART_OFF_ADDR+1(ix), h
         jp      fmmain_parse
+
+fmmain_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
 
 fmmain_done:
         ret
@@ -1288,11 +1320,20 @@ pmdneo_psgmain_note:
         ret
 
 pmdneo_psgmain_loop:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jp      z, pmdneo_psgmain_clear
         ld      l, PART_OFF_LOOP(ix)
         ld      h, PART_OFF_LOOP+1(ix)
         ld      PART_OFF_ADDR(ix), l
         ld      PART_OFF_ADDR+1(ix), h
         jp      pmdneo_psgmain_parse
+
+pmdneo_psgmain_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
 
 pmdneo_psgmain_done:
         ret
@@ -1339,11 +1380,20 @@ adpcmb_main_note:
         ret
 
 adpcmb_main_loop:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jp      z, adpcmb_main_clear
         ld      l, PART_OFF_LOOP(ix)
         ld      h, PART_OFF_LOOP+1(ix)
         ld      PART_OFF_ADDR(ix), l
         ld      PART_OFF_ADDR+1(ix), h
         jp      adpcmb_main_parse
+
+adpcmb_main_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
 
 adpcmb_main_done:
         ret
@@ -1353,6 +1403,9 @@ adpcmb_keyon:
         ret
 
 adpcmb_keyoff:
+        ld      b, #0x10
+        ld      c, #0x01
+        call    ym2610_write_port_a
         ld      b, #0x10
         ld      c, #0x00
         call    ym2610_write_port_a
@@ -1376,34 +1429,42 @@ psg_volume_regs:
         .db     0x08, 0x09, 0x0A
 
 song_part_b:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_c:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_e:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_f:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x50, 0x20, 0x52, 0x20, 0x54, 0x20, 0x55, 0x20
         .db     0x57, 0x20, 0x59, 0x20, 0x5B, 0x20, 0x60, 0x20
         .db     0x80
 song_part_g:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_h:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_i:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_j:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
         .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
         .db     0x80
