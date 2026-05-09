@@ -42,15 +42,13 @@ int main(void) {
   // 1) cmd 3 = reset_driver (NMI 経由で driver init を発火、 nullsound 慣習)
   // 2) cmd 2 = play_song (= test_play_c4)
   *REG_SOUND = 3;
-  // Z80 側の reset/NMI 完了と mainloop 再開を待ってから次 command を送る。
+  // Phase 6 ADPCM-A only test: cmd 5 (= MML song init = ADPCM-A drum) のみ発火
+  // cmd 2 (= Phase 5a mode 4 hardcoded chord progression) は disable
   ng_wait_vblank();
   ng_wait_vblank();
-  // SubE-1: cmd 5 (ADPCM-B beat、 即 ret) を cmd 2 より先に発火する。
-  // cmd 2 は polling loop に入って driver が新 cmd を受け付けないため、
-  // ADPCM-B は cmd 2 の前に dispatch しないと無音になる。
   *REG_SOUND = 5;
   ng_wait_vblank();
-  *REG_SOUND = 2;
+  // *REG_SOUND = 2;   // disabled: mode 4 FM chord drowns out ADPCM-A drums
 
   // ngdevkit のデフォルト VBlank handler が watchdog を rearm する
   for(;;) {}

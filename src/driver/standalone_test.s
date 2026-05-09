@@ -72,6 +72,8 @@
         .equ    part_workarea,           0xF820
         ;; 17 x 64 = 1088 bytes occupies 0xF820-0xFC5F
 
+        .include "assets/samples.inc"
+
 ;;; ----- Z80 SRAM layout (= 2 KB at 0xF800-0xFFFF) -----
 ;;;
 ;;;   0xF800 - 0xF80F   reserved future (16 bytes、cmd FIFO 検討中)
@@ -1036,23 +1038,115 @@ init_adpcmb_beat:
 ;;; ----- Phase 5b: MML byte-stream song initialization -----
 
 nmi_cmd_5_init_mml_song:
-        call    init_chip_ch2_voice
-
-        ;; PAN setup mirrors nmi_cmd_2_play_song.
-        ld      b, #0xB5
-        ld      c, #0x40
+        ;; --- silence all chips (FM / SSG / ADPCM-B) ---
+        ;; FM keyoff all 6 channels (reg 0x28, ch 0/1/2/4/5/6)
+        ld      b, #0x28
+        ld      c, #0x00
         call    ym2610_write_port_a
-        ld      b, #0xB6
-        ld      c, #0x40
+        ld      b, #0x28
+        ld      c, #0x01
         call    ym2610_write_port_a
-        ld      b, #0xB5
-        ld      c, #0x80
+        ld      b, #0x28
+        ld      c, #0x02
+        call    ym2610_write_port_a
+        ld      b, #0x28
+        ld      c, #0x04
+        call    ym2610_write_port_a
+        ld      b, #0x28
+        ld      c, #0x05
+        call    ym2610_write_port_a
+        ld      b, #0x28
+        ld      c, #0x06
+        call    ym2610_write_port_a
+        ;; FM TL max attenuation on both banks (regs 0x40-0x4F)
+        ld      b, #0x40
+        ld      e, #0x10
+nmi_cmd_5_fm_tl_port_a_loop:
+        ld      c, #0x7F
+        call    ym2610_write_port_a
+        inc     b
+        dec     e
+        jp      nz, nmi_cmd_5_fm_tl_port_a_loop
+        ld      b, #0x40
+        ld      e, #0x10
+nmi_cmd_5_fm_tl_port_b_loop:
+        ld      c, #0x7F
         call    ym2610_write_port_b
-        ld      b, #0xB6
-        ld      c, #0x80
+        inc     b
+        dec     e
+        jp      nz, nmi_cmd_5_fm_tl_port_b_loop
+        ;; FM SSG-EG off on both banks (regs 0x90-0x9F)
+        ld      b, #0x90
+        ld      e, #0x10
+nmi_cmd_5_fm_ssg_eg_port_a_loop:
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        inc     b
+        dec     e
+        jp      nz, nmi_cmd_5_fm_ssg_eg_port_a_loop
+        ld      b, #0x90
+        ld      e, #0x10
+nmi_cmd_5_fm_ssg_eg_port_b_loop:
+        ld      c, #0x00
         call    ym2610_write_port_b
-
-        call    init_ssg_voice
+        inc     b
+        dec     e
+        jp      nz, nmi_cmd_5_fm_ssg_eg_port_b_loop
+        ;; SSG all tone+noise disable (reg 0x07 = 0x3F)
+        ld      b, #0x07
+        ld      c, #0x3F
+        call    ym2610_write_port_a
+        ;; SSG vol 0 all 3 channels
+        ld      b, #0x08
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x09
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x0A
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; SSG envelope shape/cycle off
+        ld      b, #0x0B
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x0C
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x0D
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; ADPCM-B reset/stop (reg 0x10 = 0x01 then 0x00)
+        ld      b, #0x10
+        ld      c, #0x01
+        call    ym2610_write_port_a
+        ld      b, #0x10
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; ADPCM-B total level mute
+        ld      b, #0x1B
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; ADPCM-B L/R/start/end clear
+        ld      b, #0x11
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x12
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x13
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x14
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ld      b, #0x15
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        call    adpcma_init
+        ld      b, #0x00
+        ld      c, #0x00
+        call    ym2610_write_port_b
         ld      a, #24                  ; t120 default: (120*13)>>6 = 24
         ld      (driver_tempo_d), a
         xor     a
@@ -1063,42 +1157,90 @@ nmi_cmd_5_init_mml_song:
         ld      hl, #song_part_b
         ld      b, #1
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_FM3
         ld      hl, #song_part_c
         ld      b, #2
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_FM5
         ld      hl, #song_part_e
         ld      b, #4
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_FM6
         ld      hl, #song_part_f
         ld      b, #5
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_SSG1
         ld      hl, #song_part_g
         ld      b, #0
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_SSG2
         ld      hl, #song_part_h
         ld      b, #1
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_SSG3
         ld      hl, #song_part_i
         ld      b, #2
         ld      c, #0x0F
-        call    pmdneo5_init_part
+;;      call    pmdneo5_init_part
         ld      a, #PART_PCM
         ld      hl, #song_part_j
         ld      b, #0
         ld      c, #0
+;;      call    pmdneo5_init_part
+        ld      a, #PART_ADPCMA1
+        ld      hl, #song_part_l
+        ld      b, #0
+        ld      c, #0x00
         call    pmdneo5_init_part
+        ld      hl, #song_part_l_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ld      a, #PART_ADPCMA2
+        ld      hl, #song_part_m
+        ld      b, #1
+        ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      hl, #song_part_m_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ld      a, #PART_ADPCMA3
+        ld      hl, #song_part_n
+        ld      b, #2
+        ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      hl, #song_part_n_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ld      a, #PART_ADPCMA4
+        ld      hl, #song_part_o
+        ld      b, #3
+        ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      hl, #song_part_o_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ld      a, #PART_ADPCMA5
+        ld      hl, #song_part_p
+        ld      b, #4
+        ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      hl, #song_part_p_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
+        ld      a, #PART_ADPCMA6
+        ld      hl, #song_part_q
+        ld      b, #5
+        ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      hl, #song_part_q_loop
+        ld      PART_OFF_LOOP(ix), l
+        ld      PART_OFF_LOOP+1(ix), h
 
         ld      a, #1
         ld      (driver_song_ready), a
@@ -1234,13 +1376,23 @@ comt:
         ld      (driver_tempo_d), a
         ret
 
+comv:
+        call    pmdneo_part_fetch_byte
+        and     #0x1F
+        ld      PART_OFF_VOLUME(ix), a
+        ret
+
 commandsp:
         cp      #0xFC
         jp      z, commandsp_t
+        cp      #0xFD
+        jp      z, commandsp_v
         call    pmdneo_part_fetch_byte
         ret
 commandsp_t:
         jp      comt
+commandsp_v:
+        jp      comv
 
 fnumsetp_ch:
         jp      fnumset_ssg
@@ -1411,12 +1563,178 @@ adpcmb_keyoff:
         call    ym2610_write_port_a
         ret
 
-adpcma_main:
-        ld      a, PART_OFF_ADDR(ix)
-        or      PART_OFF_ADDR+1(ix)
-        ret     z
-        ld      a, #0
+adpcma_init:
+        ld      b, #0x00
+        ld      c, #0xBF
+        call    ym2610_write_port_b
+        ld      b, #0x01
+        ld      c, #0x3F
+        call    ym2610_write_port_b
         ret
+
+;;; adpcma_keyon_simple: A = ADPCM-A channel index (0..5).
+adpcma_keyon_simple:
+        and     #0x07
+        ld      b, a
+        ld      l, a
+        ld      h, #0
+        add     hl, hl
+        ld      de, #adpcma_ch_sample_ptr_table
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+
+        ld      a, #0x10
+        add     a, b
+        push    bc
+        ld      b, a
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_b
+        pop     bc
+        inc     de
+
+        ld      a, #0x18
+        add     a, b
+        push    bc
+        ld      b, a
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_b
+        pop     bc
+        inc     de
+
+        ld      a, #0x20
+        add     a, b
+        push    bc
+        ld      b, a
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_b
+        pop     bc
+        inc     de
+
+        ld      a, #0x28
+        add     a, b
+        push    bc
+        ld      b, a
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_b
+        pop     bc
+
+        ;; Write vol register 0x08+ch: PAN_BITS | PART_OFF_VOLUME
+        push    bc
+        ld      hl, #adpcma_pan_bits
+        ld      e, b
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)
+        or      PART_OFF_VOLUME(ix)
+        ld      c, a
+        ld      a, b
+        add     a, #0x08
+        ld      b, a
+        call    ym2610_write_port_b
+        pop     bc
+
+        ld      l, b
+        ld      h, #0
+        ld      de, #adpcma_ch_bit_table
+        add     hl, de
+        ld      b, #0x00
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        ret
+
+;;; adpcma_keyoff: B = ADPCM-A channel index (0..5).
+adpcma_keyoff:
+        ld      l, b
+        ld      h, #0
+        ld      de, #adpcma_ch_bit_table
+        add     hl, de
+        ld      a, (hl)
+        or      #0x80
+        ld      b, #0x00
+        ld      c, a
+        call    ym2610_write_port_b
+        ret
+
+adpcma_main:
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jp      z, adpcma_main_parse
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        jp      nz, adpcma_main_done
+
+adpcma_main_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jp      z, adpcma_main_loop
+        cp      #0x90
+        jp      z, adpcma_main_rest
+        jp      c, adpcma_main_note
+        call    commandsp
+        jp      adpcma_main_parse
+
+adpcma_main_rest:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ret
+
+adpcma_main_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ld      a, PART_OFF_CH_IDX(ix)
+        call    adpcma_keyon_simple
+        ret
+
+adpcma_main_loop:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jp      z, adpcma_main_clear
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jp      adpcma_main_parse
+
+adpcma_main_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
+
+adpcma_main_done:
+        ret
+
+adpcma_ch_bit_table:
+        .db     0x01, 0x02, 0x04, 0x08, 0x10, 0x20
+
+adpcma_pan_bits:
+        .db     0xC0, 0x40, 0x80, 0x40, 0xC0, 0x80
+
+adpcma_ch_sample_ptr_table:
+        .dw     adpcma_sample_bd, adpcma_sample_sd, adpcma_sample_hh
+        .dw     adpcma_sample_tom, adpcma_sample_rim, adpcma_sample_top
+
+adpcma_sample_bd:
+        .db     BD_START_LSB, BD_START_MSB, BD_STOP_LSB, BD_STOP_MSB
+adpcma_sample_sd:
+        .db     SD_START_LSB, SD_START_MSB, SD_STOP_LSB, SD_STOP_MSB
+adpcma_sample_hh:
+        .db     HH_START_LSB, HH_START_MSB, HH_STOP_LSB, HH_STOP_MSB
+adpcma_sample_rim:
+        .db     RIM_START_LSB, RIM_START_MSB, RIM_STOP_LSB, RIM_STOP_MSB
+adpcma_sample_tom:
+        .db     TOM_START_LSB, TOM_START_MSB, TOM_STOP_LSB, TOM_STOP_MSB
+adpcma_sample_top:
+        .db     TOP_START_LSB, TOP_START_MSB, TOP_STOP_LSB, TOP_STOP_MSB
 
 rhythm_main:
         ret
@@ -1467,6 +1785,85 @@ song_part_j:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
         .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
+        .db     0x80
+
+song_part_l:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x1F                 ; v31 (BD max)
+song_part_l_loop:
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x80
+song_part_m:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x1C                 ; v28 (SD)
+song_part_m_loop:
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x80
+song_part_n:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x0E                 ; v14 (HH)
+song_part_n_loop:
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x80
+song_part_o:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x18                 ; v24 (TOM)
+song_part_o_loop:
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x40, 0x18
+        .db     0x80
+song_part_p:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x16                 ; v22 (RIM)
+song_part_p_loop:
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x80
+song_part_q:
+        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFD, 0x1A                 ; v26 (TOP)
+song_part_q_loop:
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x40, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
+        .db     0x90, 0x18
         .db     0x80
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)

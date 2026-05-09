@@ -42,6 +42,10 @@ include rom.mk
 # All the generic build targets (68k, Z80, assets, run)
 include build.mk
 
+# PMDNEO standalone PoC also consumes the ADPCM-A generated symbols/VROM.
+$(STANDALONE_Z80_REL): $(BUILDDIR)/assets/samples.inc
+poc: $(BUILDDIR)/assets/samples.inc $(VROM1) poc-cart-zip
+
 # Some default targets for running your project via emulators
 include emu.mk
 
@@ -133,6 +137,13 @@ generate-sfx: $(BUILDDIR)/assets/samples.inc
 
 $(BUILDDIR)/assets/samples.inc: assets/samples-map.yaml
 	$(VROMTOOL) --asm -s $(VROMSIZE) $< -o $(VROM1) -m $@
+
+poc-cart-zip: $(PROM1) $(PROM2) standalone_z80 $(SROM1) $(CROM1) $(CROM2) $(CROM3) $(CROM4) $(CROM5) $(CROM6) $(VROM1)
+	cd $(ROM) && for i in `ls -1 | grep -v -e \.bin -e \.zip`; do ln -nsf $$i $${i%.*}.bin; done; \
+	rm -f $(notdir $(CART)); \
+	printf "===\nhttps://github.com/dciabrin/ngdevkit\n===" | zip -qz $(notdir $(CART)) `ls -1 | grep -e '^243-'`
+
+.PHONY: poc-cart-zip
 
 
 
