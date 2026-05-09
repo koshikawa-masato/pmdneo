@@ -54,10 +54,11 @@ int main(void) {
   ng_center_text(10, 0, "T140 + LOOP/FADE");
   ng_center_text(12, 0, "LOOP CYCLE: 00");
 
-  /* Wait ~16 seconds (960 vblanks @ 60fps), polling REG_STATUS_A for LOOP cycle updates */
+  /* Wait ~16 seconds (960 vblanks @ 60fps), polling Z80 reply for LOOP cycle updates */
+  /* (= REG_SOUND read = Z80 → 68k reply、 0x320001 はコイン入力 register で誤り訂正) */
   for (int i = 0; i < 960; i++) {
     ng_wait_vblank();
-    u8 cur_cycle = *(volatile u8*)0x320001;
+    u8 cur_cycle = *REG_SOUND;
     if (cur_cycle != last_cycle) {
       last_cycle = cur_cycle;
       char buf[16];
