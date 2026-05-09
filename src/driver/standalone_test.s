@@ -46,6 +46,8 @@
         .equ    PART_OFF_TRANSPOSE,      PART_OFF_SHIFT
         .equ    PART_OFF_OCTAVE,         23
         .equ    PART_OFF_CH_IDX,         24
+        .equ    PART_OFF_LOOPSTACK_BASE, 32
+        .equ    PART_OFF_LOOPDEPTH,      48
         .equ    PART_WORKAREA_SIZE,      64
 
 ;;; ----- part number constants -----
@@ -1198,49 +1200,31 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      b, #0
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_l_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         ld      a, #PART_ADPCMA2
         ld      hl, #song_part_m
         ld      b, #1
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_m_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         ld      a, #PART_ADPCMA3
         ld      hl, #song_part_n
         ld      b, #2
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_n_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         ld      a, #PART_ADPCMA4
         ld      hl, #song_part_o
         ld      b, #3
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_o_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         ld      a, #PART_ADPCMA5
         ld      hl, #song_part_p
         ld      b, #4
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_p_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
         ld      a, #PART_ADPCMA6
         ld      hl, #song_part_q
         ld      b, #5
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      hl, #song_part_q_loop
-        ld      PART_OFF_LOOP(ix), l
-        ld      PART_OFF_LOOP+1(ix), h
 
         ld      a, #1
         ld      (driver_song_ready), a
@@ -1382,17 +1366,91 @@ comv:
         ld      PART_OFF_VOLUME(ix), a
         ret
 
+comstloop:
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        cp      #4
+        jp      nc, comstloop_done
+        push    af
+        add     a, a
+        add     a, a
+        add     a, #PART_OFF_LOOPSTACK_BASE
+        ld      e, a
+        ld      d, #0
+        push    ix
+        pop     hl
+        add     hl, de
+        ld      a, PART_OFF_ADDR(ix)
+        ld      (hl), a
+        inc     hl
+        ld      a, PART_OFF_ADDR+1(ix)
+        ld      (hl), a
+        inc     hl
+        xor     a
+        ld      (hl), a
+        pop     af
+        inc     a
+        ld      PART_OFF_LOOPDEPTH(ix), a
+comstloop_done:
+        ret
+
+comedloop:
+        push    bc
+        call    pmdneo_part_fetch_byte
+        ld      c, a
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        or      a
+        jp      z, comedloop_done
+        dec     a
+        add     a, a
+        add     a, a
+        add     a, #PART_OFF_LOOPSTACK_BASE
+        ld      e, a
+        ld      d, #0
+        push    ix
+        pop     hl
+        add     hl, de
+        inc     hl
+        inc     hl
+        ld      a, (hl)
+        inc     a
+        ld      (hl), a
+        cp      c
+        jp      c, comedloop_repeat
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        dec     a
+        ld      PART_OFF_LOOPDEPTH(ix), a
+        jp      comedloop_done
+comedloop_repeat:
+        dec     hl
+        dec     hl
+        ld      a, (hl)
+        ld      PART_OFF_ADDR(ix), a
+        inc     hl
+        ld      a, (hl)
+        ld      PART_OFF_ADDR+1(ix), a
+comedloop_done:
+        pop     bc
+        ret
+
 commandsp:
         cp      #0xFC
         jp      z, commandsp_t
         cp      #0xFD
         jp      z, commandsp_v
+        cp      #0xF9
+        jp      z, commandsp_stloop
+        cp      #0xF8
+        jp      z, commandsp_edloop
         call    pmdneo_part_fetch_byte
         ret
 commandsp_t:
         jp      comt
 commandsp_v:
         jp      comv
+commandsp_stloop:
+        jp      comstloop
+commandsp_edloop:
+        jp      comedloop
 
 fnumsetp_ch:
         jp      fnumset_ssg
@@ -1791,6 +1849,7 @@ song_part_l:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x1F                 ; v31 (BD max)
 song_part_l_loop:
+        .db     0xF9
         .db     0x40, 0x18
         .db     0x90, 0x18
         .db     0x40, 0x18
@@ -1799,11 +1858,13 @@ song_part_l_loop:
         .db     0x90, 0x18
         .db     0x40, 0x18
         .db     0x90, 0x18
+        .db     0xF8, 4
         .db     0x80
 song_part_m:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x1C                 ; v28 (SD)
 song_part_m_loop:
+        .db     0xF9
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x40, 0x18
@@ -1812,11 +1873,13 @@ song_part_m_loop:
         .db     0x90, 0x18
         .db     0x40, 0x18
         .db     0x90, 0x18
+        .db     0xF8, 4
         .db     0x80
 song_part_n:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x0E                 ; v14 (HH)
 song_part_n_loop:
+        .db     0xF9
         .db     0x40, 0x18
         .db     0x40, 0x18
         .db     0x40, 0x18
@@ -1825,11 +1888,13 @@ song_part_n_loop:
         .db     0x40, 0x18
         .db     0x40, 0x18
         .db     0x40, 0x18
+        .db     0xF8, 4
         .db     0x80
 song_part_o:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x18                 ; v24 (TOM)
 song_part_o_loop:
+        .db     0xF9
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
@@ -1838,11 +1903,13 @@ song_part_o_loop:
         .db     0x40, 0x18
         .db     0x40, 0x18
         .db     0x40, 0x18
+        .db     0xF8, 4
         .db     0x80
 song_part_p:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x16                 ; v22 (RIM)
 song_part_p_loop:
+        .db     0xF9
         .db     0x40, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
@@ -1851,11 +1918,13 @@ song_part_p_loop:
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
+        .db     0xF8, 4
         .db     0x80
 song_part_q:
         .db     0xFC, 0x18                 ; t120 (tempo_d=24)
         .db     0xFD, 0x1A                 ; v26 (TOP)
 song_part_q_loop:
+        .db     0xF9
         .db     0x40, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
@@ -1864,6 +1933,7 @@ song_part_q_loop:
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
+        .db     0xF8, 4
         .db     0x80
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)
