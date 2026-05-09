@@ -8,8 +8,11 @@
 
         ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
         .equ    TEST_FM_CH_INDEX,        1
-        ;; Phase 3 final test: 0=single ch (TEST_FM_CH_INDEX 経由 scale)、 1=4 和音 chord 持続音
-        .equ    TEST_MODE_CHORD,         1
+        ;; Phase 3 final test:
+        ;;   0 = single ch (= TEST_FM_CH_INDEX 経由 scale 進行)
+        ;;   1 = 4 ch unison scale (= 4 ch 同 fnum で C-D-E-F-G-A-B-C、 ymfm 特異で ch 3/5/6 silent)
+        ;;   2 = 4 ch chord 持続 (= C-E-G-C 別 fnum で 4 ch 同時 keyon、 持続音、 SubC-3 既往実績類)
+        .equ    TEST_MODE_CHORD,         2
 
 ;;; ----- per-part workarea field offsets -----
 
@@ -103,14 +106,18 @@ nmi_clear_driver_state:
         inc     hl
         djnz    nmi_clear_driver_state
 
+        ;; ★ 0x27 bit 6 (= multi-freq mode for ch 3) を立てると ch 3 通常 fnum
+        ;;   (0xA2/0xA6) が無効化、 4 OP 個別 fnum (0xA8-0xAF) 必要に。 PMDNEO は
+        ;;   通常 fnum 経路で chip ch 3 を駆動するため bit 6 クリア。
+        ;;   2026-05-09 user 「B + ADPCM のみ」 audio 報告 + Codex 解析で発見。
         ld      b, #0x27
-        ld      c, #0x40
+        ld      c, #0x00                ; multi-freq disable + TIMER 全 reset
         call    ym2610_write_port_a
         ld      b, #0x26
-        ld      c, #0xFC
+        ld      c, #0xFC                ; TIMER-B counter
         call    ym2610_write_port_a
         ld      b, #0x27
-        ld      c, #0x6A
+        ld      c, #0x2A                ; TIMER-B reset(b1) + IRQ enable(b3) + run(b5)、 multi-freq disable
         call    ym2610_write_port_a
 
 nmi_dispatch:
@@ -137,12 +144,38 @@ nmi_cmd_2_play_song:
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
+        .if TEST_MODE_CHORD - 1
+        ;; ★ Phase 3 final test mode 2: 4 和音 chord 持続 (= per-ch 別 fnum、 SubC-3 既往実績類)
+        ;;   chip ch 2 = C4 (0x40)、 ch 3 = E4 (0x44)、 ch 5 = G4 (0x47)、 ch 6 = C5 (0x50)
+        ;;   driver_song_ready = 0 で IRQ scale 進行 抑止、 持続音
+        xor     a
+        ld      (driver_song_ready), a
+        ld      a, #0x40                ; C4
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        ld      a, #0x44                ; E4
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        ld      a, #0x47                ; G4
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        ld      a, #0x50                ; C5
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        .else
         .if TEST_MODE_CHORD
-        ;; ★ Phase 3 final test: 4 和音 unison scale 進行 (= 4 ch 同 fnum で C-D-E-F-G-A-B-C)
-        ;;   chip ch 2/3/5/6 全 ch で同 note 同時 keyon、 IRQ scale 進行も 4 ch 全部 keyoff/keyon
+        ;; ★ Phase 3 final test mode 1: 4 和音 unison scale (= 4 ch 同 fnum、 ymfm 特異で ch 3/5/6 silent)
         ld      a, #1
         ld      (driver_song_ready), a
-        ld      a, #0x40                ; C4 note byte
+        ld      a, #0x40
         ld      b, #1
         call    fnumset_fm
         ld      b, #1
@@ -172,6 +205,7 @@ nmi_cmd_2_play_song:
         ld      b, #TEST_FM_CH_INDEX
         call    fm_keyon
         .endif
+        .endif
         jp      nmi_done
 
 nmi_cmd_5_adpcmb_beat:
@@ -191,7 +225,7 @@ irq_handler_body:
         push    hl
 
         ld      b, #0x27
-        ld      c, #0x6A
+        ld      c, #0x2A                ; TIMER-B re-arm (multi-freq disable for ch 3 fnum)
         call    ym2610_write_port_a
 
         ld      hl, (pmdneo_irq_count)
@@ -200,7 +234,7 @@ irq_handler_body:
 
         ld      a, (driver_song_ready)
         or      a
-        jr      z, irq_done
+        jp      z, irq_done
 
         ld      hl, (scale_tick_lo)
         ld      a, h
@@ -208,14 +242,14 @@ irq_handler_body:
         jr      z, irq_scale_step_next
         dec     hl
         ld      (scale_tick_lo), hl
-        jr      irq_done
+        jp      irq_done
 
 irq_scale_step_next:
         ld      a, (scale_step)
         inc     a
         ld      (scale_step), a
         cp      #8
-        jr      nc, irq_scale_end
+        jp      nc, irq_scale_end
 
         ;; ★ note 切替時 必ず keyoff → 新 fnum → keyon (= envelope edge trigger)
         ;;   2026-05-09 user 「note 順序が出鱈目」 audio 解析で keyoff 中間欠落確認。
@@ -277,8 +311,24 @@ irq_scale_step_next:
         jr      irq_done
 
 irq_scale_end:
+        ;; ★ scale end bug fix (= 2026-05-09 Codex 検証で発見):
+        ;;   TEST_MODE_CHORD = 1 で 4 ch unison scale 進行時、 scale 完走後に
+        ;;   1 ch (= TEST_FM_CH_INDEX) のみ keyoff、 残り 3 ch が keyon 維持で
+        ;;   C5 sustain 残留 (= user 「最後のドが少し延長」 真因)。 4 ch 全部
+        ;;   keyoff 必要。
+        .if TEST_MODE_CHORD
+        ld      b, #1
+        call    fm_keyoff
+        ld      b, #2
+        call    fm_keyoff
+        ld      b, #4
+        call    fm_keyoff
+        ld      b, #5
+        call    fm_keyoff
+        .else
         ld      b, #TEST_FM_CH_INDEX
         call    fm_keyoff
+        .endif
         xor     a
         ld      (driver_song_ready), a
 
