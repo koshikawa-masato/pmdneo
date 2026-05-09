@@ -6,6 +6,11 @@
         .equ    scale_tick_hi,           0xF815
         .equ    pmdneo_irq_count,        0xF816
 
+        ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
+        .equ    TEST_FM_CH_INDEX,        1
+        ;; Phase 3 final test: 0=single ch (TEST_FM_CH_INDEX 経由 scale)、 1=4 和音 chord 持続音
+        .equ    TEST_MODE_CHORD,         1
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -131,13 +136,42 @@ nmi_cmd_2_play_song:
         ld      (scale_step), a
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
+
+        .if TEST_MODE_CHORD
+        ;; ★ Phase 3 final test: 4 和音 unison scale 進行 (= 4 ch 同 fnum で C-D-E-F-G-A-B-C)
+        ;;   chip ch 2/3/5/6 全 ch で同 note 同時 keyon、 IRQ scale 進行も 4 ch 全部 keyoff/keyon
         ld      a, #1
         ld      (driver_song_ready), a
-
-        ld      a, #0x40
-        ld      b, #1                   ; ch index 1 = chip ch 2
+        ld      a, #0x40                ; C4 note byte
+        ld      b, #1
         call    fnumset_fm
-        call    fm_ch2_keyon
+        ld      b, #1
+        call    fm_keyon
+        ld      a, #0x40
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        ld      a, #0x40
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        ld      a, #0x40
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        .else
+        ;; 単音 mode (= TEST_FM_CH_INDEX で 1 ch 選択 + scale 進行)
+        ld      a, #1
+        ld      (driver_song_ready), a
+        ld      a, #0x40                ; C4 note byte
+        ld      b, #TEST_FM_CH_INDEX
+        call    fnumset_fm
+        ld      b, #TEST_FM_CH_INDEX
+        call    fm_keyon
+        .endif
         jp      nmi_done
 
 nmi_cmd_5_adpcmb_beat:
@@ -184,28 +218,67 @@ irq_scale_step_next:
         jr      nc, irq_scale_end
 
         ;; ★ note 切替時 必ず keyoff → 新 fnum → keyon (= envelope edge trigger)
-        ;;   2026-05-09 user 「note 順序が出鱈目」 audio 解析で keyoff 中間欠落確認、
-        ;;   chip envelope legato 状態で fnum 切替 glitch を user 聴感が拾っていた。
-        call    fm_ch2_keyoff
-
+        ;;   2026-05-09 user 「note 順序が出鱈目」 audio 解析で keyoff 中間欠落確認。
+        .if TEST_MODE_CHORD
+        ;; 4 ch unison: 全 ch keyoff → 全 ch fnumset → 全 ch keyon
+        ld      b, #1
+        call    fm_keyoff
+        ld      b, #2
+        call    fm_keyoff
+        ld      b, #4
+        call    fm_keyoff
+        ld      b, #5
+        call    fm_keyoff
+        ld      a, (scale_step)
+        ld      e, a
+        ld      d, #0
+        ld      hl, #scale_notes_fm
+        add     hl, de
+        ld      a, (hl)                 ; A = note byte
+        push    af
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        pop     af
+        push    af
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        pop     af
+        push    af
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        pop     af
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        .else
+        ld      b, #TEST_FM_CH_INDEX
+        call    fm_keyoff
         ld      a, (scale_step)
         ld      e, a
         ld      d, #0
         ld      hl, #scale_notes_fm
         add     hl, de
         ld      a, (hl)
-        ld      b, #1                   ; ch index 1 = chip ch 2
+        ld      b, #TEST_FM_CH_INDEX
         call    fnumset_fm
-        call    fm_ch2_keyon
+        ld      b, #TEST_FM_CH_INDEX
+        call    fm_keyon
+        .endif
 
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
         jr      irq_done
 
 irq_scale_end:
-        ld      b, #0x28
-        ld      c, #0x01
-        call    ym2610_write_port_a
+        ld      b, #TEST_FM_CH_INDEX
+        call    fm_keyoff
         xor     a
         ld      (driver_song_ready), a
 
@@ -338,119 +411,147 @@ fnum_data:
 scale_notes_fm:
         .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
 
-fm_ch2_keyoff:
+;; fm_keyoff: B = ch index (0..5)
+fm_keyoff:
+        push    bc
+        ld      hl, #fm_keyoff_values
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
         ld      b, #0x28
-        ld      c, #0x01
+        ld      c, (hl)
         call    ym2610_write_port_a
+        pop     bc
         ret
 
-fm_ch2_keyon:
+;; fm_keyon: B = ch index (0..5)
+fm_keyon:
+        push    bc
+        ld      hl, #fm_keyon_values
+        ld      a, b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
         ld      b, #0x28
-        ld      c, #0xF1
+        ld      c, (hl)
         call    ym2610_write_port_a
+        pop     bc
         ret
 
         .org 0x0300
-init_chip_ch2_voice:
-        ld      b, #0xB1
-        ld      c, #0x07
+pmdneo_fm_write_reg_ch:
+        push    bc
+        push    de
+
+        ld      a, b
+        cp      #3
+        jr      c, pmdneo_fm_write_reg_ch_port_a
+
+        sub     #3
+        ld      e, a
+        ld      a, d
+        add     a, e
+        ld      b, a
+        call    ym2610_write_port_b
+        jr      pmdneo_fm_write_reg_ch_done
+
+pmdneo_fm_write_reg_ch_port_a:
+        ld      e, a
+        ld      a, d
+        add     a, e
+        ld      b, a
         call    ym2610_write_port_a
 
-        ld      b, #0x31
-        ld      c, #0x01
-        call    ym2610_write_port_a
-        ld      b, #0x35
-        ld      c, #0x01
-        call    ym2610_write_port_a
-        ld      b, #0x39
-        ld      c, #0x01
-        call    ym2610_write_port_a
-        ld      b, #0x3D
-        ld      c, #0x01
-        call    ym2610_write_port_a
-
-        ld      b, #0x41
-        ld      c, #0x18
-        call    ym2610_write_port_a
-        ld      b, #0x45
-        ld      c, #0x18
-        call    ym2610_write_port_a
-        ld      b, #0x49
-        ld      c, #0x18
-        call    ym2610_write_port_a
-        ld      b, #0x4D
-        ld      c, #0x18
-        call    ym2610_write_port_a
-
-        ld      b, #0x51
-        ld      c, #0x1F
-        call    ym2610_write_port_a
-        ld      b, #0x55
-        ld      c, #0x1F
-        call    ym2610_write_port_a
-        ld      b, #0x59
-        ld      c, #0x1F
-        call    ym2610_write_port_a
-        ld      b, #0x5D
-        ld      c, #0x1F
-        call    ym2610_write_port_a
-
-        ld      b, #0x61
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x65
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x69
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x6D
-        ld      c, #0x00
-        call    ym2610_write_port_a
-
-        ld      b, #0x71
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x75
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x79
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x7D
-        ld      c, #0x00
-        call    ym2610_write_port_a
-
-        ld      b, #0x81
-        ld      c, #0x0F
-        call    ym2610_write_port_a
-        ld      b, #0x85
-        ld      c, #0x0F
-        call    ym2610_write_port_a
-        ld      b, #0x89
-        ld      c, #0x0F
-        call    ym2610_write_port_a
-        ld      b, #0x8D
-        ld      c, #0x0F
-        call    ym2610_write_port_a
-
-        ld      b, #0x91
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x95
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x99
-        ld      c, #0x00
-        call    ym2610_write_port_a
-        ld      b, #0x9D
-        ld      c, #0x00
-        call    ym2610_write_port_a
-
-        ld      b, #0xB5
-        ld      c, #0xC0
-        call    ym2610_write_port_a
+pmdneo_fm_write_reg_ch_done:
+        pop     de
+        pop     bc
         ret
+
+pmdneo_fm_write_voice_group_ch:
+        ld      e, #4
+pmdneo_fm_write_voice_group_ch_loop:
+        ld      c, (hl)
+        push    hl
+        call    pmdneo_fm_write_reg_ch
+        pop     hl
+        inc     hl
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_write_voice_group_ch_loop
+        ret
+
+pmdneo_fm_clear_ssg_eg_ch:
+        ld      d, #0x90
+        ld      e, #4
+pmdneo_fm_clear_ssg_eg_ch_loop:
+        ld      c, #0x00
+        push    hl
+        call    pmdneo_fm_write_reg_ch
+        pop     hl
+        ld      a, d
+        add     a, #4
+        ld      d, a
+        dec     e
+        jr      nz, pmdneo_fm_clear_ssg_eg_ch_loop
+        ret
+
+pmdneo_fm_voice_set_default:
+        ld      hl, #fm_voice_data_default
+        ld      de, #24
+        add     hl, de
+        ld      d, #0xB0
+        ld      c, (hl)
+        call    pmdneo_fm_write_reg_ch
+
+        ld      hl, #fm_voice_data_default
+        ld      d, #0x30
+        call    pmdneo_fm_write_voice_group_ch
+        ld      d, #0x40
+        call    pmdneo_fm_write_voice_group_ch
+        ld      d, #0x50
+        call    pmdneo_fm_write_voice_group_ch
+        ld      d, #0x60
+        call    pmdneo_fm_write_voice_group_ch
+        ld      d, #0x70
+        call    pmdneo_fm_write_voice_group_ch
+        ld      d, #0x80
+        call    pmdneo_fm_write_voice_group_ch
+
+        call    pmdneo_fm_clear_ssg_eg_ch
+
+        ld      d, #0xB4
+        ld      c, #0xC0
+        call    pmdneo_fm_write_reg_ch
+        ret
+
+init_chip_ch2_voice:
+        ld      b, #1                   ; chip ch 2
+        call    pmdneo_fm_voice_set_default
+        ld      b, #2                   ; chip ch 3
+        call    pmdneo_fm_voice_set_default
+        ld      b, #4                   ; chip ch 5
+        call    pmdneo_fm_voice_set_default
+        ld      b, #5                   ; chip ch 6
+        call    pmdneo_fm_voice_set_default
+        ret
+
+fm_voice_data_default:
+        .db     0x01, 0x01, 0x01, 0x01
+        .db     0x18, 0x18, 0x18, 0x18
+        .db     0x1F, 0x1F, 0x1F, 0x1F
+        .db     0x00, 0x00, 0x00, 0x00
+        .db     0x00, 0x00, 0x00, 0x00
+        .db     0x0F, 0x0F, 0x0F, 0x0F
+        .db     0x07
+
+        .org 0x03B0
+fm_keyon_values:
+        .db     0xF0, 0xF1, 0xF2, 0xF4, 0xF5, 0xF6
+fm_keyoff_values:
+        .db     0x00, 0x01, 0x02, 0x04, 0x05, 0x06
 
         .org 0x0400
 init_adpcmb_beat:
