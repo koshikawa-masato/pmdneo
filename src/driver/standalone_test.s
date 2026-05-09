@@ -12,7 +12,8 @@
         ;;   0 = single ch (= TEST_FM_CH_INDEX 経由 scale 進行)
         ;;   1 = 4 ch unison scale (= 4 ch 同 fnum で C-D-E-F-G-A-B-C、 ymfm 特異で ch 3/5/6 silent)
         ;;   2 = 4 ch chord 持続 (= C-E-G-C 別 fnum で 4 ch 同時 keyon、 持続音、 SubC-3 既往実績類)
-        .equ    TEST_MODE_CHORD,         2
+        ;;   3 = 4 ch chord progression scale (= I-ii-iii-IV-V-vi-vii-I, ch2 root/ch3 3rd/ch5 5th/ch6 octave)
+        .equ    TEST_MODE_CHORD,         3
 
 ;;; ----- per-part workarea field offsets -----
 
@@ -144,7 +145,32 @@ nmi_cmd_2_play_song:
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
-        .if TEST_MODE_CHORD - 1
+        .if TEST_MODE_CHORD == 3
+        ;; Phase 3 final test mode 3: 4 ch chord progression scale.
+        ld      a, #1
+        ld      (driver_song_ready), a
+        ld      a, #0x40                ; ch2 root C4
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        ld      a, #0x44                ; ch3 3rd E4
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        ld      a, #0x47                ; ch5 5th G4
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        ld      a, #0x50                ; ch6 octave C5
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        .else
+        .if TEST_MODE_CHORD == 2
         ;; ★ Phase 3 final test mode 2: 4 和音 chord 持続 (= per-ch 別 fnum、 SubC-3 既往実績類)
         ;;   chip ch 2 = C4 (0x40)、 ch 3 = E4 (0x44)、 ch 5 = G4 (0x47)、 ch 6 = C5 (0x50)
         ;;   driver_song_ready = 0 で IRQ scale 進行 抑止、 持続音
@@ -171,7 +197,7 @@ nmi_cmd_2_play_song:
         ld      b, #5
         call    fm_keyon
         .else
-        .if TEST_MODE_CHORD
+        .if TEST_MODE_CHORD == 1
         ;; ★ Phase 3 final test mode 1: 4 和音 unison scale (= 4 ch 同 fnum、 ymfm 特異で ch 3/5/6 silent)
         ld      a, #1
         ld      (driver_song_ready), a
@@ -204,6 +230,7 @@ nmi_cmd_2_play_song:
         call    fnumset_fm
         ld      b, #TEST_FM_CH_INDEX
         call    fm_keyon
+        .endif
         .endif
         .endif
         jp      nmi_done
@@ -253,6 +280,54 @@ irq_scale_step_next:
 
         ;; ★ note 切替時 必ず keyoff → 新 fnum → keyon (= envelope edge trigger)
         ;;   2026-05-09 user 「note 順序が出鱈目」 audio 解析で keyoff 中間欠落確認。
+        .if TEST_MODE_CHORD == 3
+        ;; 4 ch chord progression: keyoff all -> per-ch fnumset -> per-ch keyon
+        ld      b, #1
+        call    fm_keyoff
+        ld      b, #2
+        call    fm_keyoff
+        ld      b, #4
+        call    fm_keyoff
+        ld      b, #5
+        call    fm_keyoff
+        ld      a, (scale_step)
+        ld      e, a
+        ld      d, #0
+        ld      hl, #scale_notes_ch2_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch3_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch5_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch6_chord
+        add     hl, de
+        ld      a, (hl)
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        .else
         .if TEST_MODE_CHORD
         ;; 4 ch unison: 全 ch keyoff → 全 ch fnumset → 全 ch keyon
         ld      b, #1
@@ -304,6 +379,7 @@ irq_scale_step_next:
         call    fnumset_fm
         ld      b, #TEST_FM_CH_INDEX
         call    fm_keyon
+        .endif
         .endif
 
         ld      hl, #SCALE_TICK_INITIAL
@@ -460,6 +536,15 @@ fnum_data:
 
 scale_notes_fm:
         .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
+
+scale_notes_ch2_chord:
+        .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
+scale_notes_ch3_chord:
+        .db     0x44, 0x45, 0x47, 0x49, 0x4B, 0x50, 0x52, 0x54
+scale_notes_ch5_chord:
+        .db     0x47, 0x49, 0x4B, 0x50, 0x52, 0x54, 0x55, 0x57
+scale_notes_ch6_chord:
+        .db     0x50, 0x52, 0x54, 0x55, 0x57, 0x59, 0x5B, 0x60
 
 ;; fm_keyoff: B = ch index (0..5)
 fm_keyoff:
