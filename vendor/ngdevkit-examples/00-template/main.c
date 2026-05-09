@@ -46,7 +46,34 @@ int main(void) {
   // cmd 2 (= Phase 5a mode 4 hardcoded chord progression) は disable
   ng_wait_vblank();
   ng_wait_vblank();
-  *REG_SOUND = 5;
+  *REG_SOUND = 5;     /* ADPCM-A drum start */
+
+  /* LOOP cycle counter polling + display */
+  u8 last_cycle = 0;
+  ng_center_text(8, 0, "PMDNEO PHASE 8B");
+  ng_center_text(10, 0, "T140 + LOOP/FADE");
+  ng_center_text(12, 0, "LOOP CYCLE: 00");
+
+  /* Wait ~16 seconds (960 vblanks @ 60fps), polling REG_STATUS_A for LOOP cycle updates */
+  for (int i = 0; i < 960; i++) {
+    ng_wait_vblank();
+    u8 cur_cycle = *(volatile u8*)0x320001;
+    if (cur_cycle != last_cycle) {
+      last_cycle = cur_cycle;
+      char buf[16];
+      buf[0] = 'L'; buf[1] = 'O'; buf[2] = 'O'; buf[3] = 'P'; buf[4] = ' ';
+      buf[5] = 'C'; buf[6] = 'Y'; buf[7] = 'C'; buf[8] = 'L'; buf[9] = 'E';
+      buf[10] = ':'; buf[11] = ' ';
+      buf[12] = '0' + (cur_cycle / 10);
+      buf[13] = '0' + (cur_cycle % 10);
+      buf[14] = '\0';
+      ng_center_text(12, 0, buf);
+    }
+  }
+
+  /* Fade trigger (= default speed 16, ~1 sec fade、 modal abandon) */
+  ng_center_text(14, 0, "FADE OUT...");
+  *REG_SOUND = 6;     /* fade_start with default speed 16 */
   ng_wait_vblank();
   // *REG_SOUND = 2;   // disabled: mode 4 FM chord drowns out ADPCM-A drums
 

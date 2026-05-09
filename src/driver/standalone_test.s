@@ -7,6 +7,12 @@
         .equ    pmdneo_irq_count,        0xF816
         .equ    driver_tempo_d,          0xF817   ; 1 byte BPM-encoded accumulator delta
         .equ    driver_subtick_acc,      0xF818   ; 1 byte 8-bit overflow accumulator
+        .equ    driver_fade_state,         0xF819   ; 1 byte: 0=no fade, 1=in progress
+        .equ    driver_fade_counter,       0xF81A   ; 1 byte: IRQ step counter
+        .equ    driver_fade_master,        0xF81B   ; 1 byte: ADPCM-A master vol shadow
+        .equ    driver_fade_speed,         0xF81C   ; 1 byte (default 16, range 0-255)
+        .equ    driver_pending_arg_target, 0xF81D   ; 1 byte (0=normal, 1=fade_speed arg)
+        .equ    driver_loop_cycle,         0xF81E   ; 1 byte: BD part LOOP cycle counter
 
         ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
         .equ    TEST_FM_CH_INDEX,        1
@@ -123,6 +129,9 @@ nmi_clear_driver_state:
         inc     hl
         djnz    nmi_clear_driver_state
 
+        ld      a, #16
+        ld      (driver_fade_speed), a
+
         ;; ★ 0x27 bit 6 (= multi-freq mode for ch 3) を立てると ch 3 通常 fnum
         ;;   (0xA2/0xA6) が無効化、 4 OP 個別 fnum (0xA8-0xAF) 必要に。 PMDNEO は
         ;;   通常 fnum 経路で chip ch 3 を駆動するため bit 6 クリア。
@@ -138,11 +147,16 @@ nmi_clear_driver_state:
         call    ym2610_write_port_a
 
 nmi_dispatch:
+        ;; modal flag check disabled for bug isolation
         in      a, (0x00)
         cp      #2
         jp      z, nmi_cmd_2_play_song
         cp      #5
         jp      z, nmi_cmd_5_adpcmb_beat
+        cp      #6
+        jp      z, nmi_cmd_6_fade_start
+        cp      #7
+        jp      z, nmi_cmd_7_set_fade_speed
         jp      nmi_done
 
 nmi_done:
@@ -284,6 +298,20 @@ nmi_cmd_5_adpcmb_beat:
         jp      nmi_done
         .endif
 
+nmi_cmd_6_fade_start:
+        ld      a, #0x3F
+        ld      (driver_fade_master), a
+        xor     a
+        ld      (driver_fade_counter), a
+        ld      a, #1
+        ld      (driver_fade_state), a
+        jp      nmi_done
+
+nmi_cmd_7_set_fade_speed:
+        ld      a, #1
+        ld      (driver_pending_arg_target), a
+        jp      nmi_done
+
         .org 0x0100
 irq_handler_body:
         di
@@ -299,6 +327,37 @@ irq_handler_body:
         ld      a, (pmdneo_irq_count)
         inc     a
         ld      (pmdneo_irq_count), a
+
+        ;; IRQ fade processing (= default speed 16, ~1 sec fade)
+        ld      a, (driver_fade_state)
+        or      a
+        jp      z, irq_fade_done
+        ld      a, (driver_fade_counter)
+        inc     a
+        ld      hl, #driver_fade_speed
+        cp      (hl)
+        jp      c, irq_fade_save_counter
+        xor     a
+        ld      (driver_fade_counter), a
+        ld      a, (driver_fade_master)
+        or      a
+        jp      z, irq_fade_finish
+        dec     a
+        ld      (driver_fade_master), a
+        ld      b, #0x01
+        ld      c, a
+        call    ym2610_write_port_b
+        jp      irq_fade_done
+irq_fade_save_counter:
+        ld      (driver_fade_counter), a
+        jp      irq_fade_done
+irq_fade_finish:
+        xor     a
+        ld      (driver_fade_state), a
+        ld      b, #0x00
+        ld      c, #0xBF
+        call    ym2610_write_port_b
+irq_fade_done:
 
         ld      a, (driver_song_ready)
         or      a
@@ -1396,6 +1455,8 @@ comstloop_done:
 comedloop:
         push    bc
         call    pmdneo_part_fetch_byte
+        or      a
+        jp      z, comedloop_force_reloop
         ld      c, a
         ld      a, PART_OFF_LOOPDEPTH(ix)
         or      a
@@ -1428,6 +1489,41 @@ comedloop_repeat:
         inc     hl
         ld      a, (hl)
         ld      PART_OFF_ADDR+1(ix), a
+        jp      comedloop_done
+comedloop_force_reloop:
+        push    af
+        push    ix
+        pop     hl
+        ld      a, h
+        cp      #0xFA
+        jp      nz, comedloop_force_reloop_skip
+        ld      a, l
+        cp      #0xE0
+        jp      nz, comedloop_force_reloop_skip
+        ld      a, (driver_loop_cycle)
+        inc     a
+        ld      (driver_loop_cycle), a
+        out     (0x0C), a
+comedloop_force_reloop_skip:
+        pop     af
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        or      a
+        jp      z, comedloop_done
+        dec     a
+        sla     a
+        sla     a
+        add     a, #PART_OFF_LOOPSTACK_BASE
+        ld      e, a
+        ld      d, #0
+        push    ix
+        pop     hl
+        add     hl, de
+        ld      a, (hl)
+        ld      PART_OFF_ADDR(ix), a
+        inc     hl
+        ld      a, (hl)
+        ld      PART_OFF_ADDR+1(ix), a
+        jp      comedloop_done
 comedloop_done:
         pop     bc
         ret
@@ -1846,7 +1942,7 @@ song_part_j:
         .db     0x80
 
 song_part_l:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x1F                 ; v31 (BD max)
 song_part_l_loop:
         .db     0xF9
@@ -1858,10 +1954,10 @@ song_part_l_loop:
         .db     0x90, 0x18
         .db     0x40, 0x18
         .db     0x90, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 song_part_m:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x1C                 ; v28 (SD)
 song_part_m_loop:
         .db     0xF9
@@ -1873,10 +1969,10 @@ song_part_m_loop:
         .db     0x90, 0x18
         .db     0x40, 0x18
         .db     0x90, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 song_part_n:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x0E                 ; v14 (HH)
 song_part_n_loop:
         .db     0xF9
@@ -1888,10 +1984,10 @@ song_part_n_loop:
         .db     0x40, 0x18
         .db     0x40, 0x18
         .db     0x40, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 song_part_o:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x18                 ; v24 (TOM)
 song_part_o_loop:
         .db     0xF9
@@ -1903,10 +1999,10 @@ song_part_o_loop:
         .db     0x40, 0x18
         .db     0x40, 0x18
         .db     0x40, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 song_part_p:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x16                 ; v22 (RIM)
 song_part_p_loop:
         .db     0xF9
@@ -1918,10 +2014,10 @@ song_part_p_loop:
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 song_part_q:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x1A                 ; v26 (TOP)
 song_part_q_loop:
         .db     0xF9
@@ -1933,7 +2029,7 @@ song_part_q_loop:
         .db     0x90, 0x18
         .db     0x90, 0x18
         .db     0x90, 0x18
-        .db     0xF8, 4
+        .db     0xF8, 0x00
         .db     0x80
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)
