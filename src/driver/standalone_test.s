@@ -8,12 +8,13 @@
 
         ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
         .equ    TEST_FM_CH_INDEX,        1
-        ;; Phase 3 final test:
-        ;;   0 = single ch (= TEST_FM_CH_INDEX 経由 scale 進行)
-        ;;   1 = 4 ch unison scale (= 4 ch 同 fnum で C-D-E-F-G-A-B-C、 ymfm 特異で ch 3/5/6 silent)
-        ;;   2 = 4 ch chord 持続 (= C-E-G-C 別 fnum で 4 ch 同時 keyon、 持続音、 SubC-3 既往実績類)
-        ;;   3 = 4 ch chord progression scale (= I-ii-iii-IV-V-vi-vii-I, ch2 root/ch3 3rd/ch5 5th/ch6 octave)
-        .equ    TEST_MODE_CHORD,         3
+        ;; TEST_MODE_CHORD:
+        ;; 0 = single ch scale
+        ;; 1 = 4 ch unison scale
+        ;; 2 = 4 ch chord sustain
+        ;; 3 = chord progression scale (4 ch FM)
+        ;; 4 = 8 ch chord progression (FM4 + SSG3 + ADPCM-B, BCEFGHIJ milestone)
+        .equ    TEST_MODE_CHORD,         4
 
 ;;; ----- per-part workarea field offsets -----
 
@@ -140,11 +141,29 @@ nmi_done:
 nmi_cmd_2_play_song:
         call    init_chip_ch2_voice
 
+        ;; PAN分離 (= 7ch識別用): ch2/3(B/C)=R, ch5/6(E/F)=L, SSG中央既定
+        ;; PMD_TL最大化なしでも左右分離で聴感識別可能
+        ld      b, #0xB5
+        ld      c, #0x40        ; ch2 (B) = R
+        call    ym2610_write_port_a
+        ld      b, #0xB6
+        ld      c, #0x40        ; ch3 (C) = R
+        call    ym2610_write_port_a
+        ld      b, #0xB5
+        ld      c, #0x80        ; ch5 (E) = L (port B)
+        call    ym2610_write_port_b
+        ld      b, #0xB6
+        ld      c, #0x80        ; ch6 (F) = L (port B)
+        call    ym2610_write_port_b
+
         xor     a
         ld      (scale_step), a
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
 
+        .if TEST_MODE_CHORD == 4
+        call    nmi_cmd_2_play_song_mode4
+        .else
         .if TEST_MODE_CHORD == 3
         ;; Phase 3 final test mode 3: 4 ch chord progression scale.
         ld      a, #1
@@ -233,6 +252,7 @@ nmi_cmd_2_play_song:
         .endif
         .endif
         .endif
+        .endif
         jp      nmi_done
 
 nmi_cmd_5_adpcmb_beat:
@@ -280,6 +300,9 @@ irq_scale_step_next:
 
         ;; ★ note 切替時 必ず keyoff → 新 fnum → keyon (= envelope edge trigger)
         ;;   2026-05-09 user 「note 順序が出鱈目」 audio 解析で keyoff 中間欠落確認。
+        .if TEST_MODE_CHORD == 4
+        call    irq_scale_step_mode4
+        .else
         .if TEST_MODE_CHORD == 3
         ;; 4 ch chord progression: keyoff all -> per-ch fnumset -> per-ch keyon
         ld      b, #1
@@ -381,6 +404,7 @@ irq_scale_step_next:
         call    fm_keyon
         .endif
         .endif
+        .endif
 
         ld      hl, #SCALE_TICK_INITIAL
         ld      (scale_tick_lo), hl
@@ -392,6 +416,22 @@ irq_scale_end:
         ;;   1 ch (= TEST_FM_CH_INDEX) のみ keyoff、 残り 3 ch が keyon 維持で
         ;;   C5 sustain 残留 (= user 「最後のドが少し延長」 真因)。 4 ch 全部
         ;;   keyoff 必要。
+        .if TEST_MODE_CHORD == 4
+        ld      b, #1
+        call    fm_keyoff
+        ld      b, #2
+        call    fm_keyoff
+        ld      b, #4
+        call    fm_keyoff
+        ld      b, #5
+        call    fm_keyoff
+        ld      b, #0
+        call    ssg_keyoff
+        ld      b, #1
+        call    ssg_keyoff
+        ld      b, #2
+        call    ssg_keyoff
+        .else
         .if TEST_MODE_CHORD
         ld      b, #1
         call    fm_keyoff
@@ -404,6 +444,7 @@ irq_scale_end:
         .else
         ld      b, #TEST_FM_CH_INDEX
         call    fm_keyoff
+        .endif
         .endif
         xor     a
         ld      (driver_song_ready), a
@@ -520,6 +561,96 @@ fnumset_fm_porta:
         call    ym2610_write_port_a
         ret
 
+init_ssg_voice:
+        ld      b, #0x07
+        ld      c, #0x38
+        call    ym2610_write_port_a
+        ;; SSG volume = 0x0F (= max、中央SSGをFM L/Rの間に浮かせる)
+        ld      b, #0x08
+        ld      c, #0x0F
+        call    ym2610_write_port_a
+        ld      b, #0x09
+        ld      c, #0x0F
+        call    ym2610_write_port_a
+        ld      b, #0x0A
+        ld      c, #0x0F
+        call    ym2610_write_port_a
+        ret
+
+;; fnumset_ssg: A = note byte (OCT<<4|ONKAI), B = SSG ch index (0..2)
+fnumset_ssg:
+        push    af
+        push    bc
+        and     #0x0F
+        ld      l, a
+        ld      h, #0
+        add     hl, hl
+        ld      bc, #psg_tune_data
+        add     hl, bc
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+
+        pop     bc
+        pop     af
+        rrca
+        rrca
+        rrca
+        rrca
+        and     #0x0F
+        or      a
+        jr      z, fnumset_ssg_set
+fnumset_ssg_shift:
+        srl     d
+        rr      e
+        dec     a
+        jr      nz, fnumset_ssg_shift
+
+fnumset_ssg_set:
+        ld      a, b
+        add     a, a                    ; SSG tune register base = ch * 2
+        ld      l, a
+        ld      h, #0
+
+        push    de
+        push    hl
+        ld      b, l                    ; fine tune register
+        ld      c, e
+        call    ym2610_write_port_a
+        pop     hl
+        pop     de
+
+        ld      a, l
+        inc     a                       ; coarse tune register
+        ld      b, a
+        ld      a, d
+        and     #0x0F
+        ld      c, a
+        call    ym2610_write_port_a
+        ret
+
+;; ssg_keyoff: B = SSG ch index (0..2)
+ssg_keyoff:
+        push    bc
+        ld      a, #0x08
+        add     a, b
+        ld      b, a
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        pop     bc
+        ret
+
+;; ssg_keyon: B = SSG ch index (0..2)
+ssg_keyon:
+        push    bc
+        ld      a, #0x08
+        add     a, b
+        ld      b, a
+        ld      c, #0x0F                ; SSG volume = 0x0F (= max、FMがPAN左右で分離済なので中央SSG浮かせる)
+        call    ym2610_write_port_a
+        pop     bc
+        ret
+
 fnum_data:
         .dw     0x026A
         .dw     0x028F
@@ -534,6 +665,20 @@ fnum_data:
         .dw     0x044E
         .dw     0x048F
 
+psg_tune_data:
+        .dw     0x0EE8                  ; C
+        .dw     0x0E12                  ; C#
+        .dw     0x0D48                  ; D
+        .dw     0x0C89                  ; D#
+        .dw     0x0BD5                  ; E
+        .dw     0x0B2B                  ; F
+        .dw     0x0A8A                  ; F#
+        .dw     0x09F3                  ; G
+        .dw     0x0964                  ; G#
+        .dw     0x08DD                  ; A
+        .dw     0x085E                  ; A#
+        .dw     0x07E6                  ; B
+
 scale_notes_fm:
         .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
 
@@ -545,6 +690,13 @@ scale_notes_ch5_chord:
         .db     0x47, 0x49, 0x4B, 0x50, 0x52, 0x54, 0x55, 0x57
 scale_notes_ch6_chord:
         .db     0x50, 0x52, 0x54, 0x55, 0x57, 0x59, 0x5B, 0x60
+
+scale_notes_g_chord:
+        .db     0x40, 0x42, 0x44, 0x45, 0x47, 0x49, 0x4B, 0x50
+scale_notes_h_chord:
+        .db     0x44, 0x45, 0x47, 0x49, 0x4B, 0x50, 0x52, 0x54
+scale_notes_i_chord:
+        .db     0x47, 0x49, 0x4B, 0x50, 0x52, 0x54, 0x55, 0x57
 
 ;; fm_keyoff: B = ch index (0..5)
 fm_keyoff:
@@ -574,7 +726,7 @@ fm_keyon:
         pop     bc
         ret
 
-        .org 0x0300
+        .org 0x0380
 pmdneo_fm_write_reg_ch:
         push    bc
         push    de
@@ -673,8 +825,137 @@ init_chip_ch2_voice:
         call    pmdneo_fm_voice_set_default
         ret
 
+nmi_cmd_2_play_song_mode4:
+        call    init_ssg_voice
+
+        ld      a, #0x40                ; FM ch2 root C4
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        ld      a, #0x44                ; FM ch3 3rd E4
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        ld      a, #0x47                ; FM ch5 5th G4
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        ld      a, #0x50                ; FM ch6 octave C5
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+
+        ld      a, #0x40                ; SSG G root C4
+        ld      b, #0
+        call    fnumset_ssg
+        ld      b, #0
+        call    ssg_keyon
+        ld      a, #0x44                ; SSG H 3rd E4
+        ld      b, #1
+        call    fnumset_ssg
+        ld      b, #1
+        call    ssg_keyon
+        ld      a, #0x47                ; SSG I 5th G4
+        ld      b, #2
+        call    fnumset_ssg
+        ld      b, #2
+        call    ssg_keyon
+
+        ld      a, #1
+        ld      (driver_song_ready), a
+        ret
+
+irq_scale_step_mode4:
+        ld      b, #1
+        call    fm_keyoff
+        ld      b, #2
+        call    fm_keyoff
+        ld      b, #4
+        call    fm_keyoff
+        ld      b, #5
+        call    fm_keyoff
+        ld      b, #0
+        call    ssg_keyoff
+        ld      b, #1
+        call    ssg_keyoff
+        ld      b, #2
+        call    ssg_keyoff
+
+        ld      a, (scale_step)
+        ld      e, a
+        ld      d, #0
+        ld      hl, #scale_notes_ch2_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #1
+        call    fnumset_fm
+        ld      b, #1
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch3_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #2
+        call    fnumset_fm
+        ld      b, #2
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch5_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #4
+        call    fnumset_fm
+        ld      b, #4
+        call    fm_keyon
+        pop     de
+        ld      hl, #scale_notes_ch6_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #5
+        call    fnumset_fm
+        ld      b, #5
+        call    fm_keyon
+        pop     de
+
+        ld      hl, #scale_notes_g_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #0
+        call    fnumset_ssg
+        ld      b, #0
+        call    ssg_keyon
+        pop     de
+        ld      hl, #scale_notes_h_chord
+        add     hl, de
+        ld      a, (hl)
+        push    de
+        ld      b, #1
+        call    fnumset_ssg
+        ld      b, #1
+        call    ssg_keyon
+        pop     de
+        ld      hl, #scale_notes_i_chord
+        add     hl, de
+        ld      a, (hl)
+        ld      b, #2
+        call    fnumset_ssg
+        ld      b, #2
+        call    ssg_keyon
+        ret
+
 fm_voice_data_default:
         .db     0x01, 0x01, 0x01, 0x01
+        ;; FM TLは元の0x18で全mode統一 (= main HEAD audio gate pass値、
+        ;; mode 4はPAN分離(L/R)でFM/SSG識別、TL最大化不要)
         .db     0x18, 0x18, 0x18, 0x18
         .db     0x1F, 0x1F, 0x1F, 0x1F
         .db     0x00, 0x00, 0x00, 0x00
@@ -682,13 +963,13 @@ fm_voice_data_default:
         .db     0x0F, 0x0F, 0x0F, 0x0F
         .db     0x07
 
-        .org 0x03B0
+        .org 0x0600
 fm_keyon_values:
         .db     0xF0, 0xF1, 0xF2, 0xF4, 0xF5, 0xF6
 fm_keyoff_values:
         .db     0x00, 0x01, 0x02, 0x04, 0x05, 0x06
 
-        .org 0x0400
+        .org 0x0610
 init_adpcmb_beat:
         ld      b, #0x10
         ld      c, #0x00
