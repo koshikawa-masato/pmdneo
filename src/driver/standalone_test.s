@@ -13,6 +13,7 @@
         .equ    driver_fade_speed,         0xF81C   ; 1 byte (default 16, range 0-255)
         .equ    driver_pending_arg_target, 0xF81D   ; 1 byte (0=normal, 1=fade_speed arg)
         .equ    driver_loop_cycle,         0xF81E   ; 1 byte: BD part LOOP cycle counter
+        .equ    driver_song_id,            0xF81F   ; 1 byte: driver_state +0x0F, cold-cleared to song 0
 
         ;; Phase 3 4ch individual test: 1=ch2(B), 2=ch3(C), 4=ch5(E), 5=ch6(F)
         .equ    TEST_FM_CH_INDEX,        1
@@ -1249,73 +1250,87 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
+        ld      a, #0
+        call    load_song_part_addr
         ld      a, #PART_FM2
-        ld      hl, #song_part_b
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #1
+        call    load_song_part_addr
         ld      a, #PART_FM3
-        ld      hl, #song_part_c
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #2
+        call    load_song_part_addr
         ld      a, #PART_FM5
-        ld      hl, #song_part_e
         ld      b, #4
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #3
+        call    load_song_part_addr
         ld      a, #PART_FM6
-        ld      hl, #song_part_f
         ld      b, #5
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #4
+        call    load_song_part_addr
         ld      a, #PART_SSG1
-        ld      hl, #song_part_g
         ld      b, #0
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #5
+        call    load_song_part_addr
         ld      a, #PART_SSG2
-        ld      hl, #song_part_h
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #6
+        call    load_song_part_addr
         ld      a, #PART_SSG3
-        ld      hl, #song_part_i
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
+        ld      a, #7
+        call    load_song_part_addr
         ld      a, #PART_PCM
-        ld      hl, #song_part_j
         ld      b, #0
         ld      c, #0
         call    pmdneo5_init_part
+        ld      a, #8
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA1
-        ld      hl, #song_part_l
         ld      b, #0
         ld      c, #0x00
         call    pmdneo5_init_part
+        ld      a, #9
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA2
-        ld      hl, #song_part_m
         ld      b, #1
         ld      c, #0x00
         call    pmdneo5_init_part
+        ld      a, #10
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA3
-        ld      hl, #song_part_n
         ld      b, #2
         ld      c, #0x00
         call    pmdneo5_init_part
+        ld      a, #11
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA4
-        ld      hl, #song_part_o
         ld      b, #3
         ld      c, #0x00
         call    pmdneo5_init_part
+        ld      a, #12
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA5
-        ld      hl, #song_part_p
         ld      b, #4
         ld      c, #0x00
         call    pmdneo5_init_part
+        ld      a, #13
+        call    load_song_part_addr
         ld      a, #PART_ADPCMA6
-        ld      hl, #song_part_q
         ld      b, #5
         ld      c, #0x00
         call    pmdneo5_init_part
@@ -1331,6 +1346,46 @@ pmdneo5_clear_part_workarea:
         xor     a
         ld      (hl), a
         ldir
+        ret
+
+;;; A=part table index (0=b, 1=c, 2=e, 3=f, 4=g, 5=h, 6=i, 7=j,
+;;;                     8=l, 9=m, 10=n, 11=o, 12=p, 13=q)
+;;; Return HL=song data address selected by driver_song_id. AF preserved.
+load_song_part_addr:
+        push    af
+        ld      c, a
+        ld      hl, #driver_song_id
+        ld      a, (hl)
+        ld      h, #0
+        ld      l, a
+        add     hl, hl
+        add     hl, hl
+        ld      d, h
+        ld      e, l
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      b, h
+        ld      a, l
+        sub     e
+        ld      l, a
+        ld      a, b
+        sbc     a, d
+        ld      h, a
+        ld      a, c
+        add     a, a
+        add     a, l
+        ld      l, a
+        adc     a, h
+        sub     l
+        ld      h, a
+        ld      de, #song_table
+        add     hl, de
+        ld      a, (hl)
+        inc     hl
+        ld      h, (hl)
+        ld      l, a
+        pop     af
         ret
 
 ;;; A=part index, HL=stream table, B=channel index, C=default volume.

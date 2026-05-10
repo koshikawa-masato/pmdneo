@@ -261,34 +261,60 @@ def incbin_path(mn_path: Path, wrapper_path: Path) -> str:
     return Path(rel_path).as_posix()
 
 
-def format_wrapper(parts: list[tuple[str, list[int]]], out_dir: Path, wrapper_path: Path) -> str:
+def format_wrapper(
+    songs: list[tuple[str, list[tuple[str, list[int]]]]],
+    out_dir: Path,
+    wrapper_path: Path,
+) -> str:
     lines = [";;; PMDNEO compile.py generated wrapper"]
-    for label, _data in parts:
-        mn_path = out_dir / f"{label}.mn"
-        lines.append(f'{label}: .incbin "{incbin_path(mn_path, wrapper_path)}"')
+    song_labels: list[list[str]] = []
+    for song_index, (basename, parts) in enumerate(songs):
+        labels: list[str] = []
+        for label, _data in parts:
+            song_label = label.replace("song_part_", f"song{song_index}_part_")
+            labels.append(song_label)
+            mn_path = out_dir / basename / f"{label}.mn"
+            lines.append(f'{song_label}: .incbin "{incbin_path(mn_path, wrapper_path)}"')
+        song_labels.append(labels)
+
+    lines.append("")
+    lines.append("song_table:")
+    for labels in song_labels:
+        for start in range(0, len(labels), 4):
+            lines.append(f"        .dw {', '.join(labels[start:start + 4])}")
     lines.append("")
     return "\n".join(lines)
 
 
-def write_outputs(parts: list[tuple[str, list[int]]], out_dir: Path, wrapper_path: Path) -> None:
+def write_outputs(
+    songs: list[tuple[str, list[tuple[str, list[int]]]]],
+    out_dir: Path,
+    wrapper_path: Path,
+) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     wrapper_path.parent.mkdir(parents=True, exist_ok=True)
-    for label, data in parts:
-        (out_dir / f"{label}.mn").write_bytes(bytes(data))
-    wrapper_path.write_text(format_wrapper(parts, out_dir, wrapper_path), encoding="utf-8")
+    for basename, parts in songs:
+        song_dir = out_dir / basename
+        song_dir.mkdir(parents=True, exist_ok=True)
+        for label, data in parts:
+            (song_dir / f"{label}.mn").write_bytes(bytes(data))
+    wrapper_path.write_text(format_wrapper(songs, out_dir, wrapper_path), encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-2 MML to .mn part binaries")
-    parser.add_argument("input_mml", type=Path)
+    parser.add_argument("input_mml", type=Path, nargs="+")
     parser.add_argument("-o", "--output", type=Path, help="compat: output dir, or wrapper .inc path")
     parser.add_argument("--out-dir", type=Path, help="directory for generated .mn part binaries")
     parser.add_argument("--wrapper", type=Path, help="generated wrapper .inc path")
     args = parser.parse_args(argv)
 
-    source = args.input_mml.read_text(encoding="utf-8")
     out_dir, wrapper_path = resolve_output_paths(args, parser)
-    write_outputs(parse_mml(source), out_dir, wrapper_path)
+    songs: list[tuple[str, list[tuple[str, list[int]]]]] = []
+    for input_mml in args.input_mml:
+        source = input_mml.read_text(encoding="utf-8")
+        songs.append((input_mml.stem, parse_mml(source)))
+    write_outputs(songs, out_dir, wrapper_path)
     return 0
 
 

@@ -64,15 +64,26 @@ python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
 echo "  sample_m.s <- vendor/pmd48s/SAMPLE.M"
 
 echo "=== compile.py: MML → .mn parts + song_data.inc wrapper ==="
-# MML_INPUT 環境変数で fixture 切替 (= default test01.mml = chord-mode、
-# test02.mml = drum-mode 14 part 等)
-MML_INPUT="${MML_INPUT:-test01.mml}"
-echo "    MML_INPUT: ${MML_INPUT}"
-SONG_DIR="${TEMPLATE_DIR}/songs/${MML_INPUT%.mml}"
-mkdir -p "$SONG_DIR"
+# MML_INPUTS 環境変数で fixture 群を切替 (= default test01.mml + test02.mml)。
+# 互換: 旧 MML_INPUT のみ指定された場合は単一入力として扱う。
+MML_INPUTS="${MML_INPUTS:-${MML_INPUT:-test01.mml,test02.mml}}"
+echo "    MML_INPUTS: ${MML_INPUTS}"
+IFS=',' read -r -a MML_INPUT_ARRAY <<< "$MML_INPUTS"
+MML_INPUT_PATHS=()
+for mml_input in "${MML_INPUT_ARRAY[@]}"; do
+    if [[ "$mml_input" = /* ]]; then
+        input_path="$mml_input"
+    else
+        input_path="${PMDNEO_ROOT}/src/tools/pmd-mml/${mml_input}"
+    fi
+    MML_INPUT_PATHS+=("$input_path")
+    input_base=$(basename "$mml_input")
+    song_name="${input_base%.*}"
+    mkdir -p "${TEMPLATE_DIR}/songs/${song_name}"
+done
 python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
-    "${PMDNEO_ROOT}/src/tools/pmd-mml/${MML_INPUT}" \
-    --out-dir "$SONG_DIR" \
+    "${MML_INPUT_PATHS[@]}" \
+    --out-dir "${TEMPLATE_DIR}/songs" \
     --wrapper "${TEMPLATE_DIR}/song_data.inc"
 
 echo
