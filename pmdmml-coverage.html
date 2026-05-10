@@ -47,19 +47,19 @@
     <header class="cover" id="cover">
       <p class="eyebrow">PMDNEO / PMDMML coverage / 2026-05-10</p>
       <h1>PMDNEO PMDMML コマンド実装進捗</h1>
-      <p class="subtitle">main (df4e7b6) vs develop (aebc545) 比較</p>
-      <p class="lead">neo-sisters Issue #109 の PMDMML 142 command base table を基準に、PMDNEO の main lineage と develop lineage の到達点を整理した。</p>
+      <p class="subtitle">PMD V4.8s 本家 (= main df4e7b6 凍結時点 reference) vs PMDNEO 自作 driver (= main HEAD 最新) 比較</p>
+      <p class="lead">neo-sisters Issue #109 の PMDMML 142 command base table を基準に、移植元 PMD V4.8s 本家 (= main df4e7b6 の <code>PMD_Z80.inc</code>) と PMDNEO 自作 driver (= main HEAD の <code>standalone_test.s</code>) の到達点を整理した。 develop branch は Phase 9R PR #1 merge (= aebc545) → main 解凍 PR #2 (= 27462da) で main に統合済、 以後 main lineage 単独で進化中。</p>
       <div class="key-numbers" aria-label="Coverage key numbers">
         <dl class="metric">
           <dt>基準 command table</dt>
           <dd><strong>142</strong> commands</dd>
         </dl>
         <dl class="metric">
-          <dt>main estimate</dt>
+          <dt>PMD 本家 (= 移植元 reference)</dt>
           <dd><strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142</strong></dd>
         </dl>
         <dl class="metric">
-          <dt>develop complete</dt>
+          <dt>PMDNEO 自作 (= main HEAD)</dt>
           <dd><strong><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> / 142</strong></dd>
         </dl>
       </div>
@@ -91,11 +91,11 @@
 
       <section id="summary">
         <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
-        <p class="section-summary">main は commit <code>df4e7b6</code> の <code>PMD_Z80.inc</code>、develop は現在の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。PMDMML 142 commands 中、main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、develop は <strong><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> commands</strong> である。</p>
+        <p class="section-summary">PMD 本家 (= main commit <code>df4e7b6</code> の <code>PMD_Z80.inc</code>) と PMDNEO 自作 driver (= main HEAD の <code>standalone_test.s</code>) にある <code>com*:</code> routine を集計する。PMDMML 142 commands 中、PMD 本家は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、PMDNEO 自作は <strong><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> commands</strong> である。</p>
         <div class="progress-list" aria-label="PMDMML command implementation progress">
           <div class="progress-item">
             <div class="progress-label">
-              <span>main (df4e7b6)</span>
+              <span>PMD 本家 (= df4e7b6)</span>
               <span><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142 約 <!-- AUTO_MAIN_PERCENT -->18<!-- /AUTO_MAIN_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
@@ -104,7 +104,7 @@
           </div>
           <div class="progress-item">
             <div class="progress-label">
-              <span>develop (aebc545)</span>
+              <span>PMDNEO 自作 (= main HEAD)</span>
               <span><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> / 142 約 <!-- AUTO_DEVELOP_PERCENT -->8<!-- /AUTO_DEVELOP_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
@@ -122,7 +122,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§1-1</td><td><code>#</code></td><td>comment</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>compile.py Phase 9c</td><td>コメント。容易性: ◎容易</td></tr>
@@ -135,7 +135,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
@@ -149,7 +149,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
@@ -164,7 +164,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§4-1</td><td><code>v</code></td><td><code>v0-15</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comv</span></td><td><span class="badge-done">✓ comv</span></td><td>完了</td><td>音量</td></tr>
@@ -179,7 +179,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§5-1</td><td><code>o</code></td><td><code>o1-8</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>オクターブ指定</td></tr>
@@ -193,7 +193,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>FM音色指定。容易性: △中</td></tr>
@@ -207,7 +207,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§7-1</td><td><code>D</code></td><td><code>D±value</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comd</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デチューン。容易性: △中</td></tr>
@@ -220,7 +220,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§8-1</td><td><code>[</code></td><td>ループ開始</td><td>-</td><td><span class="badge-done">✓ comstloop</span></td><td><span class="badge-done">✓ comstloop</span></td><td>完了</td><td>ループ開始</td></tr>
@@ -235,7 +235,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM LFO。容易性: ×難</td></tr>
@@ -250,7 +250,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§10-1</td><td><code>q</code></td><td><code>q1-8</code></td><td>-</td><td><span class="badge-done">✓ comq</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>ゲート比率。容易性: △中</td></tr>
@@ -263,7 +263,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§11-1</td><td><code>SE</code></td><td>SSG envelope</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSGエンベロープ。容易性: ×難</td></tr>
@@ -276,7 +276,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§12-1</td><td><code>K</code></td><td>ADPCM-A rhythm ch</td><td>K</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCMリズム K ch。容易性: △中</td></tr>
@@ -289,7 +289,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§13-1</td><td><code>J</code></td><td>ADPCM-B</td><td>J ch</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCM-B ch。容易性: △中</td></tr>
@@ -301,7 +301,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。容易性: ×難</td></tr>
@@ -315,7 +315,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§15-1</td><td><code>FI</code></td><td>fade in</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>フェードイン。容易性: △中</td></tr>
@@ -328,7 +328,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
               <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。容易性: ×難</td></tr>
@@ -414,7 +414,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-10 develop e32e0d3<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-10 main b61c538 (12a-5a)<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
