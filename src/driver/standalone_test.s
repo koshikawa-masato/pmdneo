@@ -1252,6 +1252,7 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         call    ym2610_write_port_b
         ld      b, #0xB6
         ld      c, #0x40                ; ch6 (F) = R
+        call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
         ld      a, #0

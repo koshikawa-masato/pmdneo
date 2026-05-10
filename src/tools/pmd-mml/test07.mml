@@ -1,0 +1,14 @@
+; PMDNEO test07.mml -- 各 part 識別容易化 fixture (user 提案 2026-05-10)
+; 同時発音なし + octave ずらしで各 part を 1 小節ずつ順次鳴動、
+; channel 自体から音が出ることを聴感確認可能。
+; 全 part 共通 tempo + gate 設定、 BCEF 順次:
+;   小節 1: C (o5) cdef
+;   小節 2: B (o4) cdef
+;   小節 3: E (o3) cdef
+;   小節 4: F (o2) cdef
+B t140 q6 o4 l4 r1 c d e f [r1]2
+C t140 q6 o5 l4 c d e f [r1]3
+E t140 q6 o3 l4 [r1]2 c d e f r1
+F t140 q6 o2 l4 [r1]3 c d e f
+G V0 H V0 I V0
+J
