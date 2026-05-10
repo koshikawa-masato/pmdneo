@@ -32,6 +32,8 @@ DO_TRACE=0
 TRACE_DIR="/tmp/pmdneo-trace"
 DO_WAVWRITE=0
 WAVWRITE_SECONDS=8
+DO_LOOP_VIZ=0
+LOOP_VIZ_RANGE="FB00-FB10"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -40,6 +42,8 @@ while [[ $# -gt 0 ]]; do
         --trace) DO_TRACE=1; shift ;;
         --wavwrite) DO_WAVWRITE=1; shift ;;
         --wavwrite-seconds) WAVWRITE_SECONDS="$2"; shift 2 ;;
+        --loop-viz) DO_LOOP_VIZ=1; DO_TRACE=1; shift ;;
+        --loop-viz-range) LOOP_VIZ_RANGE="$2"; DO_LOOP_VIZ=1; DO_TRACE=1; shift 2 ;;
         -h|--help) sed -n '4,25p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
@@ -141,10 +145,17 @@ if [[ $DO_TRACE -eq 1 ]]; then
     mkdir -p "$TRACE_DIR"
     export YMFM_TRACE="$TRACE_DIR/ymfm-trace.tsv"
     export Z80_MEM_TRACE="$TRACE_DIR/z80-mem-trace.tsv"
+    if [[ $DO_LOOP_VIZ -eq 1 ]]; then
+        export Z80_MEM_TRACE_RANGE="$LOOP_VIZ_RANGE"
+    fi
     echo "    改造 MAME 経由 trace mode:"
     echo "      binary: $MAME_BIN"
     echo "      YMFM_TRACE: $YMFM_TRACE"
     echo "      Z80_MEM_TRACE: $Z80_MEM_TRACE"
+    if [[ $DO_LOOP_VIZ -eq 1 ]]; then
+        echo "      Z80_MEM_TRACE_RANGE: $Z80_MEM_TRACE_RANGE (= LOOP visualization mode)"
+        echo "      解析: python3 scripts/analyze-loop-trace.py $Z80_MEM_TRACE"
+    fi
     echo ""
     echo "    終了後 trace file を解析: ls -la $TRACE_DIR/"
     if [[ $DO_WAVWRITE -eq 1 ]]; then
