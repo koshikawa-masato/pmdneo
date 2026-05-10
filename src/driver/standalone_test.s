@@ -1946,20 +1946,20 @@ song_part_l:
         .db     0xFD, 0x1F                 ; v31 (BD max)
 song_part_l_loop:
         ;; Phase 8d-2 nest LOOP test pattern (= depth 2 visualize)
-        ;; MML 表記: t140 v31 [ [BD24 r24]2 [BD24 r24]4 BD24 r24 BD24 r24 ]∞
+        ;; MML 表記: t140 v31 [ [BD8 r8]2 [BD8 r8]4 BD8 r8 BD8 BD8 ]∞
         .db     0xF9                       ; comstloop OUTER (= 永久)
         .db     0xF9                       ; comstloop INNER1
-        .db     0x40, 0x18                 ; BD24
-        .db     0x90, 0x18                 ; rest24
+        .db     0x40, 0x18                 ; BD8
+        .db     0x90, 0x18                 ; r8
         .db     0xF8, 0x02                 ; comedloop INNER1 = 2 回
         .db     0xF9                       ; comstloop INNER2
-        .db     0x40, 0x18                 ; BD24
-        .db     0x90, 0x18                 ; rest24
+        .db     0x40, 0x18                 ; BD8
+        .db     0x90, 0x18                 ; r8
         .db     0xF8, 0x04                 ; comedloop INNER2 = 4 回
-        .db     0x40, 0x18                 ; BD24 (extra 1)
-        .db     0x90, 0x18                 ; rest24
-        .db     0x40, 0x18                 ; BD24 (extra 2)
-        .db     0x90, 0x18                 ; rest24
+        .db     0x40, 0x18                 ; BD8 (extra 1)
+        .db     0x90, 0x18                 ; r8
+        .db     0x40, 0x18                 ; BD8 (extra 2)
+        .db     0x40, 0x18                 ; BD8 (extra 3、 r8 → BD8 連打)
         .db     0xF8, 0x00                 ; comedloop OUTER (= 永久 force_reloop)
         .db     0x80                       ; end
 song_part_m:
