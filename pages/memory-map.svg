@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="600" viewBox="0 0 680 600" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans CJK JP', sans-serif">
+  <style>
+    .th { font-size: 14px; font-weight: 500; }
+    .ts { font-size: 12px; font-weight: 400; }
+    .addr { font-size: 12px; font-weight: 400; fill: #73726c; }
+    .header { font-size: 14px; font-weight: 500; fill: #3d3d3a; }
+    .subtitle { font-size: 12px; font-weight: 400; fill: #73726c; }
+    .blue-fill { fill: #E6F1FB; stroke: #185FA5; stroke-width: 0.5; }
+    .blue-title { fill: #0C447C; }
+    .blue-sub { fill: #185FA5; }
+    .gray-fill { fill: #F1EFE8; stroke: #5F5E5A; stroke-width: 0.5; }
+    .gray-title { fill: #444441; }
+    .gray-sub { fill: #5F5E5A; }
+    .coral-fill { fill: #FAECE7; stroke: #993C1D; stroke-width: 0.5; }
+    .coral-title { fill: #712B13; }
+    .coral-sub { fill: #993C1D; }
+  </style>
+
+  <rect width="680" height="600" fill="#ffffff"/>
+
+  <text class="subtitle" x="40" y="40">Z80A @ 4 MHz · 16-bit address bus · 64 KB address space</text>
+
+  <text class="header" x="165" y="80" text-anchor="middle">Z80 64 KB address space</text>
+  <text class="header" x="485" y="80" text-anchor="middle">Z80 SRAM 2 KB (NEOGEO 本体内)</text>
+
+  <text class="addr" x="95" y="114" text-anchor="end">0x0000</text>
+  <text class="addr" x="95" y="464" text-anchor="end">0xF000</text>
+  <text class="addr" x="95" y="514" text-anchor="end">0xF800</text>
+  <text class="addr" x="95" y="573" text-anchor="end">0xFFFF</text>
+
+  <rect class="blue-fill" x="100" y="110" width="130" height="350"/>
+  <text class="th blue-title" x="165" y="265" text-anchor="middle">M1 ROM (cart)</text>
+  <text class="ts blue-sub" x="165" y="285" text-anchor="middle">60 KB window</text>
+  <text class="ts blue-sub" x="165" y="301" text-anchor="middle">(128 KB cart total)</text>
+  <text class="ts blue-sub" x="165" y="319" text-anchor="middle">0x0000-0xEFFF</text>
+  <text class="ts blue-sub" x="165" y="335" text-anchor="middle">driver code + tables</text>
+
+  <rect class="gray-fill" x="100" y="460" width="130" height="50"/>
+  <text class="th gray-title" x="165" y="478" text-anchor="middle">bank window 2 KB</text>
+  <text class="ts gray-sub" x="165" y="496" text-anchor="middle">0xF000-0xF7FF</text>
+
+  <rect class="coral-fill" x="100" y="510" width="130" height="60"/>
+  <text class="th coral-title" x="165" y="528" text-anchor="middle">Z80 SRAM 2 KB</text>
+  <text class="ts coral-sub" x="165" y="546" text-anchor="middle">0xF800-0xFFFF</text>
+  <text class="ts coral-sub" x="165" y="562" text-anchor="middle">本体内 work RAM</text>
+
+  <line x1="230" y1="510" x2="420" y2="110" stroke="#3d3d3a" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+  <line x1="230" y1="570" x2="420" y2="570" stroke="#3d3d3a" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+
+  <rect class="gray-fill" x="420" y="110" width="130" height="35"/>
+  <text class="th gray-title" x="485" y="124" text-anchor="middle">reserved 16 B</text>
+  <text class="ts gray-sub" x="485" y="139" text-anchor="middle">0xF800-0xF80F</text>
+
+  <rect class="coral-fill" x="420" y="145" width="130" height="50"/>
+  <text class="th coral-title" x="485" y="162" text-anchor="middle">driver state 16 B</text>
+  <text class="ts coral-sub" x="485" y="178" text-anchor="middle">tempo · fade · flag</text>
+  <text class="ts coral-sub" x="485" y="192" text-anchor="middle">0xF810-0xF81F</text>
+
+  <rect class="coral-fill" x="420" y="195" width="130" height="175"/>
+  <text class="th coral-title" x="485" y="263" text-anchor="middle">part_workarea</text>
+  <text class="ts coral-sub" x="485" y="281" text-anchor="middle">1,088 B</text>
+  <text class="ts coral-sub" x="485" y="297" text-anchor="middle">17 part × 64 B</text>
+  <text class="ts coral-sub" x="485" y="313" text-anchor="middle">0xF820-0xFC5F</text>
+
+  <rect class="gray-fill" x="420" y="370" width="130" height="165"/>
+  <text class="th gray-title" x="485" y="436" text-anchor="middle">未使用</text>
+  <text class="ts gray-sub" x="485" y="454" text-anchor="middle">926 B</text>
+  <text class="ts gray-sub" x="485" y="470" text-anchor="middle">0xFC60-0xFFFD</text>
+  <text class="ts gray-sub" x="485" y="486" text-anchor="middle">(予備領域)</text>
+
+  <rect class="gray-fill" x="420" y="535" width="130" height="35"/>
+  <text class="th gray-title" x="485" y="549" text-anchor="middle">SM1 BIOS 2 B</text>
+  <text class="ts gray-sub" x="485" y="564" text-anchor="middle">0xFFFE-0xFFFF</text>
+</svg>

@@ -1,0 +1,697 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PMDNEO dispatch 共通化 refactor 報告書</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .note {
+      border-left: 4px solid #4a9eff;
+      background: #f0f8ff;
+      padding: 0.75em 1em;
+      margin: 1em 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="cover" id="cover">
+      <p class="eyebrow">PMDNEO Phase 9R / 2026-05-10</p>
+      <h1>PMDNEO dispatch 共通化 refactor 報告書</h1>
+      <p class="subtitle">Phase 9R 完成 - <strong>14 part</strong> 並行 dispatch 達成 (2026-05-10)</p>
+      <p class="lead">FM 4 + SSG 3 + ADPCM-B 1 + ADPCM-A 6 の <strong>14 part</strong> が同一 dispatch 基盤で通過し、chip 固有差分は per-part SRAM に格納した hook pointer へ分離した。</p>
+      <dl class="key-numbers">
+        <div class="metric">
+          <dt>同時発音到達点</dt>
+          <dd><strong>14 part</strong> 全部鳴る</dd>
+        </div>
+        <div class="metric">
+          <dt>dispatch 構造</dt>
+          <dd><strong>5 fork</strong> → <strong>1</strong> 共通 routine</dd>
+        </div>
+        <div class="metric">
+          <dt>chip routine 構造</dt>
+          <dd>per-chip <strong>4 routine</strong> → <strong>1</strong> 共通 + <strong>12 hook</strong> + <strong>1 noop</strong></dd>
+        </div>
+      </dl>
+    </header>
+
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">目次</h2>
+      <ol>
+        <li><a href="#compare">共通化前後の比較</a></li>
+        <li><a href="#binary-size-comparison">バイナリサイズ比較</a></li>
+        <li><a href="#memory-map">NEOGEO Z80 メモリマップ</a></li>
+        <li><a href="#opnb-register-map">OPNB (YM2610) レジスタマップ</a></li>
+        <li><a href="#sram">SRAM 拡張詳細</a></li>
+        <li><a href="#hooks">Chip hook 一覧</a></li>
+        <li><a href="#timeline">Commit timeline</a></li>
+        <li><a href="#audio">Audio gate 結果</a></li>
+        <li><a href="#adpcmb">ADPCM-B sample</a></li>
+        <li><a href="#remaining">残作業</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="compare">
+        <h2><span class="chapter-number">01.</span> 共通化前後の比較</h2>
+        <p class="section-summary">共通化前は chip 別 main routine が同型の LEN check、parse、note / loop / command dispatch を重複保持していた。共通化後は <code>pmdneo_part_main</code> が dispatch 本体を担い、発音・消音・音程・音量だけを hook 経由にした。</p>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>項目</th>
+                <th>共通化前</th>
+                <th>共通化後</th>
+                <th>評価</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>ファイル行数</td>
+                <td class="numeric">2042</td>
+                <td class="numeric">2079</td>
+                <td>net <strong>+37</strong>。hook <strong>12</strong> 本を追加しつつ dispatch を統合。</td>
+              </tr>
+              <tr>
+                <td>routine 数</td>
+                <td><code>pmdneo_song_main</code> + <code>fmmain</code> / <code>pmdneo_psgmain</code> / <code>adpcmb_main</code> / <code>adpcma_main</code> + <code>commandsp</code> = <strong>6 routines</strong></td>
+                <td><code>pmdneo_song_main</code> + <code>pmdneo_part_main</code> + <strong>12 chip hooks</strong> + <code>noop_hook</code> + <strong>4 indirect-call wrappers</strong> + <code>commandsp</code> = <strong>20 routines</strong></td>
+                <td>routine 数は増加。ただし重い dispatch 本体は <strong>1</strong> 本へ集約。</td>
+              </tr>
+              <tr>
+                <td>主要 routine 行数</td>
+                <td><code>fmmain</code> <strong>47</strong>、<code>pmdneo_psgmain</code> <strong>60</strong>、<code>adpcmb_main</code> <strong>155</strong>、<code>adpcma_main</code> <strong>76</strong>。合計 <strong>338 行削除</strong>。</td>
+                <td><code>pmdneo_part_main</code> <strong>53</strong> + <strong>12 hooks</strong> 3-5 行 each + <code>noop_hook</code> <strong>2</strong>。約 <strong>120 行追加</strong>。</td>
+                <td>概算 net reduction は約 <strong>220 行</strong>。</td>
+              </tr>
+              <tr>
+                <td>dispatch 経路</td>
+                <td>line <strong>1338-1346</strong> 付近で <strong>5 fork</strong>。</td>
+                <td>per-part hook function pointer 経由の <strong>1 fork</strong>。</td>
+                <td>part 種別分岐を main loop から排除。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="figure-grid">
+          <figure>
+            <img src="dispatch-before.svg" alt="共通化前 dispatch 図">
+            <figcaption>図 1: 共通化前。chip 別 routine が同型 dispatch を保持。</figcaption>
+          </figure>
+          <figure>
+            <img src="dispatch-after.svg" alt="共通化後 dispatch 図">
+            <figcaption>図 2: 共通化後。共通 routine から hook pointer へ委譲。</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section id="binary-size-comparison">
+        <h2><span class="chapter-number">02.</span> バイナリサイズ比較</h2>
+        <p class="section-summary">実 code 部分の増加は <strong>+59 byte</strong>、比率では <strong>+2.04%</strong> に収まった。padded 128 KB ROM では差分が出ず、実装コストは hook と indirect call wrapper の追加分として観測される。</p>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>artifact</th>
+                <th>develop (6c329aa)</th>
+                <th>refactor (9976580)</th>
+                <th>差分</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Z80 binary 実 byte (ihx 実 code 部分)</td>
+                <td class="numeric">2,895 byte (2.83 KB)</td>
+                <td class="numeric">2,954 byte (2.88 KB)</td>
+                <td class="diff-positive">+59 byte (+2.04%)</td>
+              </tr>
+              <tr>
+                <td>standalone_test.rel (relocatable)</td>
+                <td class="numeric">24,507 byte</td>
+                <td class="numeric">24,759 byte</td>
+                <td class="diff-positive">+252 byte</td>
+              </tr>
+              <tr>
+                <td>standalone_test.ihx (linker 出力)</td>
+                <td class="numeric">6,954 byte</td>
+                <td class="numeric">7,096 byte</td>
+                <td class="diff-positive">+142 byte</td>
+              </tr>
+              <tr>
+                <td>243-m1.m1 (padded 128 KB ROM)</td>
+                <td class="numeric">131,072 byte</td>
+                <td class="numeric">131,072 byte</td>
+                <td class="diff-neutral">±0 byte</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>解説</h3>
+        <ul>
+          <li>Z80 binary 実 byte <strong>+59 byte</strong> (<strong>+2.04%</strong>): hook <strong>12</strong> 個 (各 3-5 命令) + indirect call wrapper <strong>4</strong> 個 (push hl + ret) + noop_hook (1 命令) の追加コスト</li>
+          <li>246-m1.m1 padded <strong>0 byte</strong> 差: NEOGEO M1 ROM の 128 KB pad に飲まれて変化なし (実装コスト見えない)</li>
+          <li>行数 <strong>+37 行</strong> vs binary <strong>+59 byte</strong>: 行数増加比 (<strong>+1.81%</strong>) と binary 増加比 (<strong>+2.04%</strong>) がほぼ一致、dispatch 経路集約による命令数削減 (~338 行削除) と hook 追加 (~120 行) が均衡</li>
+          <li>SRAM 増加 = <strong>+136 byte</strong> (8 byte/part × 17 part)、ただし NEOGEO Z80 SRAM 2 KB 内余裕あり (残り ~700 byte)</li>
+          <li>コスト見合い: dispatch 経路の保守性 + 拡張性 (元 Phase 9 の gate cmd / fade in / compile.py が refactor 後の clean dispatch 上で容易) が <strong>+59 byte</strong> の対価として妥当</li>
+        </ul>
+      </section>
+
+      <section id="memory-map">
+        <h2><span class="chapter-number">03.</span> NEOGEO Z80 メモリマップ</h2>
+        <p class="section-summary">NEOGEO sound CPU は Z80A @ 4 MHz、16-bit address bus により最大 64 KB のメモリ空間を扱う。Z80 binary は cart 側の M1 ROM に格納され、実行時変数は NEOGEO 本体側の Z80 SRAM に置かれる。</p>
+        <div class="figure-grid">
+          <figure>
+            <img src="memory-map.png" alt="NEOGEO Z80 の 64 KB address space と Z80 SRAM 詳細を示すメモリマップ図">
+            <figcaption>Z80 64 KB address space と、0xF800-0xFFFF SRAM 領域の内訳。</figcaption>
+          </figure>
+        </div>
+
+        <h3>3.1 Z80 メモリ空間の全体像</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>領域</th>
+                <th>アドレス</th>
+                <th>サイズ</th>
+                <th>役割</th>
+                <th>物理</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M1 ROM (sound program ROM)</td>
+                <td><code>0x0000-0xEFFF</code></td>
+                <td>60 KB (bank switch → 128 KB actual)</td>
+                <td>Z80 binary 本体 (driver code + tables)</td>
+                <td>cart ROM chip (<code>243-m1.m1</code>)</td>
+              </tr>
+              <tr>
+                <td>未使用 / bank window</td>
+                <td><code>0xF000-0xF7FF</code></td>
+                <td>2 KB</td>
+                <td>bank 切替用</td>
+                <td>-</td>
+              </tr>
+              <tr>
+                <td>Z80 SRAM (work RAM)</td>
+                <td><code>0xF800-0xFFFF</code></td>
+                <td>2 KB</td>
+                <td>実行時変数 (driver state + part_workarea)</td>
+                <td>NEOGEO 本体 SRAM chip</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.2 Z80 binary 2.88 KB はどこに格納?</h3>
+        <p>M1 ROM (128 KB) に格納される。SRAM (2 KB) ではない。</p>
+        <p>Build artifact path:</p>
+        <ol>
+          <li><code>scripts/build-poc.sh</code> → <code>sdasz80</code> + <code>sdldz80</code> compile <code>standalone_test.s</code></li>
+          <li><code>ihx</code> (7,096 byte hex) → <code>sdobjcopy</code> → 128 KB binary padded to <code>243-m1.m1</code></li>
+          <li>M1 ROM burned into cart, inserted into NEOGEO</li>
+          <li>Z80 fetches from <code>0x0000</code> on boot</li>
+        </ol>
+        <p>Actual binary = <strong>2,954 byte</strong> (2.88 KB)。Remaining 125 KB = empty space in M1 ROM (<code>0xFF</code> padding; reserved for music data / sample tables)。</p>
+
+        <h3>3.3 SRAM 2 KB の内訳</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>領域</th>
+                <th>アドレス</th>
+                <th>サイズ</th>
+                <th>役割</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>driver state</td>
+                <td><code>0xF810-0xF81F</code></td>
+                <td>16 byte</td>
+                <td>tempo / fade / song flag 等</td>
+              </tr>
+              <tr>
+                <td>part_workarea</td>
+                <td><code>0xF820-0xFC5F</code></td>
+                <td>1,088 byte</td>
+                <td>17 part × 64 byte (per-part)</td>
+              </tr>
+              <tr>
+                <td>未使用</td>
+                <td><code>0xFC60-0xFFFD</code></td>
+                <td>926 byte</td>
+                <td>予備</td>
+              </tr>
+              <tr>
+                <td>SM1 BIOS 作業領域</td>
+                <td><code>0xFFFE-0xFFFF</code></td>
+                <td>2 byte</td>
+                <td>NEOGEO BIOS reserve (<code>0x18 0xFE</code>)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.4 Z80 ↔ chip / 68k 通信</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>経路</th>
+                <th>port</th>
+                <th>方向</th>
+                <th>役割</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>YM2610 port A</td>
+                <td>I/O <code>0x04</code> (addr) / <code>0x05</code> (data)</td>
+                <td>Z80 → chip</td>
+                <td>FM 1-3 / SSG / ADPCM-B control registers</td>
+              </tr>
+              <tr>
+                <td>YM2610 port B</td>
+                <td>I/O <code>0x06</code> (addr) / <code>0x07</code> (data)</td>
+                <td>Z80 → chip</td>
+                <td>FM 4-6 / ADPCM-A control registers</td>
+              </tr>
+              <tr>
+                <td>68k → Z80 cmd</td>
+                <td>I/O <code>0x00</code> (read)</td>
+                <td>68k → Z80</td>
+                <td>REG_SOUND (<code>0x320000</code>) write received via NMI</td>
+              </tr>
+              <tr>
+                <td>Z80 → 68k reply</td>
+                <td>I/O <code>0x0C</code> (write)</td>
+                <td>Z80 → 68k</td>
+                <td>LOOP CYCLE counter via REG_SOUND read</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>3.5 まとめ</h3>
+        <ul>
+          <li>Z80 binary (2.88 KB driver code) → M1 ROM (128 KB, inside cart)</li>
+          <li>driver work area (1,088 byte per-part state) → Z80 SRAM (2 KB, inside NEOGEO unit)</li>
+          <li>These are physically separate chips; Z80 fetches instructions from ROM and reads/writes variables in SRAM.</li>
+        </ul>
+      </section>
+
+      <section id="opnb-register-map">
+        <h2><span class="chapter-number">04.</span> OPNB (YM2610) レジスタマップ</h2>
+        <p class="section-summary">NEOGEO 搭載 sound chip = YM2610B (OPNB) 派生。NEOGEO は YM2610 だが register 構成は YM2610B 互換。</p>
+
+        <h3>4.1 chip 概要</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>音源</th>
+                <th>ch 数</th>
+                <th>周波数特性</th>
+                <th>駆動 register</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>FM (4-operator FM 合成)</td>
+                <td>6 ch (NEOGEO YM2610 では ch1/ch4 出力配線なし、audible ch2/3/5/6 の 4 ch)</td>
+                <td>通常音色</td>
+                <td>port A <code>0x20-0xB6</code> / port B <code>0x20-0xB6</code></td>
+              </tr>
+              <tr>
+                <td>SSG (AY-3-8910 互換)</td>
+                <td>3 ch</td>
+                <td>矩形波 + noise</td>
+                <td>port A <code>0x00-0x0D</code></td>
+              </tr>
+              <tr>
+                <td>ADPCM-A (内蔵 sample)</td>
+                <td>6 ch</td>
+                <td>18.5 kHz 固定、sample table 参照</td>
+                <td>port B <code>0x00-0x2D</code></td>
+              </tr>
+              <tr>
+                <td>ADPCM-B (外付 delta-T sample)</td>
+                <td>1 ch</td>
+                <td>任意 sample rate (reg <code>0x19/0x1A</code>)</td>
+                <td>port A <code>0x10-0x1B</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Z80 port 説明:</p>
+        <ul>
+          <li>port A = I/O <code>0x04</code> (addr) + <code>0x05</code> (data) → FM ch1-3 + SSG + ADPCM-B</li>
+          <li>port B = I/O <code>0x06</code> (addr) + <code>0x07</code> (data) → FM ch4-6 + ADPCM-A</li>
+        </ul>
+        <figure>
+          <img src="opnb-register-map.svg" alt="OPNB YM2610 レジスタマップ図">
+          <figcaption>OPNB (YM2610) レジスタ全体図 — FM/SSG/ADPCM-A/ADPCM-B 配置と port 対応</figcaption>
+        </figure>
+
+        <h3>4.2 FM register 表</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th class="numeric">reg base</th>
+                <th class="numeric">範囲</th>
+                <th>役割</th>
+                <th>値範囲</th>
+                <th>PMDNEO 実装 routine</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="numeric"><code>0x21</code></td><td class="numeric"><code>0x21</code></td><td>LFO 周波数 (test 用)</td><td>0-7</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x22</code></td><td class="numeric"><code>0x22</code></td><td>LFO enable + 周波数</td><td>bit 3 = enable</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x24-0x25</code></td><td class="numeric"><code>0x24-0x25</code></td><td>TIMER A</td><td>LSB / MSB</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x26</code></td><td class="numeric"><code>0x26</code></td><td>TIMER B counter</td><td>0-255 (1ms 周期 約 <code>0xE1</code>)</td><td>NMI で <code>0xE1</code> set (1ms IRQ)</td></tr>
+              <tr><td class="numeric"><code>0x27</code></td><td class="numeric"><code>0x27</code></td><td>TIMER 制御 + ch3 mode</td><td>bit 0/1=TimerA/B start、bit 4/5=reset、bit 6/7=ch3 mode</td><td><code>0x2A</code> = TimerB start + ch3 normal</td></tr>
+              <tr><td class="numeric"><code>0x28</code></td><td class="numeric"><code>0x28</code></td><td>FM keyon/keyoff + slot mask</td><td>bit 0-2=ch index、bit 4-7=slot 4 mask</td><td><code>fm_keyon</code>: <code>0xF1/0xF2/0xF5/0xF6</code>、<code>fm_keyoff</code>: <code>0x01/02/05/06</code></td></tr>
+              <tr><td class="numeric"><code>0x2A</code></td><td class="numeric"><code>0x2A</code></td><td>DAC data (test 用)</td><td>8 bit PCM</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x2B</code></td><td class="numeric"><code>0x2B</code></td><td>DAC enable</td><td>bit 7 = enable</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x30-0x9F</code></td><td class="numeric">per-ch + per-slot</td><td>op パラメータ (AR/DR/SR/RR/TL/MUL/DT/RS/AM)</td><td>各 4-7 bit</td><td><code>pmdneo_fm_voice_set_default</code> で初期設定</td></tr>
+              <tr><td class="numeric"><code>0x40-0x4F</code></td><td class="numeric">—</td><td>TL (total level)</td><td>0=max audible、<code>0x7F</code>=mute</td><td><code>init_chip_ch2_voice</code> で <code>0x18</code>、mute init で <code>0x7F</code></td></tr>
+              <tr><td class="numeric"><code>0x50-0x5F</code></td><td class="numeric">—</td><td>RS / AR (rate scaling + attack rate)</td><td>RS bit 6-7、AR bit 0-4</td><td>voice setup</td></tr>
+              <tr><td class="numeric"><code>0x60-0x6F</code></td><td class="numeric">—</td><td>AM / DR</td><td>AM bit 7、DR bit 0-4</td><td>voice setup</td></tr>
+              <tr><td class="numeric"><code>0x70-0x7F</code></td><td class="numeric">—</td><td>SR (sustain rate)</td><td>bit 0-4</td><td>voice setup</td></tr>
+              <tr><td class="numeric"><code>0x80-0x8F</code></td><td class="numeric">—</td><td>SL / RR</td><td>SL bit 4-7、RR bit 0-3</td><td>voice setup</td></tr>
+              <tr><td class="numeric"><code>0x90-0x9F</code></td><td class="numeric">—</td><td>SSG-EG</td><td>bit 3 = enable</td><td><code>0x00</code> (disable)</td></tr>
+              <tr><td class="numeric"><code>0xA0-0xA2</code></td><td class="numeric"><code>0xA0-0xA2</code></td><td>FNUM lower ch1/2/3</td><td>0-255</td><td><code>fnumset_fm</code> 内 port A/B 切替 (★ upper → lower で latch)</td></tr>
+              <tr><td class="numeric"><code>0xA4-0xA6</code></td><td class="numeric"><code>0xA4-0xA6</code></td><td>BLOCK + FNUM upper ch1/2/3</td><td>bit 3-5=block(octave)、bit 0-2=FNUM upper</td><td><code>fnumset_fm</code> で先に書込</td></tr>
+              <tr><td class="numeric"><code>0xA8-0xAA</code></td><td class="numeric"><code>0xA8-0xAA</code></td><td>FNUM lower ch3 special</td><td>0-255</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0xAC-0xAE</code></td><td class="numeric"><code>0xAC-0xAE</code></td><td>BLOCK + FNUM upper ch3 special</td><td>同</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0xB0-0xB2</code></td><td class="numeric"><code>0xB0-0xB2</code></td><td>ALG + FB</td><td>bit 0-2=ALG(0-7)、bit 3-5=FB(0-7)</td><td>voice setup: ALG 7=全 op carrier</td></tr>
+              <tr><td class="numeric"><code>0xB4-0xB6</code></td><td class="numeric"><code>0xB4-0xB6</code></td><td>PAN + LFO sense</td><td>bit 6=R、bit 7=L、bit 4-5=AMS、bit 0-2=PMS</td><td>PAN: <code>0x80</code>=L、<code>0x40</code>=R、<code>0xC0</code>=L+R 中央</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4.3 SSG register 表 (port A のみ)</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th class="numeric">reg</th>
+                <th>役割</th>
+                <th>値範囲</th>
+                <th>PMDNEO 実装</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="numeric"><code>0x00-0x01</code></td><td>ch1 tone period</td><td>12 bit</td><td><code>fnumset_ssg</code> / <code>fnumsetp_ch</code></td></tr>
+              <tr><td class="numeric"><code>0x02-0x03</code></td><td>ch2 tone period</td><td>同</td><td>同</td></tr>
+              <tr><td class="numeric"><code>0x04-0x05</code></td><td>ch3 tone period</td><td>同</td><td>同</td></tr>
+              <tr><td class="numeric"><code>0x06</code></td><td>noise period</td><td>5 bit</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x07</code></td><td>mixer (tone/noise enable)</td><td>bit 0-2=tone(0=enable)、bit 3-5=noise(0=enable)</td><td><code>init_ssg_voice</code>: <code>0x38</code>=tone enable for ch1/2/3</td></tr>
+              <tr><td class="numeric"><code>0x08-0x0A</code></td><td>ch1/2/3 volume</td><td>bit 0-3=vol(0-15)、bit 4=envelope select</td><td><code>pmdneo_psg_keyon</code>: vol <code>0x0F</code>=max</td></tr>
+              <tr><td class="numeric"><code>0x0B-0x0C</code></td><td>envelope period</td><td>16 bit</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x0D</code></td><td>envelope shape</td><td>4 bit</td><td><code>0x00</code>=disable</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4.4 ADPCM-A register 表 (port B 経由)</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th class="numeric">reg base</th>
+                <th class="numeric">範囲</th>
+                <th>役割</th>
+                <th>値範囲</th>
+                <th>PMDNEO 実装</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="numeric"><code>0x00</code></td><td class="numeric"><code>0x00</code></td><td>keyon/keyoff mask</td><td>bit 0-5=ch1-6 keyon(1=on)、bit 7=damp</td><td><code>adpcma_keyon_simple</code>: <code>0x01-0x20</code> で個別 keyon</td></tr>
+              <tr><td class="numeric"><code>0x01</code></td><td class="numeric"><code>0x01</code></td><td>total level</td><td>0-63</td><td><code>adpcma_init</code>: <code>0x3F</code> (max)</td></tr>
+              <tr><td class="numeric"><code>0x08-0x0D</code></td><td class="numeric">per-ch</td><td>sample 配置 (test 用)</td><td>—</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x10-0x15</code></td><td class="numeric">per-ch</td><td>ch1-6 個別 vol + L/R</td><td>bit 0-4=vol、bit 6=R、bit 7=L</td><td><code>adpcma_init</code>: <code>0x00</code> (中央+max vol)</td></tr>
+              <tr><td class="numeric"><code>0x18-0x1D</code></td><td class="numeric">per-ch</td><td>start address LSB (sample 開始/256)</td><td>0-255</td><td><code>adpcma_keyon_simple</code>: sample table から書込</td></tr>
+              <tr><td class="numeric"><code>0x20-0x25</code></td><td class="numeric">per-ch</td><td>start address MSB</td><td>0-255</td><td>同</td></tr>
+              <tr><td class="numeric"><code>0x28-0x2D</code></td><td class="numeric">per-ch</td><td>end address LSB / MSB</td><td>0-255</td><td>同</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note">ymfm trace では port B reg は <code>0x100+</code> でログされる。trace 解析時は <code>0x100</code> を引いて chip 内 reg 番号として読む。</p>
+
+        <h3>4.5 ADPCM-B register 表 (port A 経由)</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th class="numeric">reg</th>
+                <th>役割</th>
+                <th>値範囲</th>
+                <th>PMDNEO 実装</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td class="numeric"><code>0x10</code></td><td>keyon/keyoff + control</td><td>bit 7=start、bit 0=reset、bit 4=repeat</td><td><code>init_adpcmb_beat</code>: <code>0x80</code>(start)、<code>adpcmb_keyoff</code>: <code>0x01</code>(reset)</td></tr>
+              <tr><td class="numeric"><code>0x11</code></td><td>L/R PAN</td><td>bit 6=R、bit 7=L</td><td><code>init_adpcmb_beat</code>: <code>0xC0</code> (L+R)</td></tr>
+              <tr><td class="numeric"><code>0x12-0x13</code></td><td>start address LSB/MSB</td><td>0-255</td><td><code>BEAT_START_LSB/MSB</code> (samples.inc 経由)</td></tr>
+              <tr><td class="numeric"><code>0x14-0x15</code></td><td>end address LSB/MSB</td><td>0-255</td><td><code>BEAT_STOP_LSB/MSB</code> (samples.inc 経由)</td></tr>
+              <tr><td class="numeric"><code>0x16-0x17</code></td><td>delta-N delta limit</td><td>16 bit</td><td>未使用</td></tr>
+              <tr><td class="numeric"><code>0x19</code></td><td>delta-N LSB (sample rate 制御)</td><td>0-255</td><td><code>init_adpcmb_beat</code>: <code>0x96</code></td></tr>
+              <tr><td class="numeric"><code>0x1A</code></td><td>delta-N MSB</td><td>0-255</td><td><code>init_adpcmb_beat</code>: <code>0x6E</code> (約 24 kHz)</td></tr>
+              <tr><td class="numeric"><code>0x1B</code></td><td>total level</td><td>0-255</td><td><code>init_adpcmb_beat</code>: <code>0xFF</code> (max)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3>4.6 PMDNEO 駆動経路 サマリ表</h3>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>chip</th>
+                <th>役割</th>
+                <th>port</th>
+                <th>主要 reg</th>
+                <th>PMDNEO routine</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>TIMER-B</td><td>1ms IRQ source</td><td>port A</td><td><code>0x26/0x27</code></td><td>NMI 内 init</td></tr>
+              <tr><td>FM</td><td>keyon/off</td><td>port A</td><td><code>0x28</code></td><td><code>fm_keyon</code> / <code>fm_keyoff</code></td></tr>
+              <tr><td>FM</td><td>voice setup</td><td>port A/B</td><td><code>0x30-0x9F</code></td><td><code>pmdneo_fm_voice_set_default</code></td></tr>
+              <tr><td>FM</td><td>FNUM</td><td>port A/B</td><td><code>0xA0-0xA6</code></td><td><code>fnumset_fm</code> (★ upper→lower 順)</td></tr>
+              <tr><td>FM</td><td>PAN</td><td>port A/B</td><td><code>0xB4-0xB6</code></td><td><code>nmi_cmd_5</code> 内 hardcoded</td></tr>
+              <tr><td>SSG</td><td>tone / mixer / volume</td><td>port A</td><td><code>0x00-0x0D</code></td><td><code>init_ssg_voice</code> / <code>fnumsetp_ch</code> / <code>pmdneo_psg_keyon</code></td></tr>
+              <tr><td>ADPCM-A</td><td>sample keyon / volume</td><td>port B</td><td><code>0x00-0x2D</code></td><td><code>adpcma_init</code> / <code>adpcma_keyon_simple</code></td></tr>
+              <tr><td>ADPCM-B</td><td>delta-T sample control</td><td>port A</td><td><code>0x10-0x1B</code></td><td><code>init_adpcmb_beat</code> / <code>adpcmb_keyon</code> / <code>adpcmb_keyoff</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note">
+          <ol>
+            <li>★ FM FNUM 書込順: PMDNEO は upper (<code>0xA4+ch</code>) → lower (<code>0xA0+ch</code>) の順。spec lower→upper 想定だが MAME ymfm 実装で逆順 latch。詳細は ADR-0008 / 設計書 8 章。</li>
+            <li>NEOGEO YM2610: ch1/ch4 は出力配線なし、audible は ch2/3/5/6 の 4 ch のみ。register 書込は受付ける (破綻なし) が音は出ない。</li>
+            <li>port B reg 番号 表記: ymfm trace は port B reg を <code>0x100+</code> で記録 (port A の <code>0x00-0xFF</code> と区別)。解析時は <code>0x100</code> を引いて chip 内 reg 番号として読む。</li>
+          </ol>
+        </div>
+      </section>
+
+      <section id="sram">
+        <h2><span class="chapter-number">05.</span> SRAM 拡張詳細</h2>
+        <p class="section-summary">既存 <code>PART_OFF_*</code> 25 field、offset 0-24 は変更なし。LOOPSTACK 32-47 と LOOPDEPTH 48 に衝突しない 49-56 を hook pointer 領域として使用した。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>field 名</th>
+                <th>offset</th>
+                <th>size</th>
+                <th>用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>PART_OFF_HOOK_KEYON</code></td>
+                <td class="numeric">49</td>
+                <td class="numeric">2 bytes</td>
+                <td>note 発音 hook pointer</td>
+              </tr>
+              <tr>
+                <td><code>PART_OFF_HOOK_KEYOFF</code></td>
+                <td class="numeric">51</td>
+                <td class="numeric">2 bytes</td>
+                <td>note 更新前 / gate 用 keyoff hook pointer</td>
+              </tr>
+              <tr>
+                <td><code>PART_OFF_HOOK_FNUMSET</code></td>
+                <td class="numeric">53</td>
+                <td class="numeric">2 bytes</td>
+                <td>chip 別 fnumset hook pointer</td>
+              </tr>
+              <tr>
+                <td><code>PART_OFF_HOOK_VOLUMESET</code></td>
+                <td class="numeric">55</td>
+                <td class="numeric">2 bytes</td>
+                <td>chip 別 volume hook pointer</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <figure>
+          <img src="sram-layout.svg" alt="per-part SRAM 64 byte layout">
+          <figcaption>図 3: per-part 64 byte block 内に収まり、LOOPSTACK / LOOPDEPTH と非衝突。</figcaption>
+        </figure>
+        <pre><code class="language-asm">PART_OFF_HOOK_KEYON     = 49 ; 2 bytes
+PART_OFF_HOOK_KEYOFF    = 51 ; 2 bytes
+PART_OFF_HOOK_FNUMSET   = 53 ; 2 bytes
+PART_OFF_HOOK_VOLUMESET = 55 ; 2 bytes</code></pre>
+      </section>
+
+      <section id="hooks">
+        <h2><span class="chapter-number">06.</span> Chip hook 一覧</h2>
+        <p class="section-summary">Chip 固有処理は keyon、keyoff、fnumset、volume の hook に分け、共通 dispatch 本体から呼び出す。ADPCM 系の未使用 hook は <code>noop_hook</code> に寄せ、dispatch 側の分岐を増やさない。</p>
+        <div class="table-wrap">
+          <table class="hook-table">
+            <thead>
+              <tr>
+                <th>hook 名</th>
+                <th>役割</th>
+                <th>元 routine</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><code>fm_keyon_hook</code></td><td><span class="tag">FM</span> keyon (ch index B)</td><td><code>fnumset_fm</code> + <code>fm_keyon</code></td></tr>
+              <tr><td><code>fm_keyoff_hook</code></td><td><span class="tag">FM</span> keyoff</td><td><code>fm_keyoff</code></td></tr>
+              <tr><td><code>fnumset_fm_hook</code></td><td><span class="tag">FM</span> fnumset</td><td><code>fnumset_fm</code></td></tr>
+              <tr><td><code>fm_volume_hook</code></td><td><span class="tag">FM</span> volume (later phase)</td><td>stub</td></tr>
+              <tr><td><code>psg_keyon_hook</code></td><td><span class="tag">SSG</span> keyon</td><td><code>pmdneo_psg_keyon</code></td></tr>
+              <tr><td><code>ssg_keyoff_hook</code></td><td><span class="tag">SSG</span> keyoff</td><td><code>ssg_keyoff</code></td></tr>
+              <tr><td><code>fnumsetp_ch_hook</code></td><td><span class="tag">SSG</span> fnumset</td><td><code>fnumsetp_ch</code></td></tr>
+              <tr><td><code>psg_volume_hook</code></td><td><span class="tag">SSG</span> volume (later phase)</td><td>stub</td></tr>
+              <tr><td><code>adpcmb_keyon_hook</code></td><td><span class="tag">ADPCM-B</span> keyon</td><td><code>adpcmb_keyon</code></td></tr>
+              <tr><td><code>adpcmb_keyoff_hook</code></td><td><span class="tag">ADPCM-B</span> keyoff</td><td><code>adpcmb_keyoff</code></td></tr>
+              <tr><td><code>adpcma_keyon_hook</code></td><td><span class="tag">ADPCM-A</span> keyon (ch index B)</td><td><code>adpcma_keyon_simple</code></td></tr>
+              <tr><td><code>adpcma_keyoff_hook</code></td><td><span class="tag">ADPCM-A</span> keyoff (natural end)</td><td>noop</td></tr>
+              <tr><td><code>noop_hook</code></td><td>common noop (ADPCM FNUMSET / VOLUMESET)</td><td><code>ret</code> 1 instruction</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="timeline">
+        <h2><span class="chapter-number">07.</span> Commit timeline</h2>
+        <p class="section-summary">Phase 9R は設計起票から dispatch 共通化、FM / SSG / ADPCM-B 復活までを同日内の小さな sub-step で積み上げた。最後の <code>9976580</code> で ADPCM-B と beat.wav を足し、<strong>14 part milestone</strong> に到達した。</p>
+        <div class="timeline-list" aria-label="Commit timeline">
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>4c0fcd1</code></p>
+            <h3>R-1</h3>
+            <p>docs(design): dispatch 共通化 refactor 設計書 起票</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>ea34859</code></p>
+            <h3>R-2/3/4</h3>
+            <p>feat(driver): dispatch 共通化 refactor 実装 (L baseline pass)</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>430e50e</code></p>
+            <h3>R-5a</h3>
+            <p>feat(driver): FM 4 part 復活 + hook B 引数 fix + voice setup</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>9e5f6e6</code></p>
+            <h3>R-5b</h3>
+            <p>feat(driver): SSG 3 part + PAN 分離 (BC=L、EF=R)</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>9976580</code></p>
+            <h3>R-5c</h3>
+            <p>feat(driver): ADPCM-B + beat.wav + <strong>14 part milestone</strong></p>
+          </article>
+        </div>
+      </section>
+
+      <section id="audio">
+        <h2><span class="chapter-number">08.</span> Audio gate 結果</h2>
+        <p class="section-summary">Audio gate は R-3 baseline から R-5c まで段階的に確認した。R-5c では rebuild MD5 <code>306828b9</code>、wav peak L 100% / R 100%、J 鳴動、<strong>14 part</strong> 完成を確認した。</p>
+        <div class="table-wrap">
+          <table class="gate-table">
+            <thead>
+              <tr>
+                <th>sub-step</th>
+                <th>rebuild MD5</th>
+                <th>FM keyon count</th>
+                <th>ADPCM-A keyon count</th>
+                <th>wav peak</th>
+                <th>user 聴感</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>R-3 baseline</td><td><code>63345f63</code></td><td class="numeric">0 (comment out)</td><td class="numeric">129</td><td class="numeric">L 42% / R 52%</td><td>drum 6ch OK</td></tr>
+              <tr><td>R-5a (FM)</td><td><code>d6500d44</code></td><td class="numeric">32 (0xF1/F2/F5/F6 × 8)</td><td class="numeric">129</td><td class="numeric">L 52% / R 55%</td><td>BCEF 鳴動</td></tr>
+              <tr><td>R-5b (+SSG+PAN)</td><td><code>83947c0b</code></td><td class="numeric">32 + SSG 27 vol write</td><td class="numeric">129</td><td class="numeric">L 100% / R 100%</td><td>FM L/R + SSG OK</td></tr>
+              <tr><td>R-5c (+ADPCM-B)</td><td><code>306828b9</code></td><td class="numeric">same</td><td class="numeric">same</td><td class="numeric">L 100% / R 100%</td><td>J 鳴動、<strong>14 part</strong> 完成</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="adpcmb">
+        <h2><span class="chapter-number">09.</span> ADPCM-B sample</h2>
+        <p class="section-summary">ADPCM-B hook 経路の発音確認には ngdevkit example の beat.wav を使用した。VROM area は <code>BEAT_START</code> 0x002A00 から <code>BEAT_STOP</code> 0x00A800 までを割り当てた。</p>
+        <div class="note-grid">
+          <div class="note-box">
+            <h3>素材</h3>
+            <ul>
+              <li>Source: <code>vendor/ngdevkit-examples/00-template/assets/beat.wav</code></li>
+              <li>16-bit mono、24000 Hz、<strong>130 KB</strong></li>
+            </ul>
+          </div>
+          <div class="note-box">
+            <h3>配置</h3>
+            <ul>
+              <li>VROM area: <code>BEAT_START</code> 0x002A00</li>
+              <li><code>BEAT_STOP</code> 0x00A800、0x7E byte ngdevkit chunk</li>
+            </ul>
+          </div>
+        </div>
+        <pre><code class="language-asm">; Driver path
+init_adpcmb_beat:
+    ; reg 0x12-0x15 に BEAT_START / BEAT_STOP を設定
+
+; MML
+t140 l2 o5 [ a ]4</code></pre>
+        <p class="small">MML は half-note interval の 4-shot loop。ADPCM-B hook 経路の発音確認に使用。</p>
+      </section>
+
+      <section id="remaining">
+        <h2><span class="chapter-number">10.</span> 残作業</h2>
+        <p class="section-summary">Phase 9R の成果は 14-part milestone commit と develop merge へ進める。次 phase では gate cmd / fade-in / compile.py / multi-tempo を clean dispatch 上で進める。</p>
+        <div class="callout">
+          <ul>
+            <li>R-6: 14-part milestone commit。ROM display と design doc status update を含める。</li>
+            <li>R-7: develop merge via PR。</li>
+            <li>Next phase: original Phase 9。gate cmd / fade-in / compile.py / multi-tempo を clean dispatch 上で進める。</li>
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Generated 2026-05-10、PMDNEO Phase 9R</p>
+      <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
+    </footer>
+  </div>
+</body>
+</html>

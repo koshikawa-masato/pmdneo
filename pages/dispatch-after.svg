@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">dispatch 共通化後の pmdneo_part_main と chip hook</title>
+  <desc id="desc">pmdneo_song_main から共通 routine へ入り、per-part SRAM の hook pointer 経由で chip 固有処理へ進む構造。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2c3440"/>
+    </marker>
+    <style>
+      .bg { fill: #fbfcff; }
+      .gate { fill: #eef3f9; stroke: #475569; stroke-width: 1.5; rx: 10; }
+      .main { fill: #f6f0ff; stroke: #5941a9; stroke-width: 2; rx: 12; }
+      .common { fill: #eee9ff; stroke: #5941a9; stroke-width: 2.4; rx: 16; }
+      .hook { fill: #fff; stroke-width: 1.6; rx: 9; }
+      .fm { stroke: #1f78d1; fill: #e4f1ff; }
+      .ssg { stroke: #258a53; fill: #e4f7ec; }
+      .adpcmb { stroke: #c46b18; fill: #fff1df; }
+      .adpcma { stroke: #c93f4d; fill: #ffe9ec; }
+      .noop { stroke: #64748b; fill: #edf0f4; }
+      .sram { fill: #fff8e7; stroke: #a16207; stroke-width: 1.6; rx: 10; }
+      .line { stroke: #2c3440; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+      .ptr { stroke: #5941a9; stroke-width: 1.6; fill: none; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+      text { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; fill: #1c2430; }
+      .h { font-weight: 800; font-size: 18px; }
+      .m { font-weight: 700; font-size: 14px; }
+      .s { font-size: 12px; }
+      .xs { font-size: 11px; fill: #475569; }
+    </style>
+  </defs>
+  <rect class="bg" width="800" height="600"/>
+  <text x="40" y="38" class="h">図 2: 共通化後 dispatch</text>
+  <rect x="270" y="58" width="260" height="48" class="gate"/>
+  <text x="400" y="82" text-anchor="middle" class="m">IRQ + sub-tick gating</text>
+  <text x="400" y="99" text-anchor="middle" class="xs">tick 間引き後に song main 実行</text>
+  <path d="M400 106 L400 128" class="line"/>
+  <rect x="250" y="128" width="300" height="54" class="main"/>
+  <text x="400" y="151" text-anchor="middle" class="h">pmdneo_song_main</text>
+  <text x="400" y="169" text-anchor="middle" class="s">part loop から単一入口へ</text>
+  <path d="M400 182 L400 220" class="line"/>
+
+  <rect x="244" y="220" width="312" height="170" class="common"/>
+  <text x="400" y="249" text-anchor="middle" class="h">pmdneo_part_main</text>
+  <text x="400" y="273" text-anchor="middle" class="m">LEN check → parse → note / loop / cmd dispatch</text>
+  <rect x="274" y="294" width="252" height="42" fill="#fff" stroke="#b8aaf0" rx="8"/>
+  <text x="400" y="313" text-anchor="middle" class="s">note path: keyoff / fnumset / volume / keyon</text>
+  <text x="400" y="330" text-anchor="middle" class="xs">共通処理から hook pointer を indirect call</text>
+  <rect x="294" y="350" width="212" height="26" fill="#fff" stroke="#b8aaf0" rx="6"/>
+  <text x="400" y="368" text-anchor="middle" class="s">commandsp は共通維持</text>
+
+  <rect x="28" y="160" width="178" height="96" class="sram"/>
+  <text x="117" y="184" text-anchor="middle" class="m">per-part SRAM</text>
+  <text x="117" y="205" text-anchor="middle" class="s">PART_OFF_HOOK_KEYON</text>
+  <text x="117" y="223" text-anchor="middle" class="s">KEYOFF / FNUMSET</text>
+  <text x="117" y="241" text-anchor="middle" class="s">VOLUMESET</text>
+  <path d="M206 223 C238 240 246 265 260 300" class="ptr"/>
+
+  <rect x="52" y="304" width="144" height="32" class="hook fm"/>
+  <text x="124" y="325" text-anchor="middle" class="s">fm_keyon_hook</text>
+  <rect x="52" y="346" width="144" height="32" class="hook fm"/>
+  <text x="124" y="367" text-anchor="middle" class="s">fm_keyoff_hook</text>
+  <rect x="52" y="388" width="144" height="32" class="hook fm"/>
+  <text x="124" y="409" text-anchor="middle" class="s">fnumset_fm_hook</text>
+  <rect x="52" y="430" width="144" height="32" class="hook fm"/>
+  <text x="124" y="451" text-anchor="middle" class="s">fm_volume_hook</text>
+
+  <rect x="226" y="426" width="148" height="32" class="hook ssg"/>
+  <text x="300" y="447" text-anchor="middle" class="s">psg_keyon_hook</text>
+  <rect x="226" y="468" width="148" height="32" class="hook ssg"/>
+  <text x="300" y="489" text-anchor="middle" class="s">ssg_keyoff_hook</text>
+  <rect x="226" y="510" width="148" height="32" class="hook ssg"/>
+  <text x="300" y="531" text-anchor="middle" class="s">fnumsetp_ch_hook</text>
+  <rect x="226" y="552" width="148" height="32" class="hook ssg"/>
+  <text x="300" y="573" text-anchor="middle" class="s">psg_volume_hook</text>
+
+  <rect x="426" y="426" width="148" height="32" class="hook adpcmb"/>
+  <text x="500" y="447" text-anchor="middle" class="s">adpcmb_keyon_hook</text>
+  <rect x="426" y="468" width="148" height="32" class="hook adpcmb"/>
+  <text x="500" y="489" text-anchor="middle" class="s">adpcmb_keyoff_hook</text>
+  <rect x="426" y="510" width="148" height="32" class="hook noop"/>
+  <text x="500" y="531" text-anchor="middle" class="s">noop_hook</text>
+
+  <rect x="604" y="304" width="144" height="32" class="hook adpcma"/>
+  <text x="676" y="325" text-anchor="middle" class="s">adpcma_keyon_hook</text>
+  <rect x="604" y="346" width="144" height="32" class="hook adpcma"/>
+  <text x="676" y="367" text-anchor="middle" class="s">adpcma_keyoff_hook</text>
+  <rect x="604" y="388" width="144" height="32" class="hook noop"/>
+  <text x="676" y="409" text-anchor="middle" class="s">noop_hook</text>
+
+  <path d="M300 312 C242 307 224 314 196 320" class="ptr"/>
+  <path d="M304 329 C250 346 222 357 196 362" class="ptr"/>
+  <path d="M312 346 C252 384 228 398 196 404" class="ptr"/>
+  <path d="M335 371 C264 419 230 438 196 446" class="ptr"/>
+  <path d="M360 390 C334 416 318 426 300 426" class="ptr"/>
+  <path d="M385 390 C354 444 326 464 300 468" class="ptr"/>
+  <path d="M405 390 C365 489 336 511 300 510" class="ptr"/>
+  <path d="M425 390 C385 522 344 552 300 552" class="ptr"/>
+  <path d="M446 390 C471 416 488 426 500 426" class="ptr"/>
+  <path d="M468 390 C501 443 512 464 500 468" class="ptr"/>
+  <path d="M490 390 C520 492 522 510 500 510" class="ptr"/>
+  <path d="M500 312 C560 307 580 314 604 320" class="ptr"/>
+  <path d="M496 334 C555 348 580 358 604 362" class="ptr"/>
+  <path d="M486 355 C556 382 581 394 604 404" class="ptr"/>
+</svg>

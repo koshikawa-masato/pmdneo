@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="700" viewBox="0 0 800 700" role="img" aria-labelledby="title desc">
+  <title id="title">YM2610B (OPNB) レジスタマップ</title>
+  <desc id="desc">PMDNEO 駆動経路 対応</desc>
+  <rect width="800" height="700" fill="#ffffff"/>
+
+  <style>
+    text {
+      font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", Arial, sans-serif;
+      fill: #202124;
+    }
+    .title {
+      font-size: 28px;
+      font-weight: 700;
+      text-anchor: middle;
+    }
+    .subtitle {
+      font-size: 16px;
+      fill: #5f6368;
+      text-anchor: middle;
+    }
+    .panel-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .panel-meta {
+      font-size: 12px;
+      fill: #3c4043;
+    }
+    .panel-note {
+      font-size: 11px;
+      fill: #5f6368;
+    }
+    .reg {
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      fill: #202124;
+    }
+    .bar-label {
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .bar-text {
+      font-size: 14px;
+    }
+    .bottom-note {
+      font-size: 15px;
+      font-weight: 700;
+      text-anchor: middle;
+    }
+  </style>
+
+  <text class="title" x="400" y="42">YM2610B (OPNB) レジスタマップ</text>
+  <text class="subtitle" x="400" y="68">PMDNEO 駆動経路 対応</text>
+
+  <g transform="translate(25 100)">
+    <rect x="0" y="0" width="175" height="360" rx="8" fill="#e8f0fe" stroke="#3a7bd5" stroke-width="3"/>
+    <text class="panel-title" x="16" y="34">FM  6ch</text>
+    <text class="panel-meta" x="16" y="60">Port A (ch1-3) /</text>
+    <text class="panel-meta" x="16" y="78">Port B (ch4-6)</text>
+    <text class="panel-meta" x="16" y="104">PMDNEO: B/C/E/F ch</text>
+    <text class="reg" x="16" y="142">0x20-0x27  TIMER/LFO</text>
+    <text class="reg" x="16" y="171">0x28       keyon/off</text>
+    <text class="reg" x="16" y="200">0x30-0x9F  voice</text>
+    <text class="reg" x="16" y="218">            (AR/DR/TL...)</text>
+    <text class="reg" x="16" y="247">0xA0-0xA6  FNUM</text>
+    <text class="reg" x="16" y="265">            (★upper→lower)</text>
+    <text class="reg" x="16" y="294">0xB0-0xB2  ALG+FB</text>
+    <text class="reg" x="16" y="323">0xB4-0xB6  PAN (L/R)</text>
+  </g>
+
+  <g transform="translate(215 100)">
+    <rect x="0" y="0" width="175" height="360" rx="8" fill="#e8f5e9" stroke="#2e7d32" stroke-width="3"/>
+    <text class="panel-title" x="16" y="34">SSG  3ch</text>
+    <text class="panel-meta" x="16" y="60">Port A のみ</text>
+    <text class="panel-meta" x="16" y="86">PMDNEO: G/H/I ch</text>
+    <text class="reg" x="16" y="132">0x00-0x05  tone period</text>
+    <text class="reg" x="16" y="164">0x06       noise period</text>
+    <text class="reg" x="16" y="196">0x07       mixer enable</text>
+    <text class="reg" x="16" y="228">0x08-0x0A  volume</text>
+    <text class="reg" x="16" y="260">0x0B-0x0D  envelope</text>
+  </g>
+
+  <g transform="translate(405 100)">
+    <rect x="0" y="0" width="175" height="360" rx="8" fill="#ffebee" stroke="#c62828" stroke-width="3"/>
+    <text class="panel-title" x="16" y="34">ADPCM-A  6ch</text>
+    <text class="panel-meta" x="16" y="60">Port B のみ</text>
+    <text class="panel-meta" x="16" y="86">PMDNEO: L-Q ch</text>
+    <text class="panel-meta" x="16" y="104">(K/R rhythm)</text>
+    <text class="panel-note" x="16" y="128">(ymfm trace: 0x100+)</text>
+    <text class="reg" x="16" y="162">0x00       keyon mask</text>
+    <text class="reg" x="16" y="191">0x01       total level</text>
+    <text class="reg" x="16" y="220">0x10-0x15  ch vol + pan</text>
+    <text class="reg" x="16" y="249">0x18-0x1D  start addr</text>
+    <text class="reg" x="16" y="278">0x20-0x25  start MSB</text>
+    <text class="reg" x="16" y="307">0x28-0x2D  end addr</text>
+  </g>
+
+  <g transform="translate(595 100)">
+    <rect x="0" y="0" width="175" height="360" rx="8" fill="#fff3e0" stroke="#e65100" stroke-width="3"/>
+    <text class="panel-title" x="16" y="34">ADPCM-B  1ch</text>
+    <text class="panel-meta" x="16" y="60">Port A のみ</text>
+    <text class="panel-meta" x="16" y="86">PMDNEO: J ch</text>
+    <text class="reg" x="16" y="132">0x10       keyon/off/ctrl</text>
+    <text class="reg" x="16" y="164">0x11       PAN (L/R)</text>
+    <text class="reg" x="16" y="196">0x12-0x13  start addr</text>
+    <text class="reg" x="16" y="228">0x14-0x15  end addr</text>
+    <text class="reg" x="16" y="260">0x19-0x1A  delta-N rate</text>
+    <text class="reg" x="16" y="292">0x1B       total level</text>
+  </g>
+
+  <g transform="translate(55 500)">
+    <rect x="0" y="0" width="690" height="52" rx="7" fill="#f1f7ff" stroke="#4a9eff" stroke-width="2"/>
+    <text class="bar-label" x="18" y="32">Port A (I/O 0x04/0x05):</text>
+    <text class="bar-text" x="235" y="32">FM ch1-3 + SSG + ADPCM-B</text>
+  </g>
+
+  <g transform="translate(55 565)">
+    <rect x="0" y="0" width="690" height="52" rx="7" fill="#fff7ed" stroke="#f59e0b" stroke-width="2"/>
+    <text class="bar-label" x="18" y="32">Port B (I/O 0x06/0x07):</text>
+    <text class="bar-text" x="235" y="32">FM ch4-6 + ADPCM-A</text>
+  </g>
+
+  <g transform="translate(55 642)">
+    <rect x="0" y="0" width="690" height="38" rx="7" fill="#f8f9fa" stroke="#dadce0" stroke-width="2"/>
+    <text class="bottom-note" x="345" y="25">NEOGEO YM2610: ch1/ch4 出力配線なし — audible FM = ch2/3/5/6 (4ch)</text>
+  </g>
+</svg>

@@ -54,6 +54,10 @@
         .equ    PART_OFF_CH_IDX,         24
         .equ    PART_OFF_LOOPSTACK_BASE, 32
         .equ    PART_OFF_LOOPDEPTH,      48
+        .equ    PART_OFF_HOOK_KEYON,     49    ;; 2 bytes
+        .equ    PART_OFF_HOOK_KEYOFF,    51    ;; 2 bytes
+        .equ    PART_OFF_HOOK_FNUMSET,   53    ;; 2 bytes
+        .equ    PART_OFF_HOOK_VOLUMESET, 55    ;; 2 bytes
         .equ    PART_WORKAREA_SIZE,      64
 
 ;;; ----- part number constants -----
@@ -1065,17 +1069,19 @@ init_adpcmb_beat:
         ld      c, #0x00
         call    ym2610_write_port_a
 
+        ;; Phase 9R R-5c: ADPCM-B sample = beat.wav (= samples-map.yaml 経由)
+        ;; samples.inc 経由で BEAT_START_LSB/MSB / BEAT_STOP_LSB/MSB 生成済
         ld      b, #0x12
-        ld      c, #0x00
+        ld      c, #BEAT_START_LSB
         call    ym2610_write_port_a
         ld      b, #0x13
-        ld      c, #0x00
+        ld      c, #BEAT_START_MSB
         call    ym2610_write_port_a
         ld      b, #0x14
-        ld      c, #0x7E
+        ld      c, #BEAT_STOP_LSB
         call    ym2610_write_port_a
         ld      b, #0x15
-        ld      c, #0x00
+        ld      c, #BEAT_STOP_MSB
         call    ym2610_write_port_a
 
         ld      b, #0x19
@@ -1212,48 +1218,74 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      (driver_tempo_d), a
         xor     a
         ld      (driver_subtick_acc), a
+        ;; Phase 9R R-5a: FM 4 ch (= ch2/3/5/6) audible voice setup (= TL 0x18 + ALG 7)
+        ;; mode 4 経由なら nmi_cmd_2_play_song で init_chip_ch2_voice 呼ばれるが、
+        ;; mode 5 (= MML byte parser) では nmi_cmd_5 内で voice setup が skip されてた、
+        ;; FM keyon 出るが TL = 0x7F mute で audible にならない真因 (= 2026-05-10)。
+        call    init_chip_ch2_voice
+        ;; Phase 9R R-5b: SSG 3 ch audible setup (= reg 0x07 = 0x38 tone enable + vol 0x0F)
+        ;; mode 4 経由なら nmi_cmd_2_play_song_mode4 で init_ssg_voice 呼ばれるが、
+        ;; mode 5 では SSG silence init (= reg 0x07 = 0x3F all disable + vol 0x00) のまま、
+        ;; SSG 3 part init 復活 (= R-5b) 時の audible 化に必要。
+        call    init_ssg_voice
+        ;; Phase 9R R-5b 補足: FM PAN 分離 (= user 要望、 BC=Left, EF=Right)
+        ;; ch2 (B) = port A reg 0xB5、 ch3 (C) = port A reg 0xB6
+        ;; ch5 (E) = port B reg 0xB5、 ch6 (F) = port B reg 0xB6
+        ;; PAN 値: 0x80 = Left only, 0x40 = Right only, 0xC0 = L+R 中央 (default)
+        ld      b, #0xB5
+        ld      c, #0x80                ; ch2 (B) = L
+        call    ym2610_write_port_a
+        ld      b, #0xB6
+        ld      c, #0x80                ; ch3 (C) = L
+        call    ym2610_write_port_a
+        ld      b, #0xB5
+        ld      c, #0x40                ; ch5 (E) = R
+        call    ym2610_write_port_b
+        ld      b, #0xB6
+        ld      c, #0x40                ; ch6 (F) = R
+        call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
         ld      a, #PART_FM2
         ld      hl, #song_part_b
         ld      b, #1
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM3
         ld      hl, #song_part_c
         ld      b, #2
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM5
         ld      hl, #song_part_e
         ld      b, #4
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM6
         ld      hl, #song_part_f
         ld      b, #5
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG1
         ld      hl, #song_part_g
         ld      b, #0
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG2
         ld      hl, #song_part_h
         ld      b, #1
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG3
         ld      hl, #song_part_i
         ld      b, #2
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_PCM
         ld      hl, #song_part_j
         ld      b, #0
         ld      c, #0
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_ADPCMA1
         ld      hl, #song_part_l
         ld      b, #0
@@ -1305,6 +1337,7 @@ pmdneo5_init_part:
         call    pmdneo_part_ix_from_part
         pop     bc
         pop     hl
+        ld      d, a
 
         ld      PART_OFF_ADDR(ix), l
         ld      PART_OFF_ADDR+1(ix), h
@@ -1319,6 +1352,85 @@ pmdneo5_init_part:
         ld      PART_OFF_OCTAVE(ix), a
         ld      PART_OFF_CH_IDX(ix), b
         ld      PART_OFF_VOLUME(ix), c
+        ld      a, d
+        cp      #PART_SSG1
+        jp      c, pmdneo5_init_part_hooks_fm
+        cp      #PART_PCM
+        jp      c, pmdneo5_init_part_hooks_psg
+        cp      #PART_PCM
+        jp      z, pmdneo5_init_part_hooks_pcm
+        cp      #PART_ADPCMA1
+        jp      c, pmdneo5_init_part_hooks_noop
+        jp      pmdneo5_init_part_hooks_adpcma
+
+pmdneo5_init_part_hooks_fm:
+        ld      hl, #fm_keyon_hook
+        ld      PART_OFF_HOOK_KEYON(ix), l
+        ld      PART_OFF_HOOK_KEYON+1(ix), h
+        ld      hl, #fm_keyoff_hook
+        ld      PART_OFF_HOOK_KEYOFF(ix), l
+        ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      hl, #fnumset_fm_hook
+        ld      PART_OFF_HOOK_FNUMSET(ix), l
+        ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      hl, #fm_volume_hook
+        ld      PART_OFF_HOOK_VOLUMESET(ix), l
+        ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
+        ret
+
+pmdneo5_init_part_hooks_psg:
+        ld      hl, #psg_keyon_hook
+        ld      PART_OFF_HOOK_KEYON(ix), l
+        ld      PART_OFF_HOOK_KEYON+1(ix), h
+        ld      hl, #ssg_keyoff_hook
+        ld      PART_OFF_HOOK_KEYOFF(ix), l
+        ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      hl, #fnumsetp_ch_hook
+        ld      PART_OFF_HOOK_FNUMSET(ix), l
+        ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      hl, #psg_volume_hook
+        ld      PART_OFF_HOOK_VOLUMESET(ix), l
+        ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
+        ret
+
+pmdneo5_init_part_hooks_pcm:
+        ld      hl, #adpcmb_keyon_hook
+        ld      PART_OFF_HOOK_KEYON(ix), l
+        ld      PART_OFF_HOOK_KEYON+1(ix), h
+        ld      hl, #adpcmb_keyoff_hook
+        ld      PART_OFF_HOOK_KEYOFF(ix), l
+        ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      hl, #noop_hook
+        ld      PART_OFF_HOOK_FNUMSET(ix), l
+        ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      PART_OFF_HOOK_VOLUMESET(ix), l
+        ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
+        ret
+
+pmdneo5_init_part_hooks_adpcma:
+        ld      hl, #adpcma_keyon_hook
+        ld      PART_OFF_HOOK_KEYON(ix), l
+        ld      PART_OFF_HOOK_KEYON+1(ix), h
+        ld      hl, #adpcma_keyoff_hook
+        ld      PART_OFF_HOOK_KEYOFF(ix), l
+        ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      hl, #noop_hook
+        ld      PART_OFF_HOOK_FNUMSET(ix), l
+        ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      PART_OFF_HOOK_VOLUMESET(ix), l
+        ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
+        ret
+
+pmdneo5_init_part_hooks_noop:
+        ld      hl, #noop_hook
+        ld      PART_OFF_HOOK_KEYON(ix), l
+        ld      PART_OFF_HOOK_KEYON+1(ix), h
+        ld      PART_OFF_HOOK_KEYOFF(ix), l
+        ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      PART_OFF_HOOK_FNUMSET(ix), l
+        ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      PART_OFF_HOOK_VOLUMESET(ix), l
+        ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
         ret
 
 ;;; ----- Phase 5b: song dispatcher and per-part state machines -----
@@ -1335,39 +1447,15 @@ pmdneo_song_main_loop:
         pop     bc
         push    bc
         ld      a, c
-        cp      #PART_SSG1
-        jp      c, pmdneo_song_main_fm
-        cp      #PART_PCM
-        jp      c, pmdneo_song_main_psg
-        cp      #PART_PCM
-        jp      z, pmdneo_song_main_pcm
         cp      #PART_RHYTHM
         jp      z, pmdneo_song_main_rhythm
-        jp      pmdneo_song_main_adpcma
-
-pmdneo_song_main_fm:
-        ld      b, c
-        call    fmmain
-        jp      pmdneo_song_main_after
-
-pmdneo_song_main_psg:
-        ld      a, c
-        sub     #PART_SSG1
-        ld      b, a
-        call    pmdneo_psgmain
-        jp      pmdneo_song_main_after
-
-pmdneo_song_main_pcm:
-        ld      b, #0
-        call    adpcmb_main
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    pmdneo_part_main
         jp      pmdneo_song_main_after
 
 pmdneo_song_main_rhythm:
         call    rhythm_main
         jp      pmdneo_song_main_after
-
-pmdneo_song_main_adpcma:
-        call    adpcma_main
 
 pmdneo_song_main_after:
         pop     bc
@@ -1412,6 +1500,83 @@ pmdneo_scale_mml_length:
         or      a
         ret     nz
         inc     a
+        ret
+
+pmdneo_part_main:
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jp      z, pmdneo_part_main_parse
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        ret     nz
+        call    pmdneo_part_call_keyoff_hook
+        ret
+
+pmdneo_part_main_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jp      z, pmdneo_part_main_loop
+        cp      #0x90
+        jp      z, pmdneo_part_main_rest
+        jp      c, pmdneo_part_main_note
+        call    commandsp
+        jp      pmdneo_part_main_parse
+
+pmdneo_part_main_note:
+        ld      PART_OFF_NOTE(ix), a
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ld      a, PART_OFF_NOTE(ix)
+        call    pmdneo_part_call_fnumset_hook
+        ld      a, PART_OFF_NOTE(ix)
+        call    pmdneo_part_call_keyon_hook
+        ret
+
+pmdneo_part_main_rest:
+        call    pmdneo_part_fetch_byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ret
+
+pmdneo_part_main_loop:
+        ld      a, PART_OFF_LOOP(ix)
+        or      PART_OFF_LOOP+1(ix)
+        jp      z, pmdneo_part_main_clear
+        ld      l, PART_OFF_LOOP(ix)
+        ld      h, PART_OFF_LOOP+1(ix)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        jp      pmdneo_part_main_parse
+
+pmdneo_part_main_clear:
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
+
+pmdneo_part_call_keyon_hook:
+        ld      l, PART_OFF_HOOK_KEYON(ix)
+        ld      h, PART_OFF_HOOK_KEYON+1(ix)
+        jp      pmdneo_part_call_hl
+
+pmdneo_part_call_keyoff_hook:
+        ld      l, PART_OFF_HOOK_KEYOFF(ix)
+        ld      h, PART_OFF_HOOK_KEYOFF+1(ix)
+        jp      pmdneo_part_call_hl
+
+pmdneo_part_call_fnumset_hook:
+        ld      l, PART_OFF_HOOK_FNUMSET(ix)
+        ld      h, PART_OFF_HOOK_FNUMSET+1(ix)
+        jp      pmdneo_part_call_hl
+
+pmdneo_part_call_volume_hook:
+        ld      l, PART_OFF_HOOK_VOLUMESET(ix)
+        ld      h, PART_OFF_HOOK_VOLUMESET+1(ix)
+        jp      pmdneo_part_call_hl
+
+pmdneo_part_call_hl:
+        push    hl
         ret
 
 comt:
@@ -1551,97 +1716,63 @@ commandsp_edloop:
 fnumsetp_ch:
         jp      fnumset_ssg
 
-fmmain:
-        ld      a, PART_OFF_LEN(ix)
-        or      a
-        jp      z, fmmain_parse
-        dec     a
-        ld      PART_OFF_LEN(ix), a
-        jp      nz, fmmain_done
-        call    fm_keyoff
-
-fmmain_parse:
-        call    pmdneo_part_fetch_byte
-        cp      #0x80
-        jp      z, fmmain_loop
-        jp      c, fmmain_note
-        call    commandsp
-        jp      fmmain_parse
-
-fmmain_note:
-        ld      PART_OFF_NOTE(ix), a
-        call    pmdneo_part_fetch_byte
-        call    pmdneo_scale_mml_length
-        ld      PART_OFF_LEN(ix), a
-        ld      a, PART_OFF_NOTE(ix)
-        push    bc
+fm_keyon_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fnumset_fm
-        pop     bc
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fm_keyon
         ret
 
-fmmain_loop:
-        ld      a, PART_OFF_LOOP(ix)
-        or      PART_OFF_LOOP+1(ix)
-        jp      z, fmmain_clear
-        ld      l, PART_OFF_LOOP(ix)
-        ld      h, PART_OFF_LOOP+1(ix)
-        ld      PART_OFF_ADDR(ix), l
-        ld      PART_OFF_ADDR+1(ix), h
-        jp      fmmain_parse
-
-fmmain_clear:
-        xor     a
-        ld      PART_OFF_ADDR(ix), a
-        ld      PART_OFF_ADDR+1(ix), a
+fm_keyoff_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    fm_keyoff
         ret
 
-fmmain_done:
+fnumset_fm_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    fnumset_fm
         ret
 
-pmdneo_psgmain:
-        ld      a, PART_OFF_LEN(ix)
-        or      a
-        jp      z, pmdneo_psgmain_parse
-        dec     a
-        ld      PART_OFF_LEN(ix), a
-        jp      nz, pmdneo_psgmain_done
-        call    ssg_keyoff
+fm_volume_hook:
+        ret
 
-pmdneo_psgmain_parse:
-        call    pmdneo_part_fetch_byte
-        cp      #0x80
-        jp      z, pmdneo_psgmain_loop
-        jp      c, pmdneo_psgmain_note
-        call    commandsp
-        jp      pmdneo_psgmain_parse
-
-pmdneo_psgmain_note:
-        ld      PART_OFF_NOTE(ix), a
-        call    pmdneo_part_fetch_byte
-        call    pmdneo_scale_mml_length
-        ld      PART_OFF_LEN(ix), a
-        ld      a, PART_OFF_NOTE(ix)
+psg_keyon_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    pmdneo_psg_keyon
         ret
 
-pmdneo_psgmain_loop:
-        ld      a, PART_OFF_LOOP(ix)
-        or      PART_OFF_LOOP+1(ix)
-        jp      z, pmdneo_psgmain_clear
-        ld      l, PART_OFF_LOOP(ix)
-        ld      h, PART_OFF_LOOP+1(ix)
-        ld      PART_OFF_ADDR(ix), l
-        ld      PART_OFF_ADDR+1(ix), h
-        jp      pmdneo_psgmain_parse
-
-pmdneo_psgmain_clear:
-        xor     a
-        ld      PART_OFF_ADDR(ix), a
-        ld      PART_OFF_ADDR+1(ix), a
+ssg_keyoff_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    ssg_keyoff
         ret
 
-pmdneo_psgmain_done:
+fnumsetp_ch_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    fnumsetp_ch
+        ret
+
+psg_volume_hook:
+        ret
+
+adpcmb_keyon_hook:
+        ld      b, #0
+        call    adpcmb_keyon
+        ret
+
+adpcmb_keyoff_hook:
+        call    adpcmb_keyoff
+        ret
+
+adpcma_keyon_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
+        ld      a, b
+        call    adpcma_keyon_simple
+        ret
+
+adpcma_keyoff_hook:
+        ret
+
+noop_hook:
         ret
 
 pmdneo_psg_keyon:
@@ -1658,50 +1789,6 @@ pmdneo_psg_keyon:
         and     #0x0F
         ld      c, a
         call    ym2610_write_port_a
-        ret
-
-adpcmb_main:
-        ld      a, PART_OFF_LEN(ix)
-        or      a
-        jp      z, adpcmb_main_parse
-        dec     a
-        ld      PART_OFF_LEN(ix), a
-        jp      nz, adpcmb_main_done
-        call    adpcmb_keyoff
-
-adpcmb_main_parse:
-        call    pmdneo_part_fetch_byte
-        cp      #0x80
-        jp      z, adpcmb_main_loop
-        jp      c, adpcmb_main_note
-        call    commandsp
-        jp      adpcmb_main_parse
-
-adpcmb_main_note:
-        ld      PART_OFF_NOTE(ix), a
-        call    pmdneo_part_fetch_byte
-        call    pmdneo_scale_mml_length
-        ld      PART_OFF_LEN(ix), a
-        call    adpcmb_keyon
-        ret
-
-adpcmb_main_loop:
-        ld      a, PART_OFF_LOOP(ix)
-        or      PART_OFF_LOOP+1(ix)
-        jp      z, adpcmb_main_clear
-        ld      l, PART_OFF_LOOP(ix)
-        ld      h, PART_OFF_LOOP+1(ix)
-        ld      PART_OFF_ADDR(ix), l
-        ld      PART_OFF_ADDR+1(ix), h
-        jp      adpcmb_main_parse
-
-adpcmb_main_clear:
-        xor     a
-        ld      PART_OFF_ADDR(ix), a
-        ld      PART_OFF_ADDR+1(ix), a
-        ret
-
-adpcmb_main_done:
         ret
 
 adpcmb_keyon:
@@ -1815,58 +1902,6 @@ adpcma_keyoff:
         call    ym2610_write_port_b
         ret
 
-adpcma_main:
-        ld      a, PART_OFF_LEN(ix)
-        or      a
-        jp      z, adpcma_main_parse
-        dec     a
-        ld      PART_OFF_LEN(ix), a
-        jp      nz, adpcma_main_done
-
-adpcma_main_parse:
-        call    pmdneo_part_fetch_byte
-        cp      #0x80
-        jp      z, adpcma_main_loop
-        cp      #0x90
-        jp      z, adpcma_main_rest
-        jp      c, adpcma_main_note
-        call    commandsp
-        jp      adpcma_main_parse
-
-adpcma_main_rest:
-        call    pmdneo_part_fetch_byte
-        call    pmdneo_scale_mml_length
-        ld      PART_OFF_LEN(ix), a
-        ret
-
-adpcma_main_note:
-        ld      PART_OFF_NOTE(ix), a
-        call    pmdneo_part_fetch_byte
-        call    pmdneo_scale_mml_length
-        ld      PART_OFF_LEN(ix), a
-        ld      a, PART_OFF_CH_IDX(ix)
-        call    adpcma_keyon_simple
-        ret
-
-adpcma_main_loop:
-        ld      a, PART_OFF_LOOP(ix)
-        or      PART_OFF_LOOP+1(ix)
-        jp      z, adpcma_main_clear
-        ld      l, PART_OFF_LOOP(ix)
-        ld      h, PART_OFF_LOOP+1(ix)
-        ld      PART_OFF_ADDR(ix), l
-        ld      PART_OFF_ADDR+1(ix), h
-        jp      adpcma_main_parse
-
-adpcma_main_clear:
-        xor     a
-        ld      PART_OFF_ADDR(ix), a
-        ld      PART_OFF_ADDR+1(ix), a
-        ret
-
-adpcma_main_done:
-        ret
-
 adpcma_ch_bit_table:
         .db     0x01, 0x02, 0x04, 0x08, 0x10, 0x20
 
@@ -1901,45 +1936,47 @@ psg_volume_regs:
         .db     0x08, 0x09, 0x0A
 
 song_part_b:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_c:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_e:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_f:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x50, 0x20, 0x52, 0x20, 0x54, 0x20, 0x55, 0x20
         .db     0x57, 0x20, 0x59, 0x20, 0x5B, 0x20, 0x60, 0x20
         .db     0x80
 song_part_g:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_h:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_i:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_j:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
-        .db     0x80
+        ;; Phase 9R R-5c: t140 l2 o5 [ a ]4 (= ADPCM-B beat sample 4 連打、 LOOP)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
+        .db     0xF9                       ; comstloop OUTER
+        .db     0x59, 0x60                 ; o5 a (= note 0x59) length 96 (= l2)
+        .db     0xF8, 0x04                 ; comedloop = 4 回
+        .db     0x80                       ; end
 
 song_part_l:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
