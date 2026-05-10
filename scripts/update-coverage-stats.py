@@ -7,7 +7,23 @@ TOTAL = 142  # PMDMML total command count
 
 
 def count_com_routines(source_text):
-    return len(re.findall(r'^com[a-z][a-z0-9]*:', source_text, re.MULTILINE))
+    # 全 com* routine (= 大文字 + underscore + 数字含む) を抽出
+    all_routines = re.findall(r'^(com[a-zA-Z0-9_]+):', source_text, re.MULTILINE)
+    # sub-label (= dispatch jump target / internal control flow) を除外
+    # PMDMML cmd handler のみ count
+    handlers = []
+    for r in all_routines:
+        # commandsp + commandsp_* = dispatch table + jump target
+        if r.startswith('commandsp'):
+            continue
+        # *_done / *_repeat / *_skip = internal control flow
+        if r.endswith('_done') or r.endswith('_repeat') or r.endswith('_skip'):
+            continue
+        # *force_reloop* = loop force path
+        if 'force_reloop' in r:
+            continue
+        handlers.append(r)
+    return len(handlers)
 
 
 def get_main_routine_count():
