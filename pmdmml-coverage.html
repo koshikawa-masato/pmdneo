@@ -377,7 +377,9 @@
               <tr><td>Phase 12a-2</td><td>driver と compile.py 統合 (= <code>.include "song_data.inc"</code>)</td><td>tools+driver</td><td><span class="badge-done">✓ 完了</span> de4b020</td></tr>
               <tr><td>Phase 12a-3</td><td>drum-mode test02.mml fixture (= 14 part) + MML_INPUT selector</td><td>tools</td><td><span class="badge-done">✓ 完了</span> 4c70c7e</td></tr>
               <tr><td>Phase 12a-4</td><td>.MN binary 形式 (= 14 個別 .mn file + .incbin、 PMD 流儀)</td><td>tools</td><td><span class="badge-done">✓ 完了</span> e32e0d3</td></tr>
-              <tr><td>Phase 12a-5+</td><td>compile.py §5-5 modifier (= <code>^</code>/<code>%</code>)、 LFO M cmd、 detune D cmd 等</td><td>tools</td><td><span class="badge-todo">✗ 未</span> 後続 sprint</td></tr>
+              <tr><td>Phase 12a-5a</td><td>compile.py 拡張 (= driver 既実装 11 cmd 一括 parse 対応: # / q2/q3/q4 / v+/v-/v)/v( / (/))</td><td>tools</td><td><span class="badge-done">✓ 完了</span> b61c538</td></tr>
+              <tr><td>Phase 12a-5b+</td><td>driver 未実装 cmd 拡張 + compile.py 対応 (= &amp; tie / D DD detune / L 全体 loop / y direct LSI / | shift)</td><td>driver+tools</td><td><span class="badge-todo">✗ 未</span> 別 sprint (audio gate 必須)</td></tr>
+              <tr><td>Phase 12d-cleanup</td><td>modal 経路 + nmi_cmd_7 dead code 削除 (= ADR-0004 follow-up)</td><td>driver</td><td><span class="badge-done">✓ 完了</span> 3dd0e40</td></tr>
               <tr><td>Phase 12b-1</td><td>複数楽曲 lookup table (= driver_song_id + load_song_part_addr helper + song_table、 build-time 固定)</td><td>driver+tools</td><td><span class="badge-done">✓ 完了</span> 10446e2</td></tr>
               <tr><td>Phase 12b-2</td><td>cmd 9-15 直接 song select + PMDNEO_SONG selector (= 動的 switch、 modal 経路触らず安全実装)</td><td>driver</td><td><span class="badge-done">✓ 完了</span> 59040f8</td></tr>
               <tr><td>Phase 12b ADR</td><td>ADR-0004 起票 (= lookup table format + cmd 9-15 規約 + modal abandon 経緯記録)</td><td>docs</td><td><span class="badge-done">✓ 完了</span> faa201f</td></tr>
