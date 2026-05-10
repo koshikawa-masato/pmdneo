@@ -56,11 +56,11 @@
         </dl>
         <dl class="metric">
           <dt>main estimate</dt>
-          <dd><strong>40 / 142</strong></dd>
+          <dd><strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142</strong></dd>
         </dl>
         <dl class="metric">
           <dt>develop complete</dt>
-          <dd><strong>4 / 142</strong></dd>
+          <dd><strong><!-- AUTO_DEVELOP_COUNT -->5<!-- /AUTO_DEVELOP_COUNT --> / 142</strong></dd>
         </dl>
       </div>
     </header>
@@ -91,24 +91,24 @@
 
       <section id="summary">
         <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
-        <p class="section-summary">main は 142 commands 中およそ 35-50 commands の範囲で実装済みと見積もり、このページでは代表値として <strong>40 commands</strong> を採用する。develop は完全実装として count する command が <code>comt</code>、<code>comv</code>、<code>comstloop</code>、<code>comedloop</code> の <strong>4 commands</strong> である。</p>
+        <p class="section-summary">main は commit <code>df4e7b6</code> の <code>PMD_Z80.inc</code>、develop は現在の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。PMDMML 142 commands 中、main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、develop は <strong><!-- AUTO_DEVELOP_COUNT -->5<!-- /AUTO_DEVELOP_COUNT --> commands</strong> である。</p>
         <div class="progress-list" aria-label="PMDMML command implementation progress">
           <div class="progress-item">
             <div class="progress-label">
               <span>main (df4e7b6)</span>
-              <span>40 / 142 約 28.2%</span>
+              <span><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142 約 <!-- AUTO_MAIN_PERCENT -->18<!-- /AUTO_MAIN_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <div class="progress-bar" style="width: 28.2%;"></div>
+              <div class="progress-bar" style="<!-- AUTO_MAIN_BAR_STYLE -->width: 18%<!-- /AUTO_MAIN_BAR_STYLE -->"></div>
             </div>
           </div>
           <div class="progress-item">
             <div class="progress-label">
               <span>develop (aebc545)</span>
-              <span>4 / 142 約 2.8%</span>
+              <span><!-- AUTO_DEVELOP_COUNT -->5<!-- /AUTO_DEVELOP_COUNT --> / 142 約 <!-- AUTO_DEVELOP_PERCENT -->4<!-- /AUTO_DEVELOP_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <div class="progress-bar develop" style="width: 2.8%;"></div>
+              <div class="progress-bar develop" style="<!-- AUTO_DEVELOP_BAR_STYLE -->width: 4%<!-- /AUTO_DEVELOP_BAR_STYLE -->"></div>
             </div>
           </div>
         </div>
@@ -402,7 +402,7 @@
     </main>
 
     <footer>
-      <p>Generated 2026-05-10、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-10 develop 8493b2c<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
