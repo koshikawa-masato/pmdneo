@@ -1945,17 +1945,23 @@ song_part_l:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x1F                 ; v31 (BD max)
 song_part_l_loop:
-        .db     0xF9
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0xF8, 0x00
-        .db     0x80
+        ;; Phase 8d-2 nest LOOP test pattern (= depth 2 visualize)
+        ;; MML 表記: t140 v31 [ [BD24 r24]2 [BD24 r24]4 BD24 r24 BD24 r24 ]∞
+        .db     0xF9                       ; comstloop OUTER (= 永久)
+        .db     0xF9                       ; comstloop INNER1
+        .db     0x40, 0x18                 ; BD24
+        .db     0x90, 0x18                 ; rest24
+        .db     0xF8, 0x02                 ; comedloop INNER1 = 2 回
+        .db     0xF9                       ; comstloop INNER2
+        .db     0x40, 0x18                 ; BD24
+        .db     0x90, 0x18                 ; rest24
+        .db     0xF8, 0x04                 ; comedloop INNER2 = 4 回
+        .db     0x40, 0x18                 ; BD24 (extra 1)
+        .db     0x90, 0x18                 ; rest24
+        .db     0x40, 0x18                 ; BD24 (extra 2)
+        .db     0x90, 0x18                 ; rest24
+        .db     0xF8, 0x00                 ; comedloop OUTER (= 永久 force_reloop)
+        .db     0x80                       ; end
 song_part_m:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0xFD, 0x1C                 ; v28 (SD)
