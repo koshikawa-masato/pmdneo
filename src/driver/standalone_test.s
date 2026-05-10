@@ -2110,7 +2110,20 @@ fnumsetp_ch_hook:
         call    fnumsetp_ch
         ret
 
+;; Phase 9c fix: psg_volume_hook 実装 (= SSG vol reg 直接書込)
+;; PART_OFF_VOLUME 値 (= 0-15、 V cmd 受領後 v→V 変換 経由) を SSG vol reg に反映
+;; reg 0x08-0x0A (= ch1/2/3 vol、 bit 0-3 vol、 bit 4 envelope select)
 psg_volume_hook:
+        ld      hl, #psg_volume_regs
+        ld      a, PART_OFF_CH_IDX(ix)
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      b, (hl)                 ; B = reg 0x08+ch
+        ld      a, PART_OFF_VOLUME(ix)
+        and     #0x0F                   ; vol 0-15
+        ld      c, a
+        call    ym2610_write_port_a
         ret
 
 adpcmb_keyon_hook:
@@ -2329,10 +2342,13 @@ song_part_f:
         .db     0x50, 0x20, 0x50, 0x20, 0x50, 0x20, 0x50, 0x20
         .db     0x80
 song_part_g:
-        .db     0x80                       ; silent (= immediate end)
+        .db     0xCC, 0x00                 ; ★ Phase 9c fix: V0 で SSG ch1 silent
+        .db     0x80
 song_part_h:
+        .db     0xCC, 0x00                 ; ★ V0 SSG ch2
         .db     0x80
 song_part_i:
+        .db     0xCC, 0x00                 ; ★ V0 SSG ch3
         .db     0x80
 song_part_j:
         .db     0x80
