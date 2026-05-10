@@ -1698,6 +1698,8 @@ commandsp:
         jp      z, commandsp_t
         cp      #0xFD
         jp      z, commandsp_v
+        cp      #0xFE
+        jp      z, commandsp_q
         cp      #0xF9
         jp      z, commandsp_stloop
         cp      #0xF8
@@ -1708,10 +1710,26 @@ commandsp_t:
         jp      comt
 commandsp_v:
         jp      comv
+commandsp_q:
+        jp      comq
 commandsp_stloop:
         jp      comstloop
 commandsp_edloop:
         jp      comedloop
+
+;; Phase 9a: comq (= PMD MML "q" gate cmd、 0xFE)
+;; A = QDATA value (= note 長 vs key off timing 制御、 0-15 で gate 段階)
+;; PMD_Z80.inc line 1782 から移植。 PART_OFF_QDATA / QDAT3 は既に SRAM 確保済
+;; (= per-part offset 5 / 8、 dispatch 共通化 refactor 前から).
+;; Phase 9a 範囲: QDATA 値設定のみ実装、 actual gate 効果 (= note dispatch で
+;; PART_OFF_LEN を gate 比率で減算) は Phase 9b 以降で pmdneo_part_main
+;; 拡張時に実装予定.
+comq:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDATA(ix), a
+        xor     a
+        ld      PART_OFF_QDAT3(ix), a
+        ret
 
 fnumsetp_ch:
         jp      fnumset_ssg
