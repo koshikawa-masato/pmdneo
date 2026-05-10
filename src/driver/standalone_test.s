@@ -52,6 +52,9 @@
         .equ    PART_OFF_TRANSPOSE,      PART_OFF_SHIFT
         .equ    PART_OFF_OCTAVE,         23
         .equ    PART_OFF_CH_IDX,         24
+        .equ    PART_OFF_CHIP_TYPE,      25   ;; 0=FM, 1=SSG, 2=PCM/ADPCM
+        .equ    PART_OFF_VOLUME_SHIFT,   26   ;; signed v+/v- shift applied to V level
+        .equ    PART_OFF_V_SCALE,        27   ;; signed v)/v( scale before v->V convert
         .equ    PART_OFF_LOOPSTACK_BASE, 32
         .equ    PART_OFF_LOOPDEPTH,      48
         .equ    PART_OFF_HOOK_KEYON,     49    ;; 2 bytes
@@ -1352,6 +1355,23 @@ pmdneo5_init_part:
         ld      PART_OFF_OCTAVE(ix), a
         ld      PART_OFF_CH_IDX(ix), b
         ld      PART_OFF_VOLUME(ix), c
+        xor     a
+        ld      PART_OFF_VOLUME_SHIFT(ix), a
+        ld      PART_OFF_V_SCALE(ix), a
+        ld      a, d
+        cp      #PART_SSG1
+        jr      c, pmdneo5_init_part_chip_fm
+        cp      #PART_PCM
+        jr      c, pmdneo5_init_part_chip_ssg
+        ld      a, #2
+        jr      pmdneo5_init_part_chip_set
+pmdneo5_init_part_chip_fm:
+        xor     a
+        jr      pmdneo5_init_part_chip_set
+pmdneo5_init_part_chip_ssg:
+        ld      a, #1
+pmdneo5_init_part_chip_set:
+        ld      PART_OFF_CHIP_TYPE(ix), a
         ld      a, d
         cp      #PART_SSG1
         jp      c, pmdneo5_init_part_hooks_fm
@@ -1496,6 +1516,39 @@ pmdneo_part_fetch_byte:
         ld      PART_OFF_ADDR+1(ix), h
         ret
 
+pmdneo_v_to_V_convert:
+        push    bc
+        push    de
+        push    hl
+        cp      #17
+        jr      c, _pmdneo_v_to_V_index_ok
+        ld      a, #16
+_pmdneo_v_to_V_index_ok:
+        ld      b, a
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        or      a
+        jr      z, _pmdneo_v_to_V_fm
+        cp      #1
+        jr      z, _pmdneo_v_to_V_ssg
+        ld      hl, #v_to_V_pcm
+        jr      _pmdneo_v_to_V_table
+_pmdneo_v_to_V_fm:
+        ld      hl, #v_to_V_fm
+        jr      _pmdneo_v_to_V_table
+_pmdneo_v_to_V_ssg:
+        ld      a, b
+        jr      _pmdneo_v_to_V_done
+_pmdneo_v_to_V_table:
+        ld      e, b
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)
+_pmdneo_v_to_V_done:
+        pop     hl
+        pop     de
+        pop     bc
+        ret
+
 pmdneo_scale_mml_length:
         or      a
         ret     nz
@@ -1526,7 +1579,56 @@ pmdneo_part_main_note:
         ld      PART_OFF_NOTE(ix), a
         call    pmdneo_part_fetch_byte
         call    pmdneo_scale_mml_length
+        ;; Phase 9b FULL: q gate effect with random range and min guarantee.
+        ld      b, a
+        ld      a, PART_OFF_QDATA(ix)
+        or      a
+        jr      z, pmdneo_part_main_note_no_gate
+        ld      c, a
+        ld      a, PART_OFF_QDATB(ix)
+        or      a
+        jr      z, pmdneo_part_main_note_have_gate
+        cp      c
+        jr      z, pmdneo_part_main_note_have_gate
+        jr      c, pmdneo_part_main_note_have_gate
+        sub     c
+        dec     a
+        ld      e, a
+        ld      a, r
+        and     #0x7F
+        and     e
+        add     a, c
+        ld      c, a
+pmdneo_part_main_note_have_gate:
+        ld      a, PART_OFF_QDAT3(ix)
+        or      a
+        jr      z, pmdneo_part_main_note_no_min
+        ld      e, a
+        ld      a, c
+        cp      b
+        jr      nc, pmdneo_part_main_note_use_min
+        ld      a, b
+        sub     c
+        cp      e
+        jr      nc, pmdneo_part_main_note_set_len
+pmdneo_part_main_note_use_min:
+        ld      a, e
+        jr      pmdneo_part_main_note_set_len
+pmdneo_part_main_note_no_min:
+        ld      a, c
+        cp      b
+        jr      nc, pmdneo_part_main_note_min_one
+        ld      a, b
+        sub     c
+        jr      nz, pmdneo_part_main_note_set_len
+pmdneo_part_main_note_min_one:
+        ld      a, #1
+pmdneo_part_main_note_set_len:
         ld      PART_OFF_LEN(ix), a
+        jr      pmdneo_part_main_note_dispatch
+pmdneo_part_main_note_no_gate:
+        ld      PART_OFF_LEN(ix), b
+pmdneo_part_main_note_dispatch:
         ld      a, PART_OFF_NOTE(ix)
         call    pmdneo_part_call_fnumset_hook
         ld      a, PART_OFF_NOTE(ix)
@@ -1586,8 +1688,134 @@ comt:
 
 comv:
         call    pmdneo_part_fetch_byte
-        and     #0x1F
+        ld      b, a
+        ld      a, PART_OFF_V_SCALE(ix)
+        add     a, b
+        jp      p, _pmdneo_comv_scale_pos
+        xor     a
+_pmdneo_comv_scale_pos:
+        cp      #17
+        jr      c, _pmdneo_comv_scale_ok
+        ld      a, #16
+_pmdneo_comv_scale_ok:
+        call    pmdneo_v_to_V_convert
+        ld      b, a
+        ld      a, PART_OFF_VOLUME_SHIFT(ix)
+        or      a
+        jp      p, _pmdneo_comv_shift_pos
+        neg
+        ld      c, a
+        ld      a, b
+        sub     c
+        jr      nc, _pmdneo_comv_shift_ok
+        xor     a
+        jr      _pmdneo_comv_shift_ok
+_pmdneo_comv_shift_pos:
+        add     a, b
+        jr      nc, _pmdneo_comv_shift_ok
+        ld      a, #0xFF
+_pmdneo_comv_shift_ok:
         ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+
+comV:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+
+comvshift_up:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_VOLUME_SHIFT(ix), a
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        add     a, b
+        jr      nc, _pmdneo_vsu_ok
+        ld      a, #0xFF
+_pmdneo_vsu_ok:
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+
+comvshift_down:
+        call    pmdneo_part_fetch_byte
+        neg
+        ld      PART_OFF_VOLUME_SHIFT(ix), a
+        neg
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        sub     b
+        jr      nc, _pmdneo_vsd_ok
+        xor     a
+_pmdneo_vsd_ok:
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+
+comvscale_up:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_V_SCALE(ix), a
+        ret
+
+comvscale_down:
+        call    pmdneo_part_fetch_byte
+        neg
+        ld      PART_OFF_V_SCALE(ix), a
+        ret
+
+comvolup:
+        call    pmdneo_part_fetch_byte
+        ld      l, a
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        cp      #2
+        jr      z, _pmdneo_vup_pcm
+        ld      a, l
+        sla     a
+        sla     a
+        jr      _pmdneo_vup_apply
+_pmdneo_vup_pcm:
+        ld      a, l
+        sla     a
+        sla     a
+        sla     a
+        sla     a
+_pmdneo_vup_apply:
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        add     a, b
+        jr      nc, _pmdneo_vup_ok
+        ld      a, #0xFF
+_pmdneo_vup_ok:
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+
+comvoldown:
+        call    pmdneo_part_fetch_byte
+        ld      l, a
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        cp      #2
+        jr      z, _pmdneo_vdn_pcm
+        ld      a, l
+        sla     a
+        sla     a
+        jr      _pmdneo_vdn_apply
+_pmdneo_vdn_pcm:
+        ld      a, l
+        sla     a
+        sla     a
+        sla     a
+        sla     a
+_pmdneo_vdn_apply:
+        ld      b, a
+        ld      a, PART_OFF_VOLUME(ix)
+        sub     b
+        jr      nc, _pmdneo_vdn_ok
+        xor     a
+_pmdneo_vdn_ok:
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
         ret
 
 comstloop:
@@ -1698,8 +1926,28 @@ commandsp:
         jp      z, commandsp_t
         cp      #0xFD
         jp      z, commandsp_v
+        cp      #0xCC
+        jp      z, commandsp_V
         cp      #0xFE
         jp      z, commandsp_q
+        cp      #0xC4
+        jp      z, commandsp_q2
+        cp      #0xB3
+        jp      z, commandsp_q3
+        cp      #0xB1
+        jp      z, commandsp_q4
+        cp      #0xDE
+        jp      z, commandsp_vshift_up
+        cp      #0xDD
+        jp      z, commandsp_vshift_down
+        cp      #0xDB
+        jp      z, commandsp_vscale_up
+        cp      #0xDA
+        jp      z, commandsp_vscale_down
+        cp      #0xF4
+        jp      z, commandsp_volup
+        cp      #0xF3
+        jp      z, commandsp_voldown
         cp      #0xF9
         jp      z, commandsp_stloop
         cp      #0xF8
@@ -1710,8 +1958,28 @@ commandsp_t:
         jp      comt
 commandsp_v:
         jp      comv
+commandsp_V:
+        jp      comV
 commandsp_q:
         jp      comq
+commandsp_q2:
+        jp      comq2
+commandsp_q3:
+        jp      comq3
+commandsp_q4:
+        jp      comq4
+commandsp_vshift_up:
+        jp      comvshift_up
+commandsp_vshift_down:
+        jp      comvshift_down
+commandsp_vscale_up:
+        jp      comvscale_up
+commandsp_vscale_down:
+        jp      comvscale_down
+commandsp_volup:
+        jp      comvolup
+commandsp_voldown:
+        jp      comvoldown
 commandsp_stloop:
         jp      comstloop
 commandsp_edloop:
@@ -1721,13 +1989,27 @@ commandsp_edloop:
 ;; A = QDATA value (= note 長 vs key off timing 制御、 0-15 で gate 段階)
 ;; PMD_Z80.inc line 1782 から移植。 PART_OFF_QDATA / QDAT3 は既に SRAM 確保済
 ;; (= per-part offset 5 / 8、 dispatch 共通化 refactor 前から).
-;; Phase 9a 範囲: QDATA 値設定のみ実装、 actual gate 効果 (= note dispatch で
-;; PART_OFF_LEN を gate 比率で減算) は Phase 9b 以降で pmdneo_part_main
-;; 拡張時に実装予定.
+;; Phase 9a 範囲: QDATA 値設定のみ実装。 actual gate 効果 (= note dispatch で
+;; PART_OFF_LEN を QDATA で減算) は Phase 9b で pmdneo_part_main_note に実装.
 comq:
         call    pmdneo_part_fetch_byte
         ld      PART_OFF_QDATA(ix), a
         xor     a
+        ld      PART_OFF_QDAT3(ix), a
+        ret
+
+comq2:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDATB(ix), a
+        ret
+
+comq3:
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_QDAT2(ix), a
+        ret
+
+comq4:
+        call    pmdneo_part_fetch_byte
         ld      PART_OFF_QDAT3(ix), a
         ret
 
@@ -1953,144 +2235,60 @@ psg_coarse_regs:
 psg_volume_regs:
         .db     0x08, 0x09, 0x0A
 
+v_to_V_fm:
+        .db     85, 87, 90, 93, 95, 98, 101, 103, 106, 109, 111, 114, 117, 119, 122, 125, 127
+
+v_to_V_pcm:
+        .db     0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 255
+
+;; Phase 9b chord-mode: BCEF が C major chord (= C/E/G/C5)、 q6 固定 staccato、
+;; 8 note 全部同一音 (= 和音 sustain で gate 効果が見やすい)。 GHIJ/L-Q は silent
+;; (= MML 即 end で dispatch skip、 chip も無音)。
 song_part_b:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
-        .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
+        .db     0xFE, 0x06                 ; q6 (= gate 6 tick 減算、 staccato)
+        .db     0xCC, 0x00                 ; ★ Phase 9c: V0 (= 大文字 V cmd、 silent 試験)
+        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20  ; B = C4 (= 0x40) × 8
+        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
         .db     0x80
 song_part_c:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
-        .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
+        .db     0xFE, 0x06                 ; q6
+        .db     0x44, 0x20, 0x44, 0x20, 0x44, 0x20, 0x44, 0x20  ; C = E4 (= 0x44) × 8
+        .db     0x44, 0x20, 0x44, 0x20, 0x44, 0x20, 0x44, 0x20
         .db     0x80
 song_part_e:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
-        .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
+        .db     0xFE, 0x06                 ; q6
+        .db     0x47, 0x20, 0x47, 0x20, 0x47, 0x20, 0x47, 0x20  ; E = G4 (= 0x47) × 8
+        .db     0x47, 0x20, 0x47, 0x20, 0x47, 0x20, 0x47, 0x20
         .db     0x80
 song_part_f:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x50, 0x20, 0x52, 0x20, 0x54, 0x20, 0x55, 0x20
-        .db     0x57, 0x20, 0x59, 0x20, 0x5B, 0x20, 0x60, 0x20
+        .db     0xFE, 0x06                 ; q6
+        .db     0x50, 0x20, 0x50, 0x20, 0x50, 0x20, 0x50, 0x20  ; F = C5 (= 0x50) × 8
+        .db     0x50, 0x20, 0x50, 0x20, 0x50, 0x20, 0x50, 0x20
         .db     0x80
 song_part_g:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
-        .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
-        .db     0x80
+        .db     0x80                       ; silent (= immediate end)
 song_part_h:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
-        .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_i:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
-        .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_j:
-        ;; Phase 9R R-5c: t140 l2 o5 [ a ]4 (= ADPCM-B beat sample 4 連打、 LOOP)
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xF9                       ; comstloop OUTER
-        .db     0x59, 0x60                 ; o5 a (= note 0x59) length 96 (= l2)
-        .db     0xF8, 0x04                 ; comedloop = 4 回
-        .db     0x80                       ; end
+        .db     0x80
 
 song_part_l:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x1F                 ; v31 (BD max)
-song_part_l_loop:
-        ;; Phase 8d-2 nest LOOP test pattern (= depth 2 visualize)
-        ;; MML 表記: t140 v31 [ [BD8 r8]2 [BD8 r8]4 BD8 r8 BD8 BD8 ]∞
-        .db     0xF9                       ; comstloop OUTER (= 永久)
-        .db     0xF9                       ; comstloop INNER1
-        .db     0x40, 0x18                 ; BD8
-        .db     0x90, 0x18                 ; r8
-        .db     0xF8, 0x02                 ; comedloop INNER1 = 2 回
-        .db     0xF9                       ; comstloop INNER2
-        .db     0x40, 0x18                 ; BD8
-        .db     0x90, 0x18                 ; r8
-        .db     0xF8, 0x04                 ; comedloop INNER2 = 4 回
-        .db     0x40, 0x18                 ; BD8 (extra 1)
-        .db     0x90, 0x18                 ; r8
-        .db     0x40, 0x18                 ; BD8 (extra 2)
-        .db     0x40, 0x18                 ; BD8 (extra 3、 r8 → BD8 連打)
-        .db     0xF8, 0x00                 ; comedloop OUTER (= 永久 force_reloop)
-        .db     0x80                       ; end
+        .db     0x80                       ; Phase 9b chord-mode: silent (= 既存 nest LOOP off)
 song_part_m:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x1C                 ; v28 (SD)
-song_part_m_loop:
-        .db     0xF9
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0xF8, 0x00
-        .db     0x80
+        .db     0x80                       ; silent
 song_part_n:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x0E                 ; v14 (HH)
-song_part_n_loop:
-        .db     0xF9
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0xF8, 0x00
         .db     0x80
 song_part_o:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x18                 ; v24 (TOM)
-song_part_o_loop:
-        .db     0xF9
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0x40, 0x18
-        .db     0xF8, 0x00
         .db     0x80
 song_part_p:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x16                 ; v22 (RIM)
-song_part_p_loop:
-        .db     0xF9
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0xF8, 0x00
         .db     0x80
 song_part_q:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFD, 0x1A                 ; v26 (TOP)
-song_part_q_loop:
-        .db     0xF9
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x40, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0x90, 0x18
-        .db     0xF8, 0x00
         .db     0x80
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)

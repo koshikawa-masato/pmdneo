@@ -50,8 +50,8 @@ int main(void) {
 
   /* LOOP cycle counter polling + display */
   u8 last_cycle = 0;
-  ng_center_text(8, 0, "PMDNEO PHASE 9A");
-  ng_center_text(10, 0, "GATE CMD Q (0xFE)");
+  ng_center_text(8, 0, "PMDNEO PHASE 9C");
+  ng_center_text(10, 0, "V CMD: B=V0 SILENT");
   ng_center_text(12, 0, "LOOP CYCLE: 00");
 
   /* Wait ~16 seconds (960 vblanks @ 60fps), polling Z80 reply for LOOP cycle updates */
