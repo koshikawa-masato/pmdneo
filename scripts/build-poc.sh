@@ -63,14 +63,17 @@ python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
     "sample_m_data"
 echo "  sample_m.s <- vendor/pmd48s/SAMPLE.M"
 
-echo "=== compile.py: MML → song_data.inc ==="
+echo "=== compile.py: MML → .mn parts + song_data.inc wrapper ==="
 # MML_INPUT 環境変数で fixture 切替 (= default test01.mml = chord-mode、
 # test02.mml = drum-mode 14 part 等)
 MML_INPUT="${MML_INPUT:-test01.mml}"
 echo "    MML_INPUT: ${MML_INPUT}"
+SONG_DIR="${TEMPLATE_DIR}/songs/${MML_INPUT%.mml}"
+mkdir -p "$SONG_DIR"
 python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
     "${PMDNEO_ROOT}/src/tools/pmd-mml/${MML_INPUT}" \
-    -o "${TEMPLATE_DIR}/song_data.inc"
+    --out-dir "$SONG_DIR" \
+    --wrapper "${TEMPLATE_DIR}/song_data.inc"
 
 echo
 echo "=== make poc ==="

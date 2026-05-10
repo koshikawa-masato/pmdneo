@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import argparse
-import datetime as _dt
+import os
 import re
 import sys
 from pathlib import Path
@@ -239,34 +239,56 @@ def parse_mml(source: str) -> list[tuple[str, list[int]]]:
     return [(PART_LABELS[part], parts.get(part, [0x80])) for part in TARGET_PARTS]
 
 
-def format_inc(parts: list[tuple[str, list[int]]], input_path: Path) -> str:
-    today = _dt.date.today().isoformat()
-    lines = [f";;; PMDNEO compile.py output ({today} from {input_path.name})"]
-    for label, data in parts:
-        lines.append(f"{label}:")
-        body = data[:-1] if data and data[-1] == 0x80 else data
-        for i in range(0, len(body), 8):
-            chunk = body[i : i + 8]
-            bytes_text = ", ".join(f"0x{byte:02X}" for byte in chunk)
-            lines.append(f"        .db     {bytes_text}")
-        if data and data[-1] == 0x80:
-            lines.append("        .db     0x80")
+def resolve_output_paths(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[Path, Path]:
+    if args.output and (args.out_dir or args.wrapper):
+        parser.error("-o/--output cannot be combined with --out-dir or --wrapper")
+
+    if args.output:
+        output = args.output
+        if output.suffix.lower() == ".inc":
+            return output.parent, output
+        return output, output / "song_data.inc"
+
+    if args.out_dir is None or args.wrapper is None:
+        parser.error("output destination required: use --out-dir and --wrapper, or -o")
+
+    return args.out_dir, args.wrapper
+
+
+def incbin_path(mn_path: Path, wrapper_path: Path) -> str:
+    build_cwd = wrapper_path.parent
+    rel_path = os.path.relpath(mn_path, build_cwd)
+    return Path(rel_path).as_posix()
+
+
+def format_wrapper(parts: list[tuple[str, list[int]]], out_dir: Path, wrapper_path: Path) -> str:
+    lines = [";;; PMDNEO compile.py generated wrapper"]
+    for label, _data in parts:
+        mn_path = out_dir / f"{label}.mn"
+        lines.append(f'{label}: .incbin "{incbin_path(mn_path, wrapper_path)}"')
     lines.append("")
     return "\n".join(lines)
 
 
+def write_outputs(parts: list[tuple[str, list[int]]], out_dir: Path, wrapper_path: Path) -> None:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    wrapper_path.parent.mkdir(parents=True, exist_ok=True)
+    for label, data in parts:
+        (out_dir / f"{label}.mn").write_bytes(bytes(data))
+    wrapper_path.write_text(format_wrapper(parts, out_dir, wrapper_path), encoding="utf-8")
+
+
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-2 MML to .inc bytes")
+    parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-2 MML to .mn part binaries")
     parser.add_argument("input_mml", type=Path)
-    parser.add_argument("-o", "--output", type=Path)
+    parser.add_argument("-o", "--output", type=Path, help="compat: output dir, or wrapper .inc path")
+    parser.add_argument("--out-dir", type=Path, help="directory for generated .mn part binaries")
+    parser.add_argument("--wrapper", type=Path, help="generated wrapper .inc path")
     args = parser.parse_args(argv)
 
     source = args.input_mml.read_text(encoding="utf-8")
-    rendered = format_inc(parse_mml(source), args.input_mml)
-    if args.output:
-        args.output.write_text(rendered, encoding="utf-8")
-    else:
-        print(rendered, end="")
+    out_dir, wrapper_path = resolve_output_paths(args, parser)
+    write_outputs(parse_mml(source), out_dir, wrapper_path)
     return 0
 
 
