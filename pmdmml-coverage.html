@@ -368,13 +368,20 @@
               <tr><th>Phase</th><th>内容</th><th>対象</th><th>目標</th></tr>
             </thead>
             <tbody>
-              <tr><td>Phase 9a</td><td>gate q/Q、タイ &amp;、ループ脱出 <code>:</code>、オクターブ <code>&lt;</code> <code>&gt;</code>、デフォルト音長 <code>l</code>、転調 <code>|</code></td><td>develop</td><td>次 sprint</td></tr>
-              <tr><td>Phase 9b</td><td>音量 <code>(</code>/<code>)</code>、フェード FI/FO、音量シフト <code>_</code></td><td>develop</td><td>次 sprint</td></tr>
-              <tr><td>Phase 9c</td><td><code>compile.py</code> コメント対応</td><td>compile.py</td><td>次 sprint</td></tr>
-              <tr><td>Phase 9d</td><td><code>compile.py</code> パート区切り <code>/</code></td><td>compile.py</td><td>次 sprint</td></tr>
-              <tr><td>Phase 10</td><td>SubF-1.2 fixture + audio gate</td><td>develop</td><td>次々 sprint</td></tr>
-              <tr><td>Phase 11</td><td>ADR + 設計書 + retrospective + main 解凍</td><td>docs</td><td>後続</td></tr>
-              <tr><td>Phase 12</td><td>楽曲制作 + 牡丹</td><td>assets</td><td>リリース前</td></tr>
+              <tr><td>Phase 9a</td><td>gate cmd <code>q</code> (= 0xFE) 実装</td><td>develop</td><td><span class="badge-done">✓ 完了</span> b02b67e</td></tr>
+              <tr><td>Phase 9b</td><td>gate cmd <code>q2/q3/q4</code> + actual gate logic + random + min</td><td>develop</td><td><span class="badge-done">✓ 完了</span> Phase 9c に統合</td></tr>
+              <tr><td>Phase 9c</td><td>§5-1〜§5-5 全 volume cmd 群 (= <code>v/V/v+/v-/v)/v(/(/)</code>) 一括実装 + chip 別 volume hook</td><td>develop</td><td><span class="badge-done">✓ 完了</span> b183256/188ccf1/c0e6bc1/87413b9</td></tr>
+              <tr><td>Phase 10</td><td>fixture 4 個 selector (= main.c PMDNEO_FIXTURE)</td><td>develop</td><td><span class="badge-done">✓ 完了</span> 961fc50</td></tr>
+              <tr><td>Phase 11</td><td>ADR-0002/0003 + 設計書 update + retrospective + main 解凍 PR #2</td><td>docs</td><td><span class="badge-done">✓ 完了</span> 1ada690/f616865/27462da</td></tr>
+              <tr><td>Phase 12a-1</td><td>compile.py minimum (= MML 文字列 → byte stream emit)</td><td>tools</td><td><span class="badge-done">✓ 完了</span> fb414dd</td></tr>
+              <tr><td>Phase 12a-2</td><td>driver と compile.py 統合 (= <code>.include "song_data.inc"</code>)</td><td>tools+driver</td><td><span class="badge-done">✓ 完了</span> de4b020</td></tr>
+              <tr><td>Phase 12a-3</td><td>drum-mode test02.mml fixture (= 14 part) + MML_INPUT selector</td><td>tools</td><td><span class="badge-done">✓ 完了</span> 4c70c7e</td></tr>
+              <tr><td>Phase 12a-4</td><td>.MN binary 形式 (= 14 個別 .mn file + .incbin、 PMD 流儀)</td><td>tools</td><td><span class="badge-done">✓ 完了</span> e32e0d3</td></tr>
+              <tr><td>Phase 12a-5+</td><td>compile.py §5-5 modifier (= <code>^</code>/<code>%</code>)、 LFO M cmd、 detune D cmd 等</td><td>tools</td><td><span class="badge-todo">✗ 未</span> 後続 sprint</td></tr>
+              <tr><td>Phase 12b</td><td>複数楽曲 lookup table (= 1 ROM 内 song0/song1/... 切替、 cmd 5 + song_id)</td><td>driver</td><td><span class="badge-todo">✗ 未</span> 後続 sprint</td></tr>
+              <tr><td>Phase 12c</td><td>試作楽曲 (= 牡丹 title BGM、 user 創作)</td><td>assets</td><td><span class="badge-todo">✗ 未</span> リリース前</td></tr>
+              <tr><td>残課題 1</td><td>ALG 7 release tail 残響 (= voice setting 改善)</td><td>driver</td><td><span class="badge-partial">△</span> 後続</td></tr>
+              <tr><td>残課題 2</td><td>F3 soft reset hardening (= memory project_pmdneo_soft_reset_residual.md)</td><td>driver</td><td><span class="badge-partial">△</span> 後続</td></tr>
             </tbody>
           </table>
         </div>
