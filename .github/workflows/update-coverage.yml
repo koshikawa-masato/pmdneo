@@ -35,7 +35,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git fetch origin gh-pages:gh-pages
-          git checkout gh-pages
+          git checkout -f gh-pages
           cp /tmp/pmdmml-coverage.html ./pmdmml-coverage.html
           if git diff --quiet pmdmml-coverage.html; then
             echo 'No changes'
