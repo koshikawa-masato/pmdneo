@@ -26,6 +26,9 @@ BUILDDIR=build
 SRCDIRS=assets
 # default build flags, can be overriden per target
 CFLAGS=-I$(BUILDDIR) -std=c99 -fomit-frame-pointer -O2 -g
+PMDNEO_FIXTURE?=0
+PMDNEO_SONG?=0
+CFLAGS+=-DPMDNEO_FIXTURE=$(PMDNEO_FIXTURE) -DPMDNEO_SONG=$(PMDNEO_SONG)
 LDFLAGS=
 Z80FLAGS=
 Z80LDFLAGS=

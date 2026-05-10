@@ -23,6 +23,10 @@
 // REG_SOUND: M68K → Z80 sound command 発行 port
 #define REG_SOUND ((volatile u8*)0x320000)
 
+#ifndef PMDNEO_SONG
+#define PMDNEO_SONG 0
+#endif
+
 int main(void) {
   bios_fix_clear();
 
@@ -51,12 +55,19 @@ int main(void) {
   *REG_SOUND = 3;
   ng_wait_vblank();
   ng_wait_vblank();
+  *REG_SOUND = 9 + PMDNEO_SONG;
+  ng_wait_vblank();
   *REG_SOUND = 5;     /* MML song start */
 
   u8 last_cycle = 0;
 #if PMDNEO_FIXTURE == 0
-  ng_center_text(8, 0, "PMDNEO PHASE 12A-3");
-  ng_center_text(10, 0, "DRUM-MODE 14 PART");
+#if PMDNEO_SONG == 0
+  ng_center_text(8, 0, "PMDNEO PHASE 12B-2");
+  ng_center_text(10, 0, "SONG 0 = TEST01 CHORD");
+#elif PMDNEO_SONG == 1
+  ng_center_text(8, 0, "PMDNEO PHASE 12B-2");
+  ng_center_text(10, 0, "SONG 1 = TEST02 DRUM");
+#endif
 #elif PMDNEO_FIXTURE == 1
   ng_center_text(8, 0, "PMDNEO PHASE 10");
   ng_center_text(10, 0, "FIXTURE 1 FADE FAST");

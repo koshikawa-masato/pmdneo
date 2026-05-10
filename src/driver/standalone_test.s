@@ -165,6 +165,11 @@ nmi_dispatch:
         jp      z, nmi_cmd_6_fade_start
         cp      #7
         jp      z, nmi_cmd_7_set_fade_speed
+        cp      #9
+        jp      c, nmi_done
+        cp      #16
+        jp      nc, nmi_done
+        jp      nmi_cmd_select_song
         jp      nmi_done
 
 nmi_done:
@@ -554,6 +559,11 @@ irq_done:
         pop     af
         ei
         reti
+
+nmi_cmd_select_song:
+        sub     #9
+        ld      (driver_song_id), a
+        jp      nmi_done
 
         .org 0x0200
 ym2610_write_port_a:
