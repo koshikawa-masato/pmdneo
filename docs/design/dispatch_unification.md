@@ -1,6 +1,6 @@
 # dispatch 共通化 refactor 設計書
 
-**status**: draft (= 2026-05-10 起票、 Codex 実装委譲前)
+**status**: completed (= 2026-05-10、 14 part dispatch milestone audio gate pass)
 **target branch**: `refactor/dispatch-unification`
 **base commit**: `6c329aa` (= Phase 8d-2 BD nest LOOP audio gate pass)
 
