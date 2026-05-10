@@ -9,42 +9,44 @@
 <body>
   <div class="page">
     <header class="cover" id="cover">
+      <p class="eyebrow">PMDNEO Phase 9R / 2026-05-10</p>
       <h1>PMDNEO dispatch 共通化 refactor 報告書</h1>
-      <p class="subtitle">Phase 9R 完成 — 14 part 並行 dispatch 達成 (2026-05-10)</p>
+      <p class="subtitle">Phase 9R 完成 - <strong>14 part</strong> 並行 dispatch 達成 (2026-05-10)</p>
+      <p class="lead">FM 4 + SSG 3 + ADPCM-B 1 + ADPCM-A 6 の <strong>14 part</strong> が同一 dispatch 基盤で通過し、chip 固有差分は per-part SRAM に格納した hook pointer へ分離した。</p>
       <dl class="key-numbers">
         <div class="metric">
           <dt>同時発音到達点</dt>
-          <dd>14 part 全部鳴る</dd>
+          <dd><strong>14 part</strong> 全部鳴る</dd>
         </div>
         <div class="metric">
           <dt>dispatch 構造</dt>
-          <dd>5 fork → 1 共通 routine</dd>
+          <dd><strong>5 fork</strong> → <strong>1</strong> 共通 routine</dd>
         </div>
         <div class="metric">
           <dt>chip routine 構造</dt>
-          <dd>per-chip 4 routine → 1 共通 + 12 hook + 1 noop</dd>
+          <dd>per-chip <strong>4 routine</strong> → <strong>1</strong> 共通 + <strong>12 hook</strong> + <strong>1 noop</strong></dd>
         </div>
       </dl>
-      <p class="lead">FM 4 + SSG 3 + ADPCM-B 1 + ADPCM-A 6 の 14 part が同一 dispatch 基盤で通過し、chip 固有差分は per-part SRAM に格納した hook pointer へ分離した。</p>
     </header>
 
-    <main>
-      <nav class="toc" aria-labelledby="toc-title">
-        <h2 id="toc-title">目次</h2>
-        <ol>
-          <li><a href="#compare">共通化前後の比較</a></li>
-          <li><a href="#sram">SRAM 拡張詳細</a></li>
-          <li><a href="#hooks">Chip hook 一覧</a></li>
-          <li><a href="#timeline">Commit timeline</a></li>
-          <li><a href="#audio">Audio gate 結果</a></li>
-          <li><a href="#adpcmb">ADPCM-B sample</a></li>
-          <li><a href="#remaining">残作業</a></li>
-        </ol>
-      </nav>
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">目次</h2>
+      <ol>
+        <li><a href="#compare">共通化前後の比較</a></li>
+        <li><a href="#binary-size-comparison">バイナリサイズ比較</a></li>
+        <li><a href="#sram">SRAM 拡張詳細</a></li>
+        <li><a href="#hooks">Chip hook 一覧</a></li>
+        <li><a href="#timeline">Commit timeline</a></li>
+        <li><a href="#audio">Audio gate 結果</a></li>
+        <li><a href="#adpcmb">ADPCM-B sample</a></li>
+        <li><a href="#remaining">残作業</a></li>
+      </ol>
+    </nav>
 
+    <main>
       <section id="compare">
-        <h2>共通化前後の比較</h2>
-        <p class="lead">共通化前は chip 別 main routine が同型の LEN check、parse、note / loop / command dispatch を重複保持していた。共通化後は `pmdneo_part_main` が dispatch 本体を担い、発音・消音・音程・音量だけを hook 経由にした。</p>
+        <h2><span class="chapter-number">01.</span> 共通化前後の比較</h2>
+        <p class="section-summary">共通化前は chip 別 main routine が同型の LEN check、parse、note / loop / command dispatch を重複保持していた。共通化後は <code>pmdneo_part_main</code> が dispatch 本体を担い、発音・消音・音程・音量だけを hook 経由にした。</p>
         <div class="table-wrap">
           <table class="compare-table">
             <thead>
@@ -58,46 +60,97 @@
             <tbody>
               <tr>
                 <td>ファイル行数</td>
-                <td>2042</td>
-                <td>2079</td>
-                <td>net +37。hook 12 本を追加しつつ dispatch を統合。</td>
+                <td class="numeric">2042</td>
+                <td class="numeric">2079</td>
+                <td>net <strong>+37</strong>。hook <strong>12</strong> 本を追加しつつ dispatch を統合。</td>
               </tr>
               <tr>
                 <td>routine 数</td>
-                <td>`pmdneo_song_main` + `fmmain` / `pmdneo_psgmain` / `adpcmb_main` / `adpcma_main` + `commandsp` = 6 routines</td>
-                <td>`pmdneo_song_main` + `pmdneo_part_main` + 12 chip hooks + `noop_hook` + 4 indirect-call wrappers + `commandsp` = 20 routines</td>
-                <td>routine 数は増加。ただし重い dispatch 本体は 1 本へ集約。</td>
+                <td><code>pmdneo_song_main</code> + <code>fmmain</code> / <code>pmdneo_psgmain</code> / <code>adpcmb_main</code> / <code>adpcma_main</code> + <code>commandsp</code> = <strong>6 routines</strong></td>
+                <td><code>pmdneo_song_main</code> + <code>pmdneo_part_main</code> + <strong>12 chip hooks</strong> + <code>noop_hook</code> + <strong>4 indirect-call wrappers</strong> + <code>commandsp</code> = <strong>20 routines</strong></td>
+                <td>routine 数は増加。ただし重い dispatch 本体は <strong>1</strong> 本へ集約。</td>
               </tr>
               <tr>
                 <td>主要 routine 行数</td>
-                <td>`fmmain` 47、`pmdneo_psgmain` 60、`adpcmb_main` 155、`adpcma_main` 76。合計 338 行削除。</td>
-                <td>`pmdneo_part_main` 53 + 12 hooks 3-5 行 each + `noop_hook` 2。約 120 行追加。</td>
-                <td>概算 net reduction は約 220 行。</td>
+                <td><code>fmmain</code> <strong>47</strong>、<code>pmdneo_psgmain</code> <strong>60</strong>、<code>adpcmb_main</code> <strong>155</strong>、<code>adpcma_main</code> <strong>76</strong>。合計 <strong>338 行削除</strong>。</td>
+                <td><code>pmdneo_part_main</code> <strong>53</strong> + <strong>12 hooks</strong> 3-5 行 each + <code>noop_hook</code> <strong>2</strong>。約 <strong>120 行追加</strong>。</td>
+                <td>概算 net reduction は約 <strong>220 行</strong>。</td>
               </tr>
               <tr>
                 <td>dispatch 経路</td>
-                <td>line 1338-1346 付近で 5 fork。</td>
-                <td>per-part hook function pointer 経由の 1 fork。</td>
+                <td>line <strong>1338-1346</strong> 付近で <strong>5 fork</strong>。</td>
+                <td>per-part hook function pointer 経由の <strong>1 fork</strong>。</td>
                 <td>part 種別分岐を main loop から排除。</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <div class="figure-row">
-          <figure class="figure">
+        <div class="figure-grid">
+          <figure>
             <img src="dispatch-before.svg" alt="共通化前 dispatch 図">
             <figcaption>図 1: 共通化前。chip 別 routine が同型 dispatch を保持。</figcaption>
           </figure>
-          <figure class="figure">
+          <figure>
             <img src="dispatch-after.svg" alt="共通化後 dispatch 図">
             <figcaption>図 2: 共通化後。共通 routine から hook pointer へ委譲。</figcaption>
           </figure>
         </div>
       </section>
 
+      <section id="binary-size-comparison">
+        <h2><span class="chapter-number">02.</span> バイナリサイズ比較</h2>
+        <p class="section-summary">実 code 部分の増加は <strong>+59 byte</strong>、比率では <strong>+2.04%</strong> に収まった。padded 128 KB ROM では差分が出ず、実装コストは hook と indirect call wrapper の追加分として観測される。</p>
+        <div class="table-wrap">
+          <table class="compare-table">
+            <thead>
+              <tr>
+                <th>artifact</th>
+                <th>develop (6c329aa)</th>
+                <th>refactor (9976580)</th>
+                <th>差分</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Z80 binary 実 byte (ihx 実 code 部分)</td>
+                <td class="numeric">2,895 byte (2.83 KB)</td>
+                <td class="numeric">2,954 byte (2.88 KB)</td>
+                <td class="diff-positive">+59 byte (+2.04%)</td>
+              </tr>
+              <tr>
+                <td>standalone_test.rel (relocatable)</td>
+                <td class="numeric">24,507 byte</td>
+                <td class="numeric">24,759 byte</td>
+                <td class="diff-positive">+252 byte</td>
+              </tr>
+              <tr>
+                <td>standalone_test.ihx (linker 出力)</td>
+                <td class="numeric">6,954 byte</td>
+                <td class="numeric">7,096 byte</td>
+                <td class="diff-positive">+142 byte</td>
+              </tr>
+              <tr>
+                <td>243-m1.m1 (padded 128 KB ROM)</td>
+                <td class="numeric">131,072 byte</td>
+                <td class="numeric">131,072 byte</td>
+                <td class="diff-neutral">±0 byte</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <h3>解説</h3>
+        <ul>
+          <li>Z80 binary 実 byte <strong>+59 byte</strong> (<strong>+2.04%</strong>): hook <strong>12</strong> 個 (各 3-5 命令) + indirect call wrapper <strong>4</strong> 個 (push hl + ret) + noop_hook (1 命令) の追加コスト</li>
+          <li>246-m1.m1 padded <strong>0 byte</strong> 差: NEOGEO M1 ROM の 128 KB pad に飲まれて変化なし (実装コスト見えない)</li>
+          <li>行数 <strong>+37 行</strong> vs binary <strong>+59 byte</strong>: 行数増加比 (<strong>+1.81%</strong>) と binary 増加比 (<strong>+2.04%</strong>) がほぼ一致、dispatch 経路集約による命令数削減 (~338 行削除) と hook 追加 (~120 行) が均衡</li>
+          <li>SRAM 増加 = <strong>+136 byte</strong> (8 byte/part × 17 part)、ただし NEOGEO Z80 SRAM 2 KB 内余裕あり (残り ~700 byte)</li>
+          <li>コスト見合い: dispatch 経路の保守性 + 拡張性 (元 Phase 9 の gate cmd / fade in / compile.py が refactor 後の clean dispatch 上で容易) が <strong>+59 byte</strong> の対価として妥当</li>
+        </ul>
+      </section>
+
       <section id="sram">
-        <h2>SRAM 拡張詳細</h2>
-        <p class="lead">既存 `PART_OFF_*` 25 field、offset 0-24 は変更なし。LOOPSTACK 32-47 と LOOPDEPTH 48 に衝突しない 49-56 を hook pointer 領域として使用した。</p>
+        <h2><span class="chapter-number">03.</span> SRAM 拡張詳細</h2>
+        <p class="section-summary">既存 <code>PART_OFF_*</code> 25 field、offset 0-24 は変更なし。LOOPSTACK 32-47 と LOOPDEPTH 48 に衝突しない 49-56 を hook pointer 領域として使用した。</p>
         <div class="table-wrap">
           <table>
             <thead>
@@ -110,35 +163,35 @@
             </thead>
             <tbody>
               <tr>
-                <td>`PART_OFF_HOOK_KEYON`</td>
-                <td>49</td>
-                <td>2 bytes</td>
+                <td><code>PART_OFF_HOOK_KEYON</code></td>
+                <td class="numeric">49</td>
+                <td class="numeric">2 bytes</td>
                 <td>note 発音 hook pointer</td>
               </tr>
               <tr>
-                <td>`PART_OFF_HOOK_KEYOFF`</td>
-                <td>51</td>
-                <td>2 bytes</td>
+                <td><code>PART_OFF_HOOK_KEYOFF</code></td>
+                <td class="numeric">51</td>
+                <td class="numeric">2 bytes</td>
                 <td>note 更新前 / gate 用 keyoff hook pointer</td>
               </tr>
               <tr>
-                <td>`PART_OFF_HOOK_FNUMSET`</td>
-                <td>53</td>
-                <td>2 bytes</td>
+                <td><code>PART_OFF_HOOK_FNUMSET</code></td>
+                <td class="numeric">53</td>
+                <td class="numeric">2 bytes</td>
                 <td>chip 別 fnumset hook pointer</td>
               </tr>
               <tr>
-                <td>`PART_OFF_HOOK_VOLUMESET`</td>
-                <td>55</td>
-                <td>2 bytes</td>
+                <td><code>PART_OFF_HOOK_VOLUMESET</code></td>
+                <td class="numeric">55</td>
+                <td class="numeric">2 bytes</td>
                 <td>chip 別 volume hook pointer</td>
               </tr>
             </tbody>
           </table>
         </div>
-        <figure class="figure">
+        <figure>
           <img src="sram-layout.svg" alt="per-part SRAM 64 byte layout">
-          <figcaption>per-part 64 byte block 内に収まり、LOOPSTACK / LOOPDEPTH と非衝突。</figcaption>
+          <figcaption>図 3: per-part 64 byte block 内に収まり、LOOPSTACK / LOOPDEPTH と非衝突。</figcaption>
         </figure>
         <pre><code class="language-asm">PART_OFF_HOOK_KEYON     = 49 ; 2 bytes
 PART_OFF_HOOK_KEYOFF    = 51 ; 2 bytes
@@ -147,7 +200,8 @@ PART_OFF_HOOK_VOLUMESET = 55 ; 2 bytes</code></pre>
       </section>
 
       <section id="hooks">
-        <h2>Chip hook 一覧</h2>
+        <h2><span class="chapter-number">04.</span> Chip hook 一覧</h2>
+        <p class="section-summary">Chip 固有処理は keyon、keyoff、fnumset、volume の hook に分け、共通 dispatch 本体から呼び出す。ADPCM 系の未使用 hook は <code>noop_hook</code> に寄せ、dispatch 側の分岐を増やさない。</p>
         <div class="table-wrap">
           <table class="hook-table">
             <thead>
@@ -158,48 +212,64 @@ PART_OFF_HOOK_VOLUMESET = 55 ; 2 bytes</code></pre>
               </tr>
             </thead>
             <tbody>
-              <tr><td>`fm_keyon_hook`</td><td><span class="tag fm">FM</span> keyon (ch index B)</td><td>`fnumset_fm` + `fm_keyon`</td></tr>
-              <tr><td>`fm_keyoff_hook`</td><td><span class="tag fm">FM</span> keyoff</td><td>`fm_keyoff`</td></tr>
-              <tr><td>`fnumset_fm_hook`</td><td><span class="tag fm">FM</span> fnumset</td><td>`fnumset_fm`</td></tr>
-              <tr><td>`fm_volume_hook`</td><td><span class="tag fm">FM</span> volume (later phase)</td><td>stub</td></tr>
-              <tr><td>`psg_keyon_hook`</td><td><span class="tag ssg">SSG</span> keyon</td><td>`pmdneo_psg_keyon`</td></tr>
-              <tr><td>`ssg_keyoff_hook`</td><td><span class="tag ssg">SSG</span> keyoff</td><td>`ssg_keyoff`</td></tr>
-              <tr><td>`fnumsetp_ch_hook`</td><td><span class="tag ssg">SSG</span> fnumset</td><td>`fnumsetp_ch`</td></tr>
-              <tr><td>`psg_volume_hook`</td><td><span class="tag ssg">SSG</span> volume (later phase)</td><td>stub</td></tr>
-              <tr><td>`adpcmb_keyon_hook`</td><td><span class="tag adpcmb">ADPCM-B</span> keyon</td><td>`adpcmb_keyon`</td></tr>
-              <tr><td>`adpcmb_keyoff_hook`</td><td><span class="tag adpcmb">ADPCM-B</span> keyoff</td><td>`adpcmb_keyoff`</td></tr>
-              <tr><td>`adpcma_keyon_hook`</td><td><span class="tag adpcma">ADPCM-A</span> keyon (ch index B)</td><td>`adpcma_keyon_simple`</td></tr>
-              <tr><td>`adpcma_keyoff_hook`</td><td><span class="tag adpcma">ADPCM-A</span> keyoff (natural end)</td><td>noop</td></tr>
-              <tr><td>`noop_hook`</td><td>common noop (ADPCM FNUMSET / VOLUMESET)</td><td>`ret` 1 instruction</td></tr>
+              <tr><td><code>fm_keyon_hook</code></td><td><span class="tag">FM</span> keyon (ch index B)</td><td><code>fnumset_fm</code> + <code>fm_keyon</code></td></tr>
+              <tr><td><code>fm_keyoff_hook</code></td><td><span class="tag">FM</span> keyoff</td><td><code>fm_keyoff</code></td></tr>
+              <tr><td><code>fnumset_fm_hook</code></td><td><span class="tag">FM</span> fnumset</td><td><code>fnumset_fm</code></td></tr>
+              <tr><td><code>fm_volume_hook</code></td><td><span class="tag">FM</span> volume (later phase)</td><td>stub</td></tr>
+              <tr><td><code>psg_keyon_hook</code></td><td><span class="tag">SSG</span> keyon</td><td><code>pmdneo_psg_keyon</code></td></tr>
+              <tr><td><code>ssg_keyoff_hook</code></td><td><span class="tag">SSG</span> keyoff</td><td><code>ssg_keyoff</code></td></tr>
+              <tr><td><code>fnumsetp_ch_hook</code></td><td><span class="tag">SSG</span> fnumset</td><td><code>fnumsetp_ch</code></td></tr>
+              <tr><td><code>psg_volume_hook</code></td><td><span class="tag">SSG</span> volume (later phase)</td><td>stub</td></tr>
+              <tr><td><code>adpcmb_keyon_hook</code></td><td><span class="tag">ADPCM-B</span> keyon</td><td><code>adpcmb_keyon</code></td></tr>
+              <tr><td><code>adpcmb_keyoff_hook</code></td><td><span class="tag">ADPCM-B</span> keyoff</td><td><code>adpcmb_keyoff</code></td></tr>
+              <tr><td><code>adpcma_keyon_hook</code></td><td><span class="tag">ADPCM-A</span> keyon (ch index B)</td><td><code>adpcma_keyon_simple</code></td></tr>
+              <tr><td><code>adpcma_keyoff_hook</code></td><td><span class="tag">ADPCM-A</span> keyoff (natural end)</td><td>noop</td></tr>
+              <tr><td><code>noop_hook</code></td><td>common noop (ADPCM FNUMSET / VOLUMESET)</td><td><code>ret</code> 1 instruction</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
       <section id="timeline">
-        <h2>Commit timeline</h2>
-        <div class="table-wrap">
-          <table class="timeline-table">
-            <thead>
-              <tr>
-                <th>commit</th>
-                <th>工程</th>
-                <th>内容</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td>`4c0fcd1`</td><td>R-1</td><td>docs(design): dispatch 共通化 refactor 設計書 起票</td></tr>
-              <tr><td>`ea34859`</td><td>R-2/3/4</td><td>feat(driver): dispatch 共通化 refactor 実装 (L baseline pass)</td></tr>
-              <tr><td>`430e50e`</td><td>R-5a</td><td>feat(driver): FM 4 part 復活 + hook B 引数 fix + voice setup</td></tr>
-              <tr><td>`9e5f6e6`</td><td>R-5b</td><td>feat(driver): SSG 3 part + PAN 分離 (BC=L、EF=R)</td></tr>
-              <tr><td>`9976580`</td><td>R-5c</td><td>feat(driver): ADPCM-B + beat.wav + 14 part milestone</td></tr>
-            </tbody>
-          </table>
+        <h2><span class="chapter-number">05.</span> Commit timeline</h2>
+        <p class="section-summary">Phase 9R は設計起票から dispatch 共通化、FM / SSG / ADPCM-B 復活までを同日内の小さな sub-step で積み上げた。最後の <code>9976580</code> で ADPCM-B と beat.wav を足し、<strong>14 part milestone</strong> に到達した。</p>
+        <div class="timeline-list" aria-label="Commit timeline">
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>4c0fcd1</code></p>
+            <h3>R-1</h3>
+            <p>docs(design): dispatch 共通化 refactor 設計書 起票</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>ea34859</code></p>
+            <h3>R-2/3/4</h3>
+            <p>feat(driver): dispatch 共通化 refactor 実装 (L baseline pass)</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>430e50e</code></p>
+            <h3>R-5a</h3>
+            <p>feat(driver): FM 4 part 復活 + hook B 引数 fix + voice setup</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>9e5f6e6</code></p>
+            <h3>R-5b</h3>
+            <p>feat(driver): SSG 3 part + PAN 分離 (BC=L、EF=R)</p>
+          </article>
+          <article class="timeline-entry">
+            <time datetime="2026-05-10">2026-05-10</time>
+            <p class="commit-hash"><code>9976580</code></p>
+            <h3>R-5c</h3>
+            <p>feat(driver): ADPCM-B + beat.wav + <strong>14 part milestone</strong></p>
+          </article>
         </div>
       </section>
 
       <section id="audio">
-        <h2>Audio gate 結果</h2>
+        <h2><span class="chapter-number">06.</span> Audio gate 結果</h2>
+        <p class="section-summary">Audio gate は R-3 baseline から R-5c まで段階的に確認した。R-5c では rebuild MD5 <code>306828b9</code>、wav peak L 100% / R 100%、J 鳴動、<strong>14 part</strong> 完成を確認した。</p>
         <div class="table-wrap">
           <table class="gate-table">
             <thead>
@@ -213,30 +283,31 @@ PART_OFF_HOOK_VOLUMESET = 55 ; 2 bytes</code></pre>
               </tr>
             </thead>
             <tbody>
-              <tr><td>R-3 baseline</td><td>`63345f63`</td><td>0 (comment out)</td><td>129</td><td>L 42% / R 52%</td><td>drum 6ch OK</td></tr>
-              <tr><td>R-5a (FM)</td><td>`d6500d44`</td><td>32 (0xF1/F2/F5/F6 × 8)</td><td>129</td><td>L 52% / R 55%</td><td>BCEF 鳴動</td></tr>
-              <tr><td>R-5b (+SSG+PAN)</td><td>`83947c0b`</td><td>32 + SSG 27 vol write</td><td>129</td><td>L 100% / R 100%</td><td>FM L/R + SSG OK</td></tr>
-              <tr><td>R-5c (+ADPCM-B)</td><td>`306828b9`</td><td>same</td><td>same</td><td>L 100% / R 100%</td><td>J 鳴動、14 part 完成</td></tr>
+              <tr><td>R-3 baseline</td><td><code>63345f63</code></td><td class="numeric">0 (comment out)</td><td class="numeric">129</td><td class="numeric">L 42% / R 52%</td><td>drum 6ch OK</td></tr>
+              <tr><td>R-5a (FM)</td><td><code>d6500d44</code></td><td class="numeric">32 (0xF1/F2/F5/F6 × 8)</td><td class="numeric">129</td><td class="numeric">L 52% / R 55%</td><td>BCEF 鳴動</td></tr>
+              <tr><td>R-5b (+SSG+PAN)</td><td><code>83947c0b</code></td><td class="numeric">32 + SSG 27 vol write</td><td class="numeric">129</td><td class="numeric">L 100% / R 100%</td><td>FM L/R + SSG OK</td></tr>
+              <tr><td>R-5c (+ADPCM-B)</td><td><code>306828b9</code></td><td class="numeric">same</td><td class="numeric">same</td><td class="numeric">L 100% / R 100%</td><td>J 鳴動、<strong>14 part</strong> 完成</td></tr>
             </tbody>
           </table>
         </div>
       </section>
 
       <section id="adpcmb">
-        <h2>ADPCM-B sample</h2>
+        <h2><span class="chapter-number">07.</span> ADPCM-B sample</h2>
+        <p class="section-summary">ADPCM-B hook 経路の発音確認には ngdevkit example の beat.wav を使用した。VROM area は <code>BEAT_START</code> 0x002A00 から <code>BEAT_STOP</code> 0x00A800 までを割り当てた。</p>
         <div class="note-grid">
           <div class="note-box">
             <h3>素材</h3>
             <ul>
-              <li>Source: `vendor/ngdevkit-examples/00-template/assets/beat.wav`</li>
-              <li>16-bit mono、24000 Hz、130 KB</li>
+              <li>Source: <code>vendor/ngdevkit-examples/00-template/assets/beat.wav</code></li>
+              <li>16-bit mono、24000 Hz、<strong>130 KB</strong></li>
             </ul>
           </div>
           <div class="note-box">
             <h3>配置</h3>
             <ul>
-              <li>VROM area: `BEAT_START` 0x002A00</li>
-              <li>`BEAT_STOP` 0x00A800、0x7E byte ngdevkit chunk</li>
+              <li>VROM area: <code>BEAT_START</code> 0x002A00</li>
+              <li><code>BEAT_STOP</code> 0x00A800、0x7E byte ngdevkit chunk</li>
             </ul>
           </div>
         </div>
@@ -250,7 +321,8 @@ t140 l2 o5 [ a ]4</code></pre>
       </section>
 
       <section id="remaining">
-        <h2>残作業</h2>
+        <h2><span class="chapter-number">08.</span> 残作業</h2>
+        <p class="section-summary">Phase 9R の成果は 14-part milestone commit と develop merge へ進める。次 phase では gate cmd / fade-in / compile.py / multi-tempo を clean dispatch 上で進める。</p>
         <div class="callout">
           <ul>
             <li>R-6: 14-part milestone commit。ROM display と design doc status update を含める。</li>
@@ -260,6 +332,11 @@ t140 l2 o5 [ a ]4</code></pre>
         </div>
       </section>
     </main>
+
+    <footer>
+      <p>Generated 2026-05-10、PMDNEO Phase 9R</p>
+      <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
+    </footer>
   </div>
 </body>
 </html>
