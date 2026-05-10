@@ -55,8 +55,8 @@ int main(void) {
 
   u8 last_cycle = 0;
 #if PMDNEO_FIXTURE == 0
-  ng_center_text(8, 0, "PMDNEO PHASE 10");
-  ng_center_text(10, 0, "FIXTURE 0 BASELINE");
+  ng_center_text(8, 0, "PMDNEO PHASE 12A-3");
+  ng_center_text(10, 0, "DRUM-MODE 14 PART");
 #elif PMDNEO_FIXTURE == 1
   ng_center_text(8, 0, "PMDNEO PHASE 10");
   ng_center_text(10, 0, "FIXTURE 1 FADE FAST");

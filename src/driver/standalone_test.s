@@ -2340,58 +2340,12 @@ v_to_V_fm:
 v_to_V_pcm:
         .db     0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 255
 
-;; Phase 9b chord-mode: BCEF が C major chord (= C/E/G/C5)、 q6 固定 staccato、
-;; 8 note 全部同一音 (= 和音 sustain で gate 効果が見やすい)。 GHIJ/L-Q は silent
-;; (= MML 即 end で dispatch skip、 chip も無音)。
-song_part_b:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFE, 0x06                 ; q6 (= gate 6 tick 減算、 staccato)
-        .db     0xCC, 0x00                 ; ★ Phase 9c: V0 (= 大文字 V cmd、 silent 試験)
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20  ; B = C4 (= 0x40) × 8
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
-        .db     0x80
-song_part_c:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFE, 0x06                 ; q6
-        .db     0x44, 0x20, 0x44, 0x20, 0x44, 0x20, 0x44, 0x20  ; C = E4 (= 0x44) × 8
-        .db     0x44, 0x20, 0x44, 0x20, 0x44, 0x20, 0x44, 0x20
-        .db     0x80
-song_part_e:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFE, 0x06                 ; q6
-        .db     0x47, 0x20, 0x47, 0x20, 0x47, 0x20, 0x47, 0x20  ; E = G4 (= 0x47) × 8
-        .db     0x47, 0x20, 0x47, 0x20, 0x47, 0x20, 0x47, 0x20
-        .db     0x80
-song_part_f:
-        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
-        .db     0xFE, 0x06                 ; q6
-        .db     0x50, 0x20, 0x50, 0x20, 0x50, 0x20, 0x50, 0x20  ; F = C5 (= 0x50) × 8
-        .db     0x50, 0x20, 0x50, 0x20, 0x50, 0x20, 0x50, 0x20
-        .db     0x80
-song_part_g:
-        .db     0xCC, 0x00                 ; ★ Phase 9c fix: V0 で SSG ch1 silent
-        .db     0x80
-song_part_h:
-        .db     0xCC, 0x00                 ; ★ V0 SSG ch2
-        .db     0x80
-song_part_i:
-        .db     0xCC, 0x00                 ; ★ V0 SSG ch3
-        .db     0x80
-song_part_j:
-        .db     0x80
+;; Phase 12a-2: song data は compile.py 経由 song_data.inc で取込済 (= driver
+;; の `.include "song_data.inc"` で一意 source)、 hardcoded song_part_? は廃止。
+;; Codex Phase 12a-2 削除漏れ fix (= Phase 12a-3 audio gate で発覚、 line 2346-
+;; 2394 残存していた hardcoded を本 fix で除去、 song_data.inc が単一 source)。
 
-song_part_l:
-        .db     0x80                       ; Phase 9b chord-mode: silent (= 既存 nest LOOP off)
-song_part_m:
-        .db     0x80                       ; silent
-song_part_n:
-        .db     0x80
-song_part_o:
-        .db     0x80
-song_part_p:
-        .db     0x80
-song_part_q:
-        .db     0x80
+        .include "song_data.inc"
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)
         .area DATA

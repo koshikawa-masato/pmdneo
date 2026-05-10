@@ -1,0 +1,26 @@
+; PMDNEO test02.mml — Phase 12a-3 drum-mode (= 14 part 並行 dispatch fixture)
+;
+; 既 hardcoded song_part_? (= chord-mode 試験用 BCEF + drum kit L-Q) を MML 化、
+; compile.py の nest LOOP + 永久 LOOP (= ]0) + 付点音符 (= c8.) 対応 verify。
+;
+; 期待 audio: BCEF q6 chord (= C major) + L-Q ADPCM-A drum kit 全部鳴る、
+; SSG (= G/H/I) は V0 silent、 ADPCM-B (= J) silent
+
+B t140 q6 l4 cccccccc        ; FM ch2 = C4 × 8
+C t140 q6 l4 eeeeeeee        ; FM ch3 = E4 × 8
+E t140 q6 l4 gggggggg        ; FM ch5 = G4 × 8
+F t140 q6 l4 >cccccccc       ; FM ch6 = C5 × 8
+
+G V0                          ; SSG ch1 silent
+H V0                          ; SSG ch2 silent
+I V0                          ; SSG ch3 silent
+J ;empty                      ; ADPCM-B silent
+
+; ADPCM-A drum kit (= 既 hardcoded と byte-identical 期待)
+; length は付点 8 分 (= l8. = 24 tick = 0x18)、 永久 LOOP (= ]0)
+L t140 v31 [ [c8. r8.]2 [c8. r8.]4 c8. r8. c8. c8. ]0   ; BD nest LOOP
+M t140 v28 [ r8. r8. c8. r8. r8. r8. c8. r8. ]0           ; SD pattern
+N t140 v14 [ c8. c8. c8. c8. c8. c8. c8. c8. ]0           ; HH 8 連打
+O t140 v24 [ r8. r8. r8. r8. r8. c8. c8. c8. ]0           ; TOM
+P t140 v22 [ c8. r8. r8. r8. c8. r8. r8. r8. ]0           ; RIM
+Q t140 v26 [ c8. r8. r8. r8. c8. r8. r8. r8. ]0           ; TOP
