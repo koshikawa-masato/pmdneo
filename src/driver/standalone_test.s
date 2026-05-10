@@ -2033,7 +2033,66 @@ fnumset_fm_hook:
         call    fnumset_fm
         ret
 
+;; Phase 9c (post-Codex): fm_volume_hook 実 TL 書換実装
+;; PART_OFF_VOLUME (= V cmd 0-255) → TL 値 (= 0x7F = mute / 0x00 = max)
+;; 4 op (= reg 0x40, 0x44, 0x48, 0x4C + ch index) 同期書込
+;; ALG 7 全 op carrier 想定、 全 op 同 TL で audible 設定
 fm_volume_hook:
+        ld      a, PART_OFF_VOLUME(ix)
+        srl     a                       ; A = V/2 (0-127)
+        ld      l, a
+        ld      a, #0x7F
+        sub     l                       ; A = 0x7F - V/2 = TL (V=0 → TL 0x7F mute)
+        ld      c, a                    ; C = TL value
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #3
+        jr      nc, fm_volume_hook_portb
+        ;; port A (= ch index 0-2)
+        add     a, #0x40
+        ld      b, a                    ; B = reg 0x40 + ch
+        push    bc
+        call    ym2610_write_port_a
+        pop     bc
+        push    bc
+        ld      a, b
+        add     a, #4
+        ld      b, a                    ; reg 0x44 + ch
+        call    ym2610_write_port_a
+        pop     bc
+        push    bc
+        ld      a, b
+        add     a, #8
+        ld      b, a                    ; reg 0x48 + ch
+        call    ym2610_write_port_a
+        pop     bc
+        ld      a, b
+        add     a, #12
+        ld      b, a                    ; reg 0x4C + ch
+        call    ym2610_write_port_a
+        ret
+fm_volume_hook_portb:
+        sub     #3                      ; ch index 0-2 for port B
+        add     a, #0x40
+        ld      b, a
+        push    bc
+        call    ym2610_write_port_b
+        pop     bc
+        push    bc
+        ld      a, b
+        add     a, #4
+        ld      b, a
+        call    ym2610_write_port_b
+        pop     bc
+        push    bc
+        ld      a, b
+        add     a, #8
+        ld      b, a
+        call    ym2610_write_port_b
+        pop     bc
+        ld      a, b
+        add     a, #12
+        ld      b, a
+        call    ym2610_write_port_b
         ret
 
 psg_keyon_hook:
