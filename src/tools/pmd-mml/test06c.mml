@@ -1,0 +1,8 @@
+; PMDNEO test06c.mml -- Phase 12a-5e C only (= baseline 6 keyon)
+; C: [ c d e ]2 -> 6 keyon (C, D, E, C, D, E)
+B V0
+C t140 q6 l4 [ c d e ]2
+E V0
+F V0
+G V0 H V0 I V0
+J

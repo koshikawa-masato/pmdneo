@@ -165,7 +165,7 @@ nmi_dispatch:
         jp      z, nmi_cmd_6_fade_start
         cp      #9
         jp      c, nmi_done
-        cp      #16
+        cp      #24
         jp      nc, nmi_done
         jp      nmi_cmd_select_song
         jp      nmi_done
@@ -1245,14 +1245,13 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      c, #0x80                ; ch2 (B) = L
         call    ym2610_write_port_a
         ld      b, #0xB6
-        ld      c, #0x80                ; ch3 (C) = L
+        ld      c, #0x40                ; ch3 (C) = R (= 12a-5e2: B vs C 聴感比較容易化)
         call    ym2610_write_port_a
         ld      b, #0xB5
-        ld      c, #0x40                ; ch5 (E) = R
+        ld      c, #0x80                ; ch5 (E) = L
         call    ym2610_write_port_b
         ld      b, #0xB6
         ld      c, #0x40                ; ch6 (F) = R
-        call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
         ld      a, #0
@@ -2086,6 +2085,8 @@ commandsp:
         jp      z, commandsp_stloop
         cp      #0xF8
         jp      z, commandsp_edloop
+        cp      #0xF7
+        jp      z, commandsp_exloop
         cp      #0xFA
         jp      z, comd
         cp      #0xD5
@@ -2126,6 +2127,8 @@ commandsp_stloop:
         jp      comstloop
 commandsp_edloop:
         jp      comedloop
+commandsp_exloop:
+        jp      comexloop
 
 ;; Phase 9a: comq (= PMD MML "q" gate cmd、 0xFE)
 ;; A = QDATA value (= note 長 vs key off timing 制御、 0-15 で gate 段階)
@@ -2182,6 +2185,63 @@ comtie:
         ;; & -- set PART_OFF_TIEFLAG = 1
         ld      a, #1
         ld      PART_OFF_TIEFLAG(ix), a
+        ret
+
+comexloop:
+        ;; PMDMML ':' loop escape (opcode 0xF7, arg = expected cycle count N)
+        call    pmdneo_part_fetch_byte    ; A = N (the loop count of matching ']N')
+        ld      c, a                      ; C = N
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        or      a
+        ret     z                         ; depth 0: unmatched ':', ignore
+        dec     a
+        add     a, a
+        add     a, a
+        add     a, #PART_OFF_LOOPSTACK_BASE
+        ld      e, a
+        ld      d, #0
+        push    ix
+        pop     hl
+        add     hl, de
+        inc     hl
+        inc     hl                        ; HL -> stack[depth-1].count field
+        ld      a, (hl)
+        inc     a                         ; A = current_count + 1 (next cycle number)
+        cp      c
+        ret     c                         ; current_count+1 < N: not last cycle, skip ':'
+        jr      nz, comexloop_continue    ; > N: unexpected, ignore safely
+        ;; current_count+1 == N: last cycle - scan forward to matching ']'
+comexloop_skip_to_end:
+        ld      l, PART_OFF_ADDR(ix)
+        ld      h, PART_OFF_ADDR+1(ix)
+        ld      b, #0                     ; B = nest level
+comexloop_scan_loop:
+        ld      a, (hl)
+        inc     hl
+        cp      #0xF9                     ; '[' opcode
+        jr      z, comexloop_nest_inc
+        cp      #0xF8                     ; ']' opcode
+        jr      z, comexloop_check_end
+        jp      comexloop_scan_loop
+comexloop_nest_inc:
+        inc     b
+        jp      comexloop_scan_loop
+comexloop_check_end:
+        ld      a, b
+        or      a
+        jr      z, comexloop_found_end
+        dec     b
+        inc     hl                        ; skip ']' arg byte (count)
+        jp      comexloop_scan_loop
+comexloop_found_end:
+        inc     hl                        ; skip ']' arg byte (count)
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        ld      a, PART_OFF_LOOPDEPTH(ix)
+        dec     a
+        ld      PART_OFF_LOOPDEPTH(ix), a
+        ret
+comexloop_continue:
         ret
 
 fnumsetp_ch:

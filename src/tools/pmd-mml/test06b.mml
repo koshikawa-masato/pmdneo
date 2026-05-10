@@ -1,0 +1,8 @@
+; PMDNEO test06b.mml -- Phase 12a-5e B only (= : loop escape isolated)
+; B: [ c d : e ]2 -> 5 keyon (C, D, E, C, D)
+B t140 q6 l4 [ c d : e ]2
+C V0
+E V0
+F V0
+G V0 H V0 I V0
+J

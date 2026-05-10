@@ -114,6 +114,8 @@ class MMLCompiler:
                     i += 1
                     continue
                 return self._compile_loop_end(mml, i, line_no, out)
+            elif ch == ":":
+                i = self._compile_loop_escape(mml, i, line_no, out, loop_depth)
             else:
                 self.warn(line_no, i, f"unknown command {ch!r}; skipped")
                 i += 1
@@ -305,6 +307,49 @@ class MMLCompiler:
             count &= 0xFF
         out.extend([0xF8, count])
         return i
+
+    def _compile_loop_escape(
+        self,
+        mml: str,
+        i: int,
+        line_no: int,
+        out: list[int],
+        loop_depth: int,
+    ) -> int:
+        """Emit 0xF7 <N> for ':' loop-escape. N = count from matching ']N'."""
+        if loop_depth == 0:
+            self.error(line_no, i, "':' outside of loop")
+            return i + 1
+        n_value = self._find_matching_loop_end_count(mml, i + 1)
+        if n_value is None:
+            self.error(line_no, i, "no matching ']' for ':'")
+            return i + 1
+        out.extend([0xF7, n_value & 0xFF])
+        return i + 1
+
+    def _find_matching_loop_end_count(self, mml: str, start: int) -> int | None:
+        """Look-ahead from start to find the matching ']N' and return N."""
+        nest = 0
+        j = start
+        while j < len(mml):
+            ch = mml[j]
+            if ch == "[":
+                nest += 1
+                j += 1
+            elif ch == "]":
+                if nest == 0:
+                    count, _ = self._read_int(mml, j + 1)
+                    return count if count is not None else 0
+                nest -= 1
+                j += 1
+                _, j = self._read_int(mml, j)
+            elif ch == "{":
+                while j < len(mml) and mml[j] != "}":
+                    j += 1
+                j += 1
+            else:
+                j += 1
+        return None
 
     def _length_ticks(self, denominator: int, dotted: bool, line_no: int, pos: int) -> int | None:
         if denominator <= 0 or 128 % denominator != 0:

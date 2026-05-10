@@ -1,0 +1,9 @@
+; PMDNEO test06.mml -- Phase 12a-5e ':' loop escape verify
+; B: [ c d : e ]2  -> cycle1: c d e, cycle2: c d  (5 notes total)
+; C: [ c d e ]2    -> 6 notes (baseline comparison)
+B t140 q6 l4 [ c d : e ]2
+C t140 q6 l4 [ c d e ]2
+E t140 q6 l4 c
+F t140 q6 l4 c
+G V0 H V0 I V0
+J
