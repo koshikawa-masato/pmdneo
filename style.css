@@ -319,13 +319,20 @@ figcaption {
 
 .figure-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 24px;
+  grid-template-columns: 1fr;
+  gap: 32px;
   margin-top: 30px;
 }
 
 .figure-grid figure {
   margin: 0;
+}
+
+.figure-grid figure img,
+.figure-grid figure svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
 }
 
 .tag {
