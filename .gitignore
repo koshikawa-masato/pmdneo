@@ -103,6 +103,7 @@ vendor/ngdevkit-examples/*/config.mk
 
 # 00-template/ に scripts/build-poc.sh で生成される symlink (src/driver/ への参照)
 vendor/ngdevkit-examples/00-template/PMDNEO.s
+vendor/ngdevkit-examples/00-template/standalone_test.s
 vendor/ngdevkit-examples/00-template/*.inc
 vendor/ngdevkit-examples/00-template/sample_m.s
 

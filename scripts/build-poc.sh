@@ -60,8 +60,8 @@ python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
 echo "  sample_m.s <- vendor/pmd48s/SAMPLE.M"
 
 echo
-echo "=== make ==="
-make
+echo "=== make poc ==="
+make poc
 
 echo
 echo "=== build 完了 ==="
