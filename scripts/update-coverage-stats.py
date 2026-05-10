@@ -60,10 +60,18 @@ def main():
     html = html_path.read_text(encoding='utf-8')
     html = update_marker(html, 'AUTO_MAIN_COUNT', str(main_count))
     html = update_marker(html, 'AUTO_MAIN_PERCENT', str(main_pct))
-    html = update_marker(html, 'AUTO_MAIN_BAR_STYLE', f'width: {main_pct}%')
+    html = update_marker(
+        html,
+        'AUTO_MAIN_BAR_STYLE',
+        f'<div class="progress-bar" style="width: {main_pct}%"></div>',
+    )
     html = update_marker(html, 'AUTO_DEVELOP_COUNT', str(develop_count))
     html = update_marker(html, 'AUTO_DEVELOP_PERCENT', str(develop_pct))
-    html = update_marker(html, 'AUTO_DEVELOP_BAR_STYLE', f'width: {develop_pct}%')
+    html = update_marker(
+        html,
+        'AUTO_DEVELOP_BAR_STYLE',
+        f'<div class="progress-bar develop" style="width: {develop_pct}%"></div>',
+    )
     html = update_marker(html, 'AUTO_LAST_UPDATE', last_update)
     html_path.write_text(html, encoding='utf-8')
 
