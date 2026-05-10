@@ -1423,6 +1423,7 @@ pmdneo5_init_part_hooks_pcm:
         ld      hl, #noop_hook
         ld      PART_OFF_HOOK_FNUMSET(ix), l
         ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      hl, #adpcmb_volume_hook
         ld      PART_OFF_HOOK_VOLUMESET(ix), l
         ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
         ret
@@ -1437,6 +1438,7 @@ pmdneo5_init_part_hooks_adpcma:
         ld      hl, #noop_hook
         ld      PART_OFF_HOOK_FNUMSET(ix), l
         ld      PART_OFF_HOOK_FNUMSET+1(ix), h
+        ld      hl, #adpcma_volume_hook
         ld      PART_OFF_HOOK_VOLUMESET(ix), l
         ld      PART_OFF_HOOK_VOLUMESET+1(ix), h
         ret
@@ -2133,6 +2135,31 @@ adpcmb_keyon_hook:
 
 adpcmb_keyoff_hook:
         call    adpcmb_keyoff
+        ret
+
+;; Phase 9c fix#3: adpcmb_volume_hook 実装
+;; PART_OFF_VOLUME (= V cmd 0-255) → reg 0x1B (= ADPCM-B total level、 8 bit 直接)
+adpcmb_volume_hook:
+        ld      a, PART_OFF_VOLUME(ix)
+        ld      c, a
+        ld      b, #0x1B
+        call    ym2610_write_port_a
+        ret
+
+;; Phase 9c fix#3: adpcma_volume_hook 実装
+;; PART_OFF_VOLUME (= V cmd 0-255) → reg 0x10+ch (= ADPCM-A per-ch vol + PAN)
+;; bit 0-4 vol (0-31)、 bit 6-7 PAN (= 0xC0 = L+R 中央 fixed)
+adpcma_volume_hook:
+        ld      a, PART_OFF_VOLUME(ix)
+        srl     a
+        srl     a
+        srl     a                       ; A = V/8 (= 0-31 範囲 5 bit)
+        or      #0xC0                   ; PAN bit 6+7 立て
+        ld      c, a
+        ld      a, PART_OFF_CH_IDX(ix)
+        add     a, #0x10                ; reg 0x10 + ch
+        ld      b, a
+        call    ym2610_write_port_b
         ret
 
 adpcma_keyon_hook:
