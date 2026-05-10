@@ -114,10 +114,6 @@ int main(void) {
   /* Fade trigger (= speed param protocol、 cmd 7 → arg byte → cmd 6) */
   ng_center_text(14, 0, "FADE OUT...");
 #if PMDNEO_FIXTURE != 0
-  *REG_SOUND = 7;          /* set_fade_speed cmd (modal flag set) */
-  ng_wait_vblank();
-  *REG_SOUND = fade_speed; /* speed value */
-  ng_wait_vblank();
 #endif
   *REG_SOUND = 6;          /* fade trigger */
   ng_wait_vblank();

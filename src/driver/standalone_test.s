@@ -11,7 +11,6 @@
         .equ    driver_fade_counter,       0xF81A   ; 1 byte: IRQ step counter
         .equ    driver_fade_master,        0xF81B   ; 1 byte: ADPCM-A master vol shadow
         .equ    driver_fade_speed,         0xF81C   ; 1 byte (default 16, range 0-255)
-        .equ    driver_pending_arg_target, 0xF81D   ; 1 byte (0=normal, 1=fade_speed arg)
         .equ    driver_loop_cycle,         0xF81E   ; 1 byte: BD part LOOP cycle counter
         .equ    driver_song_id,            0xF81F   ; 1 byte: driver_state +0x0F, cold-cleared to song 0
 
@@ -155,7 +154,6 @@ nmi_clear_driver_state:
         call    ym2610_write_port_a
 
 nmi_dispatch:
-        ;; modal flag check disabled for bug isolation
         in      a, (0x00)
         cp      #2
         jp      z, nmi_cmd_2_play_song
@@ -163,8 +161,6 @@ nmi_dispatch:
         jp      z, nmi_cmd_5_adpcmb_beat
         cp      #6
         jp      z, nmi_cmd_6_fade_start
-        cp      #7
-        jp      z, nmi_cmd_7_set_fade_speed
         cp      #9
         jp      c, nmi_done
         cp      #16
@@ -320,10 +316,6 @@ nmi_cmd_6_fade_start:
         ld      (driver_fade_state), a
         jp      nmi_done
 
-nmi_cmd_7_set_fade_speed:
-        ld      a, #1
-        ld      (driver_pending_arg_target), a
-        jp      nmi_done
 
         .org 0x0100
 irq_handler_body:
