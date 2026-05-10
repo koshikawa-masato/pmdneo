@@ -28,3 +28,6 @@
 - adpcm_a:
     name: top
     uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_TOP.adpcma
+- adpcm_b:
+    name: beat
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/vendor/ngdevkit-examples/00-template/assets/beat.wav

@@ -1069,17 +1069,19 @@ init_adpcmb_beat:
         ld      c, #0x00
         call    ym2610_write_port_a
 
+        ;; Phase 9R R-5c: ADPCM-B sample = beat.wav (= samples-map.yaml 経由)
+        ;; samples.inc 経由で BEAT_START_LSB/MSB / BEAT_STOP_LSB/MSB 生成済
         ld      b, #0x12
-        ld      c, #0x00
+        ld      c, #BEAT_START_LSB
         call    ym2610_write_port_a
         ld      b, #0x13
-        ld      c, #0x00
+        ld      c, #BEAT_START_MSB
         call    ym2610_write_port_a
         ld      b, #0x14
-        ld      c, #0x7E
+        ld      c, #BEAT_STOP_LSB
         call    ym2610_write_port_a
         ld      b, #0x15
-        ld      c, #0x00
+        ld      c, #BEAT_STOP_MSB
         call    ym2610_write_port_a
 
         ld      b, #0x19
@@ -1283,7 +1285,7 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      hl, #song_part_j
         ld      b, #0
         ld      c, #0
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_ADPCMA1
         ld      hl, #song_part_l
         ld      b, #0
@@ -1934,45 +1936,47 @@ psg_volume_regs:
         .db     0x08, 0x09, 0x0A
 
 song_part_b:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_c:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_e:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_f:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x50, 0x20, 0x52, 0x20, 0x54, 0x20, 0x55, 0x20
         .db     0x57, 0x20, 0x59, 0x20, 0x5B, 0x20, 0x60, 0x20
         .db     0x80
 song_part_g:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x40, 0x20, 0x42, 0x20, 0x44, 0x20, 0x45, 0x20
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x80
 song_part_h:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x44, 0x20, 0x45, 0x20, 0x47, 0x20, 0x49, 0x20
         .db     0x4B, 0x20, 0x50, 0x20, 0x52, 0x20, 0x54, 0x20
         .db     0x80
 song_part_i:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
         .db     0x47, 0x20, 0x49, 0x20, 0x4B, 0x20, 0x50, 0x20
         .db     0x52, 0x20, 0x54, 0x20, 0x55, 0x20, 0x57, 0x20
         .db     0x80
 song_part_j:
-        .db     0xFC, 0x18                 ; t120 (tempo_d=24)
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
-        .db     0x40, 0x20, 0x40, 0x20, 0x40, 0x20, 0x40, 0x20
-        .db     0x80
+        ;; Phase 9R R-5c: t140 l2 o5 [ a ]4 (= ADPCM-B beat sample 4 連打、 LOOP)
+        .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
+        .db     0xF9                       ; comstloop OUTER
+        .db     0x59, 0x60                 ; o5 a (= note 0x59) length 96 (= l2)
+        .db     0xF8, 0x04                 ; comedloop = 4 回
+        .db     0x80                       ; end
 
 song_part_l:
         .db     0xFC, 0x1C                 ; t140 (tempo_d=28)
