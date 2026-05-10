@@ -1221,6 +1221,27 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ;; mode 5 (= MML byte parser) では nmi_cmd_5 内で voice setup が skip されてた、
         ;; FM keyon 出るが TL = 0x7F mute で audible にならない真因 (= 2026-05-10)。
         call    init_chip_ch2_voice
+        ;; Phase 9R R-5b: SSG 3 ch audible setup (= reg 0x07 = 0x38 tone enable + vol 0x0F)
+        ;; mode 4 経由なら nmi_cmd_2_play_song_mode4 で init_ssg_voice 呼ばれるが、
+        ;; mode 5 では SSG silence init (= reg 0x07 = 0x3F all disable + vol 0x00) のまま、
+        ;; SSG 3 part init 復活 (= R-5b) 時の audible 化に必要。
+        call    init_ssg_voice
+        ;; Phase 9R R-5b 補足: FM PAN 分離 (= user 要望、 BC=Left, EF=Right)
+        ;; ch2 (B) = port A reg 0xB5、 ch3 (C) = port A reg 0xB6
+        ;; ch5 (E) = port B reg 0xB5、 ch6 (F) = port B reg 0xB6
+        ;; PAN 値: 0x80 = Left only, 0x40 = Right only, 0xC0 = L+R 中央 (default)
+        ld      b, #0xB5
+        ld      c, #0x80                ; ch2 (B) = L
+        call    ym2610_write_port_a
+        ld      b, #0xB6
+        ld      c, #0x80                ; ch3 (C) = L
+        call    ym2610_write_port_a
+        ld      b, #0xB5
+        ld      c, #0x40                ; ch5 (E) = R
+        call    ym2610_write_port_b
+        ld      b, #0xB6
+        ld      c, #0x40                ; ch6 (F) = R
+        call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
         ld      a, #PART_FM2
@@ -1247,17 +1268,17 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      hl, #song_part_g
         ld      b, #0
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG2
         ld      hl, #song_part_h
         ld      b, #1
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG3
         ld      hl, #song_part_i
         ld      b, #2
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_PCM
         ld      hl, #song_part_j
         ld      b, #0
