@@ -1216,28 +1216,33 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      (driver_tempo_d), a
         xor     a
         ld      (driver_subtick_acc), a
+        ;; Phase 9R R-5a: FM 4 ch (= ch2/3/5/6) audible voice setup (= TL 0x18 + ALG 7)
+        ;; mode 4 経由なら nmi_cmd_2_play_song で init_chip_ch2_voice 呼ばれるが、
+        ;; mode 5 (= MML byte parser) では nmi_cmd_5 内で voice setup が skip されてた、
+        ;; FM keyon 出るが TL = 0x7F mute で audible にならない真因 (= 2026-05-10)。
+        call    init_chip_ch2_voice
         call    pmdneo5_clear_part_workarea
 
         ld      a, #PART_FM2
         ld      hl, #song_part_b
         ld      b, #1
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM3
         ld      hl, #song_part_c
         ld      b, #2
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM5
         ld      hl, #song_part_e
         ld      b, #4
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_FM6
         ld      hl, #song_part_f
         ld      b, #5
         ld      c, #0x0F
-;;      call    pmdneo5_init_part
+        call    pmdneo5_init_part
         ld      a, #PART_SSG1
         ld      hl, #song_part_g
         ld      b, #0
@@ -1372,7 +1377,7 @@ pmdneo5_init_part_hooks_pcm:
         ld      hl, #adpcmb_keyoff_hook
         ld      PART_OFF_HOOK_KEYOFF(ix), l
         ld      PART_OFF_HOOK_KEYOFF+1(ix), h
-        ld      hl, #adpcma_keyoff_hook
+        ld      hl, #noop_hook
         ld      PART_OFF_HOOK_FNUMSET(ix), l
         ld      PART_OFF_HOOK_FNUMSET+1(ix), h
         ld      PART_OFF_HOOK_VOLUMESET(ix), l
@@ -1386,6 +1391,7 @@ pmdneo5_init_part_hooks_adpcma:
         ld      hl, #adpcma_keyoff_hook
         ld      PART_OFF_HOOK_KEYOFF(ix), l
         ld      PART_OFF_HOOK_KEYOFF+1(ix), h
+        ld      hl, #noop_hook
         ld      PART_OFF_HOOK_FNUMSET(ix), l
         ld      PART_OFF_HOOK_FNUMSET+1(ix), h
         ld      PART_OFF_HOOK_VOLUMESET(ix), l
@@ -1393,7 +1399,7 @@ pmdneo5_init_part_hooks_adpcma:
         ret
 
 pmdneo5_init_part_hooks_noop:
-        ld      hl, #adpcma_keyoff_hook
+        ld      hl, #noop_hook
         ld      PART_OFF_HOOK_KEYON(ix), l
         ld      PART_OFF_HOOK_KEYON+1(ix), h
         ld      PART_OFF_HOOK_KEYOFF(ix), l
@@ -1688,15 +1694,19 @@ fnumsetp_ch:
         jp      fnumset_ssg
 
 fm_keyon_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fnumset_fm
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fm_keyon
         ret
 
 fm_keyoff_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fm_keyoff
         ret
 
 fnumset_fm_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fnumset_fm
         ret
 
@@ -1704,14 +1714,17 @@ fm_volume_hook:
         ret
 
 psg_keyon_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    pmdneo_psg_keyon
         ret
 
 ssg_keyoff_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    ssg_keyoff
         ret
 
 fnumsetp_ch_hook:
+        ld      b, PART_OFF_CH_IDX(ix)
         call    fnumsetp_ch
         ret
 
@@ -1719,6 +1732,7 @@ psg_volume_hook:
         ret
 
 adpcmb_keyon_hook:
+        ld      b, #0
         call    adpcmb_keyon
         ret
 
@@ -1727,11 +1741,15 @@ adpcmb_keyoff_hook:
         ret
 
 adpcma_keyon_hook:
-        ld      a, PART_OFF_CH_IDX(ix)
+        ld      b, PART_OFF_CH_IDX(ix)
+        ld      a, b
         call    adpcma_keyon_simple
         ret
 
 adpcma_keyoff_hook:
+        ret
+
+noop_hook:
         ret
 
 pmdneo_psg_keyon:

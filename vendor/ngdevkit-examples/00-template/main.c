@@ -50,8 +50,8 @@ int main(void) {
 
   /* LOOP cycle counter polling + display */
   u8 last_cycle = 0;
-  ng_center_text(8, 0, "PMDNEO PHASE 9R R-3");
-  ng_center_text(10, 0, "DISPATCH UNIFIED");
+  ng_center_text(8, 0, "PMDNEO PHASE 9R R-5A");
+  ng_center_text(10, 0, "FM 4PART REVIVE");
   ng_center_text(12, 0, "LOOP CYCLE: 00");
 
   /* Wait ~16 seconds (960 vblanks @ 60fps), polling Z80 reply for LOOP cycle updates */
