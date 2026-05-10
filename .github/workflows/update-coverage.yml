@@ -3,7 +3,7 @@ name: Update PMDMML Coverage
 on:
   push:
     branches:
-      - develop
+      - main
     paths-ignore:
       - 'pages/**'
       - 'scripts/update-coverage-stats.py'
@@ -16,7 +16,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout develop
+      - name: Checkout main
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -42,5 +42,5 @@ jobs:
             exit 0
           fi
           git add pmdmml-coverage.html
-          git commit -m 'chore(pages): auto-update PMDMML coverage stats (develop ${{ github.sha }} 反映)'
+          git commit -m 'chore(pages): auto-update PMDMML coverage stats (main ${{ github.sha }} 反映)'
           git push origin gh-pages
