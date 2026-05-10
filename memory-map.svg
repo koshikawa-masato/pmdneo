@@ -1,112 +1,74 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
-  <title id="title">NEOGEO Z80 メモリマップ</title>
-  <desc id="desc">Z80 の 64 KB address space を左の縦 bar に、0xF800 から 0xFFFF の Z80 SRAM 詳細を右の拡大 bar に表示。</desc>
-  <defs>
-    <style>
-      text {
-        font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
-        fill: #202124;
-      }
-      .title { font-size: 26px; font-weight: 800; }
-      .subtitle { font-size: 13px; fill: #5f6368; }
-      .label { font-size: 13px; font-weight: 700; }
-      .small { font-size: 11px; fill: #3c4043; }
-      .tiny { font-size: 9px; fill: #5f6368; }
-      .addr { font-size: 11px; fill: #3c4043; font-family: "SF Mono", Menlo, Consolas, monospace; }
-      .bar-border { fill: none; stroke: #2f3a45; stroke-width: 1.5; }
-      .tick { stroke: #2f3a45; stroke-width: 1; }
-      .guide { stroke: #7b8794; stroke-width: 1; stroke-dasharray: 3 3; }
-      .connector { fill: none; stroke: #2f3a45; stroke-width: 1.5; }
-      .m1 { fill: #4A90D9; }
-      .bank { fill: #B0B0B0; }
-      .sram { fill: #4CAF50; }
-      .driver { fill: #FFD600; }
-      .part { fill: #E53935; stroke: #a71919; stroke-width: 2; }
-      .unused { fill: #ffffff; stroke: #F5F5F5; stroke-width: 2; }
-      .bios { fill: #212121; }
-      .spacer { fill: #f7f9fb; stroke: #d9e1e8; stroke-width: 1; }
-      .chip { font-size: 14px; font-weight: 800; fill: #1f2933; }
-    </style>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="600" viewBox="0 0 680 600" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'Hiragino Sans', 'Yu Gothic UI', 'Noto Sans CJK JP', sans-serif">
+  <style>
+    .th { font-size: 14px; font-weight: 500; }
+    .ts { font-size: 12px; font-weight: 400; }
+    .addr { font-size: 12px; font-weight: 400; fill: #73726c; }
+    .header { font-size: 14px; font-weight: 500; fill: #3d3d3a; }
+    .subtitle { font-size: 12px; font-weight: 400; fill: #73726c; }
+    .blue-fill { fill: #E6F1FB; stroke: #185FA5; stroke-width: 0.5; }
+    .blue-title { fill: #0C447C; }
+    .blue-sub { fill: #185FA5; }
+    .gray-fill { fill: #F1EFE8; stroke: #5F5E5A; stroke-width: 0.5; }
+    .gray-title { fill: #444441; }
+    .gray-sub { fill: #5F5E5A; }
+    .coral-fill { fill: #FAECE7; stroke: #993C1D; stroke-width: 0.5; }
+    .coral-title { fill: #712B13; }
+    .coral-sub { fill: #993C1D; }
+  </style>
 
-  <rect width="800" height="600" fill="#fbfcff"/>
-  <text x="40" y="42" class="title">NEOGEO Z80 メモリマップ</text>
-  <text x="40" y="64" class="subtitle">Z80A @ 4 MHz / 16-bit address bus (64 KB max)</text>
+  <rect width="680" height="600" fill="#ffffff"/>
 
-  <g id="full-address-space">
-    <text x="80" y="88" class="label">Z80 64 KB address space</text>
-    <rect x="80" y="108" width="110" height="450" class="bar-border"/>
-    <rect x="80" y="108" width="110" height="421.875" class="m1"/>
-    <rect x="80" y="529.875" width="110" height="14.0625" class="bank"/>
-    <rect x="80" y="543.9375" width="110" height="14.0625" class="sram"/>
-    <rect x="80" y="108" width="110" height="450" class="bar-border"/>
+  <text class="subtitle" x="40" y="40">Z80A @ 4 MHz · 16-bit address bus · 64 KB address space</text>
 
-    <line x1="72" y1="108" x2="80" y2="108" class="tick"/>
-    <line x1="72" y1="529.875" x2="80" y2="529.875" class="tick"/>
-    <line x1="72" y1="543.9375" x2="80" y2="543.9375" class="tick"/>
-    <line x1="72" y1="558" x2="80" y2="558" class="tick"/>
-    <text x="34" y="112" class="addr">0x0000</text>
-    <text x="34" y="533" class="addr">0xF000</text>
-    <text x="34" y="547" class="addr">0xF800</text>
-    <text x="34" y="562" class="addr">0xFFFF</text>
+  <text class="header" x="165" y="80" text-anchor="middle">Z80 64 KB address space</text>
+  <text class="header" x="485" y="80" text-anchor="middle">Z80 SRAM 2 KB (NEOGEO 本体内)</text>
 
-    <text x="205" y="302" class="label">M1 ROM 128 KB (cart)</text>
-    <text x="205" y="321" class="small">0x0000-0xEFFF / 60 KB window</text>
-    <text x="205" y="340" class="small">driver code + tables</text>
+  <text class="addr" x="95" y="114" text-anchor="end">0x0000</text>
+  <text class="addr" x="95" y="464" text-anchor="end">0xF000</text>
+  <text class="addr" x="95" y="514" text-anchor="end">0xF800</text>
+  <text class="addr" x="95" y="573" text-anchor="end">0xFFFF</text>
 
-    <line x1="190" y1="536.9" x2="205" y2="536.9" class="guide"/>
-    <text x="210" y="535" class="label">bank window 2 KB</text>
-    <text x="210" y="550" class="small">0xF000-0xF7FF</text>
+  <rect class="blue-fill" x="100" y="110" width="130" height="350"/>
+  <text class="th blue-title" x="165" y="265" text-anchor="middle">M1 ROM (cart)</text>
+  <text class="ts blue-sub" x="165" y="285" text-anchor="middle">60 KB window</text>
+  <text class="ts blue-sub" x="165" y="301" text-anchor="middle">(128 KB cart total)</text>
+  <text class="ts blue-sub" x="165" y="319" text-anchor="middle">0x0000-0xEFFF</text>
+  <text class="ts blue-sub" x="165" y="335" text-anchor="middle">driver code + tables</text>
 
-    <line x1="190" y1="551" x2="205" y2="551" class="guide"/>
-    <text x="210" y="570" class="label">Z80 SRAM 2 KB (本体内)</text>
-    <text x="210" y="585" class="small">0xF800-0xFFFF / work RAM</text>
+  <rect class="gray-fill" x="100" y="460" width="130" height="50"/>
+  <text class="th gray-title" x="165" y="478" text-anchor="middle">bank window 2 KB</text>
+  <text class="ts gray-sub" x="165" y="496" text-anchor="middle">0xF000-0xF7FF</text>
 
-    <text x="80" y="584" class="chip">cart内 M1 ROM chip</text>
-  </g>
+  <rect class="coral-fill" x="100" y="510" width="130" height="60"/>
+  <text class="th coral-title" x="165" y="528" text-anchor="middle">Z80 SRAM 2 KB</text>
+  <text class="ts coral-sub" x="165" y="546" text-anchor="middle">0xF800-0xFFFF</text>
+  <text class="ts coral-sub" x="165" y="562" text-anchor="middle">本体内 work RAM</text>
 
-  <g id="sram-zoom">
-    <text x="455" y="88" class="label">SRAM zoom (2 KB = 2048 byte)</text>
-    <rect x="455" y="108" width="120" height="420" class="bar-border"/>
-    <rect x="455" y="108" width="120" height="3.28125" class="spacer"/>
-    <rect x="455" y="111.28125" width="120" height="3.28125" class="driver"/>
-    <rect x="455" y="114.5625" width="120" height="223.125" class="part"/>
-    <rect x="455" y="337.6875" width="120" height="189.90234" class="unused"/>
-    <rect x="455" y="527.58984" width="120" height="0.41016" class="bios"/>
-    <rect x="455" y="108" width="120" height="420" class="bar-border"/>
+  <line x1="230" y1="510" x2="420" y2="110" stroke="#3d3d3a" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
+  <line x1="230" y1="570" x2="420" y2="570" stroke="#3d3d3a" stroke-width="0.5" stroke-dasharray="3 3" opacity="0.4"/>
 
-    <line x1="575" y1="108" x2="590" y2="108" class="tick"/>
-    <line x1="575" y1="111.28125" x2="590" y2="111.28125" class="tick"/>
-    <line x1="575" y1="114.5625" x2="590" y2="114.5625" class="tick"/>
-    <line x1="575" y1="337.6875" x2="590" y2="337.6875" class="tick"/>
-    <line x1="575" y1="527.58984" x2="590" y2="527.58984" class="tick"/>
-    <line x1="575" y1="528" x2="590" y2="528" class="tick"/>
+  <rect class="gray-fill" x="420" y="110" width="130" height="35"/>
+  <text class="th gray-title" x="485" y="124" text-anchor="middle">reserved 16 B</text>
+  <text class="ts gray-sub" x="485" y="139" text-anchor="middle">0xF800-0xF80F</text>
 
-    <text x="598" y="113" class="addr">0xF800-0xF80F</text>
-    <text x="598" y="127" class="tiny">reserved 16 byte</text>
+  <rect class="coral-fill" x="420" y="145" width="130" height="50"/>
+  <text class="th coral-title" x="485" y="162" text-anchor="middle">driver state 16 B</text>
+  <text class="ts coral-sub" x="485" y="178" text-anchor="middle">tempo · fade · flag</text>
+  <text class="ts coral-sub" x="485" y="192" text-anchor="middle">0xF810-0xF81F</text>
 
-    <text x="598" y="153" class="addr">0xF810-0xF81F</text>
-    <text x="598" y="168" class="label">driver state 16 byte</text>
-    <text x="598" y="183" class="small">tempo / fade / song flag 等</text>
+  <rect class="coral-fill" x="420" y="195" width="130" height="175"/>
+  <text class="th coral-title" x="485" y="263" text-anchor="middle">part_workarea</text>
+  <text class="ts coral-sub" x="485" y="281" text-anchor="middle">1,088 B</text>
+  <text class="ts coral-sub" x="485" y="297" text-anchor="middle">17 part × 64 B</text>
+  <text class="ts coral-sub" x="485" y="313" text-anchor="middle">0xF820-0xFC5F</text>
 
-    <text x="598" y="235" class="addr">0xF820-0xFC5F</text>
-    <text x="598" y="253" class="label">part_workarea 1,088 byte</text>
-    <text x="598" y="270" class="small">17 part × 64 byte per-part state</text>
+  <rect class="gray-fill" x="420" y="370" width="130" height="165"/>
+  <text class="th gray-title" x="485" y="436" text-anchor="middle">未使用</text>
+  <text class="ts gray-sub" x="485" y="454" text-anchor="middle">926 B</text>
+  <text class="ts gray-sub" x="485" y="470" text-anchor="middle">0xFC60-0xFFFD</text>
+  <text class="ts gray-sub" x="485" y="486" text-anchor="middle">(予備領域)</text>
 
-    <text x="598" y="426" class="addr">0xFC60-0xFFFD</text>
-    <text x="598" y="444" class="label">未使用 926 byte</text>
-    <text x="598" y="461" class="small">予備領域</text>
-
-    <text x="598" y="510" class="addr">0xFFFE-0xFFFF</text>
-    <text x="598" y="525" class="label">SM1 BIOS 2 byte</text>
-    <text x="598" y="540" class="small">BIOS reserve</text>
-
-    <text x="455" y="584" class="chip">NEOGEO本体 SRAM chip</text>
-  </g>
-
-  <path d="M 190 543.9375 L 360 543.9375 L 430 108 L 455 108" class="connector"/>
-  <path d="M 190 558 L 360 558 L 430 528 L 455 528" class="connector"/>
-  <path d="M 430 108 L 430 528" class="connector"/>
-  <text x="313" y="534" class="small">0xF800-0xFFFF を拡大</text>
+  <rect class="gray-fill" x="420" y="535" width="130" height="35"/>
+  <text class="th gray-title" x="485" y="549" text-anchor="middle">SM1 BIOS 2 B</text>
+  <text class="ts gray-sub" x="485" y="564" text-anchor="middle">0xFFFE-0xFFFF</text>
 </svg>
