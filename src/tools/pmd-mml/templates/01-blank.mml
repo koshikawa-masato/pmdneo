@@ -1,0 +1,22 @@
+; PMDNEO templates/01-blank.mml -- 全 part empty + tempo + voice 1 種
+; user が note 入れる起点、 全 part に note 追記して試す
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+B t140 q6 o4 l4 @0
+C V0
+E V0
+F V0
+G V0 H V0 I V0
+J
+
+; user 編集ガイド:
+; - B/C/E/F: FM ch (= PAN B=L, C=R, E=L, F=R)
+; - G/H/I: SSG ch (= V0 で silent default)
+; - J: ADPCM-B
+; - L-Q: ADPCM-A drum kit
+; - 各 part 行末に note 追記 (= 例 「B t140 q6 o4 l4 @0 c d e f」)

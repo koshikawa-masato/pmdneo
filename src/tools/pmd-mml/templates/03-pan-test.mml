@@ -1,0 +1,18 @@
+; PMDNEO templates/03-pan-test.mml -- BCEF 各 1 note 順次 (= PAN 検証単音 fixture)
+; 各 ch 別個 1 note、 時間ずらしで AI L/R RMS 比較容易
+; ★ 注意: 現状 MAME -wavwrite は mono mix downmix 仕様、 wav L=R 完全一致
+; ★ PAN 検証は trace (= driver reg 0xB5/B6 書込) + 実機 MAME GUI speaker 聴感 で
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+; 各 part が 1 note を順次 (= 1 全休符 ずらし)、 同 c4 で PAN だけ違い
+B t140 q6 o4 l4 @0 c r1 r1 r1     ; 0-0.43 sec L only c4 (= ch2 PAN L)
+C t140 q6 o4 l4 @0 r1 c r1 r1     ; 1.7-2.1 sec R only c4 (= ch3 PAN R)
+E t140 q6 o4 l4 @0 r1 r1 c r1     ; 3.4-3.8 sec L only c4 (= ch5 PAN L)
+F t140 q6 o4 l4 @0 r1 r1 r1 c     ; 5.1-5.5 sec R only c4 (= ch6 PAN R)
+G V0 H V0 I V0
+J

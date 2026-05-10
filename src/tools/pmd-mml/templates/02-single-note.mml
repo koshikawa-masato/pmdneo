@@ -1,0 +1,21 @@
+; PMDNEO templates/02-single-note.mml -- 1 part 1 note (= AI 機械解析向け)
+; cmd 効果を 1 note 単発で検証、 倍音 / RMS / fnum 数値化容易
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+; B part 1 note のみ、 他全 silent
+B t140 q6 o4 l4 @0 c
+C V0
+E V0
+F V0
+G V0 H V0 I V0
+J
+
+; user 試行例:
+; B t140 q6 o4 l4 @0 D2 c        ; D detune +2 で c → d 期待
+; B t140 q6 o4 l4 @0 v8 c        ; volume v8 で c
+; B t140 q6 o4 l4 @0 c & c       ; tie (= 2 note 連結 = 1 keyon 2x 音長)

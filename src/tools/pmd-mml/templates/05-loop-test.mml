@@ -1,0 +1,26 @@
+; PMDNEO templates/05-loop-test.mml -- ループ動作検証 ([/] : L)
+; 各 part に異なる loop 構造、 keyon 数で動作確認
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+; B: 通常 [/]2 = 2 周 = 6 keyon (cdef × 2 ただし 4 note × 2 = 8、 簡略 c d e × 2 = 6)
+B t140 q6 o4 l4 @0 [ c d e ]2
+
+; C: : loop 脱出 = [c d : e]2 で 5 keyon (1 周目 c d e + 2 周目 c d、 e skip)
+C t140 q6 o4 l4 @0 [ c d : e ]2
+
+; E: L 全体 loop = c L cde で 1 周目 c L c d e、 以降 c d e 永久 loop (= 多数 keyon)
+E t140 q6 o4 l4 @0 c L c d e
+
+; F: silent
+F V0
+G V0 H V0 I V0
+J
+
+; user 試行ガイド:
+; - B vs C: 1 keyon 差 (= : で skip)
+; - E: 永久 loop (= driver_loop_cycle 観測可能)
