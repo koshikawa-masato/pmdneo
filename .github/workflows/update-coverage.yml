@@ -8,6 +8,7 @@ on:
       - 'pages/**'
       - 'scripts/update-coverage-stats.py'
       - '.github/workflows/update-coverage.yml'
+  workflow_dispatch:
 
 jobs:
   update:
