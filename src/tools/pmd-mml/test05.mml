@@ -1,0 +1,12 @@
+; PMDNEO test05.mml -- Phase 12a-5c macro expansion verify
+!short	c
+!chord	d e f g
+
+B	t140 q6 l4 !short
+C	t140 q6 l4 !short
+E	t140 q6 l4 !chord
+F	t140 q6 l4 !chord
+G	V0
+H	V0
+I	V0
+J

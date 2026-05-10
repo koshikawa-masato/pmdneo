@@ -331,9 +331,34 @@ class MMLCompiler:
 
 
 def parse_mml(source: str) -> list[tuple[str, list[int]]]:
-    parts: dict[str, list[int]] = {}
+    macros: dict[str, str] = {}
+    expanded_lines: list[tuple[int, str]] = []
     for line_no, raw_line in enumerate(source.splitlines(), 1):
+        stripped = raw_line.strip()
+        if stripped.startswith("!"):
+            m = re.match(r"^!(\w+)[ \t]+(.*)$", stripped)
+            if m:
+                name, body = m.group(1), m.group(2)
+                macros[name] = body
+            else:
+                print(f"warning: line {line_no}: malformed macro definition", file=sys.stderr)
+            continue
+        expanded_lines.append((line_no, raw_line))
+
+    parts: dict[str, list[int]] = {}
+    macro_pattern = None
+    if macros:
+        macro_names = sorted((re.escape(name) for name in macros), key=len, reverse=True)
+        macro_pattern = re.compile(r"!(" + "|".join(macro_names) + r")(?!\w)")
+
+    for line_no, raw_line in expanded_lines:
         line = re.split(r"[;#]", raw_line, maxsplit=1)[0].strip()
+        if macro_pattern is not None:
+            line = macro_pattern.sub(lambda m: macros[m.group(1)], line)
+        for unresolved in re.findall(r"!\w+", line):
+            uname = unresolved[1:]
+            if uname not in macros:
+                print(f"warning: line {line_no}: undefined macro {unresolved!r}", file=sys.stderr)
         if not line:
             continue
         part = line[0].upper()
