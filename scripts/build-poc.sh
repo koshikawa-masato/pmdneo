@@ -48,6 +48,10 @@ echo "=== src/driver/ の Z80 source を 00-template/ に symlink ==="
 cd "$TEMPLATE_DIR"
 for f in "$DRIVER_SRC"/*.s "$DRIVER_SRC"/*.inc; do
     base=$(basename "$f")
+    if [ "$base" = "standalone_test.s" ]; then
+        echo "  $base (kept local for generated song_data.inc include)"
+        continue
+    fi
     ln -sfn "../../../src/driver/$base" "$base"
     echo "  $base -> ../../../src/driver/$base"
 done
@@ -59,9 +63,14 @@ python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
     "sample_m_data"
 echo "  sample_m.s <- vendor/pmd48s/SAMPLE.M"
 
+echo "=== compile.py: MML → song_data.inc ==="
+python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
+    "${PMDNEO_ROOT}/src/tools/pmd-mml/test01.mml" \
+    -o "${TEMPLATE_DIR}/song_data.inc"
+
 echo
 echo "=== make poc ==="
-make poc
+make STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
 
 echo
 echo "=== build 完了 ==="

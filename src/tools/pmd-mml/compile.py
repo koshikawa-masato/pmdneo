@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Phase 12a-1 PMDNEO MML compiler."""
+"""Phase 12a-2 PMDNEO MML compiler."""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from pathlib import Path
 PART_LABELS = {
     chr(ord("A") + i): f"song_part_{chr(ord('a') + i)}" for i in range(17)
 }
+TARGET_PARTS = ("B", "C", "E", "F", "G", "H", "I", "J", "L", "M", "N", "O", "P", "Q")
+MAX_LOOP_DEPTH = 4
 
 NOTE_BASE = {
     "c": 0,
@@ -38,7 +40,18 @@ class MMLCompiler:
 
     def compile_part(self, mml: str, line_no: int) -> list[int]:
         out: list[int] = []
-        i = 0
+        self._compile_sequence(mml, 0, line_no, out, 0)
+        out.append(0x80)
+        return out
+
+    def _compile_sequence(
+        self,
+        mml: str,
+        i: int,
+        line_no: int,
+        out: list[int],
+        loop_depth: int,
+    ) -> int:
         while i < len(mml):
             ch = mml[i]
             if ch.isspace():
@@ -68,16 +81,25 @@ class MMLCompiler:
             elif ch == "r":
                 i = self._compile_rest(mml, i, line_no, out)
             elif ch == "[":
+                if loop_depth >= MAX_LOOP_DEPTH:
+                    self.error(line_no, i, f"loop nesting exceeds {MAX_LOOP_DEPTH} levels")
+                    i += 1
+                    continue
                 out.append(0xF9)
-                i += 1
+                i = self._compile_sequence(mml, i + 1, line_no, out, loop_depth + 1)
             elif ch == "]":
-                i = self._compile_loop_end(mml, i, line_no, out)
+                if loop_depth == 0:
+                    self.error(line_no, i, "unmatched ']'")
+                    i += 1
+                    continue
+                return self._compile_loop_end(mml, i, line_no, out)
             else:
                 self.warn(line_no, i, f"unknown command {ch!r}; skipped")
                 i += 1
 
-        out.append(0x80)
-        return out
+        if loop_depth:
+            self.error(line_no, len(mml), "missing ']' for loop")
+        return i
 
     def _compile_number_command(
         self,
@@ -171,8 +193,7 @@ class MMLCompiler:
         start = i
         count, i = self._read_int(mml, i + 1)
         if count is None:
-            self.error(line_no, start, "missing loop count after ']'")
-            return start + 1
+            count = 0
         if not 0 <= count <= 0xFF:
             self.error(line_no, start, f"loop count {count} out of byte range")
             count &= 0xFF
@@ -204,18 +225,18 @@ class MMLCompiler:
 
 
 def parse_mml(source: str) -> list[tuple[str, list[int]]]:
-    parts: list[tuple[str, list[int]]] = []
+    parts: dict[str, list[int]] = {}
     for line_no, raw_line in enumerate(source.splitlines(), 1):
         line = raw_line.split(";", 1)[0].strip()
         if not line:
             continue
         part = line[0].upper()
-        if part not in PART_LABELS:
+        if part not in TARGET_PARTS:
             print(f"error: line {line_no}, position 1: invalid part letter {line[0]!r}", file=sys.stderr)
             continue
         compiler = MMLCompiler()
-        parts.append((PART_LABELS[part], compiler.compile_part(line[1:], line_no)))
-    return parts
+        parts[part] = compiler.compile_part(line[1:], line_no)
+    return [(PART_LABELS[part], parts.get(part, [0x80])) for part in TARGET_PARTS]
 
 
 def format_inc(parts: list[tuple[str, list[int]]], input_path: Path) -> str:
@@ -235,7 +256,7 @@ def format_inc(parts: list[tuple[str, list[int]]], input_path: Path) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-1 MML to .inc bytes")
+    parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-2 MML to .inc bytes")
     parser.add_argument("input_mml", type=Path)
     parser.add_argument("-o", "--output", type=Path)
     args = parser.parse_args(argv)

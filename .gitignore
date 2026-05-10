@@ -106,6 +106,7 @@ vendor/ngdevkit-examples/00-template/PMDNEO.s
 vendor/ngdevkit-examples/00-template/standalone_test.s
 vendor/ngdevkit-examples/00-template/*.inc
 vendor/ngdevkit-examples/00-template/sample_m.s
+vendor/ngdevkit-examples/00-template/song_data.inc
 
 # 改造 MAME (= vendor/mame-fork、 ymfm + z80 trace harness、 約 1.5 GB)
 # git track せず neo-sisters/vendor/mame-fork から copy で setup する流儀。
