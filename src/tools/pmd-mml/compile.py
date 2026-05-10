@@ -72,6 +72,17 @@ class MMLCompiler:
                     i = self._compile_q_modifier(mml, i, line_no, out)
                 else:
                     i = self._compile_number_command(mml, i, line_no, out, 0xFE)
+            elif ch == "D":
+                if i + 1 < len(mml) and mml[i + 1] == "D":
+                    i = self._compile_signed_arg(mml, i, line_no, out, 0xD5, prefix_len=2)
+                else:
+                    i = self._compile_signed_arg(mml, i, line_no, out, 0xFA, prefix_len=1)
+            elif ch == "L":
+                out.append(0xF6)
+                i += 1
+            elif ch == "&":
+                out.append(0xFB)
+                i += 1
             elif ch == "l":
                 i = self._set_default_length(mml, i, line_no)
             elif ch == "o":
@@ -190,6 +201,33 @@ class MMLCompiler:
             value &= 0xFF
         out.extend([command_byte, value])
         return next_i
+
+    def _compile_signed_arg(
+        self,
+        mml: str,
+        i: int,
+        line_no: int,
+        out: list[int],
+        command_byte: int,
+        prefix_len: int,
+    ) -> int:
+        j = i + prefix_len
+        while j < len(mml) and mml[j].isspace():
+            j += 1
+        sign = 1
+        if j < len(mml) and mml[j] in "+-":
+            sign = -1 if mml[j] == "-" else 1
+            j += 1
+        value, j = self._read_int(mml, j)
+        if value is None:
+            self.error(line_no, i, f"missing number after {mml[i:i + prefix_len]!r}")
+            return i + prefix_len
+        value *= sign
+        if not -128 <= value <= 127:
+            self.error(line_no, i, f"signed value {value} out of int8 range")
+            value &= 0xFF
+        out.extend([command_byte, value & 0xFF])
+        return j
 
     def _set_default_length(self, mml: str, i: int, line_no: int) -> int:
         start = i

@@ -1,0 +1,8 @@
+; PMDNEO test04.mml -- Phase 12a-5b: D / DD / L / & each-1-cmd verify
+; user requested BCEF each plays once with one effect, SSG mute.
+B t140 q6 l4 D2 c        ; D effect: D2 = +2 semitone (C -> D, 1 keyon)
+C t140 q6 l4 DD-3 c      ; DD effect: DD-3 = SHIFT cumulative -3 (C -> A3, 1 keyon)
+E t140 q6 l4 c L c       ; L effect: 1st cycle "c c" then "c" loops forever
+F t140 q6 l4 c & c       ; & effect: tie 2 notes -> 1 keyon (2x duration)
+G V0 H V0 I V0
+J

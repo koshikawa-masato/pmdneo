@@ -55,6 +55,8 @@
         .equ    PART_OFF_CHIP_TYPE,      25   ;; 0=FM, 1=SSG, 2=PCM/ADPCM
         .equ    PART_OFF_VOLUME_SHIFT,   26   ;; signed v+/v- shift applied to V level
         .equ    PART_OFF_V_SCALE,        27   ;; signed v)/v( scale before v->V convert
+        .equ    PART_OFF_LOOPSTART,      28   ;; L global loop marker address lo-byte
+        .equ    PART_OFF_LOOPSTART_HI,   29   ;; L global loop marker address hi-byte
         .equ    PART_OFF_LOOPSTACK_BASE, 32
         .equ    PART_OFF_LOOPDEPTH,      48
         .equ    PART_OFF_HOOK_KEYON,     49    ;; 2 bytes
@@ -1229,11 +1231,12 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ;; mode 5 (= MML byte parser) では nmi_cmd_5 内で voice setup が skip されてた、
         ;; FM keyon 出るが TL = 0x7F mute で audible にならない真因 (= 2026-05-10)。
         call    init_chip_ch2_voice
-        ;; Phase 9R R-5b: SSG 3 ch audible setup (= reg 0x07 = 0x38 tone enable + vol 0x0F)
-        ;; mode 4 経由なら nmi_cmd_2_play_song_mode4 で init_ssg_voice 呼ばれるが、
-        ;; mode 5 では SSG silence init (= reg 0x07 = 0x3F all disable + vol 0x00) のまま、
-        ;; SSG 3 part init 復活 (= R-5b) 時の audible 化に必要。
-        call    init_ssg_voice
+        ;; Phase 12a-5b cleanup: 旧 SSG audible setup (= reg 0x07=0x38 tone enable
+        ;; + vol 0x0F max) は撤去。 driver init 段階では SSG mute 維持 (= reg 0x07=0x3F
+        ;; all disable + vol 0x00、 init で既設定済) で、 V cmd / V+/V- 等で必要時に
+        ;; psg_volume_hook 経由で audible 化する設計。 user 「SSG ミュートに」 要望
+        ;; (= 2026-05-10) で test04 audio gate 反映、 init audible で V0 反映までの
+        ;; 数十 IRQ tick で SSG 残音する真因を解消。
         ;; Phase 9R R-5b 補足: FM PAN 分離 (= user 要望、 BC=Left, EF=Right)
         ;; ch2 (B) = port A reg 0xB5、 ch3 (C) = port A reg 0xB6
         ;; ch5 (E) = port B reg 0xB5、 ch6 (F) = port B reg 0xB6
@@ -1621,6 +1624,11 @@ pmdneo_part_main:
         dec     a
         ld      PART_OFF_LEN(ix), a
         ret     nz
+        ld      l, PART_OFF_ADDR(ix)
+        ld      h, PART_OFF_ADDR+1(ix)
+        ld      a, (hl)
+        cp      #0xFB
+        ret     z
         call    pmdneo_part_call_keyoff_hook
         ret
 
@@ -1635,6 +1643,7 @@ pmdneo_part_main_parse:
         jp      pmdneo_part_main_parse
 
 pmdneo_part_main_note:
+        call    pmdneo_part_apply_shift
         ld      PART_OFF_NOTE(ix), a
         call    pmdneo_part_fetch_byte
         call    pmdneo_scale_mml_length
@@ -1688,6 +1697,13 @@ pmdneo_part_main_note_set_len:
 pmdneo_part_main_note_no_gate:
         ld      PART_OFF_LEN(ix), b
 pmdneo_part_main_note_dispatch:
+        ld      a, PART_OFF_TIEFLAG(ix)
+        or      a
+        jr      z, pmdneo_part_main_note_keyon
+        xor     a
+        ld      PART_OFF_TIEFLAG(ix), a
+        ret
+pmdneo_part_main_note_keyon:
         ld      a, PART_OFF_NOTE(ix)
         call    pmdneo_part_call_fnumset_hook
         ld      a, PART_OFF_NOTE(ix)
@@ -1701,6 +1717,15 @@ pmdneo_part_main_rest:
         ret
 
 pmdneo_part_main_loop:
+        ld      a, PART_OFF_LOOPSTART(ix)
+        or      PART_OFF_LOOPSTART_HI(ix)
+        jp      z, pmdneo_part_main_loop_legacy
+        ld      a, PART_OFF_LOOPSTART(ix)
+        ld      PART_OFF_ADDR(ix), a
+        ld      a, PART_OFF_LOOPSTART_HI(ix)
+        ld      PART_OFF_ADDR+1(ix), a
+        jp      pmdneo_part_main_parse
+pmdneo_part_main_loop_legacy:
         ld      a, PART_OFF_LOOP(ix)
         or      PART_OFF_LOOP+1(ix)
         jp      z, pmdneo_part_main_clear
@@ -1714,6 +1739,56 @@ pmdneo_part_main_clear:
         xor     a
         ld      PART_OFF_ADDR(ix), a
         ld      PART_OFF_ADDR+1(ix), a
+        ret
+
+pmdneo_part_apply_shift:
+        ld      b, a
+        ld      a, PART_OFF_SHIFT(ix)
+        or      a
+        jr      z, pmdneo_part_apply_shift_none
+        jp      p, pmdneo_part_apply_shift_positive
+        neg
+        ld      c, a
+        ld      a, b
+pmdneo_part_apply_shift_negative_loop:
+        cp      #0x40
+        jr      z, pmdneo_part_apply_shift_min
+        dec     a
+        ld      b, a
+        and     #0x0F
+        cp      #0x0F
+        ld      a, b
+        jr      nz, pmdneo_part_apply_shift_negative_next
+        sub     #4
+pmdneo_part_apply_shift_negative_next:
+        dec     c
+        jr      nz, pmdneo_part_apply_shift_negative_loop
+        ret
+pmdneo_part_apply_shift_min:
+        ld      a, #0x40
+        ret
+pmdneo_part_apply_shift_positive:
+        ld      c, a
+        ld      a, b
+pmdneo_part_apply_shift_positive_loop:
+        cp      #0x7B
+        jr      nc, pmdneo_part_apply_shift_max
+        inc     a
+        ld      b, a
+        and     #0x0F
+        cp      #0x0C
+        ld      a, b
+        jr      nz, pmdneo_part_apply_shift_positive_next
+        add     a, #4
+pmdneo_part_apply_shift_positive_next:
+        dec     c
+        jr      nz, pmdneo_part_apply_shift_positive_loop
+        ret
+pmdneo_part_apply_shift_max:
+        ld      a, #0x7B
+        ret
+pmdneo_part_apply_shift_none:
+        ld      a, b
         ret
 
 pmdneo_part_call_keyon_hook:
@@ -2011,6 +2086,14 @@ commandsp:
         jp      z, commandsp_stloop
         cp      #0xF8
         jp      z, commandsp_edloop
+        cp      #0xFA
+        jp      z, comd
+        cp      #0xD5
+        jp      z, comdd
+        cp      #0xF6
+        jp      z, comlopset
+        cp      #0xFB
+        jp      z, comtie
         call    pmdneo_part_fetch_byte
         ret
 commandsp_t:
@@ -2070,6 +2153,35 @@ comq3:
 comq4:
         call    pmdneo_part_fetch_byte
         ld      PART_OFF_QDAT3(ix), a
+        ret
+
+comd:
+        ;; D <signed_byte> -- set PART_OFF_SHIFT = arg
+        call    pmdneo_part_fetch_byte
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comdd:
+        ;; DD <signed_byte> -- add arg to PART_OFF_SHIFT
+        call    pmdneo_part_fetch_byte
+        ld      b, a
+        ld      a, PART_OFF_SHIFT(ix)
+        add     a, b
+        ld      PART_OFF_SHIFT(ix), a
+        ret
+
+comlopset:
+        ;; L -- store current fetch address into PART_OFF_LOOPSTART
+        ld      a, PART_OFF_ADDR(ix)
+        ld      PART_OFF_LOOPSTART(ix), a
+        ld      a, PART_OFF_ADDR+1(ix)
+        ld      PART_OFF_LOOPSTART_HI(ix), a
+        ret
+
+comtie:
+        ;; & -- set PART_OFF_TIEFLAG = 1
+        ld      a, #1
+        ld      PART_OFF_TIEFLAG(ix), a
         ret
 
 fnumsetp_ch:

@@ -46,6 +46,10 @@ cmdtblp に entry 不在の cmd は PMDNEO 独自 byte code を選択、 本 ADR
 | 0xF3 | ( (volume down 1 回) | comvoldown | §5-5 | ✓ Phase 9c |
 | 0xF9 | [ (loop start) | comstloop | §3-2 | ✓ Phase 5b |
 | 0xF8 | ] (loop end) | comedloop | §3-2 | ✓ Phase 5b |
+| 0xFA | D (detune set)         | comd       | §7-1 | ✓ Phase 12a-5b |
+| 0xD5 | DD (detune add)        | comdd      | §7-2 | ✓ Phase 12a-5b |
+| 0xF6 | L (global loop marker) | comlopset  | §8-3 | ✓ Phase 12a-5b |
+| 0xFB | & (tie)                | comtie     | §3-4 | ✓ Phase 12a-5b |
 
 ### PMDNEO 独自割当 (= 原則 2)
 
@@ -63,10 +67,7 @@ cmdtblp に entry 不在の cmd は PMDNEO 独自 byte code を選択、 本 ADR
 
 | byte | cmd | routine | PMD MML §| 後続 phase |
 |------|-----|---------|----------|----------|
-| 0xFB | & (tie) | comtie | §3-2 | Phase 11+ |
-| 0xFA | D (detune) | comd | §6-2 | Phase 12+ |
 | 0xF7 | : (exit loop) | comexloop | §3-2 | Phase 11+ |
-| 0xF6 | L (loop set) | comlopset | §3-2 | Phase 11+ |
 | 0xF5 | _ (transpose) | comshift | §6-3 | Phase 11+ |
 | 0xF2 | M (LFO) | lfoset | §9 | Phase 12+ |
 | 0xF1 | * (LFO switch) | lfoswitch | §9 | Phase 12+ |
