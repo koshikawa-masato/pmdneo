@@ -297,6 +297,57 @@ ADPCM-B register は port B 0x10-0x1F として設計上整理する。
 実装時は YM2610 register 定義に従い、port と address の組を source comment に明記する。
 chip helper は status polling に依存しない固定 wait を基本にする。
 実機差異を避けるためである。
+
+#### 8.x Phase 9R 後 update note (= 2026-05-10、 ADR-0002 反映)
+
+本 8 章は self-contained 化 spike 当時の design note。 develop branch (= aebc545
+以降、 ADR-0002 dispatch 共通化 refactor 完了) では以下が確定:
+
+**8.x.1 FNUM 書込順 = upper → lower (= 真因 4)**
+
+line 291 の「下位、 上位の順 (= spec 仕様)」 は MAME ymfm 実装下では **逆順** で
+動作する。 標準実装は **upper (0xA4+ch) → lower (0xA0+ch)** の順。
+- 根拠: 2026-05-09 user 「出鱈目音階 + 7 音」 audio 解析で確証
+- 実装: standalone_test.s `fnumset_fm` (= line 582 周辺)
+- ADR-0008 候補 (= 後続 起票) で正式記録予定
+
+**8.x.2 dispatch architecture (= ADR-0002 反映)**
+
+per-chip 4 main routine (= fmmain / pmdneo_psgmain / adpcmb_main / adpcma_main)
+を共通 `pmdneo_part_main` + per-part hook table 経由に refactor 済。 詳細は:
+- ADR: `docs/adr/0002-dispatch-unification-refactor.md`
+- 設計書: `docs/design/dispatch_unification.md`
+- 公開報告書: https://koshikawa-masato.github.io/pmdneo/
+
+per-part SRAM 64 byte に hook fn pointer 4 個 (= keyon/keyoff/fnumset/volumeset)
+を保持、 chip 別差分は hook 内で吸収。
+
+**8.x.3 cmd byte code 規約 (= ADR-0003 反映)**
+
+PMD MML cmd の byte code 割当は ADR-0003 で規約化:
+- PMD V4.8s 本家 cmdtblp 流儀踏襲 (= 既 entry あり cmd は同 byte)
+- cmdtblp 未定義 cmd は PMDNEO 独自 byte 割当 (= V/v+/v-/v)/v( 等の §5 cmd 群、
+  Phase 9c で 8 cmd 一括実装済)
+
+**8.x.4 chip 別 hook 実装状況 (= 2026-05-10)**
+
+| chip | hook 種別 | 実装 |
+|------|----------|------|
+| FM | keyon/keyoff/fnumset/volumeset | ✓ Phase 9R + 9c |
+| SSG | keyon/keyoff/fnumset/volumeset | ✓ Phase 9R + 9c |
+| ADPCM-B | keyon/keyoff/volumeset | ✓ Phase 9R + 9c (= fnumset = noop) |
+| ADPCM-A | keyon/keyoff/volumeset | ✓ Phase 9R + 9c (= fnumset = noop、 keyoff = noop) |
+
+全 chip vol 動的制御可能 (= V cmd で silent / 復活)。
+
+**8.x.5 残課題 (= 後続 phase)**
+
+- ALG 7 全 op carrier の release tail 残響 (= keyoff 後の音漏れ感、 voice setting
+  改善で抑制可能、 Phase 12 楽曲制作時に追加対応)
+- F3 soft reset で SRAM/chip 残留 (= memory `project_pmdneo_soft_reset_residual.md`、
+  Phase 12+ で hardening)
+- compile.py (= MML 文字列 → byte stream emit) は別 sprint で起票予定 (= Phase 9d)
+
 ---
 ### 9. 既存コード流用 / 書き換え inventory (シンボルレベル表)
 | nullsound シンボル | PMDNEO 内の使用箇所数 | 置換方針 |
