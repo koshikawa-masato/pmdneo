@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600" role="img" aria-labelledby="title desc">
+  <title id="title">dispatch 共通化前の 5 fork dispatch</title>
+  <desc id="desc">IRQ と sub-tick gating から pmdneo_song_main へ入り、5 本の分岐で各 chip routine へ進む構造。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#2c3440"/>
+    </marker>
+    <style>
+      .bg { fill: #fbfcff; }
+      .box { fill: #fff; stroke: #2d3440; stroke-width: 1.6; rx: 10; }
+      .gate { fill: #eef3f9; stroke: #475569; stroke-width: 1.5; rx: 10; }
+      .main { fill: #f6f0ff; stroke: #5941a9; stroke-width: 2; rx: 12; }
+      .fm { fill: #e4f1ff; stroke: #1f78d1; }
+      .ssg { fill: #e4f7ec; stroke: #258a53; }
+      .adpcmb { fill: #fff1df; stroke: #c46b18; }
+      .adpcma { fill: #ffe9ec; stroke: #c93f4d; }
+      .rhythm { fill: #edf0f4; stroke: #64748b; }
+      .stage { fill: rgba(255,255,255,0.72); stroke-width: 1; }
+      .line { stroke: #2c3440; stroke-width: 1.8; fill: none; marker-end: url(#arrow); }
+      .fmline { stroke: #1f78d1; }
+      .ssgline { stroke: #258a53; }
+      .bline { stroke: #c46b18; }
+      .aline { stroke: #c93f4d; }
+      .gline { stroke: #64748b; }
+      text { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; fill: #1c2430; }
+      .h { font-weight: 800; font-size: 18px; }
+      .m { font-weight: 700; font-size: 14px; }
+      .s { font-size: 12px; }
+      .xs { font-size: 11px; fill: #475569; }
+    </style>
+  </defs>
+  <rect class="bg" width="800" height="600"/>
+  <text x="40" y="38" class="h">図 1: 共通化前 dispatch</text>
+  <rect x="270" y="58" width="260" height="48" class="gate"/>
+  <text x="400" y="82" text-anchor="middle" class="m">IRQ + sub-tick gating</text>
+  <text x="400" y="99" text-anchor="middle" class="xs">tick 間引き後に song main 実行</text>
+  <path d="M400 106 L400 132" class="line"/>
+  <rect x="250" y="132" width="300" height="62" class="main"/>
+  <text x="400" y="158" text-anchor="middle" class="h">pmdneo_song_main</text>
+  <text x="400" y="178" text-anchor="middle" class="s">part 種別で 5 fork dispatch</text>
+
+  <path d="M315 194 C190 220 125 245 118 282" class="line fmline"/>
+  <path d="M360 194 C270 226 250 246 252 282" class="line ssgline"/>
+  <path d="M400 194 L400 282" class="line bline"/>
+  <path d="M440 194 C530 226 550 246 548 282" class="line aline"/>
+  <path d="M485 194 C610 220 675 245 682 282" class="line gline"/>
+
+  <rect x="32" y="282" width="160" height="238" class="box fm"/>
+  <text x="112" y="306" text-anchor="middle" class="m">fmmain</text>
+  <text x="112" y="324" text-anchor="middle" class="xs">FM 4 part</text>
+  <rect x="52" y="346" width="120" height="31" class="stage fm"/>
+  <text x="112" y="366" text-anchor="middle" class="s">LEN check</text>
+  <rect x="52" y="388" width="120" height="31" class="stage fm"/>
+  <text x="112" y="408" text-anchor="middle" class="s">parse</text>
+  <rect x="52" y="430" width="120" height="56" class="stage fm"/>
+  <text x="112" y="453" text-anchor="middle" class="s">note / loop</text>
+  <text x="112" y="470" text-anchor="middle" class="s">cmd dispatch</text>
+
+  <rect x="224" y="282" width="160" height="238" class="box ssg"/>
+  <text x="304" y="306" text-anchor="middle" class="m">pmdneo_psgmain</text>
+  <text x="304" y="324" text-anchor="middle" class="xs">SSG 3 part</text>
+  <rect x="244" y="346" width="120" height="31" class="stage ssg"/>
+  <text x="304" y="366" text-anchor="middle" class="s">LEN check</text>
+  <rect x="244" y="388" width="120" height="31" class="stage ssg"/>
+  <text x="304" y="408" text-anchor="middle" class="s">parse</text>
+  <rect x="244" y="430" width="120" height="56" class="stage ssg"/>
+  <text x="304" y="453" text-anchor="middle" class="s">note / loop</text>
+  <text x="304" y="470" text-anchor="middle" class="s">cmd dispatch</text>
+
+  <rect x="416" y="282" width="160" height="238" class="box adpcmb"/>
+  <text x="496" y="306" text-anchor="middle" class="m">adpcmb_main</text>
+  <text x="496" y="324" text-anchor="middle" class="xs">ADPCM-B 1 part</text>
+  <rect x="436" y="346" width="120" height="31" class="stage adpcmb"/>
+  <text x="496" y="366" text-anchor="middle" class="s">LEN check</text>
+  <rect x="436" y="388" width="120" height="31" class="stage adpcmb"/>
+  <text x="496" y="408" text-anchor="middle" class="s">parse</text>
+  <rect x="436" y="430" width="120" height="56" class="stage adpcmb"/>
+  <text x="496" y="453" text-anchor="middle" class="s">note / loop</text>
+  <text x="496" y="470" text-anchor="middle" class="s">cmd dispatch</text>
+
+  <rect x="608" y="282" width="160" height="238" class="box adpcma"/>
+  <text x="688" y="306" text-anchor="middle" class="m">adpcma_main</text>
+  <text x="688" y="324" text-anchor="middle" class="xs">ADPCM-A 6 part</text>
+  <rect x="628" y="346" width="120" height="31" class="stage adpcma"/>
+  <text x="688" y="366" text-anchor="middle" class="s">LEN check</text>
+  <rect x="628" y="388" width="120" height="31" class="stage adpcma"/>
+  <text x="688" y="408" text-anchor="middle" class="s">parse</text>
+  <rect x="628" y="430" width="120" height="56" class="stage adpcma"/>
+  <text x="688" y="453" text-anchor="middle" class="s">note / loop</text>
+  <text x="688" y="470" text-anchor="middle" class="s">cmd dispatch</text>
+
+  <rect x="320" y="534" width="160" height="40" class="box rhythm"/>
+  <text x="400" y="559" text-anchor="middle" class="m">rhythm_main</text>
+  <path d="M682 520 C612 552 548 557 480 554" class="line gline"/>
+  <path d="M112 520 C210 546 266 552 320 554" class="line gline"/>
+
+  <path d="M190 535 L610 535" stroke="#7b8794" stroke-width="2" stroke-dasharray="8 7"/>
+  <text x="400" y="528" text-anchor="middle" class="s" fill="#5d6775">4 chip routine は同型処理を重複実装</text>
+</svg>

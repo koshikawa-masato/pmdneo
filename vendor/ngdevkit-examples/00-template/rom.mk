@@ -50,5 +50,6 @@ VROM1=$(ROM)/243-v1.v1
 VROM2=$(ROM)/243-v2.v2
 VROM3=$(ROM)/243-v3.v3
 VROM4=$(ROM)/243-v4.v4
+# lastbld2 expects the 243-v*.v* V ROM names; vromtool expands X to 1..4.
 # define variable VROMTEMPLATE to use vromtool to build VROMs
 VROMTEMPLATE=$(ROM)/243-vX.vX

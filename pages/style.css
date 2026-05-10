@@ -1,0 +1,532 @@
+:root {
+  color-scheme: light;
+  --background: #fefefe;
+  --text: #2c3338;
+  --accent: #0066cc;
+  --border: #e0e0e0;
+  --stripe: #f5f5f5;
+  --code-bg: #f0f0f0;
+  --muted: #6b7280;
+  --positive: #15803d;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  /* user 要望 (= 2026-05-10): ブラウザ表示時の文字サイズ拡大、 全体 150% scale。
+     既存 px 指定の font-size + padding + margin を一括拡大するため、 root の
+     font-size を 24px (= 150%) に設定。 ただし body の font-size: 24px を
+     1.5em 相当 (= 24px) に書換、 既存 h1/h2/h3 の px 値も rebalance。 */
+  font-size: 24px;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Yu Gothic", "Noto Sans JP", sans-serif;
+  font-size: 24px;
+  line-height: 1.75;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 3px;
+}
+
+.page {
+  max-width: 1710px;
+  margin: 0 auto;
+  padding: 64px;
+  font-size: 24px;
+}
+
+.cover {
+  margin-bottom: 72px;
+}
+
+.eyebrow {
+  margin: 0 0 21px;
+  color: var(--muted);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 19px;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+ol,
+ul,
+figure,
+pre {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 30px;
+  font-size: 54px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  margin: 54px 0 48px;
+  padding-top: 60px;
+  border-top: 1px solid var(--border);
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+h3 {
+  margin: 42px 0 18px;
+  font-size: 27px;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+p {
+  margin-bottom: 27px;
+}
+
+strong {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+code,
+pre {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+}
+
+code {
+  padding: 0.08em 0.28em;
+  border-radius: 4px;
+  background: var(--code-bg);
+  font-size: 0.9em;
+}
+
+pre {
+  overflow-x: auto;
+  margin: 24px 0;
+  padding: 24px;
+  border-left: 4px solid var(--accent);
+  background: var(--code-bg);
+  font-size: 21px;
+  line-height: 1.6;
+}
+
+pre code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+.subtitle {
+  margin-bottom: 24px;
+  font-size: 27px;
+  line-height: 1.6;
+}
+
+.lead,
+.section-summary {
+  margin-bottom: 30px;
+  color: var(--text);
+}
+
+.key-numbers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 30px;
+  margin: 51px 0 0;
+}
+
+.metric {
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.metric dt {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 19px;
+  line-height: 1.5;
+}
+
+.metric dd {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.toc {
+  margin-bottom: 108px;
+  padding: 42px 0 45px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.toc h2 {
+  margin: 0 0 30px;
+  padding: 0;
+  border: 0;
+  font-size: 27px;
+}
+
+.toc ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 15px 42px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: toc;
+}
+
+.toc li {
+  counter-increment: toc;
+}
+
+.toc a {
+  display: grid;
+  grid-template-columns: 3ch 1fr;
+  gap: 15px;
+  align-items: baseline;
+}
+
+.toc a::before {
+  content: counter(toc, decimal-leading-zero) ".";
+  color: var(--accent);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 19px;
+}
+
+main {
+  display: block;
+}
+
+section {
+  margin: 0 0 114px;
+}
+
+section:last-child {
+  margin-bottom: 64px;
+}
+
+.chapter-number {
+  display: inline-block;
+  min-width: 3.2ch;
+  color: var(--accent);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.82em;
+  font-weight: 600;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  margin: 24px 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 22px;
+}
+
+thead th {
+  padding: 18px;
+  border-bottom: 3px solid var(--border);
+  background: #fafafa;
+  font-weight: 600;
+  text-align: left;
+  vertical-align: bottom;
+}
+
+tbody td {
+  padding: 18px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr:nth-child(even) {
+  background: var(--stripe);
+}
+
+.numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diff-positive {
+  color: var(--positive);
+  font-weight: 600;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.diff-neutral {
+  color: var(--muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+ul,
+ol {
+  margin-bottom: 30px;
+  padding-left: 1.3rem;
+}
+
+li + li {
+  margin-top: 12px;
+}
+
+figure {
+  display: block;
+  max-width: 100%;
+  margin: 48px auto;
+}
+
+figure img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  border: 1px solid var(--border);
+  background: #fff;
+}
+
+figcaption {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 21px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.figure-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 48px;
+  margin-top: 45px;
+}
+
+.figure-grid figure {
+  margin: 0;
+}
+
+.figure-grid figure img,
+.figure-grid figure svg {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+.tag {
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.88em;
+  font-weight: 600;
+}
+
+.timeline-list {
+  display: grid;
+  gap: 27px;
+  margin: 42px 0 0;
+  border-left: 1px solid var(--border);
+}
+
+.timeline-entry {
+  position: relative;
+  padding: 0 0 30px 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeline-entry::before {
+  content: "";
+  position: absolute;
+  top: 0.45em;
+  left: -6px;
+  width: 10px;
+  height: 10px;
+  background: var(--accent);
+}
+
+.timeline-entry time {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-family: "SF Mono", Menlo, Consolas, monospace;
+  font-size: 19px;
+}
+
+.timeline-entry h3 {
+  margin: 0 0 9px;
+}
+
+.timeline-entry p {
+  margin-bottom: 0;
+}
+
+.commit-hash {
+  margin-bottom: 12px;
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 42px;
+  margin: 39px 0 24px;
+}
+
+.note-box {
+  padding-top: 27px;
+  border-top: 1px solid var(--border);
+}
+
+.note-box h3 {
+  margin-top: 0;
+}
+
+.small {
+  color: var(--muted);
+  font-size: 21px;
+}
+
+.badge-done,
+.badge-partial,
+.badge-pmdaes,
+.badge-todo,
+.badge-out {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.8em;
+  font-weight: bold;
+}
+
+.badge-done {
+  background: #27ae60;
+  color: #fff;
+}
+
+.badge-partial {
+  background: #f1c40f;
+  color: #000;
+}
+
+.badge-pmdaes {
+  background: #e67e22;
+  color: #fff;
+}
+
+.badge-todo {
+  background: #95a5a6;
+  color: #fff;
+}
+
+.badge-out {
+  background: #e74c3c;
+  color: #fff;
+}
+
+.callout {
+  margin: 24px 0;
+  padding: 27px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+footer {
+  padding: 42px 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 21px;
+}
+
+footer p {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1152px) {
+  body {
+    font-size: 22px;
+  }
+
+  .page {
+    max-width: none;
+    padding: 24px;
+  }
+
+  .cover {
+    margin-bottom: 57px;
+  }
+
+  h1 {
+    font-size: 45px;
+    line-height: 1.32;
+  }
+
+  h2 {
+    margin-top: 48px;
+    padding-top: 51px;
+    font-size: 31px;
+  }
+
+  h3 {
+    font-size: 25px;
+  }
+
+  .subtitle {
+    font-size: 24px;
+  }
+
+  .key-numbers,
+  .toc ol,
+  .figure-grid,
+  .note-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .toc {
+    margin-bottom: 84px;
+  }
+
+  section {
+    margin-bottom: 64px;
+  }
+
+  .table-wrap {
+    display: block;
+    overflow-x: auto;
+  }
+
+  table {
+    display: block;
+    overflow-x: auto;
+    min-width: 1020px;
+    font-size: 21px;
+  }
+
+  thead th,
+  tbody td {
+    padding: 15px;
+  }
+}

@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PMDNEO PMDMML コマンド実装進捗</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .progress-list {
+      display: grid;
+      gap: 24px;
+      margin: 36px 0;
+    }
+
+    .progress-item {
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .progress-track {
+      height: 24px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: var(--stripe);
+    }
+
+    .progress-bar {
+      height: 100%;
+      background: var(--accent);
+    }
+
+    .progress-bar.develop {
+      background: #27ae60;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="cover" id="cover">
+      <p class="eyebrow">PMDNEO / PMDMML coverage / 2026-05-10</p>
+      <h1>PMDNEO PMDMML コマンド実装進捗</h1>
+      <p class="subtitle">main (df4e7b6) vs develop (aebc545) 比較</p>
+      <p class="lead">neo-sisters Issue #109 の PMDMML 142 command base table を基準に、PMDNEO の main lineage と develop lineage の到達点を整理した。</p>
+      <div class="key-numbers" aria-label="Coverage key numbers">
+        <dl class="metric">
+          <dt>基準 command table</dt>
+          <dd><strong>142</strong> commands</dd>
+        </dl>
+        <dl class="metric">
+          <dt>main estimate</dt>
+          <dd><strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142</strong></dd>
+        </dl>
+        <dl class="metric">
+          <dt>develop complete</dt>
+          <dd><strong><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> / 142</strong></dd>
+        </dl>
+      </div>
+    </header>
+
+    <nav class="toc" aria-labelledby="toc-title">
+      <h2 id="toc-title">目次</h2>
+      <ol>
+        <li><a href="#overview">概要</a></li>
+        <li><a href="#summary">進捗サマリ</a></li>
+        <li><a href="#commands">§1 基本事項 - §16 マクロ・その他</a></li>
+        <li><a href="#pmdneo-specific">PMDNEO 独自実装</a></li>
+        <li><a href="#plan">後続実装 plan</a></li>
+        <li><a href="#legend">凡例</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="overview">
+        <h2><span class="chapter-number">01.</span> 概要</h2>
+        <p class="section-summary">このページは PMDMML 142 command base table を実装進捗の基準にする。基準表は neo-sisters Issue #109 にあり、詳細な coverage markdown は neo-sisters 側の knowledge document として管理されている。</p>
+        <p>PMDNEO には parallel lineage が 2 系統ある。<strong>main</strong> は nullsound-based driver を起点に PMD / PMDAES 系の command support を拡張してきた lineage、<strong>develop</strong> は standalone scratch driver として共通 dispatch、hook table、14 part 並行 dispatch を組み直している lineage である。</p>
+        <ul>
+          <li><a href="https://github.com/koshikawa-masato/neo-sisters/issues/109">neo-sisters Issue #109</a></li>
+          <li><a href="https://github.com/koshikawa-masato/neo-sisters/blob/develop/docs/knowledge/pmd/pmdmml-coverage.md">pmdmml-coverage.md</a></li>
+          <li><a href="index.html">Back to PMDNEO Phase 9R report</a></li>
+        </ul>
+      </section>
+
+      <section id="summary">
+        <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
+        <p class="section-summary">main は commit <code>df4e7b6</code> の <code>PMD_Z80.inc</code>、develop は現在の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。PMDMML 142 commands 中、main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、develop は <strong><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> commands</strong> である。</p>
+        <div class="progress-list" aria-label="PMDMML command implementation progress">
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>main (df4e7b6)</span>
+              <span><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142 約 <!-- AUTO_MAIN_PERCENT -->18<!-- /AUTO_MAIN_PERCENT -->%</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <!-- AUTO_MAIN_BAR_STYLE --><div class="progress-bar" style="width: 18%"></div><!-- /AUTO_MAIN_BAR_STYLE -->
+            </div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>develop (aebc545)</span>
+              <span><!-- AUTO_DEVELOP_COUNT -->11<!-- /AUTO_DEVELOP_COUNT --> / 142 約 <!-- AUTO_DEVELOP_PERCENT -->8<!-- /AUTO_DEVELOP_PERCENT -->%</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <!-- AUTO_DEVELOP_BAR_STYLE --><div class="progress-bar develop" style="width: 8%"></div><!-- /AUTO_DEVELOP_BAR_STYLE -->
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="commands">
+        <h2><span class="chapter-number">03.</span> Command tables by §</h2>
+        <p class="section-summary">以下は Issue #109 の 142 command base table から、現在の sprint 判断に必要な代表 command を §1-§16 で抜粋したもの。develop の未実装行は memo に実装容易性を併記する。</p>
+
+        <h3 id="sec-1">§1 基本事項</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§1-1</td><td><code>#</code></td><td>comment</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>compile.py Phase 9c</td><td>コメント。容易性: ◎容易</td></tr>
+              <tr><td>§1-2</td><td><code>/</code></td><td>part separator</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9d</td><td>パート区切り。容易性: ◎容易</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-2">§2 テンポ・リズム</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
+              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。容易性: △中</td></tr>
+              <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。容易性: ×難</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-3">§3 音符・休符</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
+              <tr><td>§3-2</td><td><code>r</code></td><td>休符</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>休符</td></tr>
+              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。容易性: ◎容易</td></tr>
+              <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>タイ。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-4">§4 音量</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§4-1</td><td><code>v</code></td><td><code>v0-15</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comv</span></td><td><span class="badge-done">✓ comv</span></td><td>完了</td><td>音量</td></tr>
+              <tr><td>§4-2</td><td><code>(</code></td><td>音量UP</td><td>FM/SSG</td><td><span class="badge-done">✓ comvolupp/comvolup</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量増。容易性: ◎容易</td></tr>
+              <tr><td>§4-3</td><td><code>)</code></td><td>音量DOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ comvoldownp/comvoldown</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量減。容易性: ◎容易</td></tr>
+              <tr><td>§4-4</td><td><code>V</code></td><td><code>V0-127</code></td><td>FM/SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張音量。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-5">§5 オクターブ</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§5-1</td><td><code>o</code></td><td><code>o1-8</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>オクターブ指定</td></tr>
+              <tr><td>§5-2</td><td><code>&gt;</code></td><td>オクターブUP</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>オクターブ上。容易性: ◎容易</td></tr>
+              <tr><td>§5-3</td><td><code>&lt;</code></td><td>オクターブDOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>オクターブ下。容易性: ◎容易</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-6">§6 音色</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>FM音色指定。容易性: △中</td></tr>
+              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。容易性: △中</td></tr>
+              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。容易性: ×難</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-7">§7 デチューン</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§7-1</td><td><code>D</code></td><td><code>D±value</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comd</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デチューン。容易性: △中</td></tr>
+              <tr><td>§7-2</td><td><code>DD</code></td><td><code>DD±value</code></td><td>FM</td><td><span class="badge-done">✓ comdd</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>ダブルデチューン。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-8">§8 ループ</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§8-1</td><td><code>[</code></td><td>ループ開始</td><td>-</td><td><span class="badge-done">✓ comstloop</span></td><td><span class="badge-done">✓ comstloop</span></td><td>完了</td><td>ループ開始</td></tr>
+              <tr><td>§8-2</td><td><code>]</code></td><td>ループ終了</td><td>-</td><td><span class="badge-done">✓ comedloop</span></td><td><span class="badge-done">✓ comedloop</span></td><td>完了</td><td>ループ終了</td></tr>
+              <tr><td>§8-3</td><td><code>L</code></td><td>全体ループ</td><td>-</td><td><span class="badge-done">✓ comexloop</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>無限ループ。容易性: ◎容易</td></tr>
+              <tr><td>§8-4</td><td><code>:</code></td><td>ループ脱出</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>最終回スキップ。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-9">§9 エンベロープ・LFO</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM LFO。容易性: ×難</td></tr>
+              <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSG LFO。容易性: ×難</td></tr>
+              <tr><td>§9-3</td><td><code>MA</code></td><td><code>MA速度,深さ</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>振幅 LFO。容易性: ×難</td></tr>
+              <tr><td>§9-4</td><td><code>MF</code></td><td><code>MF速度,深さ</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ピッチ LFO。容易性: ×難</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-10">§10 ゲート</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§10-1</td><td><code>q</code></td><td><code>q1-8</code></td><td>-</td><td><span class="badge-done">✓ comq</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>ゲート比率。容易性: △中</td></tr>
+              <tr><td>§10-2</td><td><code>Q</code></td><td><code>Q0-8</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>絶対ゲート。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-11">§11 SSG 専用</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§11-1</td><td><code>SE</code></td><td>SSG envelope</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSGエンベロープ。容易性: ×難</td></tr>
+              <tr><td>§11-2</td><td><code>SN</code></td><td>SSG noise freq</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSGノイズ。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-12">§12 ADPCM-A (K/R)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§12-1</td><td><code>K</code></td><td>ADPCM-A rhythm ch</td><td>K</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCMリズム K ch。容易性: △中</td></tr>
+              <tr><td>§12-2</td><td><code>R</code></td><td>ADPCM-A rhythm ch</td><td>R</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCMリズム R ch。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-13">§13 ADPCM-B (J)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§13-1</td><td><code>J</code></td><td>ADPCM-B</td><td>J ch</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCM-B ch。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-14">§14 特殊コマンド</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。容易性: ×難</td></tr>
+              <tr><td>§14-2</td><td><code>|</code></td><td>shift/transpose</td><td>-</td><td><span class="badge-done">✓ comshift</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>転調。容易性: ◎容易</td></tr>
+              <tr><td>§14-3</td><td><code>_</code></td><td>vol shift</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量シフト。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-15">§15 フェード</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§15-1</td><td><code>FI</code></td><td>fade in</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>フェードイン。容易性: △中</td></tr>
+              <tr><td>§15-2</td><td><code>FO</code></td><td>fade out</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>フェードアウト。容易性: △中</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="sec-16">§16 マクロ・その他</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>main status</th><th>develop status</th><th>後続 sprint</th><th>memo</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。容易性: ×難</td></tr>
+              <tr><td>§16-2</td><td><code>,</code></td><td>コンマ区切り</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>パラメータ区切り</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="pmdneo-specific">
+        <h2><span class="chapter-number">04.</span> PMDNEO 独自実装</h2>
+        <p class="section-summary">以下は PMDMML 142 command base table の枠外にある PMDNEO 固有の driver / tooling 実装である。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>機能</th><th>説明</th><th>状態</th><th>対象 lineage</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>pmdneo_part_main</code> 共通 dispatch ルーチン</td><td>per-chip 4 ルーチンを統合</td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ develop</span></td><td>develop</td></tr>
+              <tr><td>chip 別 hook table 12個 + <code>noop_hook</code></td><td><code>keyon</code> / <code>keyoff</code> / <code>fnumset</code> / <code>volumeset</code></td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ develop</span></td><td>develop</td></tr>
+              <tr><td>nest LOOP 可視化</td><td><code>scripts/analyze-loop-trace.py</code> + MAME trace 経由</td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ develop</span></td><td>develop</td></tr>
+              <tr><td>14 part 並行 dispatch</td><td>FM4 + SSG3 + ADPCM-B1 + ADPCM-A6</td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ develop</span></td><td>develop</td></tr>
+              <tr><td>K/R rhythm engine</td><td>cmd <code>0x0B</code> + <code>.rhy</code> binary emit</td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ main</span></td><td>main</td></tr>
+              <tr><td>ADPCM-A driver</td><td><code>ADPCMA_DRV.inc</code></td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ main</span></td><td>main</td></tr>
+              <tr><td>ADPCM-B driver</td><td><code>ADPCMB_DRV.inc</code></td><td><span class="badge-pmdaes">⚠ PMDNEO独自</span> <span class="badge-done">✓ main</span></td><td>main</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="plan">
+        <h2><span class="chapter-number">05.</span> 後続実装 plan</h2>
+        <p class="section-summary">develop lineage は common dispatch の上に PMDMML command support を積み戻す。compile.py 側の入力互換と driver 側の runtime command を分けて進める。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Phase</th><th>内容</th><th>対象</th><th>目標</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Phase 9a</td><td>gate q/Q、タイ &amp;、ループ脱出 <code>:</code>、オクターブ <code>&lt;</code> <code>&gt;</code>、デフォルト音長 <code>l</code>、転調 <code>|</code></td><td>develop</td><td>次 sprint</td></tr>
+              <tr><td>Phase 9b</td><td>音量 <code>(</code>/<code>)</code>、フェード FI/FO、音量シフト <code>_</code></td><td>develop</td><td>次 sprint</td></tr>
+              <tr><td>Phase 9c</td><td><code>compile.py</code> コメント対応</td><td>compile.py</td><td>次 sprint</td></tr>
+              <tr><td>Phase 9d</td><td><code>compile.py</code> パート区切り <code>/</code></td><td>compile.py</td><td>次 sprint</td></tr>
+              <tr><td>Phase 10</td><td>SubF-1.2 fixture + audio gate</td><td>develop</td><td>次々 sprint</td></tr>
+              <tr><td>Phase 11</td><td>ADR + 設計書 + retrospective + main 解凍</td><td>docs</td><td>後続</td></tr>
+              <tr><td>Phase 12</td><td>楽曲制作 + 牡丹</td><td>assets</td><td>リリース前</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="legend">
+        <h2><span class="chapter-number">06.</span> 凡例</h2>
+        <p class="section-summary">status badge は command coverage の大まかな状態を示す。develop の ✗ 未実装 entry では、sprint planning 用に実装容易性を memo に付けている。</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>表示</th><th>意味</th><th>補足</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><span class="badge-done">✓ 完全実装</span></td><td>完全実装</td><td>現 lineage で command path が成立している</td></tr>
+              <tr><td><span class="badge-partial">△ 部分実装</span></td><td>部分実装</td><td>構文、音源種別、edge case、または compile path の一部が未到達</td></tr>
+              <tr><td><span class="badge-pmdaes">⚠ PMDAES/PMDNEO独自</span></td><td>PMDAES/PMDNEO独自</td><td>PMDMML 142 command base table 枠外</td></tr>
+              <tr><td><span class="badge-todo">✗ 未実装</span></td><td>未実装</td><td>後続 sprint の candidate</td></tr>
+              <tr><td><span class="badge-out">⛔ scope外</span></td><td>scope外</td><td>現 sprint または PMDNEO target から外す項目</td></tr>
+              <tr><td>実装容易性</td><td>◎容易 / △中 / ×難</td><td>develop ✗ entries の実装見積り</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-10 develop b02b67e<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
+      <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
+    </footer>
+  </div>
+</body>
+</html>

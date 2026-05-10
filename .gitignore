@@ -103,5 +103,13 @@ vendor/ngdevkit-examples/*/config.mk
 
 # 00-template/ に scripts/build-poc.sh で生成される symlink (src/driver/ への参照)
 vendor/ngdevkit-examples/00-template/PMDNEO.s
+vendor/ngdevkit-examples/00-template/standalone_test.s
 vendor/ngdevkit-examples/00-template/*.inc
 vendor/ngdevkit-examples/00-template/sample_m.s
+
+# 改造 MAME (= vendor/mame-fork、 ymfm + z80 trace harness、 約 1.5 GB)
+# git track せず neo-sisters/vendor/mame-fork から copy で setup する流儀。
+# 改造内容: 3rdparty/ymfm/src/ymfm_opn.cpp + src/devices/cpu/z80/z80.cpp
+# (= YMFM_TRACE / Z80_MEM_TRACE 環境変数で TSV 出力)、 setup 手順は後続 sprint で
+# docs/setup/mame-fork-setup.md として起票予定
+vendor/mame-fork/

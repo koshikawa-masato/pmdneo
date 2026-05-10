@@ -1,3 +1,33 @@
+# This file holds references to all the ADPCM samples
+# that are used in this example ROM.
+# It is processed by vromtool.py to assign a position
+# to all samples in the VROM, and generate a series of
+# ASM defines to export offsets to the sound driver.
+#
+# Each entry is either a 'adpcm_a' or 'adpcm_b', and
+# it must include a name and a uri field.
+# uri can either be:
+#   file://XXX to reference a file on disk
+#   data:;base64,XXX to inline ADPCM data
+#
+- adpcm_a:
+    name: bd
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_BD.adpcma
+- adpcm_a:
+    name: sd
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_SD.adpcma
+- adpcm_a:
+    name: hh
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_HH.adpcma
+- adpcm_a:
+    name: rim
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_RIM.adpcma
+- adpcm_a:
+    name: tom
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_TOM.adpcma
+- adpcm_a:
+    name: top
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/sounds/adpcma/2608_TOP.adpcma
 - adpcm_b:
     name: beat
-    uri: file://assets/beat.wav
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/vendor/ngdevkit-examples/00-template/assets/beat.wav

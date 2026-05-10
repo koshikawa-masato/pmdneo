@@ -38,21 +38,79 @@ int main(void) {
   ng_center_text(14, 0, "ROM build flow check");
   ng_center_text(17, 0, "(C) M.Koshikawa.");
 
-  // SubB-3: PMDNEO driver 起動経路 (06-sound-adpcma 流儀踏襲)
-  // 1) cmd 3 = reset_driver (NMI 経由で driver init を発火、 nullsound 慣習)
-  // 2) cmd 2 = play_song (= test_play_c4)
-  *REG_SOUND = 3;
-  // Z80 側の reset/NMI 完了と mainloop 再開を待ってから次 command を送る。
-  ng_wait_vblank();
-  ng_wait_vblank();
-  // SubE-1: cmd 5 (ADPCM-B beat、 即 ret) を cmd 2 より先に発火する。
-  // cmd 2 は polling loop に入って driver が新 cmd を受け付けないため、
-  // ADPCM-B は cmd 2 の前に dispatch しないと無音になる。
-  *REG_SOUND = 5;
-  ng_wait_vblank();
-  *REG_SOUND = 2;
+  // Phase 10 fixture selector (= PMDNEO_FIXTURE 環境変数で切替):
+  //   0 = baseline (= 既 cmd 5 → 16 sec wait → cmd 6 fade default speed 16)
+  //   1 = fade fast  (= cmd 5 → 4 sec → cmd 7 + speed 4 → cmd 6、 約 0.25 sec fade)
+  //   2 = fade slow  (= cmd 5 → 4 sec → cmd 7 + speed 64 → cmd 6、 約 4 sec fade)
+  //   3 = fade test  (= cmd 5 → 4 sec → cmd 7 + speed 255 → cmd 6、 約 16 sec fade)
+  // 既存 cmd 6/7 protocol: cmd 7 で modal flag set → arg byte → cmd 6 で trigger
+#ifndef PMDNEO_FIXTURE
+#define PMDNEO_FIXTURE 0
+#endif
 
-  // ngdevkit のデフォルト VBlank handler が watchdog を rearm する
+  *REG_SOUND = 3;
+  ng_wait_vblank();
+  ng_wait_vblank();
+  *REG_SOUND = 5;     /* MML song start */
+
+  u8 last_cycle = 0;
+#if PMDNEO_FIXTURE == 0
+  ng_center_text(8, 0, "PMDNEO PHASE 10");
+  ng_center_text(10, 0, "FIXTURE 0 BASELINE");
+#elif PMDNEO_FIXTURE == 1
+  ng_center_text(8, 0, "PMDNEO PHASE 10");
+  ng_center_text(10, 0, "FIXTURE 1 FADE FAST");
+#elif PMDNEO_FIXTURE == 2
+  ng_center_text(8, 0, "PMDNEO PHASE 10");
+  ng_center_text(10, 0, "FIXTURE 2 FADE SLOW");
+#elif PMDNEO_FIXTURE == 3
+  ng_center_text(8, 0, "PMDNEO PHASE 10");
+  ng_center_text(10, 0, "FIXTURE 3 FADE LONG");
+#endif
+  ng_center_text(12, 0, "LOOP CYCLE: 00");
+
+#if PMDNEO_FIXTURE == 0
+  // baseline: 16 sec wait + default fade
+  int wait_vblanks = 960;
+  u8 fade_speed = 16;
+#elif PMDNEO_FIXTURE == 1
+  int wait_vblanks = 240;  /* 4 sec */
+  u8 fade_speed = 4;
+#elif PMDNEO_FIXTURE == 2
+  int wait_vblanks = 240;
+  u8 fade_speed = 64;
+#elif PMDNEO_FIXTURE == 3
+  int wait_vblanks = 240;
+  u8 fade_speed = 255;
+#endif
+
+  for (int i = 0; i < wait_vblanks; i++) {
+    ng_wait_vblank();
+    u8 cur_cycle = *REG_SOUND;
+    if (cur_cycle != last_cycle) {
+      last_cycle = cur_cycle;
+      char buf[16];
+      buf[0] = 'L'; buf[1] = 'O'; buf[2] = 'O'; buf[3] = 'P'; buf[4] = ' ';
+      buf[5] = 'C'; buf[6] = 'Y'; buf[7] = 'C'; buf[8] = 'L'; buf[9] = 'E';
+      buf[10] = ':'; buf[11] = ' ';
+      buf[12] = '0' + (cur_cycle / 10);
+      buf[13] = '0' + (cur_cycle % 10);
+      buf[14] = '\0';
+      ng_center_text(12, 0, buf);
+    }
+  }
+
+  /* Fade trigger (= speed param protocol、 cmd 7 → arg byte → cmd 6) */
+  ng_center_text(14, 0, "FADE OUT...");
+#if PMDNEO_FIXTURE != 0
+  *REG_SOUND = 7;          /* set_fade_speed cmd (modal flag set) */
+  ng_wait_vblank();
+  *REG_SOUND = fade_speed; /* speed value */
+  ng_wait_vblank();
+#endif
+  *REG_SOUND = 6;          /* fade trigger */
+  ng_wait_vblank();
+
   for(;;) {}
   return 0;
 }
