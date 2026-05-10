@@ -1,0 +1,45 @@
+name: Update PMDMML Coverage
+
+on:
+  push:
+    branches:
+      - develop
+    paths-ignore:
+      - 'pages/**'
+      - 'scripts/update-coverage-stats.py'
+      - '.github/workflows/update-coverage.yml'
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Update coverage stats
+        run: python scripts/update-coverage-stats.py
+
+      - name: Push result to gh-pages
+        run: |
+          cp pages/pmdmml-coverage.html /tmp/pmdmml-coverage.html
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin gh-pages:gh-pages
+          git checkout gh-pages
+          cp /tmp/pmdmml-coverage.html ./pmdmml-coverage.html
+          if git diff --quiet pmdmml-coverage.html; then
+            echo 'No changes'
+            exit 0
+          fi
+          git add pmdmml-coverage.html
+          git commit -m 'chore(pages): auto-update PMDMML coverage stats (develop ${{ github.sha }} 反映)'
+          git push origin gh-pages
