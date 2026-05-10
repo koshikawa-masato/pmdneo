@@ -1,0 +1,8 @@
+; PMDNEO test03.mml — Phase 12a-5a new cmd verify
+; (compile.py unit byte verify only, driver runtime test is separate phase)
+
+# this is a # comment, should be skipped to end of line
+B t140 q2 8 q3 4 q4 2 cccccccc
+C t140 v+5 v-3 cccccccc
+E t140 v)4 v(2 cccccccc
+F t140 (3 )2 cccccccc

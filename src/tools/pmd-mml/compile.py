@@ -61,11 +61,17 @@ class MMLCompiler:
             if ch == "t":
                 i = self._compile_number_command(mml, i, line_no, out, 0xFC, self._tempo)
             elif ch == "v":
-                i = self._compile_number_command(mml, i, line_no, out, 0xFD)
+                if i + 1 < len(mml) and mml[i + 1] in "+-)(":
+                    i = self._compile_v_modifier(mml, i, line_no, out)
+                else:
+                    i = self._compile_number_command(mml, i, line_no, out, 0xFD)
             elif ch == "V":
                 i = self._compile_number_command(mml, i, line_no, out, 0xCC)
             elif ch == "q":
-                i = self._compile_number_command(mml, i, line_no, out, 0xFE)
+                if i + 1 < len(mml) and mml[i + 1] in "234":
+                    i = self._compile_q_modifier(mml, i, line_no, out)
+                else:
+                    i = self._compile_number_command(mml, i, line_no, out, 0xFE)
             elif ch == "l":
                 i = self._set_default_length(mml, i, line_no)
             elif ch == "o":
@@ -80,6 +86,10 @@ class MMLCompiler:
                 i = self._compile_note(mml, i, line_no, out)
             elif ch == "r":
                 i = self._compile_rest(mml, i, line_no, out)
+            elif ch == "(":
+                i = self._compile_paren(mml, i, line_no, out, 0xF3)
+            elif ch == ")":
+                i = self._compile_paren(mml, i, line_no, out, 0xF4)
             elif ch == "[":
                 if loop_depth >= MAX_LOOP_DEPTH:
                     self.error(line_no, i, f"loop nesting exceeds {MAX_LOOP_DEPTH} levels")
@@ -122,6 +132,64 @@ class MMLCompiler:
             value &= 0xFF
         out.extend([command_byte, value])
         return i
+
+    def _compile_v_modifier(self, mml: str, i: int, line_no: int, out: list[int]) -> int:
+        command_bytes = {
+            "+": 0xDE,
+            "-": 0xDD,
+            ")": 0xDB,
+            "(": 0xDA,
+        }
+        modifier = mml[i + 1]
+        return self._compile_required_arg(mml, i, i + 2, line_no, out, command_bytes[modifier])
+
+    def _compile_q_modifier(self, mml: str, i: int, line_no: int, out: list[int]) -> int:
+        command_bytes = {
+            "2": 0xC4,
+            "3": 0xB3,
+            "4": 0xB1,
+        }
+        modifier = mml[i + 1]
+        return self._compile_required_arg(mml, i, i + 2, line_no, out, command_bytes[modifier])
+
+    def _compile_paren(
+        self,
+        mml: str,
+        i: int,
+        line_no: int,
+        out: list[int],
+        command_byte: int,
+    ) -> int:
+        value, next_i = self._read_int(mml, i + 1)
+        if value is None:
+            value = 1
+            next_i = i + 1
+        if not 0 <= value <= 0xFF:
+            self.error(line_no, i, f"value {value} out of byte range")
+            value &= 0xFF
+        out.extend([command_byte, value])
+        return next_i
+
+    def _compile_required_arg(
+        self,
+        mml: str,
+        command_i: int,
+        arg_i: int,
+        line_no: int,
+        out: list[int],
+        command_byte: int,
+    ) -> int:
+        while arg_i < len(mml) and mml[arg_i].isspace():
+            arg_i += 1
+        value, next_i = self._read_int(mml, arg_i)
+        if value is None:
+            self.error(line_no, command_i, f"missing number after {mml[command_i:arg_i]!r}")
+            return arg_i
+        if not 0 <= value <= 0xFF:
+            self.error(line_no, command_i, f"value {value} out of byte range")
+            value &= 0xFF
+        out.extend([command_byte, value])
+        return next_i
 
     def _set_default_length(self, mml: str, i: int, line_no: int) -> int:
         start = i
@@ -227,7 +295,7 @@ class MMLCompiler:
 def parse_mml(source: str) -> list[tuple[str, list[int]]]:
     parts: dict[str, list[int]] = {}
     for line_no, raw_line in enumerate(source.splitlines(), 1):
-        line = raw_line.split(";", 1)[0].strip()
+        line = re.split(r"[;#]", raw_line, maxsplit=1)[0].strip()
         if not line:
             continue
         part = line[0].upper()
