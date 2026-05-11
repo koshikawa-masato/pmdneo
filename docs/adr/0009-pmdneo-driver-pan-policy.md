@@ -1,9 +1,13 @@
 # ADR-0009: PMDNEO driver PAN 規律 (= 識別用分離撤廃 + 全 ch Center 初期化 + 将来動的制御)
 
-- 状態: Accepted
+- 状態: Accepted (= ADR-0014 カテゴリ C で凍結扱い、 改造 PMDDotNET 路線では PMD.ASM 流用で自動解決)
 - 起票日: 2026-05-11
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0001 (= FM ch1/ch4 no use policy)、 ADR-0006 (= MML 文法 + chip target)、 memory `feedback_pmddotnet_mml_authoring_rules.md`
+
+> **※ ADR-0014 カテゴリ C で凍結扱い (2026-05-11 追記)**
+>
+> ADR-0013 で「改造 PMDDotNET driver」 路線へ切替後、 本 ADR の driver PAN ハードコード Center 化は ADR-0014 で凍結対象。 PMD V4.8s 公式 driver は元から PAN 制御 (= `p` cmd / register 書込) を実装しているため、 本路線では PMD.ASM 流用で自動解決される見込み。
 
 ## 背景
 

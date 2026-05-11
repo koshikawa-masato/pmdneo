@@ -1,9 +1,13 @@
 # ADR-0010: PMDNEO driver A/D voice 初期化漏れ修正 + MAME chip emulation 制約の整理 (= ym2610b mode の FM 6 ch voice setup 拡張 / MAME 検証は別 sprint)
 
-- 状態: Accepted
+- 状態: Accepted (= ADR-0014 カテゴリ C で凍結扱い、 改造 PMDDotNET 路線では PMD.ASM 流用で自動解決)
 - 起票日: 2026-05-11
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0001 (= FM ch1/ch4 no use policy 旧方針)、 ADR-0006 §B (= chip target / A/D 発音規約)、 ADR-0009 (= PAN 規律、 A/D silent 真因 PAN 否定 → 別 sprint)
+
+> **※ ADR-0014 カテゴリ C で凍結扱い (2026-05-11 追記)**
+>
+> ADR-0013 で「改造 PMDDotNET driver」 路線へ切替後、 本 ADR の A/D voice init + MAME chip mismatch 整理は ADR-0014 で凍結対象。 PMD V4.8s 公式 driver (= PMD.ASM) は元から OPNA 6 ch FM voice setup を全 ch 実装しているため、 本路線では PMD.ASM の OPNB 拡張で自動解決される見込み。 MAME chip mismatch 制約 (= YM2610 vs YM2610B) は本路線でも継続課題、 別 sprint で対応。
 
 ## 背景
 

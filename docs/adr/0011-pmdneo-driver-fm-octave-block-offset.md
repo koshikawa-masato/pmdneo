@@ -1,9 +1,13 @@
 # ADR-0011: PMDNEO driver FM octave +1 shift 修正 (= block = MML octave - 1 で PMD V4.8s 規約整合)
 
-- 状態: Accepted
+- 状態: Accepted (= ADR-0014 カテゴリ C で凍結扱い、 改造 PMDDotNET 路線では PMD.ASM 流用で自動整合)
 - 起票日: 2026-05-11
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0006 §A (= PMDNEO MML 文法、 PMDDotNET 互換)、 ADR-0009 §D (= octave +1 shift 観察)、 ADR-0010 (= A/D voice fix、 trace で数値固定)、 memory `project_pmd_voice_ml_verified.md` (= 「PMD o5 c = MIDI C4 = 261 Hz」 実機確証)
+
+> **※ ADR-0014 カテゴリ C で凍結扱い (2026-05-11 追記)**
+>
+> ADR-0013 で「改造 PMDDotNET driver」 路線へ切替後、 本 ADR の FM octave + 1 shift 修正 (= fnumset_fm の dec a) は ADR-0014 で凍結対象。 PMD V4.8s 公式 driver は PMD V4.8s 規約「o5 c = MIDI C4 = 261 Hz」 を元から正しく実装しているため、 本路線では PMD.ASM 流用で自動整合される見込み。
 
 ## 背景
 

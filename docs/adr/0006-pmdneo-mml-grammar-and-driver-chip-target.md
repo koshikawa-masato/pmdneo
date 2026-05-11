@@ -1,9 +1,20 @@
 # ADR-0006: PMDNEO compile.py 文法 + driver target chip 切替 規約 (= AES+ YM2610B 想定 + ADR-0001 (C) 方針継承)
 
-- 状態: Accepted
+- 状態: Accepted (= ADR-0013 で路線変更、 ADR-0014 で本路線は再評価対象 / カテゴリ別判断)
 - 起票日: 2026-05-11
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0001 (= FM ch1/ch4 no use policy)、 ADR-0005 (= 音色検証 local DB)、 memory `project_voice_db_design_agreed.md`、 memory `project_next_session_kickoff.md`、 memory `reference_opna_opnb_chip_comparison.md`
+
+> **※ ADR-0013 で本路線は再評価対象化、 ADR-0014 でカテゴリ別判断 (2026-05-11 追記)**
+>
+> ADR-0013 で「同 .M 2 経路比較 路線」 への切替を決定 (= PMDDotNET 改造 + 同一 MD5 .M で 2 経路再生)、 本 ADR の「PMDNEO 自前 compile.py + 自前 driver」 路線は再評価対象化。 ADR-0014 で個別判断:
+> - compile.py 拡張 (= §A/B/C/H) → カテゴリ B 凍結
+> - 自前 driver (= §2) → カテゴリ C 凍結
+> - marker 動的選定 (= §3) → カテゴリ A 再利用
+> - build infra (= §4) → カテゴリ D 部分再利用
+> - 検証 sprint (= §5 段階 1/2) → カテゴリ A 再利用、 ただし取得済 data/ 配下 blob (= 28 entry × 2 wav + mat、 runs.jsonl) は本路線では意味を失う
+>
+> PMDPPZ 流儀発見 (= PMD V4.8s 公式 driver の条件 assemble 構造、 ADR-0014 追記) により、 自前 driver 路線そのものが戦略誤判断だったことが判明。
 
 ## 背景
 

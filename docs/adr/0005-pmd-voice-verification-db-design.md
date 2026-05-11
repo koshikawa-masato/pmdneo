@@ -1,9 +1,13 @@
 # ADR-0005: PMD 音色検証 local DB 設計 (= PMDDotNET reference vs PMDNEO MAME 録音 合致率評価)
 
-- 状態: Accepted
+- 状態: Accepted (= ADR-0013 で §H 評価基準訂正、 ADR-0014 で比較ツール部分は再利用)
 - 起票日: 2026-05-11
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: memory `project_pmd_template_complete.md` (= TEMPLATE-Bscale)、 memory `project_pmd_voice_tl_verified.md` ほか voice 検証 6 件、 memory `feedback_mml_redesign_when_unobservable.md`
+
+> **※ ADR-0013 で §H 評価基準訂正、 ADR-0014 で部分再利用 (2026-05-11 追記)**
+>
+> ADR-0013 D3 で §H の「PMDDotNET 録音『正』、 PMDNEO 自前 driver via MAME 録音」 を「同一 .mml から改造 PMDDotNETConsole で生成した同一 .M を 2 経路で再生して比較」 に訂正。 比較ツール (= measure.py / migrate_existing.py / MAME headless 録音 mode) は ADR-0014 カテゴリ A で **再利用扱い**、 改造 PMDDotNET driver の検証経路にそのまま流用予定。
 
 ## 背景
 
