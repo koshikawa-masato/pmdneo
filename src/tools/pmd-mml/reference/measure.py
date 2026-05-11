@@ -228,6 +228,53 @@ def render_pmdplay(m_path: Path, duration_sec: float, work_dir: Path) -> Path:
     return out_wav
 
 
+# ---- PMDNEO MAME 経路 (= ADR-0006 §5 検証) ----
+
+MAME_TRACE_DIR = Path('/tmp/pmdneo-trace')
+
+
+def render_mame(injected_mml_path: Path, duration_sec: float, target_chip: str, work_dir: Path) -> Path:
+    """PMDNEO driver で ROM build + MAME headless 録音、 wav path 返す
+
+    build-poc.sh が MML_INPUTS env で absolute path を受け入れる仕様 (= scripts/build-poc.sh:96-100) を使う。
+    出力 wav は /tmp/pmdneo-trace/audio.wav に書かれる。
+    """
+    wav_seconds = max(8, int(duration_sec) + 3)
+    env = os.environ.copy()
+    env['MML_INPUTS'] = str(injected_mml_path)
+    env['PMDNEO_CHIP'] = target_chip
+    # --gamerom lastbld2 = ADR-0010 sprint で確立した PMDNEO 正規 gamerom (引継書 §1.D)
+    result = subprocess.run(
+        [
+            'bash', str(PROJECT_ROOT / 'scripts' / 'run-mame.sh'),
+            '--build', '--headless', '--wavwrite',
+            '--wavwrite-seconds', str(wav_seconds),
+            '--chip', target_chip,
+            '--gamerom', 'lastbld2',
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        cwd=str(PROJECT_ROOT),
+        timeout=240,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f'run-mame.sh failed: rc={result.returncode}\n'
+            f'stdout tail:\n{result.stdout[-800:]}\n'
+            f'stderr tail:\n{result.stderr[-800:]}'
+        )
+    src_wav = MAME_TRACE_DIR / 'audio.wav'
+    if not src_wav.exists():
+        raise RuntimeError(
+            f'MAME wav not produced: {src_wav}\n'
+            f'stdout tail:\n{result.stdout[-800:]}'
+        )
+    out_wav = work_dir / f'{injected_mml_path.stem}__mame.wav'
+    shutil.copyfile(src_wav, out_wav)
+    return out_wav
+
+
 # ---- 解析 ----
 
 def detect_marker_peak(L: np.ndarray, sr: int, search_ms: int = 300) -> int:
@@ -415,6 +462,11 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
     # 1. marker 注入 (= ADR-0006 §F dynamic host)
     injected_bytes = inject_marker(original_mml_bytes, target_chip=target_chip)
 
+    match = None
+    wav_mame_blob = None
+    mat_mame_blob = None
+    analysis_mame = None
+
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
         # injected MML を別名で work dir に書く
@@ -443,6 +495,21 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
         mat_pmd_blob = BLOB_DIR / f'{entry_id}__pmddotnet.mat'
         shutil.copyfile(wav_pmd_tmp, wav_pmd_blob)
 
+        # 7. PMDNEO MAME 経路 (= ADR-0006 §5 検証、 skip_mame=False で実行)
+        if not skip_mame:
+            print(f'  MAME path: build + headless wav record (chip={target_chip})...', file=sys.stderr)
+            wav_mame_tmp = render_mame(injected_mml_path, duration_sec, target_chip, tmpdir)
+            try:
+                analysis_mame = analyze_full(wav_mame_tmp)
+            except Exception as e:
+                print(f'  WARN: MAME wav analyze failed: {e}', file=sys.stderr)
+                analysis_mame = None
+            wav_mame_blob = BLOB_DIR / f'{entry_id}__mame_{target_chip}.wav'
+            mat_mame_blob = BLOB_DIR / f'{entry_id}__mame_{target_chip}.mat'
+            shutil.copyfile(wav_mame_tmp, wav_mame_blob)
+            if analysis_mame is not None:
+                match = align_and_match(wav_pmd_blob, wav_mame_blob)
+
     # MML text を JSON safe に decode
     try:
         mml_text = original_mml_bytes.decode('shift_jis')
@@ -453,14 +520,8 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
     voice_def = extract_voice_def(mml_text)
 
     save_mat(mat_pmd_blob, analysis_pmd, voice_def, mml_text)
-
-    # 7. MAME 経路 (= --skip-mame で skip)
-    match = None
-    wav_mame_blob = None
-    mat_mame_blob = None
-    if not skip_mame:
-        # TODO: ROM build + MAME 録音 + 比較 (別 sprint で実装)
-        pass
+    if analysis_mame is not None and mat_mame_blob is not None:
+        save_mat(mat_mame_blob, analysis_mame, voice_def, mml_text)
 
     # 8. manifest entry (= 不変属性のみ) と run (= この測定の verdict + tool 状態) を分離
     import datetime
@@ -483,15 +544,26 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
     }
     add_to_manifest(entry)
 
+    actual_summary = None
+    if analysis_mame is not None:
+        actual_summary = {
+            'rms_L': analysis_mame['rms_L'],
+            'peak_L': analysis_mame['peak_L'],
+            'fft_top5_hz': analysis_mame['fft_top5_hz'],
+            'duration_sec': analysis_mame['duration_sec'],
+            'marker_peak_sample': analysis_mame['marker_peak_sample'],
+        }
+
     run = {
         'entry_id': entry_id,
         'ran_at': now,
         'driver_commit': driver_commit,
+        'target_chip': target_chip,
         'data_files': {
             'wav_pmddotnet': f'blob/{wav_pmd_blob.name}',
             'mat_pmddotnet': f'blob/{mat_pmd_blob.name}',
-            'wav_mame': None,
-            'mat_mame': None,
+            'wav_mame': f'blob/{wav_mame_blob.name}' if wav_mame_blob else None,
+            'mat_mame': f'blob/{mat_mame_blob.name}' if mat_mame_blob else None,
             'plot_dir': None,
         },
         'expected_summary': {
@@ -501,14 +573,15 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
             'duration_sec': analysis_pmd['duration_sec'],
             'marker_peak_sample': analysis_pmd['marker_peak_sample'],
         },
-        'match': {'verdict': 'NOT_TESTED'} if skip_mame else match,
+        'actual_summary': actual_summary,
+        'match': {'verdict': 'NOT_TESTED'} if skip_mame or match is None else match,
         'tool_versions': {
             'pmddotnet': '4.8s',
             'pmdplay': 'SDL 2022-07-26',
-            'mame': None,
+            'mame': 'mame-fork' if not skip_mame else None,
             'scipy': '1.x',
         },
-        'analysis_version': '1.1',  # measure.py の解析 logic version
+        'analysis_version': '1.2',  # measure.py の解析 logic version (= MAME path 実装)
         'trim_policy': {'body_start_ms': 100, 'method': 'marker_peak_offset'},
     }
     add_to_runs(run)
@@ -557,7 +630,8 @@ def main():
     parser.add_argument('mml_path', type=Path)
     parser.add_argument('--category', default='voice/single/param-step')
     parser.add_argument('--tags', default='')
-    parser.add_argument('--skip-mame', action='store_true', default=True)  # 当面 default skip
+    # ADR-0006 §5 検証: default は MAME 経路を回す (= --skip-mame で PMDDotNET reference のみ取得に切替)
+    parser.add_argument('--skip-mame', action='store_true', default=False)
     parser.add_argument(
         '--chip',
         choices=['ym2610', 'ym2610b'],
@@ -567,7 +641,9 @@ def main():
     args = parser.parse_args()
 
     tags = [t.strip() for t in args.tags.split(',') if t.strip()]
-    entry = measure_one(args.mml_path, args.category, tags, skip_mame=args.skip_mame, target_chip=args.chip)
+    # mml_path は CLI で相対指定されることがある、 PROJECT_ROOT.relative_to() 用に absolute 化
+    mml_path = args.mml_path.resolve()
+    entry = measure_one(mml_path, args.category, tags, skip_mame=args.skip_mame, target_chip=args.chip)
     print(json.dumps(entry, ensure_ascii=False, indent=2))
 
 
