@@ -1274,21 +1274,36 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ;; psg_volume_hook 経由で audible 化する設計。 user 「SSG ミュートに」 要望
         ;; (= 2026-05-10) で test04 audio gate 反映、 init audible で V0 反映までの
         ;; 数十 IRQ tick で SSG 残音する真因を解消。
-        ;; Phase 9R R-5b 補足: FM PAN 分離 (= user 要望、 BC=Left, EF=Right)
-        ;; ch2 (B) = port A reg 0xB5、 ch3 (C) = port A reg 0xB6
-        ;; ch5 (E) = port B reg 0xB5、 ch6 (F) = port B reg 0xB6
-        ;; PAN 値: 0x80 = Left only, 0x40 = Right only, 0xC0 = L+R 中央 (default)
+        ;; ADR-0006 §B + Phase 9R R-5b 撤廃: 全 FM ch を Center (= 0xC0 = L+R 両側 enable) で初期化
+        ;; ch1 (A) = port A reg 0xB4 [.if PMDNEO_TARGET_CHIP_YM2610B = ym2610b 限定]
+        ;; ch2 (B) = port A reg 0xB5
+        ;; ch3 (C) = port A reg 0xB6
+        ;; ch4 (D) = port B reg 0xB4 [.if PMDNEO_TARGET_CHIP_YM2610B = ym2610b 限定]
+        ;; ch5 (E) = port B reg 0xB5
+        ;; ch6 (F) = port B reg 0xB6
+        ;; PAN 値: bit 7 = L Output Enable、 bit 6 = R Output Enable
+        ;;   0xC0 = L+R 両側 = Center、 0x80 = L only、 0x40 = R only、 0x00 = mute
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      b, #0xB4
+        ld      c, #0xC0                ; ch1 (A) = Center
+        call    ym2610_write_port_a
+.endif
         ld      b, #0xB5
-        ld      c, #0x80                ; ch2 (B) = L
+        ld      c, #0xC0                ; ch2 (B) = Center
         call    ym2610_write_port_a
         ld      b, #0xB6
-        ld      c, #0x40                ; ch3 (C) = R (= 12a-5e2: B vs C 聴感比較容易化)
+        ld      c, #0xC0                ; ch3 (C) = Center
         call    ym2610_write_port_a
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      b, #0xB4
+        ld      c, #0xC0                ; ch4 (D) = Center
+        call    ym2610_write_port_b
+.endif
         ld      b, #0xB5
-        ld      c, #0x80                ; ch5 (E) = L
+        ld      c, #0xC0                ; ch5 (E) = Center
         call    ym2610_write_port_b
         ld      b, #0xB6
-        ld      c, #0x40                ; ch6 (F) = R
+        ld      c, #0xC0                ; ch6 (F) = Center
         call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
