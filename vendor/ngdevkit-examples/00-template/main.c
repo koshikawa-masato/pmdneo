@@ -27,6 +27,10 @@
 #define PMDNEO_SONG 0
 #endif
 
+#ifndef PMDNEO_MASK_BITS
+#define PMDNEO_MASK_BITS 0
+#endif
+
 int main(void) {
   bios_fix_clear();
 
@@ -57,6 +61,19 @@ int main(void) {
   ng_wait_vblank();
   *REG_SOUND = 9 + PMDNEO_SONG;
   ng_wait_vblank();
+
+  // Issue mask commands before song start (= PMDNEO_MASK_BITS bit ch で指定)
+  // bit 0=A, bit 1=B, ... bit 10=K (FM/SSG/PCM/Rhythm)、 bit 11/12/13=X/Y/Z (FM3Extend)
+  {
+    int mask_bits = PMDNEO_MASK_BITS;
+    for (int ch = 0; ch < 14; ch++) {
+      if (mask_bits & (1 << ch)) {
+        *REG_SOUND = 24 + ch;
+        ng_wait_vblank();
+      }
+    }
+  }
+
   *REG_SOUND = 5;     /* MML song start */
 
   u8 last_cycle = 0;

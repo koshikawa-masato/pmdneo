@@ -57,6 +57,7 @@
         .equ    PART_OFF_V_SCALE,        27   ;; signed v)/v( scale before v->V convert
         .equ    PART_OFF_LOOPSTART,      28   ;; L global loop marker address lo-byte
         .equ    PART_OFF_LOOPSTART_HI,   29   ;; L global loop marker address hi-byte
+        .equ    PART_OFF_MASK,           30   ;; per-part mask flag (0=audible, 1=mask silent)
         .equ    PART_OFF_LOOPSTACK_BASE, 32
         .equ    PART_OFF_LOOPDEPTH,      48
         .equ    PART_OFF_HOOK_KEYON,     49    ;; 2 bytes
@@ -166,8 +167,9 @@ nmi_dispatch:
         cp      #9
         jp      c, nmi_done
         cp      #24
-        jp      nc, nmi_done
-        jp      nmi_cmd_select_song
+        jp      c, nmi_cmd_select_song
+        cp      #38
+        jp      c, nmi_cmd_mask_part
         jp      nmi_done
 
 nmi_done:
@@ -559,6 +561,26 @@ nmi_cmd_select_song:
         ld      (driver_song_id), a
         jp      nmi_done
 
+nmi_cmd_mask_part:
+        ;; A = cmd byte (24..37) -> part_idx = A - 24 (0..13)
+        sub     #24
+        ld      l, a
+        ld      h, #0
+        ;; HL = part_idx * 64
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ld      a, #1
+        ld      PART_OFF_MASK(ix), a
+        jp      nmi_done
+
         .org 0x0200
 ym2610_write_port_a:
         ld      a, b
@@ -889,13 +911,17 @@ pmdneo_fm_clear_ssg_eg_ch_loop:
 
 pmdneo_fm_voice_set_default:
         ld      hl, #fm_voice_data_default
+        jp      pmdneo_fm_voice_set
+
+pmdneo_fm_voice_set:
+        push    hl
         ld      de, #24
         add     hl, de
         ld      d, #0xB0
         ld      c, (hl)
         call    pmdneo_fm_write_reg_ch
 
-        ld      hl, #fm_voice_data_default
+        pop     hl
         ld      d, #0x30
         call    pmdneo_fm_write_voice_group_ch
         ld      d, #0x40
@@ -1697,6 +1723,9 @@ pmdneo_part_main_note_set_len:
 pmdneo_part_main_note_no_gate:
         ld      PART_OFF_LEN(ix), b
 pmdneo_part_main_note_dispatch:
+        ld      a, PART_OFF_MASK(ix)
+        or      a
+        ret     nz
         ld      a, PART_OFF_TIEFLAG(ix)
         or      a
         jr      z, pmdneo_part_main_note_keyon
@@ -2096,6 +2125,8 @@ commandsp:
         jp      z, comlopset
         cp      #0xFB
         jp      z, comtie
+        cp      #0xFF
+        jp      z, commandsp_at
         call    pmdneo_part_fetch_byte
         ret
 commandsp_t:
@@ -2130,6 +2161,8 @@ commandsp_edloop:
         jp      comedloop
 commandsp_exloop:
         jp      comexloop
+commandsp_at:
+        jp      comat
 
 ;; Phase 9a: comq (= PMD MML "q" gate cmd、 0xFE)
 ;; A = QDATA value (= note 長 vs key off timing 制御、 0-15 で gate 段階)
@@ -2243,6 +2276,26 @@ comexloop_found_end:
         ld      PART_OFF_LOOPDEPTH(ix), a
         ret
 comexloop_continue:
+        ret
+
+comat:
+        call    pmdneo_part_fetch_byte    ; A = voice index (0-based)
+        ld      c, a
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        or      a
+        jp      nz, comat_done
+        ld      l, c
+        ld      h, #0
+        add     hl, hl                    ; HL = index * 2
+        ld      de, #voice_table
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        ex      de, hl                    ; HL = voiceN_data address
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    pmdneo_fm_voice_set
+comat_done:
         ret
 
 fnumsetp_ch:

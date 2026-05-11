@@ -15,6 +15,11 @@ PART_LABELS = {
 }
 TARGET_PARTS = ("B", "C", "E", "F", "G", "H", "I", "J", "L", "M", "N", "O", "P", "Q")
 MAX_LOOP_DEPTH = 4
+VOICE_HEADER_RE = re.compile(r"^@(\d{3})[ \t]+(\d+)[ \t]+(\d+)$")
+VOICE_SLOT_RE = re.compile(
+    r"^[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)"
+    r"[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]*(?:[;#].*)?$"
+)
 
 NOTE_BASE = {
     "c": 0,
@@ -77,6 +82,8 @@ class MMLCompiler:
                     i = self._compile_signed_arg(mml, i, line_no, out, 0xD5, prefix_len=2)
                 else:
                     i = self._compile_signed_arg(mml, i, line_no, out, 0xFA, prefix_len=1)
+            elif ch == "@":
+                i = self._compile_number_command(mml, i, line_no, out, 0xFF)
             elif ch == "L":
                 out.append(0xF6)
                 i += 1
@@ -375,10 +382,74 @@ class MMLCompiler:
         return int(match.group(0)), i + len(match.group(0))
 
 
-def parse_mml(source: str) -> list[tuple[str, list[int]]]:
+def parse_voice_definitions(source: str) -> tuple[dict[int, list[int]], set[int]]:
+    voices: dict[int, list[int]] = {}
+    skip_lines: set[int] = set()
+    lines = source.splitlines()
+    i = 0
+    while i < len(lines):
+        stripped = re.split(r"[;#]", lines[i], maxsplit=1)[0].strip()
+        header = VOICE_HEADER_RE.match(stripped)
+        if header is None:
+            i += 1
+            continue
+
+        voice_index = int(header.group(1)) - 1
+        alg = int(header.group(2))
+        fbl = int(header.group(3))
+        voice_data: list[int] = []
+        skip_lines.add(i + 1)
+
+        if voice_index < 0:
+            print(f"error: line {i + 1}: voice number must be 001 or greater", file=sys.stderr)
+            i += 1
+            continue
+
+        if i + 4 >= len(lines):
+            print(f"error: line {i + 1}: incomplete voice definition", file=sys.stderr)
+            i += 1
+            continue
+
+        ok = True
+        slots: list[tuple[int, int, int, int, int, int]] = []
+        for slot in range(4):
+            line_no = i + 2 + slot
+            slot_match = VOICE_SLOT_RE.match(lines[i + 1 + slot])
+            skip_lines.add(line_no)
+            if slot_match is None:
+                print(f"error: line {line_no}: malformed voice slot definition", file=sys.stderr)
+                ok = False
+                continue
+            ar, dr, sr, rr, sl, tl, ks, ml, dt, ams = (int(v) for v in slot_match.groups())
+            slots.append((
+                ((dt & 0x0F) << 4) | (ml & 0x0F),    # reg 0x30 (DT/ML)
+                tl & 0x7F,                            # reg 0x40 (TL)
+                ((ks & 0x03) << 6) | (ar & 0x1F),    # reg 0x50 (KS/AR)
+                ((ams & 0x01) << 7) | (dr & 0x1F),   # reg 0x60 (AMS/DR)
+                sr & 0x1F,                            # reg 0x70 (SR)
+                ((sl & 0x0F) << 4) | (rr & 0x0F),    # reg 0x80 (SL/RR)
+            ))
+
+        if ok and len(slots) == 4:
+            # register-major order (= PMDNEO fm_voice_data_default 流儀踏襲)
+            # 各 register × 4 slot 連続 = 6 reg × 4 slot = 24 byte + 1 byte ALG/FBL
+            for reg_idx in range(6):
+                for slot_idx in range(4):
+                    voice_data.append(slots[slot_idx][reg_idx])
+            voice_data.append((alg & 0x07) | ((fbl & 0x07) << 3))
+            voices[voice_index] = voice_data
+        i += 5
+
+    return voices, skip_lines
+
+
+def parse_mml(source: str) -> tuple[list[tuple[str, list[int]]], dict[int, list[int]]]:
+    voices, voice_lines = parse_voice_definitions(source)
     macros: dict[str, str] = {}
     expanded_lines: list[tuple[int, str]] = []
     for line_no, raw_line in enumerate(source.splitlines(), 1):
+        if line_no in voice_lines:
+            continue
         stripped = raw_line.strip()
         if stripped.startswith("!"):
             m = re.match(r"^!(\w+)[ \t]+(.*)$", stripped)
@@ -412,7 +483,7 @@ def parse_mml(source: str) -> list[tuple[str, list[int]]]:
             continue
         compiler = MMLCompiler()
         parts[part] = compiler.compile_part(line[1:], line_no)
-    return [(PART_LABELS[part], parts.get(part, [0x80])) for part in TARGET_PARTS]
+    return [(PART_LABELS[part], parts.get(part, [0x80])) for part in TARGET_PARTS], voices
 
 
 def resolve_output_paths(args: argparse.Namespace, parser: argparse.ArgumentParser) -> tuple[Path, Path]:
@@ -438,13 +509,15 @@ def incbin_path(mn_path: Path, wrapper_path: Path) -> str:
 
 
 def format_wrapper(
-    songs: list[tuple[str, list[tuple[str, list[int]]]]],
+    songs: list[tuple[str, list[tuple[str, list[int]]], dict[int, list[int]]]],
     out_dir: Path,
     wrapper_path: Path,
 ) -> str:
     lines = [";;; PMDNEO compile.py generated wrapper"]
+    voices: dict[int, list[int]] = {}
     song_labels: list[list[str]] = []
-    for song_index, (basename, parts) in enumerate(songs):
+    for song_index, (basename, parts, song_voices) in enumerate(songs):
+        voices.update(song_voices)
         labels: list[str] = []
         for label, _data in parts:
             song_label = label.replace("song_part_", f"song{song_index}_part_")
@@ -459,17 +532,39 @@ def format_wrapper(
         for start in range(0, len(labels), 4):
             lines.append(f"        .dw {', '.join(labels[start:start + 4])}")
     lines.append("")
+    if voices:
+        max_voice = max(voices)
+        for voice_index in range(max_voice + 1):
+            data = voices.get(voice_index)
+            if data is None:
+                continue
+            lines.append(f"voice{voice_index}_data:")
+            for slot in range(4):
+                slot_data = data[slot * 6 : slot * 6 + 6]
+                bytes_text = ", ".join(f"0x{value:02X}" for value in slot_data)
+                lines.append(f"        .db {bytes_text}   ; slot{slot + 1}")
+            lines.append(f"        .db 0x{data[24]:02X}                                   ; ALG/FBL")
+        lines.append("voice_table:")
+        for voice_index in range(max_voice + 1):
+            if voice_index in voices:
+                lines.append(f"        .dw voice{voice_index}_data")
+            else:
+                lines.append("        .dw fm_voice_data_default")
+        lines.append("")
+    else:
+        lines.append("voice_table:")
+        lines.append("")
     return "\n".join(lines)
 
 
 def write_outputs(
-    songs: list[tuple[str, list[tuple[str, list[int]]]]],
+    songs: list[tuple[str, list[tuple[str, list[int]]], dict[int, list[int]]]],
     out_dir: Path,
     wrapper_path: Path,
 ) -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     wrapper_path.parent.mkdir(parents=True, exist_ok=True)
-    for basename, parts in songs:
+    for basename, parts, _voices in songs:
         song_dir = out_dir / basename
         song_dir.mkdir(parents=True, exist_ok=True)
         for label, data in parts:
@@ -486,10 +581,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     out_dir, wrapper_path = resolve_output_paths(args, parser)
-    songs: list[tuple[str, list[tuple[str, list[int]]]]] = []
+    songs: list[tuple[str, list[tuple[str, list[int]]], dict[int, list[int]]]] = []
     for input_mml in args.input_mml:
         source = input_mml.read_text(encoding="utf-8")
-        songs.append((input_mml.stem, parse_mml(source)))
+        parts, voices = parse_mml(source)
+        songs.append((input_mml.stem, parts, voices))
     write_outputs(songs, out_dir, wrapper_path)
     return 0
 
