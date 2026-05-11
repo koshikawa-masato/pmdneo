@@ -40,27 +40,35 @@
     .progress-bar.develop {
       background: #27ae60;
     }
+
+    .progress-bar.wip {
+      background: #e67e22;
+    }
   </style>
 </head>
 <body>
   <div class="page">
     <header class="cover" id="cover">
-      <p class="eyebrow">PMDNEO / PMDMML coverage / 2026-05-10</p>
+      <p class="eyebrow">PMDNEO / PMDMML coverage / 2026-05-11</p>
       <h1>PMDNEO PMDMML コマンド実装進捗</h1>
-      <p class="subtitle">PMD V4.8s 本家 (= main df4e7b6 凍結時点 reference) vs PMDNEO 自作 driver (= main HEAD 最新) 比較</p>
-      <p class="lead">neo-sisters Issue #109 の PMDMML 142 command base table を基準に、移植元 PMD V4.8s 本家 (= main df4e7b6 の <code>PMD_Z80.inc</code>) と PMDNEO 自作 driver (= main HEAD の <code>standalone_test.s</code>) の到達点を整理した。 develop branch は Phase 9R PR #1 merge (= aebc545) → main 解凍 PR #2 (= 27462da) で main に統合済、 以後 main lineage 単独で進化中。</p>
+      <p class="subtitle">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) 比較、 PMD V4.8s 本家 (= df4e7b6 凍結時点) は参考 reference として併記</p>
+      <p class="lead">neo-sisters Issue #109 の PMDMML 142 command base table を基準に、 PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の到達点を整理した。 PMD V4.8s 本家 (= main 凍結時点 commit df4e7b6 の <code>PMD_Z80.inc</code>) は参考 reference として併記。 develop branch は Phase 12a-4 (= e32e0d3) で停止、 以後 main lineage 単独で進化、 さらに ADR-0005 / ADR-0006 sprint は wip-pmdmml-voice-parser で進行中。</p>
       <div class="key-numbers" aria-label="Coverage key numbers">
         <dl class="metric">
           <dt>基準 command table</dt>
           <dd><strong>142</strong> commands</dd>
         </dl>
         <dl class="metric">
-          <dt>PMD 本家 (= 移植元 reference)</dt>
-          <dd><strong><!-- AUTO_MAIN_COUNT -->30<!-- /AUTO_MAIN_COUNT --> / 142</strong></dd>
+          <dt>PMDNEO main (= 固定資産)</dt>
+          <dd><strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142</strong></dd>
         </dl>
         <dl class="metric">
-          <dt>PMDNEO 自作 (= main HEAD)</dt>
-          <dd><strong><!-- AUTO_DEVELOP_COUNT -->27<!-- /AUTO_DEVELOP_COUNT --> / 142</strong></dd>
+          <dt>PMDNEO develop (= 停止)</dt>
+          <dd><strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> / 142</strong></dd>
+        </dl>
+        <dl class="metric">
+          <dt>PMDNEO WIP (= 現役 sprint)</dt>
+          <dd><strong><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> / 142</strong></dd>
         </dl>
       </div>
     </header>
@@ -81,7 +89,7 @@
       <section id="overview">
         <h2><span class="chapter-number">01.</span> 概要</h2>
         <p class="section-summary">このページは PMDMML 142 command base table を実装進捗の基準にする。基準表は neo-sisters Issue #109 にあり、詳細な coverage markdown は neo-sisters 側の knowledge document として管理されている。</p>
-        <p>PMDNEO には parallel lineage が 2 系統ある。<strong>main</strong> は nullsound-based driver を起点に PMD / PMDAES 系の command support を拡張してきた lineage、<strong>develop</strong> は standalone scratch driver として共通 dispatch、hook table、14 part 並行 dispatch を組み直している lineage である。</p>
+        <p>PMDNEO には現在 3 系統の lineage がある。 <strong>main</strong> は固定資産 lineage (= MML reference / coverage page source / 過去 sprint 完了結果)、 <strong>develop</strong> は Phase 12a-4 (= e32e0d3) で停止した旧 standalone sprint、 <strong>wip-pmdmml-voice-parser</strong> は ADR-0005 / ADR-0006 sprint 現役 branch (= 音色検証 local DB 設計 + AES+ YM2610B 想定 driver + compile.py 拡張)。 PMD V4.8s 本家 (= df4e7b6 凍結時点) は移植元の参考 reference として併記する。</p>
         <ul>
           <li><a href="https://github.com/koshikawa-masato/neo-sisters/issues/109">neo-sisters Issue #109</a></li>
           <li><a href="https://github.com/koshikawa-masato/neo-sisters/blob/develop/docs/knowledge/pmd/pmdmml-coverage.md">pmdmml-coverage.md</a></li>
@@ -91,24 +99,33 @@
 
       <section id="summary">
         <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
-        <p class="section-summary">PMD 本家 (= main commit <code>df4e7b6</code> の <code>PMD_Z80.inc</code>) と PMDNEO 自作 driver (= main HEAD の <code>standalone_test.s</code>) にある <code>com*:</code> routine を集計する。PMDMML 142 commands 中、PMD 本家は <strong><!-- AUTO_MAIN_COUNT -->30<!-- /AUTO_MAIN_COUNT --> commands</strong>、PMDNEO 自作は <strong><!-- AUTO_DEVELOP_COUNT -->27<!-- /AUTO_DEVELOP_COUNT --> commands</strong> である。</p>
+        <p class="section-summary">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。 PMDMML 142 commands 中、 PMDNEO main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、 PMDNEO develop は <strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> commands</strong>、 PMDNEO WIP は <strong><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> commands</strong> である。 PMD V4.8s 本家 (= df4e7b6 凍結時点 <code>PMD_Z80.inc</code>) は参考 reference として <strong><!-- AUTO_PMD_COUNT -->30<!-- /AUTO_PMD_COUNT --> commands</strong>。</p>
         <div class="progress-list" aria-label="PMDMML command implementation progress">
           <div class="progress-item">
             <div class="progress-label">
-              <span>PMD 本家 (= df4e7b6)</span>
-              <span><!-- AUTO_MAIN_COUNT -->30<!-- /AUTO_MAIN_COUNT --> / 142 約 <!-- AUTO_MAIN_PERCENT -->21<!-- /AUTO_MAIN_PERCENT -->%</span>
+              <span>PMDNEO main (= 固定資産 lineage)</span>
+              <span><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> / 142 約 <!-- AUTO_MAIN_PERCENT -->18<!-- /AUTO_MAIN_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <!-- AUTO_MAIN_BAR_STYLE --><div class="progress-bar" style="width: 21%"></div><!-- /AUTO_MAIN_BAR_STYLE -->
+              <!-- AUTO_MAIN_BAR_STYLE --><div class="progress-bar" style="width: 18%"></div><!-- /AUTO_MAIN_BAR_STYLE -->
             </div>
           </div>
           <div class="progress-item">
             <div class="progress-label">
-              <span>PMDNEO 自作 (= main HEAD)</span>
-              <span><!-- AUTO_DEVELOP_COUNT -->27<!-- /AUTO_DEVELOP_COUNT --> / 142 約 <!-- AUTO_DEVELOP_PERCENT -->19<!-- /AUTO_DEVELOP_PERCENT -->%</span>
+              <span>PMDNEO develop (= Phase 12a-4 停止)</span>
+              <span><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> / 142 約 <!-- AUTO_DEVELOP_PERCENT -->11<!-- /AUTO_DEVELOP_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <!-- AUTO_DEVELOP_BAR_STYLE --><div class="progress-bar develop" style="width: 19%"></div><!-- /AUTO_DEVELOP_BAR_STYLE -->
+              <!-- AUTO_DEVELOP_BAR_STYLE --><div class="progress-bar develop" style="width: 11%"></div><!-- /AUTO_DEVELOP_BAR_STYLE -->
+            </div>
+          </div>
+          <div class="progress-item">
+            <div class="progress-label">
+              <span>PMDNEO WIP (= wip-pmdmml-voice-parser、 現役 sprint)</span>
+              <span><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> / 142 約 <!-- AUTO_WIP_PERCENT -->19<!-- /AUTO_WIP_PERCENT -->%</span>
+            </div>
+            <div class="progress-track" aria-hidden="true">
+              <!-- AUTO_WIP_BAR_STYLE --><div class="progress-bar wip" style="width: 19%"></div><!-- /AUTO_WIP_BAR_STYLE -->
             </div>
           </div>
         </div>
@@ -417,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-11 main 750133a<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-11 main f3bb43e<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
