@@ -366,36 +366,75 @@ def save_mat(mat_path: Path, analysis: dict, voice_def: dict, mml_text: str):
 
 # ---- 合致判定 (= L6) ----
 
-def align_and_match(wav_pmd: Path, wav_mame: Path) -> dict:
-    """marker 検出 + align + L1/L3/L4 計算"""
-    # TODO: marker detection (= 高域 onset detect) + align
-    # 現状 placeholder: 単純比較
-    sr_p, dat_p = wf.read(str(wav_pmd))
-    sr_m, dat_m = wf.read(str(wav_mame))
-    if dat_p.ndim > 1:
-        L_p = dat_p[:, 0].astype(np.float64)
+def _load_mono(wav_path: Path) -> tuple[int, np.ndarray]:
+    sr, dat = wf.read(str(wav_path))
+    if dat.ndim > 1:
+        L = dat[:, 0].astype(np.float64)
     else:
-        L_p = dat_p.astype(np.float64)
-    if dat_m.ndim > 1:
-        L_m = dat_m[:, 0].astype(np.float64)
-    else:
-        L_m = dat_m.astype(np.float64)
-    n = min(len(L_p), len(L_m))
-    L_p = L_p[:n]
-    L_m = L_m[:n]
+        L = dat.astype(np.float64)
+    return sr, L
 
-    # L1 cross-correlation (= normalized)
-    norm_p = np.sqrt(np.sum(L_p ** 2))
-    norm_m = np.sqrt(np.sum(L_m ** 2))
-    L1 = float(np.sum(L_p * L_m) / (norm_p * norm_m + 1e-12))
+
+def align_and_match(wav_pmd: Path, wav_mame: Path, body_start_ms: int = 100) -> dict:
+    """marker 検出で頭そろえ + RMS 正規化 + L1/L3/L4 計算 (= ADR-0006 §5 段階 2)
+
+    手順:
+        1. 両 wav の先頭で marker click peak を検出 (= detect_marker_peak)
+        2. peak + body_start_ms 後を「本体」 として切り出し (= analyze_full と同流儀)
+        3. 比較長を min(n_p, n_m) で揃える
+        4. RMS 正規化 (= unit power 化) してから L1/L3/L4
+        5. 副次情報として rms_ratio (= MAME/PMDDotNET) も返す
+
+    Why: pmdplay と MAME 録音は 16-bit signed wav だが gain 系が異なり、
+    rms_L が 16 倍程度差を持つ (= ADR-0006 §5 段階 1 voice-ar-31 で 16.6 倍観測)。
+    また MAME は ROM boot + driver init 分の遅延 (= 75ms 程度) があり、 marker
+    で頭そろえしないと L1/L4 が壊れる。
+    """
+    sr_p, L_p_raw = _load_mono(wav_pmd)
+    sr_m, L_m_raw = _load_mono(wav_mame)
+    if sr_p != sr_m:
+        raise ValueError(f'sample rate mismatch: pmd={sr_p} mame={sr_m}')
+    sr = sr_p
+
+    marker_p = detect_marker_peak(L_p_raw, sr)
+    marker_m = detect_marker_peak(L_m_raw, sr)
+    body_offset = int(sr * body_start_ms / 1000)
+    body_p_full = L_p_raw[marker_p + body_offset:]
+    body_m_full = L_m_raw[marker_m + body_offset:]
+
+    n = min(len(body_p_full), len(body_m_full))
+    if n <= 0:
+        raise ValueError(f'body length <= 0 after align: marker_p={marker_p} marker_m={marker_m} n={n}')
+    L_p = body_p_full[:n]
+    L_m = body_m_full[:n]
+
+    # DC 除去 (= MAME 録音は ymfm/MAME 側で sample 全体に DC bias 約 9000 が乗る、 FFT 0Hz が dominant 化して L1/L3 を破壊)
+    dc_p = float(np.mean(L_p))
+    dc_m = float(np.mean(L_m))
+    L_p = L_p - dc_p
+    L_m = L_m - dc_m
+
+    rms_p = float(np.sqrt(np.mean(L_p ** 2)))
+    rms_m = float(np.sqrt(np.mean(L_m ** 2)))
+    rms_ratio = rms_m / (rms_p + 1e-12)
+
+    # unit power 正規化 (= scaling 差を吸収)
+    Lp_n = L_p / (rms_p + 1e-12)
+    Lm_n = L_m / (rms_m + 1e-12)
+
+    # L1 cross-correlation (= normalized inner product)
+    norm_p = np.sqrt(np.sum(Lp_n ** 2))
+    norm_m = np.sqrt(np.sum(Lm_n ** 2))
+    L1 = float(np.sum(Lp_n * Lm_n) / (norm_p * norm_m + 1e-12))
 
     # L3 spectral cosine
-    fft_p = np.abs(np.fft.rfft(L_p * np.hanning(n)))
-    fft_m = np.abs(np.fft.rfft(L_m * np.hanning(n)))
+    win_hann = np.hanning(n)
+    fft_p = np.abs(np.fft.rfft(Lp_n * win_hann))
+    fft_m = np.abs(np.fft.rfft(Lm_n * win_hann))
     L3 = float(np.dot(fft_p, fft_m) / (np.linalg.norm(fft_p) * np.linalg.norm(fft_m) + 1e-12))
 
-    # L4 envelope correlation (= 1ms 刻み RMS の Pearson)
-    win = sr_p // 1000
+    # L4 envelope correlation (= 1ms 刻み RMS の Pearson、 scaling 不変)
+    win = sr // 1000
     n_chunks = n // win
     env_p = np.array([np.sqrt(np.mean(L_p[i*win:(i+1)*win] ** 2)) for i in range(n_chunks)])
     env_m = np.array([np.sqrt(np.mean(L_m[i*win:(i+1)*win] ** 2)) for i in range(n_chunks)])
@@ -410,6 +449,12 @@ def align_and_match(wav_pmd: Path, wav_mame: Path) -> dict:
         'L1_xcorr': L1,
         'L3_spectral': L3,
         'L4_envelope': L4,
+        'rms_ratio_mame_over_pmd': rms_ratio,
+        'dc_offset_pmd': dc_p,
+        'dc_offset_mame': dc_m,
+        'aligned_body_sec': float(n / sr),
+        'marker_pmd_sample': int(marker_p),
+        'marker_mame_sample': int(marker_m),
         'thresholds': thresholds,
         'verdict': verdict,
     }
@@ -581,7 +626,7 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
             'mame': 'mame-fork' if not skip_mame else None,
             'scipy': '1.x',
         },
-        'analysis_version': '1.2',  # measure.py の解析 logic version (= MAME path 実装)
+        'analysis_version': '1.3',  # measure.py の解析 logic version (= align_and_match に marker align + RMS 正規化)
         'trim_policy': {'body_start_ms': 100, 'method': 'marker_peak_offset'},
     }
     add_to_runs(run)
