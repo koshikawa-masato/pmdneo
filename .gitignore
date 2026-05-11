@@ -115,11 +115,3 @@ vendor/ngdevkit-examples/00-template/songs/
 # (= YMFM_TRACE / Z80_MEM_TRACE 環境変数で TSV 出力)、 setup 手順は後続 sprint で
 # docs/setup/mame-fork-setup.md として起票予定
 vendor/mame-fork/
-
-# PMDDotNET (= vendor patch 版、 dotnet build artifact + GPLv3 source、 個別 clone 想定)
-vendor/PMDDotNET/
-vendor/pmdmini-patched/
-
-# 音色検証 local DB (= ADR-0005)
-/data/
-
