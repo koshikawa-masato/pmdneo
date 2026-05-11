@@ -13,7 +13,26 @@ from pathlib import Path
 PART_LABELS = {
     chr(ord("A") + i): f"song_part_{chr(ord('a') + i)}" for i in range(17)
 }
-TARGET_PARTS = ("B", "C", "E", "F", "G", "H", "I", "J", "L", "M", "N", "O", "P", "Q")
+
+# ADR-0006: compile.py parser は A-Q 全 17 part 文法対応
+TARGET_PARTS = ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q")
+
+# ADR-0006 §B: PMDNEO_TARGET_CHIP=ym2610 (default) / ym2610b (AES+ YM2610B 想定)
+TARGET_CHIP = os.environ.get("PMDNEO_TARGET_CHIP", "ym2610").lower()
+if TARGET_CHIP not in ("ym2610", "ym2610b"):
+    print(
+        f"warning: unknown PMDNEO_TARGET_CHIP={TARGET_CHIP!r}, falling back to ym2610",
+        file=sys.stderr,
+    )
+    TARGET_CHIP = "ym2610"
+
+# ADR-0006 §C: default mode で A/D に note 書込 → warning (= ADR-0001 警告規律継承)
+# K は両 mode で driver 未実装のため warning
+if TARGET_CHIP == "ym2610":
+    WARN_PARTS_NOTE = ("A", "D", "K")
+else:  # ym2610b
+    WARN_PARTS_NOTE = ("K",)
+
 MAX_LOOP_DEPTH = 4
 VOICE_HEADER_RE = re.compile(r"^@(\d{3})[ \t]+(\d+)[ \t]+(\d+)$")
 VOICE_SLOT_RE = re.compile(
@@ -382,6 +401,20 @@ class MMLCompiler:
         return int(match.group(0)), i + len(match.group(0))
 
 
+def read_mml_source(path: Path) -> str:
+    # ADR-0006 §A 拡張: PMDDotNET 既存資産は Shift_JIS、 PMDNEO 新規 MML は utf-8。 両方読める fallback
+    raw = path.read_bytes()
+    for encoding in ("utf-8", "cp932"):
+        try:
+            return raw.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+    raise UnicodeDecodeError(
+        "compile.py", raw, 0, len(raw),
+        f"{path}: failed to decode as utf-8 or cp932 (Shift_JIS)",
+    )
+
+
 def parse_voice_definitions(source: str) -> tuple[dict[int, list[int]], set[int]]:
     voices: dict[int, list[int]] = {}
     skip_lines: set[int] = set()
@@ -405,20 +438,28 @@ def parse_voice_definitions(source: str) -> tuple[dict[int, list[int]], set[int]
             i += 1
             continue
 
-        if i + 4 >= len(lines):
-            print(f"error: line {i + 1}: incomplete voice definition", file=sys.stderr)
-            i += 1
-            continue
-
+        # ADR-0006 §A: PMDDotNET MML は header と slot の間 / slot 間に comment 行 (`;` `#`) を許す
+        # 4 slot 行を集めるまで comment / blank 行を skip
         ok = True
         slots: list[tuple[int, int, int, int, int, int]] = []
-        for slot in range(4):
-            line_no = i + 2 + slot
-            slot_match = VOICE_SLOT_RE.match(lines[i + 1 + slot])
+        slot_idx = 0
+        j = i + 1
+        last_consumed = i
+        while slot_idx < 4 and j < len(lines):
+            raw_slot = lines[j]
+            stripped_slot = raw_slot.strip()
+            if not stripped_slot or stripped_slot.startswith(";") or stripped_slot.startswith("#"):
+                skip_lines.add(j + 1)
+                j += 1
+                continue
+            line_no = j + 1
+            slot_match = VOICE_SLOT_RE.match(raw_slot)
             skip_lines.add(line_no)
             if slot_match is None:
                 print(f"error: line {line_no}: malformed voice slot definition", file=sys.stderr)
                 ok = False
+                j += 1
+                slot_idx += 1
                 continue
             ar, dr, sr, rr, sl, tl, ks, ml, dt, ams = (int(v) for v in slot_match.groups())
             slots.append((
@@ -429,16 +470,23 @@ def parse_voice_definitions(source: str) -> tuple[dict[int, list[int]], set[int]
                 sr & 0x1F,                            # reg 0x70 (SR)
                 ((sl & 0x0F) << 4) | (rr & 0x0F),    # reg 0x80 (SL/RR)
             ))
+            slot_idx += 1
+            last_consumed = j
+            j += 1
+
+        if slot_idx < 4:
+            print(f"error: line {i + 1}: incomplete voice definition (only {slot_idx} slot found)", file=sys.stderr)
+            ok = False
 
         if ok and len(slots) == 4:
             # register-major order (= PMDNEO fm_voice_data_default 流儀踏襲)
             # 各 register × 4 slot 連続 = 6 reg × 4 slot = 24 byte + 1 byte ALG/FBL
             for reg_idx in range(6):
-                for slot_idx in range(4):
-                    voice_data.append(slots[slot_idx][reg_idx])
+                for slot_idx_emit in range(4):
+                    voice_data.append(slots[slot_idx_emit][reg_idx])
             voice_data.append((alg & 0x07) | ((fbl & 0x07) << 3))
             voices[voice_index] = voice_data
-        i += 5
+        i = last_consumed + 1
 
     return voices, skip_lines
 
@@ -481,6 +529,24 @@ def parse_mml(source: str) -> tuple[list[tuple[str, list[int]]], dict[int, list[
         if part not in TARGET_PARTS:
             print(f"error: line {line_no}, position 1: invalid part letter {line[0]!r}", file=sys.stderr)
             continue
+        # ADR-0006 §C: A/D/K に note 書込 → warning (= mode 別 WARN_PARTS_NOTE 参照)
+        if part in WARN_PARTS_NOTE:
+            body = line[1:].strip()
+            if body and re.search(r"[a-grcdefgab]", body):
+                if part == "K":
+                    print(
+                        f"warning: line {line_no}: part {part!r} (Rhythm = ADPCM-A drum) "
+                        f"is not yet implemented in driver, will be muted (ADR-0006 §G)",
+                        file=sys.stderr,
+                    )
+                else:
+                    fm_ch = ord(part) - ord("A") + 1
+                    print(
+                        f"warning: line {line_no}: part {part!r} (FM ch{fm_ch}) requires "
+                        f"PMDNEO_TARGET_CHIP=ym2610b (AES+), will be muted in default ym2610 "
+                        f"mode (ADR-0001 / ADR-0006 §C)",
+                        file=sys.stderr,
+                    )
         compiler = MMLCompiler()
         parts[part] = compiler.compile_part(line[1:], line_no)
     return [(PART_LABELS[part], parts.get(part, [0x80])) for part in TARGET_PARTS], voices
@@ -583,7 +649,7 @@ def main(argv: list[str] | None = None) -> int:
     out_dir, wrapper_path = resolve_output_paths(args, parser)
     songs: list[tuple[str, list[tuple[str, list[int]]], dict[int, list[int]]]] = []
     for input_mml in args.input_mml:
-        source = input_mml.read_text(encoding="utf-8")
+        source = read_mml_source(input_mml)
         parts, voices = parse_mml(source)
         songs.append((input_mml.stem, parts, voices))
     write_outputs(songs, out_dir, wrapper_path)
