@@ -640,6 +640,7 @@ fnumset_fm:
         rrca
         rrca
         and     #0x07
+        dec     a                       ; ADR-0011: MML octave - 1 = chip block (= PMD V4.8s 規約「o5 c = MIDI C4」 整合)
         add     a, a
         add     a, a
         add     a, a
