@@ -16,9 +16,11 @@
 #   bash scripts/run-mame.sh                                  # 既存 build で 起動
 #   PMDNEO_FIXTURE=1 bash scripts/run-mame.sh --build         # baseline fixture で再 build + 起動
 #   PMDNEO_FIXTURE=2 bash scripts/run-mame.sh --build         # tempo fixture
+#   bash scripts/run-mame.sh --build --chip ym2610b           # AES+ YM2610B mode build (= ADR-0006 §4)
 #
 # 環境変数:
 #   PMDNEO_FIXTURE  0/1/2/3/4 (= main.c の fixture selector、 --build 必須)
+#   PMDNEO_CHIP     ym2610 (default) | ym2610b (= ADR-0006 §4 chip target、 --build 必須)
 
 set -euo pipefail
 
@@ -36,6 +38,7 @@ DO_LOOP_VIZ=0
 LOOP_VIZ_RANGE="FB00-FB10"
 PMDNEO_MASK_LETTERS=""
 DO_HEADLESS=0
+PMDNEO_CHIP_OPT="${PMDNEO_CHIP:-}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -48,10 +51,19 @@ while [[ $# -gt 0 ]]; do
         --loop-viz-range) LOOP_VIZ_RANGE="$2"; DO_LOOP_VIZ=1; DO_TRACE=1; shift 2 ;;
         --mask) PMDNEO_MASK_LETTERS="$2"; shift 2 ;;
         --headless) DO_HEADLESS=1; shift ;;
-        -h|--help) sed -n '4,25p' "$0"; exit 0 ;;
+        --chip) PMDNEO_CHIP_OPT="$2"; shift 2 ;;
+        -h|--help) sed -n '4,26p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
 done
+
+# ADR-0006 §4: --chip / env PMDNEO_CHIP は build-poc.sh に env で伝搬 (= --build 時のみ意味あり)
+if [[ -n "$PMDNEO_CHIP_OPT" ]]; then
+    case "$PMDNEO_CHIP_OPT" in
+        ym2610|ym2610b) export PMDNEO_CHIP="$PMDNEO_CHIP_OPT" ;;
+        *) echo "ERROR: --chip must be ym2610 or ym2610b (got: $PMDNEO_CHIP_OPT)" >&2; exit 2 ;;
+    esac
+fi
 
 if [[ -n "$PMDNEO_MASK_LETTERS" ]]; then
     # PMDNEO_MASK_LETTERS (= "BCE" 等) を bit mask に変換 (= bit 0=A, bit 1=B, ..., bit 10=K, bit 11=X, bit 12=Y, bit 13=Z)
@@ -80,6 +92,9 @@ if [[ $DO_BUILD -eq 1 ]]; then
     if [[ -n "${PMDNEO_FIXTURE:-}" && "$PMDNEO_FIXTURE" -gt 0 ]]; then
         export PMDNEO_EXTRA_CFLAGS="${PMDNEO_EXTRA_CFLAGS:-} -DPMDNEO_FIXTURE=$PMDNEO_FIXTURE"
         echo "    PMDNEO_FIXTURE=$PMDNEO_FIXTURE"
+    fi
+    if [[ -n "${PMDNEO_CHIP:-}" ]]; then
+        echo "    PMDNEO_CHIP=$PMDNEO_CHIP"
     fi
     # main.c rebuild 強制 (= CFLAGS 変化を make が見ないため)
     touch vendor/ngdevkit-examples/00-template/main.c

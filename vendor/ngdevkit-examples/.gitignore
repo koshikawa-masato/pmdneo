@@ -43,4 +43,6 @@ history/
 */setup/ngdevkit-assets/
 */setup/ngdevkit-assets/
 */build.mk
+# PMDNEO: 00-template/build.mk は ADR-0006 §4 sed pre-process 改修済、 本 repo で管理
+!00-template/build.mk
 */emu.mk

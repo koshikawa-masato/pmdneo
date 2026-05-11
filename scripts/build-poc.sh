@@ -12,14 +12,36 @@
 #   - ~/Downloads/neogeo.zip (NEOGEO 純正 BIOS romset) が用意済 (起動確認時)
 #
 # 使用例:
-#   bash scripts/build-poc.sh           # build のみ
+#   bash scripts/build-poc.sh                  # build のみ (= chip=ym2610 default)
+#   bash scripts/build-poc.sh --chip ym2610b   # AES+ YM2610B 想定 build (= ADR-0006 §4)
 #   bash scripts/build-poc.sh && cd vendor/ngdevkit-examples/00-template && make gngeo  # build + 起動
+#
+# option:
+#   --chip ym2610|ym2610b   PMDNEO target chip (= default ym2610、 ADR-0006 §B/§4)
+#                           env PMDNEO_CHIP でも指定可、 option 優先
 
 set -euo pipefail
 
 PMDNEO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DRIVER_SRC="$PMDNEO_ROOT/src/driver"
 TEMPLATE_DIR="$PMDNEO_ROOT/vendor/ngdevkit-examples/00-template"
+
+# ADR-0006 §4: chip target (= driver standalone_test.s:32 の .equ を build 時 override)
+PMDNEO_CHIP="${PMDNEO_CHIP:-ym2610}"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --chip) PMDNEO_CHIP="$2"; shift 2 ;;
+        -h|--help) sed -n '3,21p' "$0"; exit 0 ;;
+        *) echo "ERROR: Unknown option: $1" >&2; exit 2 ;;
+    esac
+done
+
+case "$PMDNEO_CHIP" in
+    ym2610|ym2610b) ;;
+    *) echo "ERROR: --chip must be ym2610 or ym2610b (got: $PMDNEO_CHIP)" >&2; exit 2 ;;
+esac
+export PMDNEO_CHIP
+echo "=== PMDNEO_CHIP=$PMDNEO_CHIP (= ADR-0006 §4 chip target) ==="
 
 if [ ! -d "$TEMPLATE_DIR" ]; then
     echo "ERROR: $TEMPLATE_DIR が見つかりません。 vendor/ngdevkit-examples を取り込み済か確認してください。"
@@ -88,7 +110,7 @@ python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
 
 echo
 echo "=== make poc ==="
-make STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
+make PMDNEO_CHIP="$PMDNEO_CHIP" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
 
 echo
 echo "=== build 完了 ==="

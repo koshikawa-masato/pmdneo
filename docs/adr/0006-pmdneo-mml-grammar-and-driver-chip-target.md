@@ -160,9 +160,11 @@ driver 実装 (= ch3 4-op individual mode の register 制御 + per-op fnum / vo
    - marker host part 動的選定 algorithm 実装 (= F section の priority)
    - voice 99 注入: voice_seg に `@099` の voice 定義を動的追加 + 既存 MML に行注入
 
-4. **build infrastructure**:
-   - `scripts/build-poc.sh` / `scripts/run-mame.sh` に `--chip ym2610|ym2610b` option 追加
-   - `vendor/ngdevkit-examples/00-template/Makefile` に `PMDNEO_TARGET_CHIP_YM2610B` 連携
+4. **build infrastructure** (= **実装完了、 2026-05-11**):
+   - `scripts/build-poc.sh` に `--chip ym2610|ym2610b` option 追加 + env `PMDNEO_CHIP` 経由で build.mk に伝搬
+   - `scripts/run-mame.sh` に `--chip` option 追加 (= `--build` 時に env `PMDNEO_CHIP` を export)
+   - `vendor/ngdevkit-examples/00-template/build.mk` の `STANDALONE_Z80_REL` rule を sed pre-process 経由に改造 (= sdasz80 が `-D` 未対応のため `.equ PMDNEO_TARGET_CHIP_YM2610B, 0` 行を `, 1` に置換)
+   - MAME headless 動作確認: 両 mode (= `--chip ym2610` / `--chip ym2610b`) で record + analyze、 RMS=0.0299、 peaks=261/331/393 Hz 共通の PASS (= test01.mml は A/D 無しのため両 mode で発音同等)
 
 5. **検証**:
    - voice-test 28 entry を新 compile.py で完走 (= existing reference を新 build で再現)
@@ -181,6 +183,7 @@ driver 実装 (= ch3 4-op individual mode の register 制御 + per-op fnum / vo
 
 - **2026-05-11 起票**: 初版 (= 決定 A-G 7 論点)
 - **2026-05-11 update 1**: §H FM3Extend (= XYZ 固定) 追加 (= 起票直後の重要欠落補完、 越川指摘)。 §A table に X/Y/Z 行追加、 §「実装 plan」 の TARGET_PARTS / part_workarea 拡張規模を update
+- **2026-05-11 update 2**: 実装 plan §2 driver / §3 measure.py / §4 build infra 完了反映。 §4 は sed pre-process で `.equ` 行 override の経路を確立 (= sdasz80 -D 未対応制約への解、 両 mode MAME headless 動作確認 PASS)
 
 ## 参照
 
