@@ -25,6 +25,12 @@
         ;; 5 = 17-part MML byte-stream state machines (BCEFGHIJ active)
         .equ    TEST_MODE_CHORD,         5
 
+        ;; ADR-0006 §B: PMDNEO target chip build flag
+        ;;   0 = ym2610 (default、 公式 NEOGEO YM2610 想定、 A/D は init せず stream 読捨)
+        ;;   1 = ym2610b (AES+ YM2610B 想定、 FM 6ch 全部発音、 A/D も init)
+        ;; build infra (= ADR-0006 §「実装 plan」 §4) から override する経路は option C 別 sprint
+        .equ    PMDNEO_TARGET_CHIP_YM2610B, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -85,10 +91,15 @@
         .equ    PART_ADPCMA4,            14   ;; O
         .equ    PART_ADPCMA5,            15   ;; P
         .equ    PART_ADPCMA6,            16   ;; Q
-        .equ    PART_COUNT,              17
+        ;; ADR-0006 §H: FM3Extend (= ch3 4-op individual mode 追加 voice)
+        ;; driver 未実装、 hooks=noop で stream 読捨 (= ADR-0008 想定で本格実装)
+        .equ    PART_FM3EXT_X,           17   ;; X
+        .equ    PART_FM3EXT_Y,           18   ;; Y
+        .equ    PART_FM3EXT_Z,           19   ;; Z
+        .equ    PART_COUNT,              20
 
         .equ    part_workarea,           0xF820
-        ;; 17 x 64 = 1088 bytes occupies 0xF820-0xFC5F
+        ;; 20 x 64 = 1280 bytes occupies 0xF820-0xFD1F (= ADR-0006 §A 20 part)
 
         .include "assets/samples.inc"
 
@@ -96,8 +107,8 @@
 ;;;
 ;;;   0xF800 - 0xF80F   reserved future (16 bytes、cmd FIFO 検討中)
 ;;;   0xF810 - 0xF81F   driver_state (= 16 bytes 既存)
-;;;   0xF820 - 0xFC5F   part_workarea (= 17 x 64 = 1088 bytes、Phase 5b)
-;;;   0xFC60 - 0xFFBF   free / 後続 phase 用 (= 864 bytes 余裕)
+;;;   0xF820 - 0xFD1F   part_workarea (= 20 x 64 = 1280 bytes、ADR-0006 §A)
+;;;   0xFD20 - 0xFFBF   free / 後続 phase 用 (= 672 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -1281,89 +1292,132 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         call    ym2610_write_port_b
         call    pmdneo5_clear_part_workarea
 
+        ;; ADR-0006 §A/§B: song_table は 20 stream 順 (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,X,Y,Z)
+        ;; A/D は PMDNEO_TARGET_CHIP_YM2610B 時のみ init、 default (= ym2610) では stream 読捨
+        ;; K (Rhythm) と X/Y/Z (FM3Extend) は常時 init、 hooks=noop で stream 読捨 (= 当面 mute)
         ld      a, #0
+        call    load_song_part_addr
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      a, #PART_FM1
+        ld      b, #0
+        ld      c, #0x0F
+        call    pmdneo5_init_part
+.endif
+        ld      a, #1
         call    load_song_part_addr
         ld      a, #PART_FM2
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #1
+        ld      a, #2
         call    load_song_part_addr
         ld      a, #PART_FM3
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #2
+        ld      a, #3
+        call    load_song_part_addr
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      a, #PART_FM4
+        ld      b, #3
+        ld      c, #0x0F
+        call    pmdneo5_init_part
+.endif
+        ld      a, #4
         call    load_song_part_addr
         ld      a, #PART_FM5
         ld      b, #4
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #3
+        ld      a, #5
         call    load_song_part_addr
         ld      a, #PART_FM6
         ld      b, #5
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #4
+        ld      a, #6
         call    load_song_part_addr
         ld      a, #PART_SSG1
         ld      b, #0
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #5
+        ld      a, #7
         call    load_song_part_addr
         ld      a, #PART_SSG2
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #6
+        ld      a, #8
         call    load_song_part_addr
         ld      a, #PART_SSG3
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
-        ld      a, #7
+        ld      a, #9
         call    load_song_part_addr
         ld      a, #PART_PCM
         ld      b, #0
         ld      c, #0
         call    pmdneo5_init_part
-        ld      a, #8
+        ld      a, #10
+        call    load_song_part_addr
+        ld      a, #PART_RHYTHM
+        ld      b, #0
+        ld      c, #0
+        call    pmdneo5_init_part
+        ld      a, #11
         call    load_song_part_addr
         ld      a, #PART_ADPCMA1
         ld      b, #0
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      a, #9
+        ld      a, #12
         call    load_song_part_addr
         ld      a, #PART_ADPCMA2
         ld      b, #1
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      a, #10
+        ld      a, #13
         call    load_song_part_addr
         ld      a, #PART_ADPCMA3
         ld      b, #2
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      a, #11
+        ld      a, #14
         call    load_song_part_addr
         ld      a, #PART_ADPCMA4
         ld      b, #3
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      a, #12
+        ld      a, #15
         call    load_song_part_addr
         ld      a, #PART_ADPCMA5
         ld      b, #4
         ld      c, #0x00
         call    pmdneo5_init_part
-        ld      a, #13
+        ld      a, #16
         call    load_song_part_addr
         ld      a, #PART_ADPCMA6
         ld      b, #5
         ld      c, #0x00
+        call    pmdneo5_init_part
+        ld      a, #17
+        call    load_song_part_addr
+        ld      a, #PART_FM3EXT_X
+        ld      b, #2
+        ld      c, #0x0F
+        call    pmdneo5_init_part
+        ld      a, #18
+        call    load_song_part_addr
+        ld      a, #PART_FM3EXT_Y
+        ld      b, #2
+        ld      c, #0x0F
+        call    pmdneo5_init_part
+        ld      a, #19
+        call    load_song_part_addr
+        ld      a, #PART_FM3EXT_Z
+        ld      b, #2
+        ld      c, #0x0F
         call    pmdneo5_init_part
 
         ld      a, #1
@@ -1373,7 +1427,7 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea
         ld      de, #part_workarea + 1
-        ld      bc, #1087
+        ld      bc, #1279
         xor     a
         ld      (hl), a
         ldir
@@ -1445,6 +1499,9 @@ pmdneo5_init_part:
         ld      PART_OFF_VOLUME_SHIFT(ix), a
         ld      PART_OFF_V_SCALE(ix), a
         ld      a, d
+        ;; ADR-0006 §H: X/Y/Z (= FM3Extend) は chip_type=FM 扱い、 hooks=noop (= 当面 mute)
+        cp      #PART_FM3EXT_X
+        jr      nc, pmdneo5_init_part_chip_fm
         cp      #PART_SSG1
         jr      c, pmdneo5_init_part_chip_fm
         cp      #PART_PCM
@@ -1459,6 +1516,9 @@ pmdneo5_init_part_chip_ssg:
 pmdneo5_init_part_chip_set:
         ld      PART_OFF_CHIP_TYPE(ix), a
         ld      a, d
+        ;; ADR-0006 §H: X/Y/Z は driver 未実装、 hooks=noop で stream 読捨
+        cp      #PART_FM3EXT_X
+        jp      nc, pmdneo5_init_part_hooks_noop
         cp      #PART_SSG1
         jp      c, pmdneo5_init_part_hooks_fm
         cp      #PART_PCM
