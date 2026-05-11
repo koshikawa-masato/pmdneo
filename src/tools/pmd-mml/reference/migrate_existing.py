@@ -33,13 +33,14 @@ def main():
             total += 1
             print(f'[{total:>3}] {subdir.name}/{mml.name} ...', end=' ', flush=True)
             try:
-                entry = measure_one(mml, category, tags, skip_mame=True)
-                if 'error' in entry:
+                result = measure_one(mml, category, tags, skip_mame=True)
+                if 'error' in result:
                     fail += 1
-                    print(f'FAIL: {entry["error"]}')
+                    print(f'FAIL: {result["error"]}')
                 else:
                     success += 1
-                    print(f'OK rms={entry["expected_summary"]["rms_L"]:.1f} peak={entry["expected_summary"]["peak_L"]} duration={entry["expected_summary"]["duration_sec"]:.2f}s')
+                    summary = result['run']['expected_summary']
+                    print(f'OK rms={summary["rms_L"]:.1f} peak={summary["peak_L"]} duration={summary["duration_sec"]:.2f}s')
             except Exception as e:
                 fail += 1
                 print(f'EXC: {e}')

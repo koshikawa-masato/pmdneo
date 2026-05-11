@@ -31,7 +31,8 @@ from scipy.io import savemat
 PROJECT_ROOT = Path('/Users/koshikawamasato/Projects/pmdneo')
 DATA_DIR = PROJECT_ROOT / 'data'
 BLOB_DIR = DATA_DIR / 'blob'
-MANIFEST_PATH = DATA_DIR / 'manifest.jsonl'
+MANIFEST_PATH = DATA_DIR / 'manifest.jsonl'   # entry 定義 (= 不変、 同 id は上書き)
+RUNS_PATH = DATA_DIR / 'runs.jsonl'           # 測定 run 履歴 (= append-only)
 PMDDOTNET_DIR = PROJECT_ROOT / 'vendor' / 'PMDDotNET'
 PMDDOTNET_DLL = PMDDOTNET_DIR / 'PMDDotNETConsole' / 'bin' / 'Debug' / 'net6.0' / 'PMDDotNETConsole.dll'
 
@@ -294,7 +295,7 @@ def align_and_match(wav_pmd: Path, wav_mame: Path) -> dict:
 # ---- DB 操作 ----
 
 def add_to_manifest(entry: dict):
-    """manifest.jsonl に 1 行追加 (= 既存同 id があれば置換)"""
+    """manifest.jsonl の entry 定義を upsert (= 同 id は置換、 entry の不変属性のみ)"""
     entries = []
     if MANIFEST_PATH.exists():
         with open(MANIFEST_PATH) as f:
@@ -309,6 +310,12 @@ def add_to_manifest(entry: dict):
     with open(MANIFEST_PATH, 'w') as f:
         for e in entries:
             f.write(json.dumps(e, ensure_ascii=False) + '\n')
+
+
+def add_to_runs(run: dict):
+    """runs.jsonl に append-only で 1 行追加 (= 過去 run 履歴を保持)"""
+    with open(RUNS_PATH, 'a') as f:
+        f.write(json.dumps(run, ensure_ascii=False) + '\n')
 
 
 def get_driver_commit() -> str:
@@ -379,7 +386,11 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
         # TODO: ROM build + MAME 録音 + 比較 (別 sprint で実装)
         pass
 
-    # 8. manifest entry 構築
+    # 8. manifest entry (= 不変属性のみ) と run (= この測定の verdict + tool 状態) を分離
+    import datetime
+    now = datetime.datetime.now().isoformat(timespec='seconds')
+    driver_commit = get_driver_commit()
+
     entry = {
         'id': entry_id,
         'category': category,
@@ -392,6 +403,14 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
             'predicted_duration_sec': duration_sec,
         },
         'source_mml_repo_path': str(mml_path.relative_to(PROJECT_ROOT)),
+        'schema_version': 2,  # F3 reform 後
+    }
+    add_to_manifest(entry)
+
+    run = {
+        'entry_id': entry_id,
+        'ran_at': now,
+        'driver_commit': driver_commit,
         'data_files': {
             'wav_pmddotnet': f'blob/{wav_pmd_blob.name}',
             'mat_pmddotnet': f'blob/{mat_pmd_blob.name}',
@@ -404,19 +423,20 @@ def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool 
             'peak_L': analysis_pmd['peak_L'],
             'fft_top5_hz': analysis_pmd['fft_top5_hz'],
             'duration_sec': analysis_pmd['duration_sec'],
+            'marker_peak_sample': analysis_pmd['marker_peak_sample'],
         },
         'match': {'verdict': 'NOT_TESTED'} if skip_mame else match,
-        'verified_at': '2026-05-11',
         'tool_versions': {
             'pmddotnet': '4.8s',
             'pmdplay': 'SDL 2022-07-26',
             'mame': None,
             'scipy': '1.x',
         },
-        'driver_commit': get_driver_commit(),
+        'analysis_version': '1.1',  # measure.py の解析 logic version
+        'trim_policy': {'body_start_ms': 100, 'method': 'marker_peak_offset'},
     }
-    add_to_manifest(entry)
-    return entry
+    add_to_runs(run)
+    return {'entry': entry, 'run': run}
 
 
 def extract_voice_def(mml_text: str) -> dict:
