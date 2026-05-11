@@ -32,6 +32,70 @@ ADR-0013/0014 で次の路線が確定した:
 
 **期待成果**: 「PMD.ASM 内の chip / 環境分岐 map」 (= 行番号 + flag + 目的の対応表)。 ADR-0015 に追記 or 別 memory 化。
 
+### 軸 1 中間結果 (= 2026-05-11 着手、 全 203 件集計 + ppz 関連 38 件中 10 件サンプリング読解)
+
+#### 全 203 件 flag 別集計
+
+| flag | 件数 | 意味 |
+|---|---|---|
+| `board2` | 90 | サウンドボード 2 (= OPNA、 PC-9801-86 等) |
+| `ppz` | 35 | PPZ8 (= 8ch PCM 拡張、 **PMDPPZ 流儀の手本**) |
+| `va` | 22 | VA (= VA1/VA2 機種) |
+| `pcm` | 11 | 86PCM (= サウンドボード 86 内蔵 PCM) |
+| `board2*adpcm` | 8 | OPNA + 内蔵 ADPCM-B 組合せ |
+| `ademu` | 8 | ADPCM emulation (= 内蔵 ADPCM 無い機種用) |
+| `board2*pcm` | 7 | OPNA + 86PCM 組合せ |
+| `adpcm` | 6 | 内蔵 ADPCM (= 単独) |
+| `vsync` | 4 | VSync 関連 timing |
+| `sync` | 3 | MIDI sync |
+| `pcm+ppz` | 2 | 86PCM + PPZ8 組合せ |
+| 各種組合せ | 計 7 | |
+| その他 (= `_myname` / `_optnam` / `resmes` / `1`) | 4 | name 系 + 突撃 mix flag |
+
+**全部 PC-9801 環境前提**。 PMDNEO で必要なのは:
+- `neogeo` flag (= 新規、 環境移植層): 推定 20-40 件
+- `opnb` flag (= 新規、 chip 移植層): 推定 50-80 件
+- 不使用 flag (= `va` / `pcm` / `ppz` / 関連組合せ): 計 85 件、 wrapper で立てなければ自動除外
+
+#### PPZ8 拡張の 7 component (= サンプリング読解結果)
+
+PPZ8 拡張 (= ppz 35 件 + 組合せ 3 件) を行番号別にサンプリング読解、 typical pattern を抽出:
+
+| # | 行範囲 | component | PMDNEO への対応案 |
+|---|---|---|---|
+| 1 | 250-258 | `_ppz` macro (= ppz call wrapper) | `_neogeo_main_cpu_recv` macro 等 |
+| 2 | 367-369 | `if ppz / include ppzdrv.asm` | `if neogeo / include neogeo-env.asm` + `if opnb / include opnb-driver.asm` |
+| 3 | 475-488 | PPZ8 driver 初期化 (= ppz_call_seg 設定 + int 呼出) | NEOGEO sound subsystem 初期化 (= main CPU command 受付 establish) |
+| 4 | 703-706 | `_ppz_voldown` 変数 transfer | (= NEOGEO は単 chip、 該当部分薄い) |
+| 5 | 6142-6159 | サウンド停止 routine の ppz keyoff loop | OPNB 全 ch keyoff routine (= FM + SSG + ADPCM-A + ADPCM-B) |
+| 6 | 7177+ | part_table 拡張 (= PPZ1/2/3 行追加) | OPNB 用 part 配置 (= 既存 PMDDotNET 流儀踏襲、 PPZ 行削除) |
+| 7 | 10164+ | /Z option (= PPZ8 CLI 接続 / 切断) | (= 不要、 NEOGEO に CLI なし) |
+
+#### 重要な構造的違い (= PPZ8 と PMDNEO)
+
+- **PPZ8**: 外部 driver (= PPZDRV.ASM) を **間接呼出** する wrapper 構造 (= ppz_call_seg / ppz_vec 経由)
+- **PMDNEO**: 自身が driver の本体、 **OPNB register を直接 write** する構造
+
+つまり PMDNEO の `if neogeo` / `if opnb` 分岐は、 PPZ8 流儀をそのまま踏襲できない部分がある:
+- macro 化 / include 切替 / 初期化 / 停止 / part table の pattern は流用可能
+- **register write 経路の OPNB 化は新規**、 PPZ8 では参考にならない。 むしろ `board2` 90 件のうち「register / port 関連部分」 (= 軸 3 で調査) の方が手本
+
+#### 推定改造規模 (= 軸 1 結果を踏まえた更新)
+
+| 区分 | 推定件数 | 内訳根拠 |
+|---|---|---|
+| macro / include / 初期化 / 停止 routine | 10-20 件 | PPZ8 流儀踏襲、 PMDPPZ で同等規模 |
+| part table / cmd handler 拡張 | 15-25 件 | PPZ8 で 15-20 件、 PMDNEO 同等 |
+| register write 経路の OPNB 化 | 50-80 件 | 新規、 board2 90 件のうち register 関連部分が手本 |
+| NEOGEO 環境移植 | 20-40 件 | 新規、 軸 2 で具体化 |
+| **合計** | **95-165 件** | ADR-0014 で立てた 100-150 件と整合 |
+
+#### 残作業 (= 軸 1 後半、 軸 3 と並行可能)
+
+- ppz 関連 38 件のうち未読 28 件 (= 8k-9k 領域の cmd handler 中心) は、 軸 3 (= OPNB 差分) で「OPNB 用 cmd handler 設計」 と並行調査
+- `board2` 90 件のうち「register / port 関連」 部分を抽出、 OPNB 並行 / 置換候補として整理 (= 軸 3 と統合)
+- `adpcm` / `board2*adpcm` 14 件は OPNB 内蔵 ADPCM-B 経路として継承可能性、 軸 3 で判定
+
 ### 軸 2: NEOGEO 環境依存箇所の特定
 
 **目的**: PC-9801 想定の環境依存層を NEOGEO 環境に置換える具体的箇所を特定。
