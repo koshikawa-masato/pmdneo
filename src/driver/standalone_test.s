@@ -953,14 +953,25 @@ pmdneo_fm_voice_set:
         call    pmdneo_fm_write_reg_ch
         ret
 
+;; ADR-0010: ADR-0001 期「FM ch1/ch4 不使用」 命名遺物。 ADR-0006 §B「ym2610b mode で 6 FM ch 全部発音」
+;; 規律に追従、 ym2610b conditional で ch index 0 (A) / 3 (D) voice setup 追加。
+;; 命名 refactor (= init_fm_audible_voices 等) は別 sprint。
 init_chip_ch2_voice:
-        ld      b, #1                   ; chip ch 2
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      b, #0                   ; chip ch 1 (A) [ym2610b 限定]
         call    pmdneo_fm_voice_set_default
-        ld      b, #2                   ; chip ch 3
+.endif
+        ld      b, #1                   ; chip ch 2 (B)
         call    pmdneo_fm_voice_set_default
-        ld      b, #4                   ; chip ch 5
+        ld      b, #2                   ; chip ch 3 (C)
         call    pmdneo_fm_voice_set_default
-        ld      b, #5                   ; chip ch 6
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ld      b, #3                   ; chip ch 4 (D) [ym2610b 限定]
+        call    pmdneo_fm_voice_set_default
+.endif
+        ld      b, #4                   ; chip ch 5 (E)
+        call    pmdneo_fm_voice_set_default
+        ld      b, #5                   ; chip ch 6 (F)
         call    pmdneo_fm_voice_set_default
         ret
 
