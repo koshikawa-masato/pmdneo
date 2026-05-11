@@ -34,8 +34,6 @@ DO_WAVWRITE=0
 WAVWRITE_SECONDS=8
 DO_LOOP_VIZ=0
 LOOP_VIZ_RANGE="FB00-FB10"
-PMDNEO_MASK_LETTERS=""
-DO_HEADLESS=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -46,28 +44,10 @@ while [[ $# -gt 0 ]]; do
         --wavwrite-seconds) WAVWRITE_SECONDS="$2"; shift 2 ;;
         --loop-viz) DO_LOOP_VIZ=1; DO_TRACE=1; shift ;;
         --loop-viz-range) LOOP_VIZ_RANGE="$2"; DO_LOOP_VIZ=1; DO_TRACE=1; shift 2 ;;
-        --mask) PMDNEO_MASK_LETTERS="$2"; shift 2 ;;
-        --headless) DO_HEADLESS=1; shift ;;
         -h|--help) sed -n '4,25p' "$0"; exit 0 ;;
         *) echo "Unknown option: $1" >&2; exit 2 ;;
     esac
 done
-
-if [[ -n "$PMDNEO_MASK_LETTERS" ]]; then
-    # PMDNEO_MASK_LETTERS (= "BCE" 等) を bit mask に変換 (= bit 0=A, bit 1=B, ..., bit 10=K, bit 11=X, bit 12=Y, bit 13=Z)
-    mask_bits=0
-    for ((i=0; i<${#PMDNEO_MASK_LETTERS}; i++)); do
-        c="${PMDNEO_MASK_LETTERS:$i:1}"
-        case "$c" in
-            [A-K]) ch=$(($(printf '%d' "'$c") - 65)); mask_bits=$((mask_bits | (1 << ch))) ;;
-            X) mask_bits=$((mask_bits | (1 << 11))) ;;
-            Y) mask_bits=$((mask_bits | (1 << 12))) ;;
-            Z) mask_bits=$((mask_bits | (1 << 13))) ;;
-        esac
-    done
-    export PMDNEO_EXTRA_CFLAGS="${PMDNEO_EXTRA_CFLAGS:-} -DPMDNEO_MASK_BITS=$mask_bits"
-    echo "    PMDNEO_MASK: $PMDNEO_MASK_LETTERS (= bit mask 0x$(printf '%x' $mask_bits))"
-fi
 
 echo "=== Step 1/4: 既存 mame process kill ==="
 pkill -9 -f "mame puzzledp" 2>/dev/null || true
@@ -78,7 +58,7 @@ if [[ $DO_BUILD -eq 1 ]]; then
     echo ""
     echo "=== Step 2/4: build-poc.sh ==="
     if [[ -n "${PMDNEO_FIXTURE:-}" && "$PMDNEO_FIXTURE" -gt 0 ]]; then
-        export PMDNEO_EXTRA_CFLAGS="${PMDNEO_EXTRA_CFLAGS:-} -DPMDNEO_FIXTURE=$PMDNEO_FIXTURE"
+        export PMDNEO_EXTRA_CFLAGS="-DPMDNEO_FIXTURE=$PMDNEO_FIXTURE"
         echo "    PMDNEO_FIXTURE=$PMDNEO_FIXTURE"
     fi
     # main.c rebuild 強制 (= CFLAGS 変化を make が見ないため)
@@ -183,33 +163,7 @@ if [[ $DO_TRACE -eq 1 ]]; then
         echo "      wav 録音: $TRACE_DIR/audio.wav (= ${WAVWRITE_SECONDS} 秒、 window モード維持)"
     fi
     echo ""
-    if [[ $DO_HEADLESS -eq 1 ]]; then
-        # headless mode (= ADR-0005 F1 前提 a 解決、 SDL_VIDEODRIVER=dummy で fullscreen 完全抑止)
-        echo "    headless mode (= no window、 fullscreen フォーカス奪取なし)"
-        export SDL_VIDEODRIVER=dummy
-        if [[ $DO_WAVWRITE -eq 1 ]]; then
-            exec "$MAME_BIN" "$GAMEROM" \
-                -rompath "$ISOLATED_ROM_DIR" \
-                -video none \
-                -sound coreaudio \
-                -samplerate 48000 \
-                -nothrottle \
-                -noautosave \
-                -skip_gameinfo \
-                -wavwrite "$TRACE_DIR/audio.wav" \
-                -seconds_to_run "$WAVWRITE_SECONDS"
-        else
-            exec "$MAME_BIN" "$GAMEROM" \
-                -rompath "$ISOLATED_ROM_DIR" \
-                -video none \
-                -sound coreaudio \
-                -samplerate 48000 \
-                -nothrottle \
-                -noautosave \
-                -skip_gameinfo \
-                -seconds_to_run 30
-        fi
-    elif [[ $DO_WAVWRITE -eq 1 ]]; then
+    if [[ $DO_WAVWRITE -eq 1 ]]; then
         exec "$MAME_BIN" "$GAMEROM" \
             -rompath "$ISOLATED_ROM_DIR" \
             -window \
@@ -229,36 +183,6 @@ if [[ $DO_TRACE -eq 1 ]]; then
             -noautosave \
             -skip_gameinfo \
             -sound coreaudio
-    fi
-fi
-
-if [[ $DO_HEADLESS -eq 1 ]]; then
-    echo "    mame $GAMEROM headless mode (= SDL_VIDEODRIVER=dummy + -video none)"
-    echo ""
-    export SDL_VIDEODRIVER=dummy
-    if [[ $DO_WAVWRITE -eq 1 ]]; then
-        rm -f "$TRACE_DIR/audio.wav"
-        mkdir -p "$TRACE_DIR"
-        exec mame "$GAMEROM" \
-            -rompath "$ISOLATED_ROM_DIR" \
-            -video none \
-            -sound coreaudio \
-            -samplerate 48000 \
-            -nothrottle \
-            -noautosave \
-            -skip_gameinfo \
-            -wavwrite "$TRACE_DIR/audio.wav" \
-            -seconds_to_run "$WAVWRITE_SECONDS"
-    else
-        exec mame "$GAMEROM" \
-            -rompath "$ISOLATED_ROM_DIR" \
-            -video none \
-            -sound coreaudio \
-            -samplerate 48000 \
-            -nothrottle \
-            -noautosave \
-            -skip_gameinfo \
-            -seconds_to_run 30
     fi
 fi
 
