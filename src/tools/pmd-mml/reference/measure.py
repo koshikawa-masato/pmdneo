@@ -61,22 +61,90 @@ def predict_duration_sec(max_clock: int, tempo: int, zenlen: int = 192) -> float
     return sec
 
 
-def inject_marker(mml_bytes: bytes) -> bytes:
-    """marker 音色 @99 と A part click を MML に注入 (= ADR-0005 P/T/W)
+def parse_used_parts(mml_bytes: bytes) -> set:
+    """MML から使用 part letter (= A-Q + X/Y/Z) を検出して返す
 
-    挿入位置:
-        - #Memo の次に #Zenlen 192 と marker 音色定義
-        - 1 つ目の B/C/I 行の前に A 行 (marker + rest) を挿入
+    判定: 各 letter 単独で行頭にあり、 直後が tab/space/letter+1 列目で
+    note/cmd を含む行を「使用 part 行」 とみなす。 PMDDotNET MML 慣例で
+    複数 letter 並列 (= "BCEFI v15 ...") も使用 part として認識。
     """
+    used = set()
+    # 行頭 1 文字 or 連続 letter 列 + whitespace を含む行が part 宣言
+    # 例: "A\tv15 ..." / "BCEFI v15 ..." / "G v15 q1 ..."
+    part_re = re.compile(rb'^([A-QXYZ]+)[\t ]')
+    for raw in mml_bytes.split(b'\r\n'):
+        # comment / directive / voice 定義行は skip
+        if not raw or raw.startswith(b';') or raw.startswith(b'#') or raw.startswith(b'@'):
+            continue
+        m = part_re.match(raw)
+        if not m:
+            continue
+        # 行 body (= part letter 以降) が note/cmd を含むか確認 (= 空 part 表記行を除外)
+        body = raw[m.end():].strip()
+        if not body:
+            continue
+        for letter_byte in m.group(1):
+            used.add(chr(letter_byte))
+    return used
+
+
+def choose_marker_host(used: set, target_chip: str = 'ym2610') -> tuple[str, str]:
+    """ADR-0006 §F priority で marker host part を 1 つ選定
+
+    priority: SSG 空 (G/H/I) → FM 空 (B/C/E/F、 ym2610b で A/D 含む) → ADPCM-A 系 fallback
+
+    return: (chip_type, host_letter) tuple
+        chip_type ∈ {'SSG', 'FM', 'ADPCM'}
+        host_letter ∈ {'A'..'Q'}
+
+    K (= rhythm、 driver mute) と X/Y/Z (= FM3Extend、 driver mute) は候補外。
+    """
+    ssg_candidates = ['G', 'H', 'I']
+    fm_candidates = ['B', 'C', 'E', 'F']
+    if target_chip == 'ym2610b':
+        fm_candidates = ['A', 'B', 'C', 'D', 'E', 'F']
+    adpcm_candidates = ['L', 'M', 'N', 'O', 'P', 'Q']
+
+    for p in ssg_candidates:
+        if p not in used:
+            return ('SSG', p)
+    for p in fm_candidates:
+        if p not in used:
+            return ('FM', p)
+    for p in adpcm_candidates:
+        if p not in used:
+            return ('ADPCM', p)
+    raise RuntimeError(f'全 part 使用中、 marker host 確保失敗 (= used={sorted(used)})')
+
+
+def inject_marker(mml_bytes: bytes, target_chip: str = 'ym2610') -> bytes:
+    """marker click を MML に動的注入 (= ADR-0006 §F、 ADR-0005 W 破棄)
+
+    手順:
+        1. 入力 MML を parse して使用 part を検出
+        2. ADR-0006 §F priority で marker host part を動的選定
+        3. SSG host: voice 定義不要、 envelope default で click 出す
+           FM host: 既存 @099 FM voice 定義を注入 + host part 行に @99 click
+           ADPCM host: 当面 NotImplementedError (= 想定外 fallback)
+        4. #Zenlen 192 を #Memo 直後に強制 (= duration 予測前提)
+    """
+    used = parse_used_parts(mml_bytes)
+    chip_type, host = choose_marker_host(used, target_chip)
+    if chip_type == 'ADPCM':
+        raise NotImplementedError(
+            f'ADPCM host marker (= {host}) は当面非対応 (= SSG + FM 全埋まりは異常想定)'
+        )
+
     lines = mml_bytes.split(b'\r\n')
     new_lines = []
     inserted_zenlen = False
     inserted_voice = False
-    inserted_apart = False
+    inserted_host = False
 
+    # FM host のみ voice 定義注入 (= 既存 @099 FM 4 slot)
     marker_voice = [
         b'',
-        b'; marker @099 (= ADR-0005 click)',
+        '; marker @099 (= ADR-0006 §F dynamic host、 FM click)'.encode('shift_jis'),
         b'@099 007 005',
         b'; ar  dr  sr  rr  sl  tl  ks  ml  dt ams\tmarker click',
         b' 031 031 000 015 015 000 000 008 003 000',
@@ -84,35 +152,43 @@ def inject_marker(mml_bytes: bytes) -> bytes:
         b' 031 031 000 015 015 000 000 008 003 000',
         b' 031 031 000 015 015 000 000 008 003 000',
     ]
-    marker_apart = b'A\t@99 v15 q1 o8 c%2 r%2'
+    host_byte = host.encode('ascii')
+    if chip_type == 'FM':
+        marker_host_line = host_byte + b'\t@99 v15 q1 o8 c%2 r%2'
+    else:  # SSG
+        marker_host_line = host_byte + b'\tv15 q1 o8 c%2 r%2'
+
+    # 注入 anchor: 既存 part 行 (= host 含む可能性) のいずれか最初の行
+    # 既存 host 行があれば その前に marker 行を差し込み (= 元 host 行と共存)
+    part_anchor_re = re.compile(rb'^[A-QXYZ]+[\t ]')
 
     for i, line in enumerate(lines):
-        # #Zenlen 192 を #Memo の直後に挿入 (= 既存 #Zenlen があれば skip)
         if not inserted_zenlen and line.startswith(b'#Memo'):
             new_lines.append(line)
-            # 次行確認、 既に #Zenlen があれば skip
             if i + 1 < len(lines) and not lines[i+1].startswith(b'#Zenlen'):
                 new_lines.append(b'#Zenlen\t\t192')
             inserted_zenlen = True
             continue
-        # 既存 #Zenlen は値を 192 に上書き
         if line.startswith(b'#Zenlen'):
             new_lines.append(b'#Zenlen\t\t192')
             inserted_zenlen = True
             continue
-        # marker 音色定義: 最初の @ 定義 (= @001 等) の前に挿入
-        if not inserted_voice and re.match(rb'^@\d+\s', line):
+        # FM host のみ voice 定義注入: 最初の @ 定義 行の前
+        if chip_type == 'FM' and not inserted_voice and re.match(rb'^@\d+\s', line):
             new_lines.extend(marker_voice)
             new_lines.append(b'')
             inserted_voice = True
-        # A part 注入: 最初の B/C/D/E/F/I 行の前に挿入 (= 既存 A 行があれば skip)
-        if not inserted_apart and re.match(rb'^[BCDEFI]\s', line):
-            # 既存 A 行があるか前を見直し
-            existing_a = any(re.match(rb'^A\s', l) for l in new_lines)
-            if not existing_a:
-                new_lines.append(marker_apart)
-            inserted_apart = True
+        # marker host 行注入: 最初の part 行の前
+        if not inserted_host and part_anchor_re.match(line):
+            new_lines.append(marker_host_line)
+            inserted_host = True
         new_lines.append(line)
+
+    # part 行が 1 つも無い MML (= 想定外) には末尾に host 行追加
+    if not inserted_host:
+        if chip_type == 'FM' and not inserted_voice:
+            new_lines.extend(marker_voice)
+        new_lines.append(marker_host_line)
 
     return b'\r\n'.join(new_lines)
 
@@ -329,15 +405,15 @@ def get_driver_commit() -> str:
 
 # ---- main flow ----
 
-def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool = False) -> dict:
+def measure_one(mml_path: Path, category: str, tags: list[str], skip_mame: bool = False, target_chip: str = 'ym2610') -> dict:
     """1 entry の measure flow"""
     entry_id = mml_path.stem  # voice-tl-10 等
 
     with open(mml_path, 'rb') as f:
         original_mml_bytes = f.read()
 
-    # 1. marker 注入
-    injected_bytes = inject_marker(original_mml_bytes)
+    # 1. marker 注入 (= ADR-0006 §F dynamic host)
+    injected_bytes = inject_marker(original_mml_bytes, target_chip=target_chip)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         tmpdir = Path(tmpdir)
@@ -482,10 +558,16 @@ def main():
     parser.add_argument('--category', default='voice/single/param-step')
     parser.add_argument('--tags', default='')
     parser.add_argument('--skip-mame', action='store_true', default=True)  # 当面 default skip
+    parser.add_argument(
+        '--chip',
+        choices=['ym2610', 'ym2610b'],
+        default=os.environ.get('PMDNEO_TARGET_CHIP', 'ym2610'),
+        help='target chip (= ADR-0006 §B、 marker host 候補に影響)',
+    )
     args = parser.parse_args()
 
     tags = [t.strip() for t in args.tags.split(',') if t.strip()]
-    entry = measure_one(args.mml_path, args.category, tags, skip_mame=args.skip_mame)
+    entry = measure_one(args.mml_path, args.category, tags, skip_mame=args.skip_mame, target_chip=args.chip)
     print(json.dumps(entry, ensure_ascii=False, indent=2))
 
 
