@@ -140,6 +140,26 @@ ADR-0006 §5 段階 2 で露呈した「voice param 全部未反映」 問題 (=
 - 不変 (= 路線変更に伴う即時 merge はしない)
 - 改造 PMDDotNET 路線の sprint が安定したら user 判断で develop merge
 
+### branch 戦略 訂正 (= 2026-05-11 追記、 履歴制約による wip 起点切替)
+
+ADR-0014 起票時に「新 branch を develop 起点で切る」 と決めたが、 実際に cherry-pick を試みたところ次の制約が判明:
+
+- **develop は Phase 12a-4 (= e32e0d3) で停止** しており、 ADR-0005 で新規作成した `measure.py` 等の **カテゴリ A 再利用対象 file が存在しない**。 ADR-0013/0014 を develop に持ち込もうと cherry-pick すると、 measure.py の modify/delete 衝突が発生
+- ADR-0009/0010/0011 の起票 commit は **driver fix と同 commit** に含まれており、 ADR 文書のみ抽出に手動 patch が必要 (= clean な分離不可)
+- a25e010 (= 5 ADR 訂正注記) も ADR-0009/0010/0011 file (= 凍結対象) を同時修正しているため、 ADR-0009/0010/0011 を持ち込まないと衝突
+
+これら履歴制約により branch 戦略を訂正:
+
+- **新 branch `wip-pmddotnet-opnb-extension` は wip-pmdmml-voice-parser 起点で切る** (= 当初「develop 起点」 案を訂正)
+- 凍結対象 file (= 自前 driver `src/driver/standalone_test.s`、 自前 compile.py `src/tools/pmd-mml/compile.py` の ADR-0006 §A/B/C/H 拡張) は新 branch でも **「触らない」 規律で運用**
+- 凍結対象 ADR file (= ADR-0006 / 0009 / 0010 / 0011) も同様、 新 branch でも参照可能だが本路線では superseded 扱い
+- develop merge は将来別 sprint で段階的判断 (= 改造 PMDDotNET driver 本体実装完成後、 wip-pmdmml-voice-parser branch の必要 file のみ cherry-pick で develop に持ち込み、 凍結対象は wip-pmdmml-voice-parser 専属のまま)
+
+この訂正により:
+- 新 branch から ADR-0013/0014/5 ADR 注記/measure.py 等が直接参照可能 (= file が同 branch に存在)
+- 凍結対象 file が「触らない」 規律で同 branch 内に共存 (= 既存 ADR-0014 カテゴリ判断の運用は変わらず)
+- develop merge は将来別 sprint で個別判断
+
 ## 影響
 
 ### 即時影響
