@@ -146,6 +146,8 @@ duration_sec = total_clock × 60 / (tempo × 48)
 
 **A part** で marker 注入 (= 検証対象 B と完全分離、 解析時の周波数 filter で容易切り分け)。
 
+> **※ ADR-0006 で superseded (2026-05-11)**: AES+ YM2610B 想定 (= PMDNEO_TARGET_CHIP=ym2610b) で A part を将来 FM ch1 として使う方針に変更したため、 marker 用 A part 予約は破棄。 marker host part は **measure.py が動的選定** (= priority: SSG 空 > FM 空 > ADPCM、 ADR-0006 §F 参照)。
+
 ## 実装 plan
 
 1. `.gitignore` に `data/` 追加
