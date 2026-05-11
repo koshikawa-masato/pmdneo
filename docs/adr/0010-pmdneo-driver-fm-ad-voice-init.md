@@ -71,7 +71,7 @@ ymfm chip register file には A/D の voice/keyon/fnum 書込が到達してい
 YM2610(config, m_ym, NEOGEO_YM2610_CLOCK);
 ```
 
-MAME NEOGEO driver は **YM2610** chip device を instantiate しており、 **YM2610B ではない**。 ymfm 内部で YM2610 emulation は datasheet 仕様通り「FM 4 ch (= ch2/3/5/6) + ADPCM-A 6 ch + ADPCM-B 1 ch」 として動作し、 ch1/ch4 への FM voice/keyon/fnum 書込は **register file に保存される**が **audio output 経路では発音されない** (= chip device の internal mute)。
+MAME NEOGEO driver は **YM2610** chip device を instantiate しており、 **YM2610B ではない**。 YM2610 は **YM2610B の ch1/ch4 を物理的に omit した派生 chip** (= 歩留まり悪い ch を削除した版、 親 chip 不変) で、 ymfm 内部で YM2610 emulation でも ch1/ch4 FM 経路は そもそも実体として存在しない。 datasheet 仕様: 「FM 4 ch (= ch2/3/5/6) + ADPCM-A 6 ch + ADPCM-B 1 ch + SSG 3 ch」 (= ADPCM-A 6 ch は FM ch 番号と独立した別系統リソース、 「ch1/ch4 を ADPCM に流用」 という関係性は無い)。 driver からの ch1/ch4 FM voice/keyon/fnum 書込は ymfm trace に記録される (= write 経路自体は受領) が、 chip 内部に FM ch1/ch4 自体が無いため発音されない (= 「register file 保存 + audio output 抑制」 ではなく「chip 内に対応 FM ch が存在しない」 が正確)。
 
 つまり A/D silent の真因は driver の voice 設定漏れ + MAME chip emulation の制約の 2 段:
 
@@ -171,4 +171,4 @@ ch2 B の `o4 e` も実周波数 330.5 Hz = MIDI E4 (= 期待 165 Hz = E3 から
 - `vendor/mame-fork/src/mame/neogeo/neogeo.cpp:1964`: NEOGEO driver の YM2610 instantiate (= MAME chip mismatch の根拠)
 - memory `feedback_step_pacing_and_artifact_attribution.md`: 検証 wav の出自明示規律
 - memory `feedback_record_unexpected_findings.md`: trace 解析で「port B の reg は 0x100 offset で記録される」 という ymfm fork 流儀の罠
-- YM2610 / YM2610B datasheet: chip 内部 FM ch enable (= YM2610 は ch2/3/5/6 のみ FM、 ch1/4 ADPCM 専用)
+- YM2610 / YM2610B datasheet: YM2610 = YM2610B の ch1/ch4 を物理的に omit した派生 chip (= FM 4 ch ch2/3/5/6 のみ存在、 ADPCM-A 6 ch は別系統独立リソースで FM ch との流用関係なし)
