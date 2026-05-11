@@ -13,9 +13,15 @@ from pathlib import Path
 PART_LABELS = {
     chr(ord("A") + i): f"song_part_{chr(ord('a') + i)}" for i in range(17)
 }
+# ADR-0006 §H: FM3Extend 用 X/Y/Z (= ch3 4-op individual mode の追加 voice)
+PART_LABELS.update({"X": "song_part_x", "Y": "song_part_y", "Z": "song_part_z"})
 
-# ADR-0006: compile.py parser は A-Q 全 17 part 文法対応
-TARGET_PARTS = ("A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q")
+# ADR-0006 §A: compile.py parser は A-Q + X/Y/Z 全 20 part 文法対応
+TARGET_PARTS = (
+    "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+    "K", "L", "M", "N", "O", "P", "Q",
+    "X", "Y", "Z",
+)
 
 # ADR-0006 §B: PMDNEO_TARGET_CHIP=ym2610 (default) / ym2610b (AES+ YM2610B 想定)
 TARGET_CHIP = os.environ.get("PMDNEO_TARGET_CHIP", "ym2610").lower()
@@ -26,12 +32,12 @@ if TARGET_CHIP not in ("ym2610", "ym2610b"):
     )
     TARGET_CHIP = "ym2610"
 
-# ADR-0006 §C: default mode で A/D に note 書込 → warning (= ADR-0001 警告規律継承)
-# K は両 mode で driver 未実装のため warning
+# ADR-0006 §C/§G/§H: default mode で A/D に note 書込 → warning (= ADR-0001 警告規律継承)
+# K (Rhythm) と X/Y/Z (FM3Extend) は両 mode で driver 未実装のため warning
 if TARGET_CHIP == "ym2610":
-    WARN_PARTS_NOTE = ("A", "D", "K")
+    WARN_PARTS_NOTE = ("A", "D", "K", "X", "Y", "Z")
 else:  # ym2610b
-    WARN_PARTS_NOTE = ("K",)
+    WARN_PARTS_NOTE = ("K", "X", "Y", "Z")
 
 MAX_LOOP_DEPTH = 4
 VOICE_HEADER_RE = re.compile(r"^@(\d{3})[ \t]+(\d+)[ \t]+(\d+)$")
@@ -529,7 +535,7 @@ def parse_mml(source: str) -> tuple[list[tuple[str, list[int]]], dict[int, list[
         if part not in TARGET_PARTS:
             print(f"error: line {line_no}, position 1: invalid part letter {line[0]!r}", file=sys.stderr)
             continue
-        # ADR-0006 §C: A/D/K に note 書込 → warning (= mode 別 WARN_PARTS_NOTE 参照)
+        # ADR-0006 §C/§G/§H: A/D/K/X/Y/Z に note 書込 → warning (= mode 別 WARN_PARTS_NOTE 参照)
         if part in WARN_PARTS_NOTE:
             body = line[1:].strip()
             if body and re.search(r"[a-grcdefgab]", body):
@@ -537,6 +543,13 @@ def parse_mml(source: str) -> tuple[list[tuple[str, list[int]]], dict[int, list[
                     print(
                         f"warning: line {line_no}: part {part!r} (Rhythm = ADPCM-A drum) "
                         f"is not yet implemented in driver, will be muted (ADR-0006 §G)",
+                        file=sys.stderr,
+                    )
+                elif part in ("X", "Y", "Z"):
+                    print(
+                        f"warning: line {line_no}: part {part!r} (FM3Extend = ch3 4-op individual "
+                        f"mode の追加 voice) is not yet implemented in driver, will be muted "
+                        f"(ADR-0006 §H、 driver 実装は将来 ADR-0008 想定)",
                         file=sys.stderr,
                     )
                 else:
