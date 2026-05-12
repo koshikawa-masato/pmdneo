@@ -1,0 +1,41 @@
+; ADR-0020 step 6-a silent BCEF fixture (= audio isolation 用 default MML 代替)
+;
+; 目的: scripts/build-poc.sh default の test01.mml + test02.mml に含まれる
+; B/C/E/F (= FM ch 2/3/5/6) chord 進行を empty part に差替、 L-Q ADPCM-A
+; rhythm song を solo 試聴できる状態を作る。
+;
+; 期待挙動:
+;   - compile.py 出力 song_part_a-q.mn (+ x/y/z) は全 part [0x80] (= EOM のみ)
+;   - song_table dispatch は走るが、 各 FM/SSG/ADPCM-B/Rhythm part stream は
+;     即終了 (= keyon 命令 0 件)
+;   - 並走する PMDDOTNET_MML=l-q-rhythm-song.mml の .MN direct path で
+;     L-Q ADPCM-A 6 ch のみ発音
+;   - trace gate F (= reg 0x28 = FM keyon) = 0 件期待
+;
+; ADR-0020 §決定 2 (= silent-bcef fixture first choice) に基づく。
+; driver 不変、 fixture 追加のみ。 test02.mml の `J ;empty` 流儀踏襲。
+
+#Title		ADR-0020 step 6-a silent BCEF fixture
+#Composer	M.Koshikawa.
+#Memo		B/C/E/F empty + G/H/I V0 + J empty、 ADPCM-A L-Q solo 試聴用 default MML 代替
+
+; FM (= ch 1-6) empty
+; A は default chip = ym2610 で init されない (= standalone_test.s:1338 guard)
+; D も同様 (= ch 4 init guard)。 念のため A/D も明示的に empty
+A ;silent (= FM ch 1、 default ym2610 では init guard)
+B ;silent (= FM ch 2、 ADR-0020 §決定 2 audio isolation)
+C ;silent (= FM ch 3)
+D ;silent (= FM ch 4、 default ym2610 では init guard)
+E ;silent (= FM ch 5)
+F ;silent (= FM ch 6)
+
+; SSG (= ch 1-3) V0 で明示的に silent
+G V0
+H V0
+I V0
+
+; ADPCM-B empty (= 既存 test02.mml 同流儀)
+J ;empty
+
+; K (Rhythm) / L-Q / X/Y/Z は記載なし → compile.py default [0x80] (= EOM のみ)
+; L-Q は PMDDOTNET_MML 経路 (= .MN direct) で別途 ADPCM-A 6 ch 楽曲を流す
