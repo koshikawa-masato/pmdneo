@@ -72,6 +72,9 @@
         .equ    PART_OFF_LOOPSTART,      28   ;; L global loop marker address lo-byte
         .equ    PART_OFF_LOOPSTART_HI,   29   ;; L global loop marker address hi-byte
         .equ    PART_OFF_MASK,           30   ;; per-part mask flag (0=audible, 1=mask silent)
+        ;; ADR-0016 step 5 β-2a: ADPCM-A voice index (= L body 0xFF nn の nn)
+        ;; comat (CHIP_TYPE=2 path) で書込、 β-2b で adpcma_keyon_simple が読む
+        .equ    PART_OFF_INSTRUMENT,     31   ;; 1 byte ADPCM-A voice idx (L-Q part only)
         .equ    PART_OFF_LOOPSTACK_BASE, 32
         .equ    PART_OFF_LOOPDEPTH,      48
         .equ    PART_OFF_HOOK_KEYON,     49    ;; 2 bytes
@@ -2381,13 +2384,21 @@ comexloop_found_end:
 comexloop_continue:
         ret
 
+;; ADR-0016 step 5 β-2a: 0xFF (@<n>) cmd dispatch 拡張
+;; 既存 comat は FM 限定 (= CHIP_TYPE=0 で voice_table 引き)、 PCM/SSG は破棄。
+;; β-2a で CHIP_TYPE=2 (= PCM/ADPCM-A) path を追加、 voice index を
+;; PART_OFF_INSTRUMENT(ix) に保存。 β-2b で adpcma_keyon_simple が
+;; この field を読み、 voice index → sample table lookup を実装。
+;; M-Q part は β scope-out (= γ で扱う)、 ただし comat 自体は L-Q 共通 path。
 comat:
         call    pmdneo_part_fetch_byte    ; A = voice index (0-based)
         ld      c, a
         ld      a, PART_OFF_CHIP_TYPE(ix)
+        cp      #2                        ; CHIP_TYPE 2 = PCM/ADPCM-A
+        jp      z, comat_pcm
         or      a
-        jp      nz, comat_done
-        ld      l, c
+        jp      nz, comat_done            ; SSG 等は何もしない (= 既存挙動維持)
+        ld      l, c                      ; FM voice setup (= 既存 path、 CHIP_TYPE=0)
         ld      h, #0
         add     hl, hl                    ; HL = index * 2
         ld      de, #voice_table
@@ -2399,6 +2410,13 @@ comat:
         ld      b, PART_OFF_CH_IDX(ix)
         call    pmdneo_fm_voice_set
 comat_done:
+        ret
+
+;; β-2a: L-Q part 用 voice index 保存 (= ADPCM-A sample table lookup 準備)
+;; C = voice index (= pmdneo_part_fetch_byte で取得済)
+;; PART_OFF_INSTRUMENT(ix) = C
+comat_pcm:
+        ld      PART_OFF_INSTRUMENT(ix), c
         ret
 
 fnumsetp_ch:
