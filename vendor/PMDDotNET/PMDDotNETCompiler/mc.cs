@@ -786,6 +786,14 @@ namespace PMDDotNET.Compiler
                 }
                 else
                 {
+                    // PMDNEO mode (= /B) で L-Q (= ADPCM-A 6 ch) part letter を Pass1 で検出
+                    // → adpcma_used = true (FinalizeOutputFormat() で m_start bit 2 + .MN に反映)
+                    // 既存 byte layout / header 領域 / part address table には影響なし
+                    // (detection only、 L-Q body 出力 / cloop 拡張 / 後方拡張領域は別 commit)
+                    if (mml_seg.opnb_flg == 1 && al >= 'L' && al <= 'Q')
+                    {
+                        mml_seg.adpcma_used = true;
+                    }
                     goto p1c_next;
                 }
 
