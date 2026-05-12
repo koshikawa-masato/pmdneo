@@ -1,0 +1,18 @@
+#Title		ADR-0016 step 5 delta-b L part volume low (= v0、 PCM V=0、 chip vol 0)
+#Composer	M.Koshikawa.
+#Memo		v0 fixture、 reg 0x08+0 = pan_bits[0] | 0 = 0xC0 期待、 vol 差分 baseline
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; L part = ADPCM-A ch 0、 v0 (= PCM 最小 vol)
+; PMD V4.8s 規約: v cmd 0..16 (= 17 段階)、 V(1) table で 0→0、 16→255
+; v0 → PART_OFF_VOLUME = 0 → adpcma_volume_hook /8 = 0 → reg 0x08+0 = pan_bits[0] | 0 = 0xC0
+L	v0 @0 o4 l1 c
