@@ -107,10 +107,20 @@ namespace PMDDotNET.Console
                 if (!isXml)
                 {
                     //デフォルトはソースファイル名の拡張子を.Mに変更したものにする
+                    //PMDNEO mode (= /B option) なら .MN、 それ以外 .M
+                    bool opnbMode = false;
+                    foreach (string mcArg in compiler.mcArgs)
+                    {
+                        if (string.IsNullOrEmpty(mcArg)) continue;
+                        string upper = mcArg.ToUpper();
+                        if (upper == "/B" || upper == "-B") { opnbMode = true; break; }
+                    }
+                    string defaultExt = opnbMode ? ".MN" : ".M";
+
                     string destFileName = "";
                     if (!string.IsNullOrEmpty(srcFile))
                     {
-                        destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}.M", Path.GetFileNameWithoutExtension(srcFile)));
+                        destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}{1}", Path.GetFileNameWithoutExtension(srcFile), defaultExt));
                     }
 
                     //TagからFilenameを得る

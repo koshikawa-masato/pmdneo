@@ -511,6 +511,7 @@ namespace PMDDotNET.Compiler
             mml_seg.x68_flg = 0;
             mml_seg.dt2_flg = 0;
             mml_seg.opl_flg = 0;
+            mml_seg.opnb_flg = 0;
 
             mml_seg.save_flg = 1;
             mml_seg.memo_flg = 1;
@@ -588,10 +589,12 @@ namespace PMDDotNET.Compiler
         {
 #if !hyouka
 #if efc
-            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.'))+".EFC";            
+            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.'))+".EFC";
 #else
-            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.')) + ".M";
-#endif    
+            // PMDNEO mode (= /B、 ADPCM-A 使用時) は .MN、 それ以外 .M
+            string m_ext = (mml_seg.opnb_flg == 1) ? ".MN" : ".M";
+            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.')) + m_ext;
+#endif
 #endif
         }
 
@@ -813,7 +816,7 @@ namespace PMDDotNET.Compiler
         {
 
 #if !efc || !olddat
-            m_seg.m_start = (byte)(mml_seg.opl_flg * 2 | mml_seg.x68_flg);// 音源flag set
+            m_seg.m_start = (byte)(mml_seg.opl_flg * 2 | mml_seg.x68_flg | mml_seg.opnb_flg * 4);// 音源flag set (bit 2 = PMDNEO YM2610/B)
 #endif
 
             work.di = (mml_seg.max_part + 1) * 2;//KUMA: ? -> ver48sで理解w
@@ -2113,6 +2116,9 @@ namespace PMDDotNET.Compiler
                     case "N":
                         x68flg_reset(val, ref col);
                         break;
+                    case "B":
+                        opnbflg_set(val, ref col);
+                        break;
                     case "L":
                         oplflg_set(val, ref col);
                         break;
@@ -2211,6 +2217,19 @@ namespace PMDDotNET.Compiler
             mml_seg.x68_flg = 0;
             mml_seg.opl_flg = 0;
             mml_seg.dt2_flg = 0;
+            mml_seg.opnb_flg = 0;
+        }
+
+        //;==============================================================================
+        //;	/b option (= PMDNEO YM2610/B mode)
+        //;==============================================================================
+        private void opnbflg_set(string val, ref int col)
+        {
+            mml_seg.towns_flg = 0;
+            mml_seg.x68_flg = 0;
+            mml_seg.opl_flg = 0;
+            mml_seg.dt2_flg = 0;
+            mml_seg.opnb_flg = 1;
         }
 
 
