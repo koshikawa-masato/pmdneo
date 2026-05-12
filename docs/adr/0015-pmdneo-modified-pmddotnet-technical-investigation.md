@@ -1,11 +1,12 @@
 # ADR-0015: PMDDotNET 改造 技術調査 sprint — 改造 PMDNEO.ASM 設計のための作業計画
 
-- 状態: Proposed (= 軸 1 + 軸 2 + 軸 3 + 軸 4 完了、 軸 5 未着手、 結果は段階的に追記)
+- 状態: Accepted (= 軸 1 + 軸 2 + 軸 3 + 軸 4 + 軸 5 全件完了、 ADR-0016 起票準備完了)
 - 起票日: 2026-05-11
 - 軸 1 完了日: 2026-05-12
 - 軸 2 完了日: 2026-05-12 (= develop 資産 で実装済の確認、 ADR-0015 起票時の前提見直し含む)
 - 軸 3 完了日: 2026-05-12 (= ADR-0017 §決定 3 方針で develop 資産前提 redefine、 ADPCM-A/B + OPNA register access 整理)
 - 軸 4 完了日: 2026-05-12 (= ADR-0017 §決定 3 方針で develop 資産前提 redefine、 mc compiler 改造箇所 185-360 行 + 設計判断 4 件確定)
+- 軸 5 完了日: 2026-05-12 (= ADR-0017 §決定 3 方針で develop 資産前提 redefine、 合計 335-660 行 + 着手順序 (B) mc compiler 先 + 5 step 段階的検証経路 確定)
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0013 (= 同 .M 2 経路比較 路線へ切替)、 ADR-0014 (= ADR-0006 sprint 成果のカテゴリ別判断 + PMDPPZ 流儀発見)
 
@@ -461,6 +462,69 @@ user 判断 1 件:
 - mc compiler 改造のタイミング (= driver と並行 or 後)
 
 **期待成果**: ADR-0016 (= 改造着手 sprint の作業計画) を書き起こせる程度の改造規模 + 着手順序 + 段階的検証方針の確定。
+
+### 軸 5 完了 (= 2026-05-12、 develop 資産前提で redefine 完了)
+
+軸 5 着手時、 ADR-0017 §決定 3 の方針で「develop 資産前提の redefine」 として進めた。 起票時の「100-150 件 if 分岐の具体的内訳」 は PMDPPZ.ASM 流儀前提だが、 develop の Z80 化 + nullsound integration + mc compiler の C# 1 binary 流儀を踏まえ、 「行数ベースの最終見積もり」 + 「着手順序」 + 「段階的検証経路」 として再定義。
+
+#### step 5-A: 軸 3 + 軸 4 結果統合 (= 2026-05-12 完了)
+
+| 区分 | scope | 推定規模 |
+|---|---|---|
+| **driver 側 (= 軸 3 残作業)** | | |
+| ADPCM-A 6ch 本実装 (= Phase 3) | adpcma_init/keyon/keyoff/volset/panset/main | 100-200 行 |
+| ADPCM-B 本実装 (= SubE 完成) | adpcmb_volset/panset/setfreq + main loop | 50-100 行 |
+| OPNA → YM2610/B register 経路 完成 | opnset44/46 経由箇所の Z80 化進捗確認 + 残部 | 既存 `PMD_Z80.inc` 2206 行に随時追加 |
+| board2 90 件 未踏襲部分 発掘 | helper 非経由 直接 register access | 20-30 件 (= 数十行) |
+| **mc compiler 側 (= 軸 4)** | | |
+| `mml_seg.cs` | opnb_flg + pne_filename + usage | 30-50 行 |
+| `mc.cs` | CLI option `/B` + m_start bit 2 + partcheck L-Q + #PNEFile + L-Q body 出力 + 後方拡張 + 拡張子切替 | 150-250 行 |
+| `m_seg.cs` | extended_data_adr + pne_filename_adr | 5-10 行 |
+| その他 (= voice_seg / 未読 6 file) | OPNA 互換、 必要次第 | 0-50 行 |
+| **合計** | | **約 335-660 行** + 既存 `PMD_Z80.inc` への追加分 |
+
+ADR-0014 (= PMDPPZ 流儀発見) 当時の「100-150 件 if 分岐 = 元の 5-10% 修正」 とは尺度が違う。 develop branch で既に Z80 化 + nullsound integration が Phase 2 SubF-1.1 まで進行しているため、 残作業は「新規 ADPCM 関連 + mc compiler 拡張」 中心。
+
+#### step 5-B: 着手順序 + 段階的検証経路 設計判断 (= 2026-05-12 確定)
+
+**判断 5-1: 着手順序** = (B) **mc compiler 先 + driver 後**
+
+| 候補 | 採否 | 根拠 |
+|---|---|---|
+| (A) driver 先 + mc compiler 後 | × | ADPCM-A 6ch 楽曲 verify が最終段階に遅延 |
+| **(B) mc compiler 先 + driver 後** | **採用** | ADR-0013 D1 (= 同 .M 2 経路比較) 路線の検証基盤を最早期で確立、 任意 MML test 可能 |
+| (C) 並行 | × | 開発者 1 人で文脈切替コスト高 |
+
+**判断 5-2: 段階的検証経路 5 step** (= (B) 順序の自然な分解):
+
+| step | 内容 | verify 対象 |
+|---|---|---|
+| 1 | mc compiler 改造 (= `/B` CLI option + opnb_flg + 関連改修) | 既存 `/N` 出力が無改造で温存される byte 単位互換性 |
+| 2 | 同 MML 前半 bit-by-bit 一致 verify | ADPCM-A 不使用 MML を `/N` `/B` 両 compile、 前 26 byte header + part body + prgdat 一致 |
+| 3 | driver 既存 .M 再生 verify | mc compiler `/B` 出力 .M (= bit 2 = 0) を driver で再生、 動的 load 経路 |
+| 4 | driver SubE 完成 (= ADPCM-B 本実装) | adpcmb_volset/panset/setfreq + main loop、 既存単発再生 → 統合演奏 |
+| 5 | driver Phase 3 (= ADPCM-A 6ch 本実装) | mc compiler `/B` + ADPCM-A 使用 MML → `.MN` 出力 → driver で再生 |
+
+step 1-2 は mc compiler sprint、 step 3-5 は driver sprint。 「同 MML 2 経路比較 verify」 (= step 2) を最早期化することで ADR-0013 D1 路線の検証基盤を確立する。
+
+#### step 5-C: ADR-0016 起票準備 (= 2026-05-12 完了)
+
+軸 5 完了で ADR-0015 全体終了 (= 完了判定 §「ADR-0016 を書き起こせる程度に PMD.ASM 内 neogeo/opnb 挿入候補箇所 + mc compiler 改造箇所 + 改造規模 + 着手順序 + 段階的検証方針 が確定」 を満たす、 ただし「PMD.ASM 内 neogeo/opnb 挿入候補箇所」 は ADR-0017 §決定 3 で develop 資産前提に置換済)。
+
+**ADR-0016 起票時の主要引継項目**:
+
+| 項目 | 内容 |
+|---|---|
+| 路線 | ADR-0017 §決定 4 path A 採択 (= 改造 PMDDotNET 路線、 develop driver 継続発展) |
+| 着手順序 | (B) mc compiler 先 + driver 後 (= 判断 5-1) |
+| 段階的検証 | 5 step (= 判断 5-2、 step 1-2 mc compiler sprint + step 3-5 driver sprint) |
+| 改造規模 | 約 335-660 行 + 既存 `PMD_Z80.inc` 追加分 |
+| 改修対象 (driver) | `ADPCMA_DRV.inc` + `ADPCMB_DRV.inc` + `PMD_Z80.inc` 追加 |
+| 改修対象 (mc compiler) | `mml_seg.cs` + `mc.cs` + `m_seg.cs` |
+| 不要対象 (driver) | `standalone_test.s` (= ADR-0014 凍結) |
+| 不要対象 (mc compiler) | `voice_seg.cs` (= 判断 3、 OPNA 完全互換) |
+
+ADR-0016 は別 sprint で起票。 本 ADR-0015 はこれで完了状態 (= Accepted へ移行候補)。
 
 ## 調査手法
 
