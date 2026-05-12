@@ -2582,18 +2582,32 @@ adpcmb_volume_hook:
         call    ym2610_write_port_a
         ret
 
-;; Phase 9c fix#3: adpcma_volume_hook 実装
-;; PART_OFF_VOLUME (= V cmd 0-255) → reg 0x10+ch (= ADPCM-A per-ch vol + PAN)
-;; bit 0-4 vol (0-31)、 bit 6-7 PAN (= 0xC0 = L+R 中央 fixed)
+;; ADR-0016 step 5 δ-a: adpcma_volume_hook bug fix
+;; 旧 (= Phase 9c 期遺産 bug): reg 0x10 + ch (= ADPCM-A start LSB) に書込
+;;   → V cmd dispatch で sample addr を破壊する仕様誤り
+;; 新 (= δ-a fix): reg 0x08 + ch (= ADPCM-A per-ch vol + pan、 仕様正)
+;;
+;; vol mapping: PART_OFF_VOLUME (= v cmd 0-255) → /8 で 0-31 (= 5 bit、 ADPCM-A
+;; chip reg は 6 bit 0-63 だが、 PMD V4.8s 規約 V/8 で 5 bit 化、 max 0x1F)
+;;
+;; pan mapping: adpcma_pan_bits[ch] (= K/R rhythm 用 fixed pan) を流用、
+;; 議題 1 retain + refactor 遵守 (= 既存 table 再利用、 新規 table 追加なし)
+;;
+;; α/β/γ で sample lookup chain が成立済、 δ-a で V cmd 経由 vol/pan も
+;; chip reg level で audible 化可能になる。
 adpcma_volume_hook:
         ld      a, PART_OFF_VOLUME(ix)
         srl     a
         srl     a
-        srl     a                       ; A = V/8 (= 0-31 範囲 5 bit)
-        or      #0xC0                   ; PAN bit 6+7 立て
+        srl     a                       ; A = V/8 (= 0-31 範囲 5 bit vol)
+        ld      hl, #adpcma_pan_bits
+        ld      e, PART_OFF_CH_IDX(ix)
+        ld      d, #0
+        add     hl, de                  ; HL = adpcma_pan_bits[ch] addr
+        or      (hl)                    ; A = vol | pan_bits[ch]
         ld      c, a
         ld      a, PART_OFF_CH_IDX(ix)
-        add     a, #0x10                ; reg 0x10 + ch
+        add     a, #0x08                ; ★ reg 0x08 + ch (= per-ch vol + pan、 fix)
         ld      b, a
         call    ym2610_write_port_b
         ret
