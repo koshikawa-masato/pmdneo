@@ -178,7 +178,9 @@ fi
 
 echo
 echo "=== make poc ==="
-make PMDNEO_CHIP="$PMDNEO_CHIP" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
+# ADR-0016 step 3c-2: PMDNEO_USE_PMDDOTNET env を make に伝搬 (= pmdneo_load_m の
+# 入力 label を sample_m_data / pmddotnet_song で切替、 sed pre-process 経由)
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
 
 echo
 echo "=== build 完了 ==="

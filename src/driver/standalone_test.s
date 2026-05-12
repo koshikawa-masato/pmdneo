@@ -31,6 +31,14 @@
         ;; build infra (= ADR-0006 §「実装 plan」 §4) から override する経路は option C 別 sprint
         .equ    PMDNEO_TARGET_CHIP_YM2610B, 0
 
+        ;; ADR-0016 step 3c: pmdneo_load_m の入力 label 切替 flag
+        ;;   0 = sample_m_data (default、 sample_m.s 経路 = bin2db.py で .s 化 + .include)
+        ;;   1 = pmddotnet_song (.incbin 経路 = build-poc.sh PMDNEO_M_RAW or PMDDOTNET_MML)
+        ;; 同一 SAMPLE.M binary を 2 経路で取り込んだ際の driver load 整合 verify 用。
+        ;; build infra (= build.mk PMDNEO_PREPROCESS_CMD) で sed 置換、 build-poc.sh
+        ;; の env PMDNEO_USE_PMDDOTNET=1 で 1 に切替わる。
+        .equ    PMDNEO_USE_PMDDOTNET, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0

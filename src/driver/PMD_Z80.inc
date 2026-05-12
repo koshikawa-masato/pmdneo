@@ -413,7 +413,14 @@ test_play_psgmain::
 
 pmdneo_load_m::
         ;; m_start = 0x00 (OPNA mode flag) を想定
+        ;; ADR-0016 step 3c: PMDNEO_USE_PMDDOTNET = 0 (default) → sample_m_data
+        ;; (= bin2db.py 経由)、 1 → pmddotnet_song (= .incbin 経由)。 同一 SAMPLE.M
+        ;; binary を 2 経路で取り込んで driver load の byte-identical 整合を verify。
+.if PMDNEO_USE_PMDDOTNET
+        ld      hl, #pmddotnet_song
+.else
         ld      hl, #sample_m_data
+.endif
         ld      a, (hl)
         or      a
         jr      nz, pmdneo_load_m_abort

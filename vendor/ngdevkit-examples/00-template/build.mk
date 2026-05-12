@@ -121,14 +121,23 @@ STANDALONE_Z80_IHX?=$(BUILDDIR)/standalone_test.ihx
 STANDALONE_Z80_PREPROCESSED?=$(BUILDDIR)/standalone_test.preprocessed.s
 
 # ADR-0006 §4: chip target (= driver standalone_test.s:32 の .equ を build 時 override)
-# sdasz80 が -D option 未対応のため sed pre-process で解決。 PMDNEO_CHIP=ym2610b で
-# `.equ PMDNEO_TARGET_CHIP_YM2610B, 0` → `, 1` 置換。 default (= ym2610) は cp で pass-through。
+# ADR-0016 step 3c-2: PMDNEO_USE_PMDDOTNET flag (= pmdneo_load_m の入力 label 切替)
+# sdasz80 が -D option 未対応のため sed pre-process で解決。 各 flag を ON にする
+# とき `, 0` → `, 1` 置換、 default (= 全 flag OFF) は cp で pass-through。
 # (= 空 sed expression は BSD sed が file 名を expr と誤認するため、 cp / sed を切替える)
 PMDNEO_CHIP?=ym2610
+PMDNEO_USE_PMDDOTNET?=0
+PMDNEO_SED_EXPRS=
 ifeq ($(PMDNEO_CHIP),ym2610b)
-PMDNEO_PREPROCESS_CMD=sed -e 's/PMDNEO_TARGET_CHIP_YM2610B, 0/PMDNEO_TARGET_CHIP_YM2610B, 1/' $< > $@
-else
+PMDNEO_SED_EXPRS+=-e 's/PMDNEO_TARGET_CHIP_YM2610B, 0/PMDNEO_TARGET_CHIP_YM2610B, 1/'
+endif
+ifeq ($(PMDNEO_USE_PMDDOTNET),1)
+PMDNEO_SED_EXPRS+=-e 's/PMDNEO_USE_PMDDOTNET, 0/PMDNEO_USE_PMDDOTNET, 1/'
+endif
+ifeq ($(strip $(PMDNEO_SED_EXPRS)),)
 PMDNEO_PREPROCESS_CMD=cp $< $@
+else
+PMDNEO_PREPROCESS_CMD=sed $(PMDNEO_SED_EXPRS) $< > $@
 endif
 
 $(STANDALONE_Z80_PREPROCESSED): $(STANDALONE_Z80_SRC) | $(BUILDDIR)
