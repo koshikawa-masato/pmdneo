@@ -1,9 +1,9 @@
 # ADR-0016: PMDNEO 改造実装 sprint 作業計画
 
-- 状態: Proposed
+- 状態: **Accepted** (= 2026-05-12 6th session、 step 5 ε-c で全 step 完了)
 - 起票日: 2026-05-12
 - 起票者: 越川将人 (M.Koshikawa)
-- 関連: ADR-0013 (= 同 .M 2 経路比較 路線への切替)、 ADR-0014 (= ADR-0006 sprint 成果のカテゴリ別判断 + PMDPPZ 流儀発見)、 ADR-0015 (= PMDDotNET 改造 技術調査 sprint、 全 5 軸完了 Accepted)、 ADR-0017 (= develop driver snapshot + ADR-0015 前提整理 + path A 採択)
+- 関連: ADR-0013 (= 同 .M 2 経路比較 路線への切替)、 ADR-0014 (= ADR-0006 sprint 成果のカテゴリ別判断 + PMDPPZ 流儀発見)、 ADR-0015 (= PMDDotNET 改造 技術調査 sprint、 全 5 軸完了 Accepted)、 ADR-0017 (= develop driver snapshot + ADR-0015 前提整理 + path A 採択)、 ADR-0019 (= step 5 設計判断 6 議題集約、 Accepted)
 
 ## 背景
 
@@ -141,6 +141,45 @@ step 5 着手前の 6 議題壁打ち結果は **ADR-0019** で正式確定:
 - 作業対象 driver = `src/driver/standalone_test.s` 本線 (= W-3 後の決定踏襲、 ADR-0016 step 3-5 補正注記準拠)、 `ADPCMA_DRV.inc` は ε 完了後の refactor 移動候補
 - 作業内容 = ADR-0019 §決定 6 の 5 sub-sprint α/β/γ/δ/ε
 - 完了判定 = ADR-0019 §完了判定 (= 全 sub 完了 + ADPCM-A 6 ch 使用 `.MN` 楽曲 1 つ以上 MAME 再生確認)
+
+##### step 5 完了 (= 2026-05-12 6th session、 ε-c)
+
+step 5 は以下 14 commit で完了 (= `wip-pmddotnet-opnb-extension` branch、 全件 push 済):
+
+| sub | commit | 内容 |
+|---|---|---|
+| α-1 | `3e01f48` | `.MN` layout ground truth + ROM embed byte-identical |
+| α-2 | `ae6b419` | `.MN direct path` + L part dispatch |
+| α-3 | `e97210c` | verify script + handoff doc |
+| α-3-fu | `335dec1` | audio gate finding (= FM 同居 audio finding) |
+| β-1 | `b3b1683` | sample A/B fixture + `.MN` diff |
+| β-2a | `0029034` | PART_OFF_INSTRUMENT field + 0xFF cmd CHIP_TYPE=2 path |
+| β-2b | `93bfc3d` | adpcma_keyon_simple voice index 引き refactor |
+| β-3 | `3fd418c` | verify script + handoff doc |
+| γ-a | `cc51116` | routine 一般化 + M-Q dispatch |
+| γ-b | `a4cbc99` | tutti fixture + 6 ch verify |
+| δ-a | `d1ebdfc` | adpcma_volume_hook bug fix (= reg 0x10+ch → 0x08+ch) |
+| δ-b | `9b3e4f8` | v0/v16 verify + handoff doc |
+| ε-a | `f2383e0` | L-Q rhythm song 統合 fixture |
+| ε-b | `19ad60c` | integration verify script (= 6 段階 gate) |
+
+**完了判定達成状況**:
+
+- ✅ L-Q ADPCM-A 6 ch native path 完成 (= α/β/γ/δ chain 全部成立)
+- ✅ ADPCM-A 6 ch 使用 `.MN` 楽曲 (= `l-q-rhythm-song.mml`) MAME 再生確認 (= ε-a trace verify、 ε-b integration verify)
+- ✅ 統合 verify script 自動 PASS (= 6 段階 trace gate、 総 keyon 39 件 = MML リズムパターン driver dispatch)
+
+**step 5 で確立した規律 / infra**:
+
+- `adpcma_volume_hook` register 番号 bug fix (= Phase 9c 期遺産、 5 sprint 越し発見+ 修正)
+- `pmdneo_mn_direct_load_lq_part_addr` (= L-Q 汎用 .MN parser)
+- L-Q dispatch 6 part (= part 11-16) with .if PMDNEO_USE_PMDDOTNET=1
+- `PART_OFF_INSTRUMENT` field (= offset 31、 voice idx 保管)
+- `adpcma_pan_bits[ch]` 流用 (= K/R rhythm 互換 + L-Q 兼用)
+- 7 fixture + 5 verify script (= 各 sub-sprint で fixture-driven verify infrastructure)
+- 7 handoff doc (= step5-completion.md で sum-up)
+
+詳細は `docs/design/handoff/adr-0016-step5-completion.md` 参照。
 
 #### step 3-5 補正注記 (= 2026-05-12 W-3、 driver 設計再評価後)
 

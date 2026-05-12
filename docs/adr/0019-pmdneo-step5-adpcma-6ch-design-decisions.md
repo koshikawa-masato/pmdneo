@@ -1,6 +1,6 @@
 # ADR-0019: PMDNEO step 5 ADPCM-A 6ch 設計判断 (= 6 議題集約)
 
-- 状態: Proposed
+- 状態: **Accepted** (= 2026-05-12 6th session、 step 5 ε-c 完了)
 - 起票日: 2026-05-12
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 5 = ADPCM-A 6ch 本実装)、 ADR-0017 (= develop branch driver snapshot)、 ADR-0013/0014/0015 (= 改造 PMDDotNET 路線基盤)
@@ -176,6 +176,33 @@ step 5 を **5 段階 α/β/γ/δ/ε** に分割する。 各 sub = 1 commit + 1
 - ADPCM-A 6 ch 使用 `.MN` 楽曲 1 つ以上 MAME 再生確認 (= ε 完了)
 
 step 5 ε 完了時に本 ADR-0019 + ADR-0016 step 5 + ADR-0016 全体を Proposed → Accepted へ移行する (= ADR-0016 §完了判定 §決定 6)。
+
+### 完了判定達成状況 (= 2026-05-12 6th session ε-c)
+
+- ✅ 本 ADR 起票 + commit + push 完了 (= commit `ad7230f` 〜 ε-c 補正注記まで)
+- ✅ step 5 α/β/γ/δ/ε 全 sub 完了 (= 14 commit、 詳細 `docs/design/handoff/adr-0016-step5-completion.md`)
+- ✅ ADPCM-A 6 ch 使用 `.MN` 楽曲 (= `l-q-rhythm-song.mml`) MAME 再生確認 (= ε-a commit `f2383e0` + ε-b commit `19ad60c` で trace 確認、 6 ch 各 ch sample addr + vol/pan + keyon dispatch 動作確認、 総 keyon 39 件)
+
+→ ADR-0016 全体完了 + ADR-0019 Accepted 移行完了。
+
+### sub-sprint commit chain (= 全 14 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| α-1 | `3e01f48` | `.MN` layout ground truth + ROM embed byte-identical |
+| α-2 | `ae6b419` | `.MN direct path` + L part dispatch |
+| α-3 | `e97210c` | verify script + handoff doc |
+| α-3-fu | `335dec1` | audio gate finding (= FM 同居 audio) |
+| β-1 | `b3b1683` | sample A/B fixture + `.MN` diff |
+| β-2a | `0029034` | PART_OFF_INSTRUMENT field + 0xFF cmd CHIP_TYPE=2 path |
+| β-2b | `93bfc3d` | adpcma_keyon_simple voice index 引き refactor + reg 差分検出 |
+| β-3 | `3fd418c` | verify script + handoff doc |
+| γ-a | `cc51116` | routine 一般化 + M-Q dispatch |
+| γ-b | `a4cbc99` | tutti fixture + 6 ch verify |
+| δ-a | `d1ebdfc` | adpcma_volume_hook bug fix (= reg 0x10+ch → 0x08+ch) |
+| δ-b | `9b3e4f8` | v0/v16 verify + handoff doc |
+| ε-a | `f2383e0` | L-Q rhythm song 統合 fixture |
+| ε-b | `19ad60c` | integration verify script (= 6 段階 gate) |
 
 ## 関連 memory
 
