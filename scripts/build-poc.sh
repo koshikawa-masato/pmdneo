@@ -108,6 +108,51 @@ python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
     --out-dir "${TEMPLATE_DIR}/songs" \
     --wrapper "${TEMPLATE_DIR}/song_data.inc"
 
+# ADR-0016 step 3b: 改造 PMDDotNET 経路 (= 並走、 既存 compile.py 経路と共存)
+# 環境変数 PMDDOTNET_MML が設定されていれば、 改造 PMDDotNET dotnet で .M / .MN
+# compile + 00-template/pmddotnet_song.m に配置 + song_data.inc に追記 1 行で取り込み。
+# 未設定なら従来 (= 自前 compile.py 経路のみ) で完全不変。
+# driver source / standalone_test.s は touch せず、 既存 song_table 維持。
+if [[ -n "${PMDDOTNET_MML:-}" ]]; then
+    PMDDOTNET_MODE="${PMDDOTNET_MODE:-N}"    # N (= /N、 default) or B (= /B、 ADPCM-A 経路)
+    PMDDOTNET_DLL="${PMDDOTNET_DLL:-$PMDNEO_ROOT/vendor/PMDDotNET/PMDDotNETConsole/bin/Release/net6.0/PMDDotNETConsole.dll}"
+    if [[ ! -f "$PMDDOTNET_DLL" ]]; then
+        echo "ERROR: PMDDotNETConsole dll が見つからない: $PMDDOTNET_DLL" >&2
+        echo "  vendor/PMDDotNET/PMDDotNETConsole を dotnet build -c Release してください" >&2
+        exit 2
+    fi
+    if [[ ! -f "$PMDDOTNET_MML" ]]; then
+        echo "ERROR: PMDDOTNET_MML file が見つからない: $PMDDOTNET_MML" >&2
+        exit 2
+    fi
+    echo
+    echo "=== ADR-0016 step 3b: 改造 PMDDotNET 経路 (PMDDOTNET_MML=$(basename "$PMDDOTNET_MML") /$PMDDOTNET_MODE) ==="
+    # macOS 絶対 path bug 回避 (= memory project_adr_0016_step1_findings.md §3) — cd で working dir 移動 + 相対 path
+    PMDDOTNET_TMPDIR=$(mktemp -d "/tmp/pmdneo-pmddotnet-XXXXXX")
+    cp "$PMDDOTNET_MML" "$PMDDOTNET_TMPDIR/"
+    PMDDOTNET_MML_BASE=$(basename "$PMDDOTNET_MML")
+    (cd "$PMDDOTNET_TMPDIR" && dotnet "$PMDDOTNET_DLL" /C "/$PMDDOTNET_MODE" "$PMDDOTNET_MML_BASE" > pmddotnet.log 2>&1)
+    # 出力 .M / .MN を探す (= /N → .M、 /B + ADPCM-A 未使用 → .M、 /B + ADPCM-A 使用 → .MN)
+    PMDDOTNET_OUT=$(find "$PMDDOTNET_TMPDIR" -maxdepth 1 \( -name "*.M" -o -name "*.MN" \) | head -1)
+    if [[ -z "$PMDDOTNET_OUT" ]]; then
+        echo "ERROR: PMDDotNET compile failed — .M / .MN not generated" >&2
+        echo "  log: $PMDDOTNET_TMPDIR/pmddotnet.log" >&2
+        cat "$PMDDOTNET_TMPDIR/pmddotnet.log" >&2
+        exit 2
+    fi
+    python3 "$PMDNEO_ROOT/scripts/m-to-z80-incbin.py" \
+        "$PMDDOTNET_OUT" "$TEMPLATE_DIR/pmddotnet_song.m" \
+        --label pmddotnet_song
+    # song_data.inc 末尾に追記 (= 既存 song_table 不変、 新規 label のみ追加)
+    {
+        echo ""
+        echo ";; ADR-0016 step 3b: 改造 PMDDotNET 経路で取り込んだ .M / .MN (= driver 解釈は 3c で実装)"
+        echo "pmddotnet_song: .incbin \"pmddotnet_song.m\""
+    } >> "$TEMPLATE_DIR/song_data.inc"
+    echo "  pmddotnet_song.m <- $(basename "$PMDDOTNET_OUT") ($(wc -c < "$TEMPLATE_DIR/pmddotnet_song.m" | tr -d ' ') byte)"
+    rm -rf "$PMDDOTNET_TMPDIR"
+fi
+
 echo
 echo "=== make poc ==="
 make PMDNEO_CHIP="$PMDNEO_CHIP" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
