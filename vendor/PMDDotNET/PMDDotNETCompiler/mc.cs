@@ -438,6 +438,10 @@ namespace PMDDotNET.Compiler
                     ret = rtloop();
                     break;
 
+                case enmPass2JumpTable.opnb_check:
+                    ret = opnb_check();
+                    break;
+
                 case enmPass2JumpTable.rtlp2:
                     ret = rtlp2();
                     break;
@@ -496,6 +500,9 @@ namespace PMDDotNET.Compiler
             rskip,
             rtloop,
             rtlp2,
+
+            // PMDNEO 後方拡張領域 出力 phase (= ADPCM-A 6 part body + filename string)
+            opnb_check,
 
             exit,
             bunsan_end
@@ -788,11 +795,11 @@ namespace PMDDotNET.Compiler
                 {
                     // PMDNEO mode (= /B) で L-Q (= ADPCM-A 6 ch) part letter を Pass1 で検出
                     // → adpcma_used = true (FinalizeOutputFormat() で m_start bit 2 + .MN に反映)
-                    // 既存 byte layout / header 領域 / part address table には影響なし
-                    // (detection only、 L-Q body 出力 / cloop 拡張 / 後方拡張領域は別 commit)
+                    // → opnb_part_used[L-Q index] = true (opnb_check phase で個別 part 出力判定に使用)
                     if (mml_seg.opnb_flg == 1 && al >= 'L' && al <= 'Q')
                     {
                         mml_seg.adpcma_used = true;
+                        mml_seg.opnb_part_used[al - 'L'] = true;
                     }
                     goto p1c_next;
                 }
@@ -838,6 +845,23 @@ namespace PMDDotNET.Compiler
             {
                 work.di += 2;
             }
+            // PMDNEO mode (= opnb_flg=1 + adpcma_used) のみ header 拡張:
+            // 設計書 1 §4-2: 「m_buf[24..25] = prgdat_adr (`.mn` では常に存在)」 + 「m_buf[26..27] = extended_data_adr」
+            // → prg_flg = 0 でも prgdat_adr 領域 (2 byte = 0) を強制確保 + extended_data_adr (2 byte) 確保
+            // 結果: .mn 出力時の header は常に 28 byte (= Part A offset = 28)、 driver 側の解釈固定化
+            // /N mode + /B ADPCM-A 未使用 経路は一切 work.di を進めない (= 既存 byte layout 不変)。
+            if (mml_seg.opnb_flg == 1 && mml_seg.adpcma_used)
+            {
+                if ((mml_seg.prg_flg & 1) == 0)
+                {
+                    work.di += 2;// prgdat_adr 領域強制確保 (= 値 = 0 で「音色データなし」 を表現)
+                }
+                work.di += 2;// extended_data_adr 領域確保
+            }
+
+            // PMDNEO opnb_check phase state 初期化 (= adpcma_used = false なら不使用)
+            mml_seg.opnb_lq_init = 0;
+            mml_seg.opnb_lq_index = 0;
 
             mml_seg.hsflag = 0;
             mml_seg.prsok = 0;
@@ -1314,6 +1338,12 @@ namespace PMDDotNET.Compiler
             if (mml_seg.part < mml_seg.max_part + 2) goto cmloop;
 #else
             if (mml_seg.part < mml_seg.max_part + 1) return enmPass2JumpTable.cmloop;
+            // PMDNEO L-Q iterate 中 (= part > max_part+1 で adpcma_used = true) は opnb_check に戻る。
+            // 既存 fm3_check / pcm_check 経路に巻き込まれないように分離 (= /N + /B 不使用 経路は不変)。
+            if (mml_seg.opnb_flg == 1 && mml_seg.adpcma_used && mml_seg.part > mml_seg.max_part + 1)
+            {
+                return enmPass2JumpTable.opnb_check;
+            }
 #endif
 
 #if efc
@@ -1372,7 +1402,13 @@ namespace PMDDotNET.Compiler
         //;	PCM 拡張パートがあればそれをcompile
         //;==============================================================================
         pcm_check:;
-            if (mml_seg.pcm_ofsadr == 0) goto rt;// 無し
+            if (mml_seg.pcm_ofsadr == 0)
+            {
+                // PMDNEO mode: ADPCM-A 使用時のみ opnb_check phase に分岐 (= rt 前)
+                if (mml_seg.opnb_flg == 1 && mml_seg.adpcma_used)
+                    return enmPass2JumpTable.opnb_check;
+                goto rt;// 無し
+            }
 
             bx = 0;//offset pcm_partchr1
             mml_seg.chipCh = -1;
@@ -1387,6 +1423,9 @@ namespace PMDDotNET.Compiler
                 if (al != 0) goto pcmc_main;
             }
 
+            // PMDNEO mode: ADPCM-A 使用時のみ opnb_check phase に分岐 (= rt 前)
+            if (mml_seg.opnb_flg == 1 && mml_seg.adpcma_used)
+                return enmPass2JumpTable.opnb_check;
             goto rt;
 
         pcmc_main:;
@@ -1434,6 +1473,113 @@ namespace PMDDotNET.Compiler
             cm_init();
             al = (byte)mml_seg.deflng_k;
             mml_seg.deflng = al;// l 値だけKパートから引用
+
+            return enmPass2JumpTable.rtloop;
+        }
+
+        //;==============================================================================
+        //;	PMDNEO 後方拡張領域 (ADPCM-A 6 part body + .PNE filename) の出力 phase
+        //;	設計書 1 §4-5 mc compiler 出力擬似コード step 5-6 を実装。
+        //;	adpcma_used = true 時のみ呼ばれる (= /N と /B ADPCM-A 未使用 経路は不可侵)。
+        //;	fm3_check / pcm_check 流儀で cmloop2 へ戻して body 出力、 完了後 rt 経路へ。
+        //;==============================================================================
+        private enmPass2JumpTable opnb_check()
+        {
+            // 1. 初回 entry: 後方拡張領域 header 部分 (offset table + filename adr + 予約 + empty marker) を確保
+            if (mml_seg.opnb_lq_init == 0)
+            {
+                // #PNEFile 必須 check (= 設計書 §7-2: ADPCM-A 使用時 #PNEFile 必須)
+                if (mml_seg.pne_filename == null)
+                {
+                    print_mes(mml_seg.warning_mes + ": ADPCM-A (L-Q) 使用時は #PNEFile 宣言が必須");
+                    error((int)'#', 6, 0);
+                }
+
+                // extended_data_adr = work.di を m_buf[26..27] に書き戻す
+                int extAdr = work.di;
+                m_seg.m_buf.Set(26, new MmlDatum((byte)extAdr));
+                m_seg.m_buf.Set(27, new MmlDatum((byte)(extAdr >> 8)));
+
+                // ADPCM-A 6 part offset table (12 byte) 確保 (= entry は後で埋める)
+                mml_seg.opnb_lq_table_adr = work.di;
+                for (int i = 0; i < 6; i++)
+                {
+                    m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+                    m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+                }
+
+                // pne_filename_adr (2 byte = 0、 後で filename string 出力後に書き戻す)
+                mml_seg.opnb_pne_filename_adr_pos = work.di;
+                m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+                m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+
+                // 予約 (2 byte = 0、 将来拡張用、 設計書 §4-3)
+                m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+                m_seg.m_buf.Set(work.di++, new MmlDatum(0));
+
+                // 共有 empty marker (= 0x80) を 1 byte 出力 + offset 控え (= 設計書 §4-3-1)
+                mml_seg.opnb_lq_empty_marker = work.di;
+                m_seg.m_buf.Set(work.di++, new MmlDatum(0x80));
+
+                // 全 6 part offset table entry を empty marker offset で初期化 (= 後で実 body に上書き)
+                for (int i = 0; i < 6; i++)
+                {
+                    int pos = mml_seg.opnb_lq_table_adr + i * 2;
+                    m_seg.m_buf.Set(pos, new MmlDatum((byte)mml_seg.opnb_lq_empty_marker));
+                    m_seg.m_buf.Set(pos + 1, new MmlDatum((byte)(mml_seg.opnb_lq_empty_marker >> 8)));
+                }
+
+                mml_seg.opnb_lq_init = 1;
+                mml_seg.opnb_lq_index = 0;
+            }
+
+            // 2. 次の L-Q part を選択 (= state machine、 fm3_check / pcm_check 流儀)
+            while (mml_seg.opnb_lq_index < 6)
+            {
+                int lqIdx = mml_seg.opnb_lq_index++;
+                if (!mml_seg.opnb_part_used[lqIdx]) continue;// empty part は marker のままで skip
+
+                // body 開始 offset を offset table に書き戻し (= empty marker → 実 body offset)
+                int bodyAdr = work.di;
+                int tablePos = mml_seg.opnb_lq_table_adr + lqIdx * 2;
+                m_seg.m_buf.Set(tablePos, new MmlDatum((byte)bodyAdr));
+                m_seg.m_buf.Set(tablePos + 1, new MmlDatum((byte)(bodyAdr >> 8)));
+
+                // mml_seg.part = 'A'-1 起点で L=12, M=13, ..., Q=17 (= 設計書 §5-3 driver part - 1)
+                mml_seg.part = lqIdx + ('L' - 'A' + 1);
+                mml_seg.ongen = mml_seg.pcm;// ADPCM 系
+                work.si = 0;// mml_buf 先頭から該当 part 行を scan
+                cm_init();
+
+                return enmPass2JumpTable.cmloop2;
+            }
+
+            // 3. 全 L-Q part 処理完了 → .PNE filename string 出力 + pne_filename_adr 書き戻し
+            int pneStrPos = work.di;
+            foreach (char c in mml_seg.pne_filename)
+            {
+                m_seg.m_buf.Set(work.di++, new MmlDatum((byte)c));
+            }
+            m_seg.m_buf.Set(work.di++, new MmlDatum(0));// NUL terminator (= 設計書 §4-3-3)
+            m_seg.m_buf.Set(mml_seg.opnb_pne_filename_adr_pos, new MmlDatum((byte)pneStrPos));
+            m_seg.m_buf.Set(mml_seg.opnb_pne_filename_adr_pos + 1, new MmlDatum((byte)(pneStrPos >> 8)));
+
+            // 4. rt 経路を inline 実行 (= 既存 check_lopcnt L1408-1471 の R part 開始処理を踏襲)
+            int bx_rt = 2 * mml_seg.max_part;// offset m_buf
+            mml_seg.part = mml_seg.rhythm;
+            mml_seg.ongen = mml_seg.pcm;
+            int dx_rt = work.di;
+            m_seg.m_buf.Set(bx_rt + 0, new MmlDatum((byte)dx_rt));
+            m_seg.m_buf.Set(bx_rt + 1, new MmlDatum((byte)(dx_rt >> 8)));
+
+            work.bx = (byte)mml_seg.kpart_maxprg;
+            work.bx += work.bx;
+            work.bx += work.di;
+
+            mml_seg.pass = 2;
+            work.si = 0;
+            cm_init();
+            mml_seg.deflng = (byte)mml_seg.deflng_k;
 
             return enmPass2JumpTable.rtloop;
         }

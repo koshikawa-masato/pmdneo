@@ -337,6 +337,13 @@ namespace PMDDotNET.Compiler
 		public string mml_filename;//b
 		public string mml_filename2 = "";// include用
 		public string pne_filename = null;//b PMDNEO .PNE file 指定 (#PNEFile)
+		// PMDNEO 後方拡張領域 state (= opnb_check phase の iteration 管理、 adpcma_used = true 時のみ active)
+		public int opnb_lq_init = 0;//b opnb_check 初回 entry flag (0 = 未初期化、 1 = 初期化済)
+		public int opnb_lq_index = 0;//b 次に処理する L-Q part index (= 0=L, 1=M, ..., 5=Q)
+		public int opnb_lq_table_adr = 0;//w ADPCM-A 6 part offset table の m_buf 内 開始 offset
+		public int opnb_pne_filename_adr_pos = 0;//w pne_filename_adr 書き込み位置 (m_buf 内)
+		public int opnb_lq_empty_marker = 0;//w 共有 empty marker (= 0x80) の m_buf 内 offset
+		public bool[] opnb_part_used = new bool[6];//b L-Q part の MML 使用判定 (Pass1 で立てる)
 		public int ppzfile_adr;//w
 		public int ppsfile_adr;//w
 		public int pcmfile_adr;//w
