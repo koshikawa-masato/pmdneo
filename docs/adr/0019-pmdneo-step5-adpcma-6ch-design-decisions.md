@@ -75,6 +75,25 @@ step 5 では sample addr 解決を **build 時 embed (= `samples.inc` 拡張)**
 
 step 5 では L-Q dispatch / ADPCM-A 6ch driver code を **まず `src/driver/standalone_test.s` 内で実装**、 sub-sprint 末で `ADPCMA_DRV.inc` への refactor 移動を判断する。
 
+#### 補正注記 (= 2026-05-12 6th session α 冒頭調査後追加)
+
+α 冒頭調査 (= 2026-05-12) で発見された **driver 側 song load 経路の不整合** に対する追加判断:
+
+- **発見**: `standalone_test.s` 本線は `compile.py` 出力 `song_data.inc` 形式 (= part 単位 `.mn` + `.dw` 並列 song_table) のみ受け入れ、 mc compiler `/B` 出力 `.MN` (= 1 file PMDDotNET 形式、 header 28 byte + offset table + body) を直接 parse する経路は **未実装**
+- **決定**: `standalone_test.s` 内に **`.MN` direct load path を新規追加** する (= 2 系統 retain + refactor の流れ)
+  - `compile.py` / `song_data.inc` 経路 = legacy path として温存 (= 議題 1 retain + refactor 規律遵守)
+  - mc compiler `/B` `.MN` = 新規 `.MN` direct path として `standalone_test.s` に追加
+  - 既存 `load_song_part_addr` (= L1474) は壊さない (= 二系統並存)
+- **`.MN` direct path 処理項目**:
+  1. m_start bit 2 を確認 (= bit 2 = 1 ならば PMDNEO `.MN` mode)
+  2. header 28 byte を読む
+  3. m_buf[26..27] = `extended_data_adr` を読む (= LE 16-bit)
+  4. L-Q offset table 12 byte (= 6 entry × 2 byte LE) を `extended_data_adr` から読む
+  5. L part body address を `part_workarea + PART_ADPCMA1 × 64 + PART_OFF_ADDR` に設定
+  6. α では L part のみ workarea / hook 接続、 M-Q は β/γ で扱う
+- **α 完了判定 (= 補正)**: 「`.MN` direct path で L part body が driver に到達し、 ADPCM-A register write が出ること」 + trace で .MN header parse / extended_data_adr read / L body address setup まで確認
+- **trivial verify 防止**: trace で「.MN を driver に渡したつもりが song_data.inc 形式に変換されていた」 偽 PASS を排除
+
 **理由**:
 - 最優先 = 「本当に build top に入り、 trace が目的 routine に到達する」 こと
 - `standalone_test.s` 内実装なら trivial verify risk が最小 (= V-1 / W-1 / W-3 経験より)
