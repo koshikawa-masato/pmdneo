@@ -1,0 +1,17 @@
+#Title		ADR-0016 step 5 alpha-1 L part minimum (= ADPCM-A ch 0 build gate verify)
+#Composer	M.Koshikawa.
+#Memo		ADPCM-A ch 0 単発 register write 確認用 minimal fixture (= step 5 alpha-1 build infra)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; L part = ADPCM-A ch 0 (= chip ADPCM-A 6 ch 中 ch 0)
+; 全音符 1 つだけ、 mc compiler /B 出力 .MN の L body 配置検証用
+L	o4 l1 c
