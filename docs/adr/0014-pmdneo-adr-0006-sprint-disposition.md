@@ -89,6 +89,21 @@ ADR-0006 §5 段階 2 で露呈した「voice param 全部未反映」 問題 (=
 
 **注記 (= 2026-05-12、 ADR-0017 §決定 1)**: 本カテゴリ C の凍結対象は **`standalone_test.s` のみ**。 develop branch の本格 PMDNEO driver (= `PMDNEO.s` + `PMD_Z80.inc` + 関連 .inc 8 file) は **凍結対象外、 改造 PMDDotNET 路線における driver 側本体として継続発展**。 詳細は [ADR-0017](0017-pmdneo-develop-driver-snapshot-and-adr-0015-redefine.md) §決定 1 参照。
 
+**追加注記 (= 2026-05-12、 ADR-0016 step W-3 補正)**: ADR-0016 step 3-4 sprint の実装 / verify 過程で次の事実が判明:
+
+- `standalone_test.s` は **nullsound-free PoC として TIMER-B IRQ + NMI command dispatch + per-tick driver loop が成立している本線 driver** (= `im 1` + `.org 0x0038 jp irq_handler_body` + `.org 0x0066` NMI cmd dispatch、 nullsound bypass)
+- `PMDNEO.s` + `IRQ.inc` + `PMD_Z80.inc` は nullsound integration 想定の設計途中 (= `state_timer_tick_reached` が nullsound 提供と仮定したが nullsound.lib で未定義、 polling loop と nullsound API が不整合)
+- V-1 (= 6813d70) で build top を `PMDNEO.s` に切替えたが driver 動作未到達、 W-3 (= 464cff1) で build top を `standalone_test.s` に戻し補正
+
+したがって、 ADR-0014 §C 「凍結」 の解釈は **「機能凍結はせず、 nullsound-free driver 本線として再評価」** に更新:
+
+| file | W-3 後の位置付け |
+|---|---|
+| `src/driver/standalone_test.s` | **本線 driver** (= nullsound-free PoC、 ADPCM-B / J part / ADPCM-A 6ch 等 step 4-5 実装はここで進める) |
+| `src/driver/PMDNEO.s` + `IRQ.inc` + `PMD_Z80.inc` + 関連 .inc | **legacy** (= nullsound integration 設計試行、 将来別 sprint で完成させる予定、 現時点で driver 経路から外れる) |
+
+ADR-0014 §A-D の「凍結 / 再利用 / 部分再利用」 大枠分類は維持、 §C 内 file の解釈のみ更新。
+
 ### カテゴリ D. build infra (= 部分再利用)
 
 **対象**:

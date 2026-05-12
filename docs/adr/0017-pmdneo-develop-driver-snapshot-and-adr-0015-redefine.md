@@ -53,6 +53,14 @@ develop branch の本格 PMDNEO driver (= 上記 9 file 中、 `standalone_test.
 
 ADR-0014 文書に本 ADR への参照注記を追加する。
 
+**追加注記 (= 2026-05-12、 ADR-0016 step W-3 補正)**: §決定 1 の表内 `standalone_test.s` 行および §決定 2 の「`standalone_test.s` を凍結対象、 残り 8 file を継続発展対象」 という分類は **ADR-0016 step 3-4 sprint の実装過程で見直し**:
+
+- `standalone_test.s` は **凍結ではなく nullsound-free PoC 本線 driver** (= 独自 Z80 entrypoint + TIMER-B IRQ + NMI command dispatch + per-tick driver loop が成立、 cmd 0x02 で MML song start 動作確認済)
+- `PMDNEO.s` + `IRQ.inc` + `PMD_Z80.inc` + 関連 .inc 8 file は **nullsound integration の設計試行、 ただし `state_timer_tick_reached` が nullsound 提供と仮定したが nullsound.lib で未定義** という不整合があり、 build top にしても driver 動作未到達 (= V-1 commit 6813d70 で切替試行 → W-3 commit 464cff1 で撤回)
+- 暫定方針: `standalone_test.s` を本線として `step 4-5` (= ADPCM-B / J part / ADPCM-A 6ch) の実装を進める、 nullsound integration (= `PMDNEO.s` + 関連 .inc 完成) は別 sprint として future work
+
+§決定 1 の表内 `standalone_test.s` 行は **「ADR-0006 sprint 別経路試行産物 (= 凍結扱い)」 → 「nullsound-free PoC 本線 driver (= step 4-5 実装はここで進める)」** に解釈を更新。 残り 8 file は **「nullsound integration 試行、 legacy として retain、 将来 sprint で完成」**。
+
 ### 決定 3: ADR-0015 §軸 3/4/5 の redefine 方針
 
 ADR-0015 §軸 3/4/5 は起票時前提 (= PMD.ASM 8086 source 上の改造) で書かれているが、 これは develop の Z80 化 path を踏まえた redefine が必要。 各軸の redefine 方針は次:
