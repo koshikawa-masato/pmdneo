@@ -74,12 +74,13 @@ int main(void) {
     }
   }
 
-  /* ADR-0016 step W-1 (= 2026-05-12): cmd 0x02 = play_song = pmdneo_load_m 経由 */
-  /* (= IRQ.inc snd_command_02_play_song)。 旧 cmd 5 (= test_play_adpcmb_beat、 */
-  /* 固定 adpcm_b_beat_struct 単発再生) は driver の .M load 経路に到達しない */
-  /* trivial verify 原因だった。 cmd 0x02 で初めて pmdneo_load_m / ROM 内 .M */
-  /* / J part fixture / sample_m_data <-> pmddotnet_song 切替 が driver に届く。 */
-  *REG_SOUND = 2;     /* MML song start (= pmdneo_load_m 経由) */
+  /* ADR-0016 step 4-3-α (= 2026-05-12): W-3 後の本線 driver (= standalone_test.s + */
+  /* TEST_MODE_CHORD=5) では cmd 0x02 は単音 FM scale test 経路 (= nmi_cmd_2_play_song)、 */
+  /* 真の MML song path は cmd 0x05 + TEST_MODE_CHORD=5 → nmi_cmd_5_init_mml_song → */
+  /* pmdneo_song_main 経由 (= driver standalone_test.s L319-322 / L1172)。 W-1 で cmd */
+  /* 2 に切替えたのは V-1 (= PMDNEO.s build top) 時、 W-3 で build top を本線に戻し */
+  /* たため cmd 0x05 が再び正規入口。 4 度目の trivial verify 補正。 */
+  *REG_SOUND = 5;     /* MML song start (= nmi_cmd_5_init_mml_song 経由) */
 
   u8 last_cycle = 0;
 #if PMDNEO_FIXTURE == 0
