@@ -3261,6 +3261,19 @@ namespace PMDDotNET.Compiler
                 return true;
             }
 
+            // PMDNEO mode (= /B) で L-Q (= ADPCM-A 6 ch) 受付 (ADR-0015 §軸 4 判断 1)
+            if (mml_seg.opnb_flg == 1 && al >= 'L' && al <= 'Q')
+            {
+                return true;
+            }
+
+            // /N mode で L-Q を検出 → 警告 + skip (ADR-0015 §軸 4 判断 4)
+            if (mml_seg.opnb_flg == 0 && al >= 'L' && al <= 'Q' && !mml_seg.warned_LQ)
+            {
+                print_mes(mml_seg.warning_mes + ": L-Q part は /B (PMDNEO YM2610/B) mode のみで有効、 /N mode では skip されます");
+                mml_seg.warned_LQ = true;
+            }
+
             return false;
         }
 

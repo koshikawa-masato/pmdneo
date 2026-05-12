@@ -227,6 +227,7 @@ namespace PMDDotNET.Compiler
 		public int dt2_flg = 0;//b
 		public int opl_flg = 0;//b
 		public int opnb_flg = 0;//b PMDNEO YM2610/B mode
+		public bool warned_LQ = false;//b L-Q part /N mode 警告抑制 flag
 		public int play_flg = 0;//b
 		public int save_flg = 0;//b
 		public int pmd_flg = 0;//b
