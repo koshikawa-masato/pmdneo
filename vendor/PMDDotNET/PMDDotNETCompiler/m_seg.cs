@@ -10,6 +10,8 @@ namespace PMDDotNET.Compiler
     {
         public string m_filename;
         public int file_ext_adr;//w
+        public int extended_data_adr = 0;//w PMDNEO 後方拡張領域先頭アドレス
+        public int pne_filename_adr = 0;//w PMDNEO .PNE file 名アドレス
 #if efc && olddat
         public byte m_start;//b dummy
         public AutoExtendList<MmlDatum> m_buf = new AutoExtendList<MmlDatum>();//[63 * 1024 - 1];

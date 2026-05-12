@@ -37,6 +37,7 @@ namespace PMDDotNET.Compiler
 		+ "/V  Compile with Tonedatas & Messages & Filenames" + mc.cr + mc.lf
 		+ "        /VW Write Tonedata after Compile" + mc.cr + mc.lf
 		+ "        /N  Compile on OPN   Mode(Default)" + mc.cr + mc.lf
+		+ "        /B  Compile on OPNB  Mode (= PMDNEO YM2610/B)" + mc.cr + mc.lf
 		+ "        /L  (unsupported) Compile on OPL   Mode" + mc.cr + mc.lf
 		+ "        /M  (unsupported) Compile on OPM   Mode" + mc.cr + mc.lf
 		+ "        /T  (unsupported) Compile on TOWNS Mode" + mc.cr + mc.lf
@@ -225,6 +226,7 @@ namespace PMDDotNET.Compiler
 		public int towns_flg = 0;//b
 		public int dt2_flg = 0;//b
 		public int opl_flg = 0;//b
+		public int opnb_flg = 0;//b PMDNEO YM2610/B mode
 		public int play_flg = 0;//b
 		public int save_flg = 0;//b
 		public int pmd_flg = 0;//b
@@ -332,6 +334,7 @@ namespace PMDDotNET.Compiler
 
 		public string mml_filename;//b
 		public string mml_filename2 = "";// include用
+		public string pne_filename = null;//b PMDNEO .PNE file 指定 (#PNEFile)
 		public int ppzfile_adr;//w
 		public int ppsfile_adr;//w
 		public int pcmfile_adr;//w
