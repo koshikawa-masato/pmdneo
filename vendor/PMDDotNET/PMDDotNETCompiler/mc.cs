@@ -2490,7 +2490,14 @@ namespace PMDDotNET.Compiler
             }
 
             // /B 時のみ filename 格納 (= 既存 GetString 流儀で 0x1a / 0x0a / 0x0d 終端まで)
+            // GetString は CRLF 環境で末尾に CR (0x0D) が残るため (= 0x0a 検出が先で 0x0a の前で
+            // 切れるため CR が残存)、 trim で除去。 driver 側で NUL-terminated として解釈する
+            // ため filename に control 文字を含めない。
             mml_seg.pne_filename = GetString(mml_seg.mml_buf, work.si);
+            if (mml_seg.pne_filename != null)
+            {
+                mml_seg.pne_filename = mml_seg.pne_filename.TrimEnd('\r', '\n', ' ', '\t');
+            }
         }
 
 
