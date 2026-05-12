@@ -1,0 +1,23 @@
+#Title		ADR-0016 step 5 epsilon-a L-Q rhythm song (= 統合楽曲、 ADPCM-A 6ch native)
+#Composer	M.Koshikawa.
+#Memo		α/β/γ/δ chain 完成楽曲、 @ sample select + v volume + 1 小節 リズムパターン
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; ADR-0016 step 5 統合楽曲 (= α/β/γ/δ 全 chain 動作確認)
+; 1 小節 リズムパターン、 各 ch 異なる voice + v cmd で audible
+; α = .MN direct load / β = sample lookup / γ = 6ch dispatch / δ = volume hook
+L	v16 @0 o4 l8 c c c c c c c c
+M	v16 @1 o4 l8 r c r c r c r c
+N	v12 @2 o4 l16 c c c c c c c c c c c c c c c c
+O	v8  @3 o4 l4 c r c r
+P	v12 @4 o4 l2 c r
+Q	v16 @5 o4 l1 c
