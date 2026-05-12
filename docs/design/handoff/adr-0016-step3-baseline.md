@@ -70,17 +70,21 @@ CRC mismatch warning は無視可 (= build chain で puzzledp ROM slot を流用
 
 ## 4. 改修後比較 (= 3c 完了時)
 
-PMDNEO.s build top + 動的 load 経路に切替えた後、 同手順で改修後 wav を取得し本 baseline と比較:
+PMDNEO.s build top + 動的 load 経路に切替えた後、 同手順で改修後 wav を取得し本 baseline と比較する。
 
-```bash
-python3 scripts/analyze-audio.py --compare baseline_3a.wav current.wav
-```
+### 4-1. 比較 method (= 現状の選択肢)
 
-判定基準 (= 別 sprint で確定):
-- 完全一致 (= byte 単位)
+- **(現状) JSON 解析 → diff**: `scripts/analyze-audio.py --json --baseline <prev.json> <wav>` で各 wav を JSON 化し、 既存の `--baseline` 経路で diff 出力。 ただし JSON 化は wav 全体の summary (RMS / onset 数 / BPM 等) のみで、 sample-level の波形差分は出ない。
+- **(未実装、 別 sprint 候補) `--compare` mode**: 2 つの wav を直接受け取って RMS / 相関係数 / sample-level diff を出す機能。 `scripts/analyze-audio.py` に追加実装する想定。 3c verify 時に必要性が確定したら別 sprint で実装。
+
+### 4-2. 判定基準 (= 別 sprint で確定)
+
+- 完全一致 (= byte 単位 / sha256)
 - RMS 一致 (= ±5% 以内)
 - 相関係数 (= 0.99 以上)
 - 聴感比較 (= user 確認)
+
+判定基準の重み付け + 採用順位は 3c 着手時に user 壁打ちで確定。
 
 ---
 
