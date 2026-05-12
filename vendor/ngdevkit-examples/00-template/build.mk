@@ -114,12 +114,18 @@ $(MROM1): | $(ROM)
 
 # PMDNEO nullsound-free PoC, Option A:
 # keep the normal nullsound build path intact and add a reversible standalone
-# Z80 driver path that writes the active romset M1 directly.
-# ADR-0016 step V-1 (= 2026-05-12 4th session 後の補正):
-# build top は本線 driver PMDNEO.s (= IRQ.inc + PMD_Z80.inc + ADPCMB_DRV.inc
-# 等の各 .inc を include) に切替。 standalone_test.s は ADR-0014 §C 凍結対象、
-# legacy fixture として残置、 本線検証から外す。
-STANDALONE_Z80_SRC?=../../../src/driver/PMDNEO.s
+# Z80 driver path that writes the active romset M1 directly from standalone_test.
+# ADR-0016 step W-3 補正 (= 2026-05-12 4th session):
+# V-1 で build top を PMDNEO.s に切替えたが、 PMDNEO.s + IRQ.inc + PMD_Z80.inc
+# は nullsound integration 想定の設計途中 (= state_timer_tick_reached が
+# nullsound 未定義 + polling loop と nullsound API が不整合)。 一方
+# standalone_test.s は nullsound-free PoC として TIMER-B IRQ / NMI command
+# dispatch / per-tick driver loop が実際に成立、 W-1 前後の baseline wav も
+# standalone_test.s 経路で出ていた。 build top を standalone_test.s に戻し、
+# PMDNEO.s 系は将来 nullsound integration sprint 用として保留。
+# ADR-0014 §C 「standalone_test.s 凍結」 解釈を見直し (= 凍結ではなく
+# nullsound-free driver 本線、 ADPCM-B / J part 実装はここで進める)。
+STANDALONE_Z80_SRC?=../../../src/driver/standalone_test.s
 STANDALONE_Z80_REL?=$(BUILDDIR)/standalone_test.rel
 STANDALONE_Z80_IHX?=$(BUILDDIR)/standalone_test.ihx
 STANDALONE_Z80_PREPROCESSED?=$(BUILDDIR)/standalone_test.preprocessed.s
@@ -148,10 +154,14 @@ $(STANDALONE_Z80_PREPROCESSED): $(STANDALONE_Z80_SRC) | $(BUILDDIR)
 	$(PMDNEO_PREPROCESS_CMD)
 
 $(STANDALONE_Z80_REL): $(STANDALONE_Z80_PREPROCESSED) | $(BUILDDIR)
-	$(Z80SDAS) $(Z80FLAGS) -g -l -p -u -I$(NGZ80INCLUDEDIR)/nullsound -I$(BUILDDIR) -o $@ $<
+	$(Z80SDAS) $(Z80FLAGS) -g -l -p -u -I$(BUILDDIR) -o $@ $<
 
+# ADR-0016 step W-3 補正: V-1 で nullsound.lib link 追加したが、 standalone_test.s
+# は nullsound-free PoC のため衝突 (= nullsound module が cmd_jmptable 参照、
+# standalone_test.s に未定義)。 build top を standalone_test.s に戻すと共に
+# nullsound.lib link を撤去 (= V-1 前の状態に補正)。
 $(STANDALONE_Z80_IHX): $(STANDALONE_Z80_REL)
-	$(Z80SDLD) $(Z80LDFLAGS) -b DATA=0xf800 -i $@ $(NGZ80LIBDIR)/nullsound.lib $^
+	$(Z80SDLD) $(Z80LDFLAGS) -b DATA=0xf800 -i $@ $^
 
 standalone_z80: $(STANDALONE_Z80_IHX) | $(ROM)
 	$(Z80SDOBJCOPY) -I ihex -O binary $< $(MROM1) --pad-to $(MROMSIZE)

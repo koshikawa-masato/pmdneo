@@ -187,12 +187,15 @@ fi
 
 echo
 echo "=== make poc ==="
-# ADR-0016 step V-1 (= 2026-05-12): build top を PMDNEO.s に切替 (= 本線 driver、
-# IRQ.inc + PMD_Z80.inc + ADPCMB_DRV.inc 等を include)。 standalone_test.s は
-# ADR-0014 §C 凍結対象、 legacy fixture として残置。
-# PMDNEO_USE_PMDDOTNET env を make に伝搬 (= pmdneo_load_m の入力 label を
-# sample_m_data / pmddotnet_song で切替、 sed pre-process 経由)。
-make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=PMDNEO.s -W PMDNEO.s poc
+# ADR-0016 step W-3 補正 (= 2026-05-12): V-1 で PMDNEO.s build top に切替えたが、
+# nullsound integration 未完成と判明。 build top を standalone_test.s に戻す。
+# PMDNEO.s + IRQ.inc + PMD_Z80.inc + ADPCMB_DRV.inc 系は legacy として retain、
+# 将来 nullsound integration sprint で完成させる予定。
+# PMDNEO_USE_PMDDOTNET env は維持 (= standalone_test.s でも sed pre-process で
+# .equ 切替できるよう standalone_test.s に .equ PMDNEO_USE_PMDDOTNET 0 を残置)。
+# ただし standalone_test.s 内では pmddotnet_song label 参照経路は未整備、 V-1/W-1
+# 以前と同じ動作に戻る (= song_table 経由の自前 compile.py 経路)。
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
 
 echo
 echo "=== build 完了 ==="
