@@ -2418,6 +2418,14 @@ namespace PMDDotNET.Compiler
                 ppsfile_set(bx);
                 return;
             }
+            else if (ah == "N")
+            {
+                // PMDNEO 専用 #PNEFile (= ADPCM-A 6 ch sample bank 指定)。
+                // 設計書 1 §4-3-3 + §7-2。 本 commit (= 4c) では filename 格納のみ、
+                // adpcma_used / .MN 切替 / 後方拡張領域出力 は別 commit (= 4e) で対応。
+                pnefile_set(bx);
+                return;
+            }
             else if (ah != "C")
             {
                 error((int)'#', 7, work.si);
@@ -2447,6 +2455,42 @@ namespace PMDDotNET.Compiler
 
             //ppcfile_set:
             mml_seg.pcmfile_adr = work.si;
+        }
+
+
+
+        //;==============================================================================
+        //;	#PNEFile (PMDNEO 専用、 ADPCM-A 6 ch sample bank 指定)
+        //;	設計書 1 §4-3-3: driver は pne_filename_adr が指す位置から 0x00 まで
+        //;	NUL-terminated ASCII 文字列として読み取り、 ROM 配置 .PNE 領域を解決。
+        //;	設計書 1 §7-2: ADPCM-A 使用時 .mn 出力に必須宣言。
+        //;	本 commit (= 4c) では filename 格納のみ、 adpcma_used 発火 / .MN 切替 /
+        //;	後方拡張領域出力 は別 commit (= 4e) で実装。
+        //;==============================================================================
+        private void pnefile_set(int bx)
+        {
+            // 3 文字目 "E" 確認 (= #PNE)
+            string al = mml_seg.mml_buf[bx + 2].ToString().ToUpper();
+            if (al != "E")
+            {
+                error((int)'#', 7, work.si);
+            }
+            // 4 文字目 "F" 確認 (= #PNEF)
+            al = mml_seg.mml_buf[bx + 3].ToString().ToUpper();
+            if (al != "F")
+            {
+                error((int)'#', 7, work.si);
+            }
+
+            // /N (= opnb_flg == 0) 時は warning + skip (= /N baseline 不変 + adpcma_used 不変)
+            if (mml_seg.opnb_flg != 1)
+            {
+                print_mes(mml_seg.warning_mes + ": #PNEFile は /B (PMDNEO YM2610/B) mode のみで有効、 /N mode では無視");
+                return;
+            }
+
+            // /B 時のみ filename 格納 (= 既存 GetString 流儀で 0x1a / 0x0a / 0x0d 終端まで)
+            mml_seg.pne_filename = GetString(mml_seg.mml_buf, work.si);
         }
 
 
