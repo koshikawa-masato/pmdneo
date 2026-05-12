@@ -1403,12 +1403,14 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      b, #0
         ld      c, #0
         call    pmdneo5_init_part
-        ;; ADR-0016 step 5 α-2: L part = ADPCM-A ch 0 (= PART_ADPCMA1)
-        ;; PMDNEO_USE_PMDDOTNET == 1 時のみ .MN direct path、 0 時は legacy 維持
+        ;; ADR-0016 step 5 γ-a: L-Q part = ADPCM-A ch 0-5 (= PART_ADPCMA1-6)
+        ;; PMDNEO_USE_PMDDOTNET == 1 時のみ .MN direct path (= L-Q 汎用 routine)、
+        ;; 0 時は legacy compile.py 経路 (= load_song_part_addr) を維持。
+        ;; α-2 (L only) → γ-a (L-Q 全 6 part) 拡張。
         ;; .MN layout ground truth: docs/design/handoff/adr-0016-step5-alpha-1-mn-layout.md
-        ;; α-2 範囲: L part のみ。 M-Q は γ、 sample lookup は β で扱う
 .if PMDNEO_USE_PMDDOTNET == 1
-        call    pmdneo_mn_direct_load_l_part_addr  ; HL = L body file addr (= .MN parse)
+        ld      a, #0                  ; lq idx 0 = L
+        call    pmdneo_mn_direct_load_lq_part_addr
 .else
         ld      a, #11
         call    load_song_part_addr     ; HL = L body addr (= legacy compile.py 経路)
@@ -1417,32 +1419,57 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      b, #0
         ld      c, #0x00
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #1                  ; lq idx 1 = M
+        call    pmdneo_mn_direct_load_lq_part_addr
+.else
         ld      a, #12
         call    load_song_part_addr
+.endif
         ld      a, #PART_ADPCMA2
         ld      b, #1
         ld      c, #0x00
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #2                  ; lq idx 2 = N
+        call    pmdneo_mn_direct_load_lq_part_addr
+.else
         ld      a, #13
         call    load_song_part_addr
+.endif
         ld      a, #PART_ADPCMA3
         ld      b, #2
         ld      c, #0x00
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #3                  ; lq idx 3 = O
+        call    pmdneo_mn_direct_load_lq_part_addr
+.else
         ld      a, #14
         call    load_song_part_addr
+.endif
         ld      a, #PART_ADPCMA4
         ld      b, #3
         ld      c, #0x00
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #4                  ; lq idx 4 = P
+        call    pmdneo_mn_direct_load_lq_part_addr
+.else
         ld      a, #15
         call    load_song_part_addr
+.endif
         ld      a, #PART_ADPCMA5
         ld      b, #4
         ld      c, #0x00
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #5                  ; lq idx 5 = Q
+        call    pmdneo_mn_direct_load_lq_part_addr
+.else
         ld      a, #16
         call    load_song_part_addr
+.endif
         ld      a, #PART_ADPCMA6
         ld      b, #5
         ld      c, #0x00
@@ -2890,45 +2917,44 @@ adpcmb_deltan_chromatic:
         .dw     0xC50B                  ; A# (= idx 10、 ratio 1.781797)
         .dw     0xD0C2                  ; B  (= idx 11、 ratio 1.887749)
 
-;;; ADR-0016 step 5 α-2: .MN direct parser (= L part のみ、 M-Q は γ で扱う)
+;;; ADR-0016 step 5 γ-a: .MN direct parser (= L-Q 汎用、 α-2 L 専用版を一般化)
 ;;;
-;;; 入力: なし (= pmddotnet_song label 先頭を parse)
-;;; 出力: HL = L body file 内 addr (= pmddotnet_song + 1 + L_offset)
+;;; 入力: A = L-Q index (0=L, 1=M, 2=N, 3=O, 4=P, 5=Q)
+;;; 出力: HL = part body file 内 addr (= pmddotnet_song + 1 + part_offset)
 ;;; 破壊: AF, BC, DE, HL
 ;;;
 ;;; .MN layout (= ground truth、 docs/design/handoff/adr-0016-step5-alpha-1-mn-layout.md):
 ;;;   pmddotnet_song[0]      = m_start (= bit 2 = 1 で PMDNEO .MN mode)
 ;;;   pmddotnet_song[1..28]  = header 28 byte (= m_buf[0..27])
 ;;;   pmddotnet_song[27..28] = m_buf[26..27] = extended_data_adr (LE 16-bit)
-;;;   pmddotnet_song[29..]   = m_buf[28..] = Part A-K body + ADPCM-A 拡張領域
+;;;   offset_table_base = pmddotnet_song + 1 + extended_data_adr
+;;;   offset_table[lq_idx] = base + lq_idx * 2 (= LE 16-bit、 m_buf-relative)
 ;;;
-;;; pointer 解決規則 (= Codex zero-trust verify 確定、 2026-05-12 α-1):
+;;; pointer 解決規則 (= Codex zero-trust verify 確定、 α-1):
 ;;;   全 pointer 値は m_buf-relative
 ;;;   file address = pmddotnet_song + 1 + pointer_value
-;;;   extended_data_adr も m_buf-relative
-;;;   L entry も m_buf-relative
 ;;;
-;;; trace gate (= α-2 6 段階規律):
-;;;   1. .MN header parse 到達 (= pmddotnet_song 先頭読込、 m_start = (HL))
-;;;   2. extended_data_adr read (= pmddotnet_song + 27 LE)
-;;;   3. L offset read (= offset_table_base + 0 LE)
-;;;   4. L body addr setup (= HL = pmddotnet_song + 1 + L_offset)
-;;;   5. L part hook 到達 (= adpcma_keyon_hook、 既存)
-;;;   6. ADPCM-A register write (= reg 0x10/0x18/0x20/0x28 + 0x00、 既存)
+;;; γ-a 一般化方針 (= α-2 L 専用 routine の自然な拡張):
+;;;   - offset_table_base から lq_idx × 2 byte 進めて entry を引く
+;;;   - 既存 L 専用 logic は A=0 で完全に同等動作 (= regression なし期待)
+;;;   - K/R compat fallback は load_song_part_addr へ tail call (= 既存維持)
+;;;   - lq_idx は A レジスタで preserve (= push af / pop af で再利用)
 ;;;
-;;; α-2 scope:
-;;;   - L part のみ、 M-Q は γ で扱う
-;;;   - sample lookup は β で扱う (= adpcma_ch_sample_ptr_table[0] = bd 固定)
+;;; γ scope (= 議題 6 sub-sprint γ):
+;;;   - L-Q 全 6 part の .MN direct path dispatch を一般化
+;;;   - β chain (= @<n> → sample lookup) は ch 軸でも継承される (= 議題 5 後段)
+;;;   - sample lookup 自体は β-2b で完成済、 γ で touch しない
 ;;;   - vol/pan hook は δ で扱う
 .if PMDNEO_USE_PMDDOTNET == 1
-pmdneo_mn_direct_load_l_part_addr::
+pmdneo_mn_direct_load_lq_part_addr::
+        push    af                      ; A = lq idx preserve (0-5)
         ;; ★ trace gate 1: .MN header parse 到達
         ld      hl, #pmddotnet_song
         ld      a, (hl)                 ; A = m_start
         and     #0x04                   ; bit 2 = 1 で PMDNEO .MN mode
-        jr      z, pmdneo_mn_direct_not_mn  ; bit 2 = 0 なら legacy fallback
+        jr      z, pmdneo_mn_direct_lq_not_mn  ; bit 2 = 0 なら legacy fallback
 
-        ;; ★ trace gate 2: extended_data_adr read (= m_buf[26..27] = file[27..28])
+        ;; ★ trace gate 2: extended_data_adr read (= m_buf[26..27])
         ld      hl, #pmddotnet_song + 27
         ld      e, (hl)
         inc     hl
@@ -2938,20 +2964,29 @@ pmdneo_mn_direct_load_l_part_addr::
         ld      hl, #pmddotnet_song + 1
         add     hl, de                  ; HL = offset_table file addr
 
-        ;; ★ trace gate 3: L offset read (= ADPCM-A offset table[0])
+        ;; offset_table[lq_idx] = base + lq_idx * 2 (= γ-a 一般化点)
+        pop     af                      ; A = lq idx restore
+        add     a, a                    ; A = lq_idx * 2
+        ld      e, a
+        ld      d, #0
+        add     hl, de                  ; HL = offset_table[lq_idx] addr
+
+        ;; ★ trace gate 3: part offset read (= offset_table entry)
         ld      e, (hl)
         inc     hl
-        ld      d, (hl)                 ; DE = L_offset (LE、 m_buf-relative)
+        ld      d, (hl)                 ; DE = part body offset (m_buf-relative)
 
-        ;; ★ trace gate 4: L_body_addr = pmddotnet_song + 1 + L_offset
+        ;; ★ trace gate 4: part_body_addr = pmddotnet_song + 1 + part_offset
         ld      hl, #pmddotnet_song + 1
-        add     hl, de                  ; HL = L body file addr
+        add     hl, de                  ; HL = part body file addr
         ret
 
-pmdneo_mn_direct_not_mn:
-        ;; m_start bit 2 = 0 → legacy fallback (= compile.py 経路で empty 取得)
-        ld      a, #11
-        jp      load_song_part_addr     ; tail call、 HL は load_song_part_addr が設定
+pmdneo_mn_direct_lq_not_mn:
+        ;; m_start bit 2 = 0 → legacy fallback (= compile.py 経路)
+        ;; lq_idx 0=L → table idx 11 (= song_table A=0, ..., L=11, ..., Q=16)
+        pop     af                      ; A = lq idx restore (0-5)
+        add     a, #11                  ; A = song_table idx (11-16)
+        jp      load_song_part_addr     ; tail call、 HL は load_song_part_addr 設定
 .endif
 
 ;; Phase 12a-2: song data は compile.py 経由 song_data.inc で取込済 (= driver
