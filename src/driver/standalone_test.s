@@ -2573,8 +2573,54 @@ pmdneo_psg_keyon:
         call    ym2610_write_port_a
         ret
 
+;; ADR-0016 step 4-3-γ: J part body 由来 A レジスタ note 値を delta-N に変換し
+;; reg 0x19 (LSB) + reg 0x1A (MSB) を MML 由来値で書込。 sample addr (= reg
+;; 0x12-0x15) / vol (= reg 0x1B) / pan (= reg 0x11) は beat.wav 固定値を維持。
+;; 4-3-β baseline (= o4 c → 0x6E96) 互換: high nibble 4 + low nibble 0 で
+;; chromatic table[0] = 0x6E96 を維持、 ymfm-trace byte-identical 期待。
+;; differentiation は 4-3-δ で 2nd fixture (= e.g. o4 g) 経由で実証。
+;; 旧 init_adpcmb_beat 呼出は撤去、 同 routine は cmd 0x05 非 MML mode 経路
+;; (= L327 / TEST_MODE_CHORD != 5) で legacy 利用、 当面残置。
 adpcmb_keyon:
-        call    init_adpcmb_beat
+        push    af                      ; save note byte (= A reg)
+        ;; reg 0x10 = 0x00 (= clear keyon、 init_adpcmb_beat 旧経路と同順)
+        ld      b, #0x10
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; reg 0x12-0x15 = beat.wav sample addr (= fixed、 samples.inc 由来)
+        ld      b, #0x12
+        ld      c, #BEAT_START_LSB
+        call    ym2610_write_port_a
+        ld      b, #0x13
+        ld      c, #BEAT_START_MSB
+        call    ym2610_write_port_a
+        ld      b, #0x14
+        ld      c, #BEAT_STOP_LSB
+        call    ym2610_write_port_a
+        ld      b, #0x15
+        ld      c, #BEAT_STOP_MSB
+        call    ym2610_write_port_a
+        ;; reg 0x19/0x1A = MML 由来 delta-N (= 4-3-γ の本旨)
+        pop     af                      ; restore note byte
+        call    adpcmb_note_to_deltan   ; A=note → DE=delta-N (clobbers A,DE)
+        ld      b, #0x19
+        ld      c, e
+        call    ym2610_write_port_a
+        ld      b, #0x1A
+        ld      c, d
+        call    ym2610_write_port_a
+        ;; reg 0x1B = 0xFF (= vol max、 fixed)
+        ld      b, #0x1B
+        ld      c, #0xFF
+        call    ym2610_write_port_a
+        ;; reg 0x11 = 0xC0 (= pan both、 fixed)
+        ld      b, #0x11
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+        ;; reg 0x10 = 0x80 (= keyon trigger)
+        ld      b, #0x10
+        ld      c, #0x80
+        call    ym2610_write_port_a
         ret
 
 adpcmb_keyoff:
@@ -2722,6 +2768,82 @@ v_to_V_fm:
 
 v_to_V_pcm:
         .db     0, 16, 32, 48, 64, 80, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 255
+
+;; ADR-0016 step 4-3-γ: J part note byte → ADPCM-B delta-N 変換
+;; A レジスタ入力 = PMD 形式 note byte (= 0x40-0x7B):
+;;   high nibble (= bit 4-7) ... octave nibble (= MML octave、 4 が base = o4)
+;;   low nibble (= bit 0-3) ... chromatic semitone idx (= 0-11、 12-15 は clamp)
+;; DE レジスタ出力 = delta-N (= reg 0x19/0x1A の 16-bit 値)
+;; clobbers: A, DE (= AF/BC/HL は preserve)
+;;
+;; 設計: base octave = high nibble 4 (= MML o4)、 chromatic table[0] = 0x6E96
+;; (= beat.wav natural rate ≈ 24 kHz、 4-3-α/β baseline 互換)。 octave shift
+;; = high nibble - 4 で左 (= positive、 ×2 per octave) または右 (= negative)。
+;; 有効入力 range (= 0x40-0x7B) では shift は 0-3 (= 左のみ)、 右 shift 経路は
+;; 不正入力の defensive 経路。
+adpcmb_note_to_deltan:
+        push    af
+        push    bc
+        push    hl
+        ld      b, a                    ; B = full note byte (= preserve)
+        and     #0x0F                   ; A = low nibble = chromatic idx
+        cp      #12
+        jr      c, adpcmb_n2d_low_ok
+        ld      a, #11                  ; clamp 12-15 to 11
+adpcmb_n2d_low_ok:
+        add     a, a                    ; ×2 for 16-bit table index
+        ld      l, a
+        ld      h, #0
+        ld      de, #adpcmb_deltan_chromatic
+        add     hl, de
+        ld      e, (hl)                 ; DE = chromatic[idx] = base delta-N
+        inc     hl
+        ld      d, (hl)
+        ;; --- octave shift ---
+        ld      a, b
+        rrca
+        rrca
+        rrca
+        rrca
+        and     #0x07                   ; A = high nibble (= 0-7)
+        sub     #4                      ; A = octave delta (= -4 ~ +3)
+        jr      z, adpcmb_n2d_done      ; no shift needed
+        jr      c, adpcmb_n2d_shift_right
+adpcmb_n2d_shift_left_loop:
+        sla     e
+        rl      d                       ; DE <<= 1 (= ×2、 octave up)
+        dec     a
+        jr      nz, adpcmb_n2d_shift_left_loop
+        jr      adpcmb_n2d_done
+adpcmb_n2d_shift_right:
+        neg                             ; A = abs(shift count)
+adpcmb_n2d_shift_right_loop:
+        srl     d
+        rr      e                       ; DE >>= 1 (= ÷2、 octave down)
+        dec     a
+        jr      nz, adpcmb_n2d_shift_right_loop
+adpcmb_n2d_done:
+        pop     hl
+        pop     bc
+        pop     af
+        ret
+
+;; chromatic delta-N table (= 12 entries × 16-bit = 24 byte)
+;; base C (= idx 0) = 0x6E96 (= beat.wav natural rate、 PMD MML o4 c 互換)
+;; ratio per semitone = 2^(n/12)、 round half-to-even
+adpcmb_deltan_chromatic:
+        .dw     0x6E96                  ; C  (= idx 0、 ratio 1.000000)
+        .dw     0x7529                  ; C# (= idx 1、 ratio 1.059463)
+        .dw     0x7C21                  ; D  (= idx 2、 ratio 1.122462)
+        .dw     0x8382                  ; D# (= idx 3、 ratio 1.189207)
+        .dw     0x8B54                  ; E  (= idx 4、 ratio 1.259921)
+        .dw     0x939D                  ; F  (= idx 5、 ratio 1.334840)
+        .dw     0x9C64                  ; F# (= idx 6、 ratio 1.414214)
+        .dw     0xA5B1                  ; G  (= idx 7、 ratio 1.498307)
+        .dw     0xAF8B                  ; G# (= idx 8、 ratio 1.587401)
+        .dw     0xB9FC                  ; A  (= idx 9、 ratio 1.681793)
+        .dw     0xC50B                  ; A# (= idx 10、 ratio 1.781797)
+        .dw     0xD0C2                  ; B  (= idx 11、 ratio 1.887749)
 
 ;; Phase 12a-2: song data は compile.py 経由 song_data.inc で取込済 (= driver
 ;; の `.include "song_data.inc"` で一意 source)、 hardcoded song_part_? は廃止。
