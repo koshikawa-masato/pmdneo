@@ -116,8 +116,15 @@ vendor/ngdevkit-examples/00-template/songs/
 # docs/setup/mame-fork-setup.md として起票予定
 vendor/mame-fork/
 
-# PMDDotNET (= vendor patch 版、 dotnet build artifact + GPLv3 source、 個別 clone 想定)
-vendor/PMDDotNET/
+# PMDDotNET (= ADR-0013/0014/0015/0016 改造 PMDDotNET 路線で改修対象、 source は git tracked、 build artifact + backup + reference wav + Windows player binary は除外)
+vendor/PMDDotNET/**/bin/
+vendor/PMDDotNET/**/obj/
+vendor/PMDDotNET/**/.vs/
+vendor/PMDDotNET/PMDDotNETConsole.Net4_bk/
+vendor/PMDDotNET/PMDDotNETPlayer_bk/
+vendor/PMDDotNET/**/*.wav
+vendor/PMDDotNET/**/*.bak
+vendor/PMDDotNET/PMDDotNETPlayer/lib/
 vendor/pmdmini-patched/
 
 # 音色検証 local DB (= ADR-0005)

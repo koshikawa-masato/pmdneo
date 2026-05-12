@@ -1,0 +1,19 @@
+#Title		test-aes-ad
+#Composer	M.Koshikawa.
+
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+B	t140
+
+A	@1v10q6
+A	o4l1 c
+B	@1v10q6
+B	o4l1 e
+D	@1v10q6
+D	o4l1 g

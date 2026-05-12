@@ -1,0 +1,84 @@
+#Title		PMD ver4.8r ï™éUòaâπ Sample
+#Composer	M.Kajihara
+#Memo		Ç±ÇøÇÁÇÕver4.8qà»ëOÇ≈Ç‡ê≥èÌÇ…ââëtÇ™â¬î\Ç≈Ç∑
+
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams	ãÈå`îg 25%
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 031 018 000 015 002 000 000 001 003 000
+
+; nm alg fbl
+@002 005 007
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams	ãÈå`îg 50%
+ 031 000 000 000 000 025 000 002 000 000
+ 031 018 010 015 002 000 000 001 000 000
+ 031 018 010 015 002 000 000 001 000 000
+ 031 018 010 015 002 000 000 001 000 000
+
+; nm alg fbl
+@004 002 007
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams	éOäpîg
+ 031 000 000 000 000 070 000 015 000 000
+ 000 000 000 015 000 127 000 000 000 000
+ 031 000 000 000 000 045 000 001 000 000
+ 031 000 000 015 000 000 000 000 000 000
+
+; nm alg fbl
+@005 005 006
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams	ÇÃÇ±Ç¨ÇËîg
+ 031 000 000 000 000 018 000 001 000 000
+ 031 018 006 015 002 000 000 001 000 000
+ 031 018 006 015 002 000 000 001 000 000
+ 031 018 006 015 002 000 000 001 000 000
+
+!b	E1,-4,1,0v15q99,3P1o3c12q0
+!h	E1,-3,1,0v15q99,4P2w0c12q0
+!s	E1,-2,1,0v15P1o3a%1P2w10v13c12-%1
+!c4	E0,-0,2,0v15P1o3c%1P2w04c4-%1
+
+A	t75
+BCI	L
+
+;	[Intro]
+;A	@4v11q2
+;A	o4l12[eree<b>e]3 dfg+fg+b
+B	@5v7Ml12,1,12,2*1q1
+B	o5{{bg+f<bg+f>}}1,,,,-1 v7o6l12S1,-2g+S0fdfd<b>d<bg+fd<b>
+C	@2v7q1D3
+C	o6{{g+fd<g+fd>}}1,,,,-1 v7 Wl24,-2
+C	o6l12 {{g+d}}fd {{f<b>}}d<b> {{d<g+}}bg+ {{f<b>}}d<b>
+I	MP-120
+I	l12!b!h!h!b!h!h!b!h!h!b!h!h!b!h!h!s!h!b!b!s!s!s!s!b
+
+;	[A]
+;A	o4l12[araaeaaraaea araaeaab>cc<bg frffcffrffcf:grggdggabbag]2 eree<b>edfg+fg+b
+!w	Wl24,-2
+B	o5l12 a4eg!waW0>c4<e4>S1,-2e4S0d4c4<b4 a4fg!waW0>c4<ab>!wcW0 d4<gb>!wdW0 S1,-2gS0fedc<b
+B	o5l12 a4eg!waW0>c4<e4>S1,-2e4S0d4e4S1,-2g4S0 f4cd!weW0{{fc}}4cf!wgW0 S1,-2g+S0fdfd<b>d<bg+fd<b>
+C	o5l12[ceg {{ae}}6e cea {{bg}}6e cea>{{c<a}}6>d edc<bag>
+C	o5l12 cfg {{af}}6f cfa {{>c<a}}6>f:gd<b>{{d<b}}bg bag{{fd}}d<b>]2
+C	o6l12 {{g+d}}fd {{f<b>}}d<b> {{d<g+}}bg+ {{f<b>}}d<b>
+I	!c4!s!h!h [!b!h!h!s!h!h]6 !b!s!h!s!s!b
+I	!c4!s!h!h [!b!h!h!s!h!h]5 !s!h!b!s!h!b !b!s!s!s!s!b
+
+;	[B]
+;A	o4l12 [drdd<a>d]2 [eree<b>e]2 [frffcf]2 grggdg g>d<bgfe
+;A	o4l12 [drdd<a>d]2 [eree<b>e]2 [frffcf]2 grggdg g+>e<ebag+
+B	@1v11
+B	o5l12 f2.fe  f   e4f4g4b4 a2.ag+!waW0 b4>c4d4e4
+B	o6l12 f2.fe!wfW0 e4f4S1,-2g+4S0b4 S1,+2a4&6&f&2S0 S1,-2b4&6&g+&2S0
+C	o5l12 dfa{{>e<a}}6fafa{{>d<a}}6f dfb{{>f<b}}6fgfg{{>e<b}}6g
+C	o5l12 cfa{{>c<g}}6fafa{{>c<a}}6>f gfd{{fd}}d<b >d<ba{{gd}}fd
+C	o5l12 dfa{{>e<a}}6fafa{{>d<a}}6f dg+b{{>f<b}}6fg+fg+{{>e<b}}6g+
+C	o5l12 cfa{{>c<g}}6fafa{{>c<a}}6>f gfd{{fd}}df g+fd<{{bf}}g+<b
+I	!c4!s!h!h [!b!h!h!s!h!h]6 !b!s!h!s!s!b
+I	!c4!s!h!h [!b!h!h!s!h!h]5 !s!h!b!s!h!b !b!s!s!s!s!b
+
+;	[C]
+;A	o4l12 [araaea]3araagf
+B	o6MD1,3{{ae}}1MD0@5v7{{c<gec<ge>>}}1,,,,-1 v7
+C	o5ceg{{be}}6e ceg{{ae}}6e o6{{gec<gec>}}1,,,,-1 v7
+I	l12!c4!b!h!h!b!h!h!b!h!h!b!h!h!s!h!b!b!s!b!s!h!b
