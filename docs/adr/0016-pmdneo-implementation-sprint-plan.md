@@ -35,6 +35,34 @@ ADR-0015 §軸 5 完了 (= 2026-05-12、 commit `c3f8798`) で改造実装 sprin
 - **作業内容**: ADR-0015 §軸 4 完了 §step 4-E 改造箇所 list に従って実装
 - **完了判定**: 既存 `/N` 出力 (= 全 voice-test 28 entry MML 等) が改造後も byte 単位で温存されること
 
+##### step 1 完了 (= 2026-05-12 4th session)
+
+step 1 は以下 commit で完了 (= `wip-pmddotnet-opnb-extension` branch、 全件 push 済):
+
+| commit | 内容 |
+|---|---|
+| `25bde49` | commit 0 — vendor/PMDDotNET initial import + .gitignore 更新 |
+| `4b2e6b1` | commit 1 — mml_seg.cs + m_seg.cs field 追加 |
+| `d034eff` | commit 2 — /B option 認識 + m_start bit 2 + .MN 切替 (暫定) |
+| `2719544` | commit 3 — partcheck で L-Q 受付 + /N 時 警告 skip |
+| `01e347a` | commit 4a — ADPCM-A 使用判定 logic + 最優先制約 (.M 維持) 達成 |
+| `1a7e59e` | commit 4b — Pass1 で /B 時の L-Q 検出 + adpcma_used 発火経路 |
+| `45eebaf` | commit 4c — #PNEFile macro 認識経路 (filename 格納のみ) |
+| `0675b71` | commit 4c-fixup — pnefile_set で CR (0x0D) trim 追加 |
+| `0b12f0a` | commit 4e — cloop iteration + L-Q body + 後方拡張領域 + header 拡張 一括 |
+| `2dabd22` | 設計書 §4-2-1 注記追加 — .mn header 28 byte 固定化 + shift 量整理 |
+
+**完了判定の達成状況**:
+- ✅ /N output byte 単位温存 (= voice-test 28 entry sha256 完全一致、 改造前 baseline と byte 一致)
+- ✅ ADR-0013 D1 路線基盤 (= /B + ADPCM-A 未使用 = /N と byte 完全一致) を 4a/4b 時点で確立
+- ✅ ADPCM-A 使用経路 (= `.MN` 出力、 後方拡張領域、 L-Q body、 #PNEFile 連動) 完成形を 4e で達成
+- ✅ 設計書 §4-2 / §4-3 完全整合 (= header 28 byte 固定化、 m_buf[26..27] = extended_data_adr 常成立)
+- ✅ /N と /B 両 baseline byte-identical で driver 不可侵を保証
+
+**step 1 範囲外 (= 別 sprint で対応予定)**:
+- `lc.cs` (= 長さ計算) を L-Q 拡張する作業 (= 「Part L Length : N」 log 補完、 driver 動作には影響なし)
+- step 2 (= /N vs /B 前半 bit-by-bit 一致) の verify script 化 (= 28 entry の永続検証 infra 構築)
+
 #### step 2: 同 MML 前半 bit-by-bit 一致 verify
 
 - **作業対象**: 既存 voice-test 28 entry MML (= ADPCM-A 不使用、 main branch 固定資産) を `/N` `/B` 両 compile
