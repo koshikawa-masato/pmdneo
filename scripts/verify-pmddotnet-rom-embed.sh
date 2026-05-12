@@ -62,6 +62,13 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+# --mode validation (= N or B 以外を弾く、 PMDDOTNET_MODE 経由で build-poc.sh
+# に不正値が渡って意味不明な build error になる事故防止)
+if [[ "$MODE" != "N" && "$MODE" != "B" ]]; then
+    echo "ERROR: invalid --mode: '$MODE' (must be 'N' or 'B')" >&2
+    exit 2
+fi
+
 # log file init
 mkdir -p "$(dirname "$LOG_FILE")"
 : > "$LOG_FILE"
