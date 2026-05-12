@@ -73,31 +73,37 @@ prepare_workdir() {
     cp "$BASELINE_DIR"/*.mml "$WORK_B/"
 }
 
-# /N で compile
-compile_N() {
-    log_info "/N compile 開始 (= $WORK_N)"
-    pushd "$WORK_N" > /dev/null
+# 共通 compile helper (= /N or /B、 失敗時 entry 名 + stderr log path 出力 + exit 2)
+# PASS path では成功時に stderr log を削除して output を従来通り維持
+compile_one() {
+    local mode=$1       # "N" or "B"
+    local workdir=$2    # 作業 dir 絶対 path
+    log_info "/$mode compile 開始 (= $workdir)"
+    pushd "$workdir" > /dev/null
     local count=0
     for f in *.mml; do
-        dotnet "$COMPILER_DLL" /C /N "$f" > /dev/null 2>&1
+        local err_log
+        err_log=$(mktemp "$WORK_DIR/_compile_err_${mode}_XXXXXX.log")
+        if ! dotnet "$COMPILER_DLL" /C "/$mode" "$f" > "$err_log" 2>&1; then
+            log_err "/$mode compile failed: entry=$f"
+            log_err "  stderr log: $err_log (= retained for diagnostics)"
+            log_err "  log 末尾 16 行抜粋:"
+            tail -16 "$err_log" | sed 's/^/    /' | tee -a "$LOG_FILE"
+            popd > /dev/null
+            exit 2
+        fi
+        rm -f "$err_log"
         count=$((count + 1))
     done
     popd > /dev/null
-    log_info "/N compile 完了 ($count entry)"
+    log_info "/$mode compile 完了 ($count entry)"
 }
 
+# /N で compile
+compile_N() { compile_one "N" "$WORK_N"; }
+
 # /B で compile
-compile_B() {
-    log_info "/B compile 開始 (= $WORK_B)"
-    pushd "$WORK_B" > /dev/null
-    local count=0
-    for f in *.mml; do
-        dotnet "$COMPILER_DLL" /C /B "$f" > /dev/null 2>&1
-        count=$((count + 1))
-    done
-    popd > /dev/null
-    log_info "/B compile 完了 ($count entry)"
-}
+compile_B() { compile_one "B" "$WORK_B"; }
 
 # layer A: /N regression (= BASELINE-N.sha256 と完全一致)
 verify_layer_a() {
