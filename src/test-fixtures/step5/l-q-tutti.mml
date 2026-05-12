@@ -1,0 +1,27 @@
+#Title		ADR-0016 step 5 gamma-b L-Q tutti (= 6 ch simultaneous keyon)
+#Composer	M.Koshikawa.
+#Memo		L-Q 6 ch 同時 keyon、 ch 軸独立性 + register isolation + workarea independence 検証用
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; L-Q 6 ch 同時 keyon、 各 ch 異なる voice (= bd/sd/hh/tom/rim/top)
+; L body emit 期待: FF 00 30 60 80 (= ch 0 = bd)
+; M body emit 期待: FF 01 30 60 80 (= ch 1 = sd)
+; N body emit 期待: FF 02 30 60 80 (= ch 2 = hh)
+; O body emit 期待: FF 03 30 60 80 (= ch 3 = tom)
+; P body emit 期待: FF 04 30 60 80 (= ch 4 = rim)
+; Q body emit 期待: FF 05 30 60 80 (= ch 5 = top)
+L	@0 o4 l1 c
+M	@1 o4 l1 c
+N	@2 o4 l1 c
+O	@3 o4 l1 c
+P	@4 o4 l1 c
+Q	@5 o4 l1 c
