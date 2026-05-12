@@ -108,6 +108,29 @@ python3 "${PMDNEO_ROOT}/src/tools/pmd-mml/compile.py" \
     --out-dir "${TEMPLATE_DIR}/songs" \
     --wrapper "${TEMPLATE_DIR}/song_data.inc"
 
+# ADR-0016 step 3c-1: raw .M 直接取り込み経路 (= PMDDOTNET 未経由)
+# 環境変数 PMDNEO_M_RAW が設定されていれば、 指定された .M / .MN binary を
+# そのまま pmddotnet_song.m に copy + song_data.inc に追記。 改造 PMDDotNET
+# 経由ではなく、 既存 SAMPLE.M 等の任意 binary を取り込み経路でテスト可能に。
+# PMDDOTNET_MML と排他 (= PMDNEO_M_RAW 優先)。 driver / standalone_test.s 不可侵。
+if [[ -n "${PMDNEO_M_RAW:-}" ]]; then
+    if [[ ! -f "$PMDNEO_M_RAW" ]]; then
+        echo "ERROR: PMDNEO_M_RAW file が見つからない: $PMDNEO_M_RAW" >&2
+        exit 2
+    fi
+    echo
+    echo "=== ADR-0016 step 3c-1: raw .M 直接取り込み (PMDNEO_M_RAW=$(basename "$PMDNEO_M_RAW")) ==="
+    python3 "$PMDNEO_ROOT/scripts/m-to-z80-incbin.py" \
+        "$PMDNEO_M_RAW" "$TEMPLATE_DIR/pmddotnet_song.m" \
+        --label pmddotnet_song
+    {
+        echo ""
+        echo ";; ADR-0016 step 3c-1: raw .M を .incbin 経路で取り込み (= PMDDOTNET 未経由)"
+        echo "pmddotnet_song: .incbin \"pmddotnet_song.m\""
+    } >> "$TEMPLATE_DIR/song_data.inc"
+    echo "  pmddotnet_song.m <- $(basename "$PMDNEO_M_RAW") ($(wc -c < "$TEMPLATE_DIR/pmddotnet_song.m" | tr -d ' ') byte)"
+fi
+
 # ADR-0016 step 3b: 改造 PMDDotNET 経路 (= 並走、 既存 compile.py 経路と共存)
 # 環境変数 PMDDOTNET_MML が設定されていれば、 改造 PMDDotNET dotnet で .M / .MN
 # compile + 00-template/pmddotnet_song.m に配置 + song_data.inc に追記 1 行で取り込み。
