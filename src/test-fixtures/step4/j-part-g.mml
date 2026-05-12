@@ -1,0 +1,16 @@
+#Title		ADR-0016 step 4-3-δ J part o4 g (= note 0x47 → delta-N 0xA5B1 期待)
+#Composer	M.Koshikawa.
+#Memo		j-part-minimum.mml (= o4 c) と組合せて fixture-driven verify (= 4-3-δ)
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ、 j-part-minimum と同等)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; J part = ADPCM-B (= o4 g、 note byte 0x47 期待)
+; chromatic table[7] = 0xA5B1、 reg 0x19 = 0xB1 / reg 0x1A = 0xA5 を確認
+J	o4 l1 g
