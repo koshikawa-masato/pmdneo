@@ -2506,8 +2506,13 @@ psg_volume_hook:
         call    ym2610_write_port_a
         ret
 
+;; ADR-0016 step 4-3-β: J part body 由来 note 値を A レジスタで adpcmb_keyon に
+;; 引渡す経路を確立 (= 旧 B=0 hardcoded を A=PART_OFF_NOTE に置換)。 adpcmb_keyon
+;; 本体は 4-3-γ で A 値を delta-N 変換 + reg 0x19/0x1A 書込みに refactor 予定。
+;; 4-3-β 単体では adpcmb_keyon は A 値 ignore のまま (= audio 不変期待、 wav
+;; sha256 維持: ROM_A 3c1f776f... / ROM_B eabb80d4...)。
 adpcmb_keyon_hook:
-        ld      b, #0
+        ld      a, PART_OFF_NOTE(ix)
         call    adpcmb_keyon
         ret
 
