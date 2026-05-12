@@ -2668,17 +2668,36 @@ adpcma_init:
         ret
 
 ;;; adpcma_keyon_simple: A = ADPCM-A channel index (0..5).
+;;;
+;;; ADR-0016 step 5 β-2b refactor:
+;;;   ch index (= A) は reg base 計算用 (0x10+ch / 0x18+ch / 0x20+ch / 0x28+ch /
+;;;   0x08+ch / (1<<ch)) として preserve、 sample addr 引きは voice index
+;;;   (= PART_OFF_INSTRUMENT(ix)) で行う。
+;;;
+;;; voice index → sample mapping (= 既存 adpcma_ch_sample_ptr_table を再解釈):
+;;;   @0 → bd / @1 → sd / @2 → hh / @3 → tom / @4 → rim / @5 → top
+;;;
+;;; 範囲外 voice (= >= 6): keyon skip (= ret) で誤 sample 鳴動防止。
+;;;
+;;; K/R compat (= 議題 2 scope-out): K part = PART_RHYTHM (= part 10) は
+;;; pmdneo_song_main の L1654 分岐で rhythm_main (= 空 stub) に流れ、
+;;; adpcma_keyon_simple には到達しない。 voice index 引きへの refactor で
+;;; K/R 経路への副作用なし (= 元々非アクティブ、 議題 2 retained but inactive)。
 adpcma_keyon_simple:
-        and     #0x07
-        ld      b, a
+        and     #0x07                   ; A = ch index (0-7 mask)
+        ld      b, a                    ; B = ch index (= reg base 計算用、 preserve)
+        ;; β-2b: voice index で sample table 引き
+        ld      a, PART_OFF_INSTRUMENT(ix)
+        cp      #6                      ; voice >= 6 は範囲外
+        ret     nc                      ; → keyon skip (= 誤 sample 鳴動より安全)
         ld      l, a
         ld      h, #0
-        add     hl, hl
+        add     hl, hl                  ; HL = voice * 2
         ld      de, #adpcma_ch_sample_ptr_table
-        add     hl, de
+        add     hl, de                  ; HL = sample ptr table entry (voice 引き)
         ld      e, (hl)
         inc     hl
-        ld      d, (hl)
+        ld      d, (hl)                 ; DE = sample addr pointer
 
         ld      a, #0x10
         add     a, b
