@@ -340,6 +340,27 @@ m_buf[28..]:   各 part body / rhythm pattern body / prgdat 領域
 `.mn` では Part A offset (m_buf[0..1]) は **28** になる (= 28 byte
 header の直後から Part A body が始まる)。
 
+#### 4-2-1. 仕様の固定値は header byte 数 28 (= shift 量ではない)
+
+「26 byte → 28 byte」 という文言は既存 `.m` の `prg_flg = 1` (= `#FF`
+あり) base での例示。 既存 `.m` header は `prg_flg` に依存して 2 通り
+あるため、 `.mn` への shift 量も baseline によって変動する:
+
+| `prg_flg` | 既存 `.m` header | `.mn` header | part offset shift |
+|---|---|---|---|
+| 0 (`#FF` なし) | 24 byte (= 22 part offset + 2 rhythm addr) | 28 byte | **+4** |
+| 1 (`#FF` あり) | 26 byte (= 上記 + 2 prgdat_adr) | 28 byte | **+2** |
+
+つまり PMDNEO mode では `prg_flg = 0` のときも prgdat_adr 領域 (= 値 = 0
+で「音色データなし」 を表現) を強制確保し、 **header byte 数を `prg_flg`
+に無依存に 28 byte で固定化**する。 driver 側は m_start bit 2 = 1 を
+読み取り次第「header は常に 28 byte」 と解釈してよい (m_buf[24..25] =
+prgdat_adr / m_buf[26..27] = extended_data_adr が常に成立)。
+
+**仕様の固定値は header byte 数 28**。 shift 量 (+2 / +4) は基準とする
+既存 `.m` の `prg_flg` に応じた **観測値**であり、 仕様としては固定化
+しない。
+
 ADPCM-A 6 part offset table の **実体**は prgdat 領域末尾以降に置く
 (user judgment 分岐 1 で確定)。 extended_data_adr はその開始位置を
 指すだけ。 driver は extended_data_adr を辿ることで ADPCM-A 領域に
