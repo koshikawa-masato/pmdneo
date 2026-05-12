@@ -53,20 +53,24 @@ cmd_jmptable::
 ;;; main.c で cmd 3 を最初に発行することで Z80 driver が ready になる。
 
 
-;;; ----- snd_command_02_play_song: SubC-3 4 ch FM MML song -----
+;;; ----- snd_command_02_play_song: ADR-0016 step 4-2.5 で pmdneo_load_m 経路に refactor -----
 ;;;
 ;;; cmd 3 (= nullsound default reset) で chip silence + Z80 init 後、 cmd 2 で:
 ;;; 1. pmdneo_init (= SSG mixer + TIMER-B 起動 + driver state init)
-;;; 2. test_play_fm_song (= chip ch 2/3/5/6 で 4 ch FM MML song)
-;;; 3. polling loop 再導入: TIMER-B tick 毎に pmd_z80_main を call、
-;;;    TIMER-B IRQ count を継続確認
+;;; 2. pmdneo_load_m (= sample_m_data or pmddotnet_song の m_buf header を読み
+;;;    part 0-10 の body address を per-part workarea に設定、 設計書 §6-1)
+;;;    PMDNEO_USE_PMDDOTNET build flag で sample_m_data / pmddotnet_song 切替
+;;; 3. polling loop: TIMER-B tick 毎に pmd_z80_main を call、 TIMER-B IRQ count
+;;;    を継続確認
 ;;;
-;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd 受付不可 (SubB-7 検証範囲)。
-;;; SubB-7 で MML 解釈実装後に polling loop を refactor。
+;;; ret しない (= snd_mainloop に戻らない)、 後続 cmd 受付不可。
+;;;
+;;; 注意: 旧 test_play_fm_song / test_fm_song_data (= SubC-3 hardcoded 4 ch FM)
+;;; は PMD_Z80.inc に legacy として残置、 本経路では使用しない。
 
 snd_command_02_play_song::
         call    pmdneo_init
-        call    test_play_fm_song
+        call    pmdneo_load_m
 pmdneo_play_loop::
         ld      a, (state_timer_tick_reached)
         or      a

@@ -114,8 +114,12 @@ $(MROM1): | $(ROM)
 
 # PMDNEO nullsound-free PoC, Option A:
 # keep the normal nullsound build path intact and add a reversible standalone
-# Z80 driver path that writes the active romset M1 directly from standalone_test.
-STANDALONE_Z80_SRC?=../../../src/driver/standalone_test.s
+# Z80 driver path that writes the active romset M1 directly.
+# ADR-0016 step V-1 (= 2026-05-12 4th session 後の補正):
+# build top は本線 driver PMDNEO.s (= IRQ.inc + PMD_Z80.inc + ADPCMB_DRV.inc
+# 等の各 .inc を include) に切替。 standalone_test.s は ADR-0014 §C 凍結対象、
+# legacy fixture として残置、 本線検証から外す。
+STANDALONE_Z80_SRC?=../../../src/driver/PMDNEO.s
 STANDALONE_Z80_REL?=$(BUILDDIR)/standalone_test.rel
 STANDALONE_Z80_IHX?=$(BUILDDIR)/standalone_test.ihx
 STANDALONE_Z80_PREPROCESSED?=$(BUILDDIR)/standalone_test.preprocessed.s
@@ -144,10 +148,10 @@ $(STANDALONE_Z80_PREPROCESSED): $(STANDALONE_Z80_SRC) | $(BUILDDIR)
 	$(PMDNEO_PREPROCESS_CMD)
 
 $(STANDALONE_Z80_REL): $(STANDALONE_Z80_PREPROCESSED) | $(BUILDDIR)
-	$(Z80SDAS) $(Z80FLAGS) -g -l -p -u -I$(BUILDDIR) -o $@ $<
+	$(Z80SDAS) $(Z80FLAGS) -g -l -p -u -I$(NGZ80INCLUDEDIR)/nullsound -I$(BUILDDIR) -o $@ $<
 
 $(STANDALONE_Z80_IHX): $(STANDALONE_Z80_REL)
-	$(Z80SDLD) $(Z80LDFLAGS) -b DATA=0xf800 -i $@ $^
+	$(Z80SDLD) $(Z80LDFLAGS) -b DATA=0xf800 -i $@ $(NGZ80LIBDIR)/nullsound.lib $^
 
 standalone_z80: $(STANDALONE_Z80_IHX) | $(ROM)
 	$(Z80SDOBJCOPY) -I ihex -O binary $< $(MROM1) --pad-to $(MROMSIZE)

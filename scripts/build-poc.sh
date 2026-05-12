@@ -123,12 +123,21 @@ if [[ -n "${PMDNEO_M_RAW:-}" ]]; then
     python3 "$PMDNEO_ROOT/scripts/m-to-z80-incbin.py" \
         "$PMDNEO_M_RAW" "$TEMPLATE_DIR/pmddotnet_song.m" \
         --label pmddotnet_song
+    # ADR-0016 step V-1: pmddotnet_song.inc に分離 (= PMDNEO.s build top 経路で
+    # song_data.inc を引き込まないため、 専用 .inc に独立配置)。 また互換のため
+    # song_data.inc にも引き続き追記 (= standalone_test.s build top の旧経路用、
+    # legacy 残置)。
+    {
+        echo ";; ADR-0016 step 3c-1 / V-1: raw .M を .incbin 経路で取り込み (= PMDDOTNET 未経由)"
+        echo "pmddotnet_song: .incbin \"pmddotnet_song.m\""
+    } > "$TEMPLATE_DIR/pmddotnet_song.inc"
     {
         echo ""
-        echo ";; ADR-0016 step 3c-1: raw .M を .incbin 経路で取り込み (= PMDDOTNET 未経由)"
+        echo ";; ADR-0016 step 3c-1: raw .M を .incbin 経路で取り込み (= PMDDOTNET 未経由、 legacy)"
         echo "pmddotnet_song: .incbin \"pmddotnet_song.m\""
     } >> "$TEMPLATE_DIR/song_data.inc"
     echo "  pmddotnet_song.m <- $(basename "$PMDNEO_M_RAW") ($(wc -c < "$TEMPLATE_DIR/pmddotnet_song.m" | tr -d ' ') byte)"
+    echo "  pmddotnet_song.inc (= PMDNEO.s 用 .incbin wrapper) 生成"
 fi
 
 # ADR-0016 step 3b: 改造 PMDDotNET 経路 (= 並走、 既存 compile.py 経路と共存)
@@ -178,9 +187,12 @@ fi
 
 echo
 echo "=== make poc ==="
-# ADR-0016 step 3c-2: PMDNEO_USE_PMDDOTNET env を make に伝搬 (= pmdneo_load_m の
-# 入力 label を sample_m_data / pmddotnet_song で切替、 sed pre-process 経由)
-make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
+# ADR-0016 step V-1 (= 2026-05-12): build top を PMDNEO.s に切替 (= 本線 driver、
+# IRQ.inc + PMD_Z80.inc + ADPCMB_DRV.inc 等を include)。 standalone_test.s は
+# ADR-0014 §C 凍結対象、 legacy fixture として残置。
+# PMDNEO_USE_PMDDOTNET env を make に伝搬 (= pmdneo_load_m の入力 label を
+# sample_m_data / pmddotnet_song で切替、 sed pre-process 経由)。
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=PMDNEO.s -W PMDNEO.s poc
 
 echo
 echo "=== build 完了 ==="
