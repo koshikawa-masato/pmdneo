@@ -1,8 +1,9 @@
 # ADR-0015: PMDDotNET 改造 技術調査 sprint — 改造 PMDNEO.ASM 設計のための作業計画
 
-- 状態: Proposed (= 軸 1 完了、 軸 2-5 未着手、 結果は段階的に追記)
+- 状態: Proposed (= 軸 1 + 軸 2 完了、 軸 3-5 未着手、 結果は段階的に追記)
 - 起票日: 2026-05-11
 - 軸 1 完了日: 2026-05-12
+- 軸 2 完了日: 2026-05-12 (= develop 資産 で実装済の確認、 ADR-0015 起票時の前提見直し含む)
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0013 (= 同 .M 2 経路比較 路線へ切替)、 ADR-0014 (= ADR-0006 sprint 成果のカテゴリ別判断 + PMDPPZ 流儀発見)
 
@@ -162,6 +163,63 @@ flag 列の `if`/`ifndef` は省略 (= 全件いずれかの conditional assembl
 - `vendor/ngdevkit-examples/` の既存 NEOGEO Z80 sound driver 例を reference として読解
 
 **期待成果**: 「NEOGEO 環境依存層の if neogeo 挿入候補 list」 (= PMD.ASM 内の行 + 既存 PC-9801 code + 必要な NEOGEO code)。
+
+### 軸 2 完了 (= 2026-05-12、 develop 資産 で実装済の確認)
+
+軸 2 着手時、 develop branch (= Phase 12a-4 で停止、 commit `e32e0d3`) に **既に NEOGEO 環境依存層の主要部分が実装済** であることが判明。 ADR-0015 起票時点で本軸の前提が古かった (= develop 資産未参照)。
+
+#### 軸 2 の前提見直し
+
+ADR-0015 起票時の前提 = 「PMD.ASM (= 8086 source) に `if neogeo` flag を挿入して NEOGEO 環境依存箇所を置換える」 だったが、 これは **8086 source 上の改造** を想定していた。
+
+しかし NEOGEO sound subsystem は **Z80 専用** で 8086 は居ない。 develop ではこの mismatch を **PMD V4.8s 8086 source の Z80 化 + nullsound integration** で解決済 (= `PMDNEO.s` + `PMD_Z80.inc` 等で 1 module ずつ Z80 化発展)。
+
+つまり改造 PMDDotNET 路線は次の二段構造:
+- mc compiler 側 (= `vendor/PMDDotNET/PMDDotNETConsole`) を OPNB 対応に改造 (= 軸 4)
+- driver 側 = develop 上 PMDNEO driver (= PMD V4.8s の Z80 化 + nullsound integration、 既に Phase 2 SubF-1.1 まで進行) を継続発展
+
+#### develop 上 PMDNEO driver 現状 (= 2026-05-12 確認時)
+
+`src/driver/` 内の Z80 driver source 一覧:
+
+| file | 行数 | 役割 / 状態 |
+|---|---|---|
+| `PMDNEO.s` | 44 | build top (= sdasz80)、 nullsound integration 完了、 cmd_jmptable 実装 (= cmd 02 play_song / 04 fade_out / 05 play_adpcmb_test) |
+| `PMD_Z80.inc` | 2206 | PMD V4.8s 8086 source の Z80 化 base、 SubB-1〜SubF-1.1 まで実装進行 (= SSG init / TIMER-B IRQ / FM voice / scale 演奏 / fade) |
+| `WORKAREA.inc` | 137 | 17 part 構造 (= FM 6ch + SSG 3ch + ADPCM-B + Rhythm + ADPCM-A 6ch)、 各 part workarea field offset 定義済 |
+| `KR_STUB.inc` | 52 | K/R rhythm 7 cmd no-op stub 完成 (= PMD ファミリ「未対応 cmd スルー」 思想 実装) |
+| `IRQ.inc` | 117 | TIMER-B IRQ + nullsound cmd 受付経路 完成 |
+| `REGMAP.inc` | 19 | nullsound `ports.inc` + `ym2610.inc` 流用 |
+| `ADPCMB_DRV.inc` | 49 | 大半 stub だが ADPCM-B keyon/keyoff 一部実装済、 SubE で本実装予定 |
+| `ADPCMA_DRV.inc` | 48 | Phase 3 用 stub |
+| `standalone_test.s` | 2351 | ADR-0006 sprint 別経路試行産物 (= ADR-0014 で凍結扱い、 本軸対象外) |
+
+#### 軸 2 4 観点の develop 解決状況
+
+| 観点 | ADR-0015 起票時の想定 | develop 上での解決 |
+|---|---|---|
+| I/O port 差分 | PC-9801 OPNA `0x188-0x18B` → NEOGEO YM2610 `0x04-0x07` の置換 | `REGMAP.inc` で nullsound `ports.inc` + `ym2610.inc` 流用、 PORT_YM2610_STATUS 等の symbolic name で抽象化済 |
+| IRQ vector / timing | PC-9801 vsync IRQ + 8259 PIC mask 経路 → NEOGEO 別 vector | `IRQ.inc` で TIMER-B IRQ handler 確立 (= chip 1 ms 周期固定 + sub-tick acc で tempo 可変)、 nullsound NMI 経路と独立動作 |
+| 68000 通信 (= main CPU) | PC-9801 DOS process 通信 → 68000 から Z80 へ port 経由 command | nullsound cmd_jmptable 経由で確立 (= 0x320000 書込 → REG_SOUND → cmd 02/04/05 dispatch) |
+| memory map | PC-9801 dos memory → NEOGEO sound ROM + RAM | Z80 RAM 0xf800-0xffff に WORKAREA (= 17 part × 64 byte = 1088 byte) + sound ROM 経路 (= sample_m.s 等の include で組込) 確立済 |
+
+#### PMD.ASM 8086 source 上の if 分岐との関係
+
+ADR-0015 軸 1 で集計した PMD.ASM 全 203 件 if 分岐 (= 8086 source 上の chip / 環境分岐) は、 develop の Z80 化 path では **手で Z80 化する際の reference** として有用。 つまり:
+- ppz 関連 38 件 (= 軸 1 完了で全件読了済) → develop の `WORKAREA.inc` 17 part 構造 + `KR_STUB.inc` 「未対応 cmd スルー」 が PPZ8 拡張流儀の継承
+- board2 90 件 (= 軸 3 で扱う) → develop の `PMD_Z80.inc` 2206 行 + `REGMAP.inc` で OPNA register layout を YM2610/B register layout に対応付け済 (= ADR-0001 既決事項「FM ch1/ch4 不使用」 を WORKAREA 17 part 構造で物理 omit 反映)
+
+#### 軸 2 の残作業 = なし
+
+NEOGEO 環境依存層は develop で実装済、 軸 2 は本 commit で完了とする。
+
+#### 他軸への含意
+
+- **軸 3 (= OPNB 差分)** も同様の見直しが必要: develop の `REGMAP.inc` + `ADPCMA/B_DRV.inc` + `WORKAREA.inc` 17 part 構造 で chip 差分対応の枠組みは既に存在、 残作業は ADPCM-A 6ch 実装 (= Phase 3) 等の具体機能追加。 ADR-0015 §軸 3 は「PMD.ASM 8086 source 上の board2 90 件分析」 を develop driver 側 SubE/Phase 3 等の具体実装計画として再定義する形になる
+- **軸 4 (= mc compiler)** は develop driver 側の cmd 規約 + .M format 規約 を base に、 PMDDotNET 側 OPNB 出力対応を組み立てる形に redefine
+- **軸 5 (= 改造規模見積もり)** も driver 側 develop 進捗 (= Phase 2 SubF-1.1 まで) を踏まえて見直し必要
+
+ADR-0015 全体の前提見直しは別 ADR で正式化候補 (= ADR-0017 等で develop driver 現状 snapshot + ADR-0015 の前提整理を起票)。
 
 ### 軸 3: OPNB chip 差分の特定
 
