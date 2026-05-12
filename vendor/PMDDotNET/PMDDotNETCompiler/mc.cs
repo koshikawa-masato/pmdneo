@@ -253,6 +253,9 @@ namespace PMDDotNET.Compiler
 
             //コンパイル完了
 
+            // PMDNEO mode (= /B + ADPCM-A 使用) flag 確定
+            // 設計書 1 §7-2: ADPCM-A 全 part 空 → .m 出力、 一部使用 → .mn 出力
+            FinalizeOutputFormat();
 
             //音色データ取得
             outVoiceBuf = write_ff();
@@ -591,9 +594,8 @@ namespace PMDDotNET.Compiler
 #if efc
             m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.'))+".EFC";
 #else
-            // PMDNEO mode (= /B、 ADPCM-A 使用時) は .MN、 それ以外 .M
-            string m_ext = (mml_seg.opnb_flg == 1) ? ".MN" : ".M";
-            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.')) + m_ext;
+            // default は .M で初期化、 ADPCM-A 使用判定確定後 FinalizeOutputFormat() で .MN に切替
+            m_seg.m_filename = mml_seg.mml_filename.Substring(0, mml_seg.mml_filename.LastIndexOf('.')) + ".M";
 #endif
 #endif
         }
@@ -816,7 +818,10 @@ namespace PMDDotNET.Compiler
         {
 
 #if !efc || !olddat
-            m_seg.m_start = (byte)(mml_seg.opl_flg * 2 | mml_seg.x68_flg | mml_seg.opnb_flg * 4);// 音源flag set (bit 2 = PMDNEO YM2610/B)
+            // 音源flag set (bit 0 = x68_flg、 bit 1 = opl_flg)。
+            // bit 2 = PMDNEO mode (= ADPCM-A 使用) は FinalizeOutputFormat() で adpcma_used 経由設定。
+            // 設計書 1 §7-2: ADPCM-A 全 part 空 → .m 出力 (= bit 2 = 0、 既存 layout 維持)。
+            m_seg.m_start = (byte)(mml_seg.opl_flg * 2 | mml_seg.x68_flg);
 #endif
 
             work.di = (mml_seg.max_part + 1) * 2;//KUMA: ? -> ver48sで理解w
@@ -2232,6 +2237,26 @@ namespace PMDDotNET.Compiler
             mml_seg.opnb_flg = 1;
         }
 
+        //;==============================================================================
+        //;	PMDNEO mode (= /B + ADPCM-A 使用判定) flag 確定 — compile 完了直後に呼ぶ
+        //;	設計書 1 §7-2: ADPCM-A 全 part 空 → .m 出力 (bit 2 = 0、 既存 layout 維持)
+        //;	                ADPCM-A 一部使用 → .mn 出力 (bit 2 = 1、 後方拡張領域あり)
+        //;==============================================================================
+        private void FinalizeOutputFormat()
+        {
+            // /B option 未指定 or ADPCM-A 未使用 → .m output 維持 (既存 byte layout 不変)
+            if (mml_seg.opnb_flg != 1) return;
+            if (!mml_seg.adpcma_used) return;
+
+            // ADPCM-A 使用: m_start bit 2 set + 拡張子 .M → .MN
+            m_seg.m_start |= 0x04;
+
+            if (m_seg.m_filename != null && m_seg.m_filename.EndsWith(".M"))
+            {
+                m_seg.m_filename = m_seg.m_filename.Substring(0, m_seg.m_filename.Length - 2) + ".MN";
+            }
+        }
+
 
 
         //2026-2035
@@ -3262,8 +3287,10 @@ namespace PMDDotNET.Compiler
             }
 
             // PMDNEO mode (= /B) で L-Q (= ADPCM-A 6 ch) 受付 (ADR-0015 §軸 4 判断 1)
+            // L-Q を受付けた瞬間に ADPCM-A 使用判定 → 後方拡張領域出力 + .MN 切替
             if (mml_seg.opnb_flg == 1 && al >= 'L' && al <= 'Q')
             {
+                mml_seg.adpcma_used = true;
                 return true;
             }
 

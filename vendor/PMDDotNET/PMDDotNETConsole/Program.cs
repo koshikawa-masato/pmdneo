@@ -107,20 +107,12 @@ namespace PMDDotNET.Console
                 if (!isXml)
                 {
                     //デフォルトはソースファイル名の拡張子を.Mに変更したものにする
-                    //PMDNEO mode (= /B option) なら .MN、 それ以外 .M
-                    bool opnbMode = false;
-                    foreach (string mcArg in compiler.mcArgs)
-                    {
-                        if (string.IsNullOrEmpty(mcArg)) continue;
-                        string upper = mcArg.ToUpper();
-                        if (upper == "/B" || upper == "-B") { opnbMode = true; break; }
-                    }
-                    string defaultExt = opnbMode ? ".MN" : ".M";
-
+                    //PMDNEO mode (= /B + ADPCM-A 使用) なら compile 完了後 destbuf[0] bit 2 検出で .MN に切替 (= 後付け判定)
+                    //これにより /B でも ADPCM-A 未使用なら .M 出力 + 既存 layout 維持 (= 設計書 1 §7-2)
                     string destFileName = "";
                     if (!string.IsNullOrEmpty(srcFile))
                     {
-                        destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}{1}", Path.GetFileNameWithoutExtension(srcFile), defaultExt));
+                        destFileName = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(srcFile)), string.Format("{0}.M", Path.GetFileNameWithoutExtension(srcFile)));
                     }
 
                     //TagからFilenameを得る
@@ -183,6 +175,17 @@ namespace PMDDotNET.Console
                         {
                             bufferedDestStream.Flush();
                             byte[] destbuf = destCompiledBin.ToArray();
+
+                            // PMDNEO mode 検出 (= destbuf[0] = m_start bit 2 = 1) なら .M → .MN に切替
+                            // mc.cs FinalizeOutputFormat() が ADPCM-A 使用時 m_start |= 0x04 を反映
+                            // (= 設計書 1 §3-1 + §4-1)
+                            if (destbuf.Length > 0 && (destbuf[0] & 0x04) != 0
+                                && destFileName.EndsWith(".M", StringComparison.Ordinal)
+                                && desFile == null)
+                            {
+                                destFileName = destFileName.Substring(0, destFileName.Length - 2) + ".MN";
+                            }
+
                             File.WriteAllBytes(destFileName, destbuf);
                             if (compiler.outFFFileBuf != null)
                             {
