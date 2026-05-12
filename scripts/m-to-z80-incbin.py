@@ -49,7 +49,13 @@ def main():
     with open(args.output, "rb") as f:
         m_start = f.read(1)[0] if size > 0 else None
 
-    print(f"label={args.label} size={size} m_start=0x{m_start:02x}")
+    m_start_str = f"0x{m_start:02x}" if m_start is not None else "(empty)"
+    print(f"label={args.label} size={size} m_start={m_start_str}")
+
+    # size=0 は abnormal (= PMDDotNET compile が黙って空ファイルを吐いた等)
+    if size == 0:
+        print(f"ERROR: output file is empty: {args.output}", file=sys.stderr)
+        return 2
     return 0
 
 
