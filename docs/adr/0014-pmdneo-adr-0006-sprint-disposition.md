@@ -87,6 +87,8 @@ ADR-0006 §5 段階 2 で露呈した「voice param 全部未反映」 問題 (=
 
 **移行作業**: なし (= 凍結のみ)
 
+**注記 (= 2026-05-12、 ADR-0017 §決定 1)**: 本カテゴリ C の凍結対象は **`standalone_test.s` のみ**。 develop branch の本格 PMDNEO driver (= `PMDNEO.s` + `PMD_Z80.inc` + 関連 .inc 8 file) は **凍結対象外、 改造 PMDDotNET 路線における driver 側本体として継続発展**。 詳細は [ADR-0017](0017-pmdneo-develop-driver-snapshot-and-adr-0015-redefine.md) §決定 1 参照。
+
 ### カテゴリ D. build infra (= 部分再利用)
 
 **対象**:
