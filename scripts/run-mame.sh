@@ -6,9 +6,9 @@
 # 流れ:
 #   1. 既存 mame process を kill (= 二重起動 / 古い build 起動の事故防止)
 #   2. (= optional) build-poc.sh で再 build
-#   3. /tmp/pmdneo-mame-rom に puzzledp.zip だけ隔離 copy
+#   3. /tmp/pmdneo-mame-rom に lastbld2.zip だけ隔離 copy
 #      (= build/rom には展開 file + zip 同居でノイズ、 隔離 path で確実)
-#   4. mame puzzledp -rompath /tmp/pmdneo-mame-rom -window -sound coreaudio
+#   4. mame lastbld2 -rompath /tmp/pmdneo-mame-rom -window -sound coreaudio
 #      (= macOS system audio default に流す、 user は system output を
 #         Babyface / Multi-Output Device に切替済 前提)
 #
@@ -28,7 +28,9 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$PROJECT_ROOT"
 
 DO_BUILD=0
-GAMEROM="puzzledp"
+# default GAMEROM は build-poc.sh が生成する lastbld2.zip と一致させる
+# (= --gamerom 指定漏れで puzzledp が起動 → ROM not found 事故防止)
+GAMEROM="lastbld2"
 ISOLATED_ROM_DIR="/tmp/pmdneo-mame-rom"
 DO_TRACE=0
 TRACE_DIR="/tmp/pmdneo-trace"
