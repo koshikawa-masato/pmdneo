@@ -74,7 +74,12 @@ int main(void) {
     }
   }
 
-  *REG_SOUND = 5;     /* MML song start */
+  /* ADR-0016 step W-1 (= 2026-05-12): cmd 0x02 = play_song = pmdneo_load_m 経由 */
+  /* (= IRQ.inc snd_command_02_play_song)。 旧 cmd 5 (= test_play_adpcmb_beat、 */
+  /* 固定 adpcm_b_beat_struct 単発再生) は driver の .M load 経路に到達しない */
+  /* trivial verify 原因だった。 cmd 0x02 で初めて pmdneo_load_m / ROM 内 .M */
+  /* / J part fixture / sample_m_data <-> pmddotnet_song 切替 が driver に届く。 */
+  *REG_SOUND = 2;     /* MML song start (= pmdneo_load_m 経由) */
 
   u8 last_cycle = 0;
 #if PMDNEO_FIXTURE == 0
