@@ -1,0 +1,17 @@
+#Title		ADR-0016 step 5 beta-1 L part sample A (= @0 = sample table index 0)
+#Composer	M.Koshikawa.
+#Memo		L body 内 @0 で sample 0 引き、 sample B と reg 0x10/0x18/0x20/0x28 差分検証用
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 voice-ar-04.mml と同じ)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; L part = ADPCM-A ch 0、 @0 sample (= driver 側 sample table index 0)
+; L body emit 期待: FF 00 30 60 80 (= @ cmd + voice 0 + note + length + terminator)
+L	@0 o4 l1 c
