@@ -182,11 +182,63 @@ exit code 0。
   - `project_adr_0016_step5_alpha_prep_mn_direct_path.md` (= α 冒頭調査)
 - **fixture**: `src/test-fixtures/step5/l-part-minimum.mml`
 
+## α-3 audio gate finding (= 2026-05-12 user 聴感確認時追記)
+
+### finding 経緯
+
+α-3 verify script PASS 直後、 user 提案で MAME visual mode で実音聴感確認。 wav 機械 analyze で `non-zero 95.14% / RMS 2772 / peak -12 dB` という連続音を観測、 「ADPCM-A loop 暴走 / keyon 連発」 の疑いが浮上した。 user 指示で L part playback state を詳細追跡した結果、 **真因は scope 外の FM 4 ch chord 演奏** と判明。
+
+### 確定事項 (= trace 上整合)
+
+- ✅ **ADPCM-A keyon は 1 回のみ** (= reg 0x00 = 0x01 write が idx 277 のみ)
+- ✅ **ADPCM-A bd は 0.08 秒 one-shot** (= sample addr 0x0000-0x0003 = 768 byte / 18.5kHz)
+- ✅ **L part cursor 正常終了** (= 0x12BF → 0x12C0 → 0x12C1 → 0x12C2 → 0x0000)
+- ✅ **ADPCM-A は loop 機能なし** (= chip 仕様、 keyon 1 回 = 1 撃で自動 silence)
+- ✅ `.MN direct path` / L part playback / ADPCM-A one-shot は trace 上完全正常
+
+### MAME wav 4 秒 95% non-zero の真因
+
+**scope 外の FM 4 ch chord 演奏が dominant**:
+
+| 由来 | 内容 |
+|---|---|
+| song_table (= compile.py 経路) | test01.mml / test02.mml (= build-poc.sh default fixture) |
+| MML_INPUTS env | 未指定 default = `test01.mml,test02.mml` |
+| FM 演奏内容 | ch2/3/5/6 chord (= alg 7、 0xF1/F2/F5/F6 keyon、 周期的) |
+| 同居 audio | port A reg 0x28 = 66 回 keyon、 周期 ≈ 263 IRQ tick |
+| dominant 期間 | wav 全 4 秒間 |
+| ADPCM-A bd の位置 | wav 最初 0.08 秒、 FM の音に埋もれる |
+
+つまり MAME wav は **FM 4 ch chord (= dominant) + ADPCM-A bd 0.08 秒 (= 埋もれ)** の合算。 ADPCM-A loop 暴走ではない。
+
+### audio gate での confusion 教訓
+
+α audio gate で「対象 (= ADPCM-A) が同居 audio (= FM) に埋もれて聴感確認が困難」 という問題が浮上。 機械 trace では正確に分離できたが、 user 聴感ではほぼ FM しか聞こえない。
+
+### β 以降の audio gate 規律 (= user 推奨)
+
+聴感 gate を有効にするには **対象音源を solo 化できる状態** を作る:
+
+候補:
+- **`MML_INPUTS=` を empty fixture に差替** (= test01/test02 を mute MML に置換、 build-poc.sh 経由)
+- **scope 外 part を FM keyoff / SSG mute / mask cmd** で silence 化
+- **対象 part だけの最小 ROM** (= 例 ADPCM-A solo verify ROM)
+- **MAME の channel mute UI** (= chip ごと mute、 ただし FM 全 ch mute は user 操作)
+
+β / γ / δ で audible 化作業を行う際、 まず solo 状態を作ってから聴感 verify。 trace gate (= 機械) と audio gate (= 聴感) は別軸として並走させる。
+
+### α-3 status (= 結論)
+
+- α-3 は **機械 verify PASS のまま** (= 6 段階 trace gate 全 PASS、 ADPCM-A keyon 1 回 + cursor 正常終了で根拠正しい)
+- α-4 / α-3-fixup は **不要** (= α scope 違反なし、 driver 変更不要)
+- audio confusion は **scope 外 FM 同居 audio** が真因、 doc 記録のみで完了
+
 ## α-3 完了判定
 
 - ✅ verify script 作成 + 自動 PASS (exit 0)
 - ✅ handoff doc 作成 (= 本 doc)
 - ✅ driver 実装変更なし (= regression test 化のみ)
 - ✅ β への引継ぎ事項明記
+- ✅ audio gate finding 追記 (= 2026-05-12 user 聴感確認後)
 
 α 全体 (α-1 / α-2 / α-3) 完了 → ADR-0019 §決定 6 sub-sprint α 完了 → 次は β。
