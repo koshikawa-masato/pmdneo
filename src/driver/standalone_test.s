@@ -2864,10 +2864,16 @@ adpcma_sample_top:
 ;;; ADR-0023 §決定 11: driver_pne_sample_table_id は Step 9 内で playback decision に使用しない。
 ;;; ADR-0023 §決定 3: D1 = proof 用 placeholder、 最終 directory ownership ではない (= future D3 generated)
 pne_sample_directory:
-        ;; entry 0: filename = "PMDNEO01.PNE" (= 12 char + 4 NUL pad = 16 byte)
+        ;; entry 0: filename = "step5.PNE" (= 9 char + 7 NUL pad = 16 byte)
         ;;          sample_table_id = 0x00
-        .db     0x50, 0x4D, 0x44, 0x4E, 0x45, 0x4F, 0x30, 0x31   ; "PMDNEO01"
-        .db     0x2E, 0x50, 0x4E, 0x45, 0x00, 0x00, 0x00, 0x00   ; ".PNE\0\0\0\0"
+        ;;
+        ;; γ 改訂 (= ADR-0023 §決定 5): α 時点では "PMDNEO01.PNE" としたが、 これは
+        ;; asset pipeline canonical asset 名で、 driver runtime filename buffer
+        ;; (= 0xFD20-0xFD2F) に実 copy される文字列ではない。 step 8 で確立した
+        ;; runtime fixture (= l-q-rhythm-song.mml + PMDDOTNET_MODE=B) では
+        ;; "step5.PNE" が流れるため、 runtime resolver の match fixture もそれに合わせる。
+        .db     0x73, 0x74, 0x65, 0x70, 0x35, 0x2E, 0x50, 0x4E   ; "step5.PN"
+        .db     0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00   ; "E\0\0\0\0\0\0\0"
         .db     0x00                                              ; sample_table_id = 0x00
 
         ;; terminator entry (= sample_table_id == 0xFF、 filename don't care = NUL)
@@ -3113,6 +3119,13 @@ pmdneo_mn_pne_fn_copy_loop:
         xor     a
         ld      (de), a                 ; (DE) = 0xFD2F = 0x00 強制
 pmdneo_mn_pne_fn_copy_done:
+        ;; ★ ADR-0023 step 9 γ: filename copy 完了後 → sample_table_id resolve
+        ;; resolver は driver_pne_filename_buf を読み、 0xFD32 に id を保存
+        ;; HL/DE/BC は resolver 内で clobber されるが、 直後の pop hl で
+        ;; offset_table base を復元するため caller への影響なし
+        ;; ADR-0023 §決定 6 timing: filename copy 完了後の独立 routine call
+        ;; ADR-0023 §決定 11: 0xFD32 は本 routine 完了後 playback decision に使用しない
+        call    pmdneo_resolve_sample_table_id
         pop     hl                      ; restore offset_table base
 
         ;; offset_table[lq_idx] = base + lq_idx * 2 (= γ-a 一般化点)
