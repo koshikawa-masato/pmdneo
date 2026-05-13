@@ -1,0 +1,31 @@
+# Hand-written ADPCM-B passthrough yaml (= c1 採用根拠)
+#
+# 関連:
+#   - ADR-0021 §決定 5 (= path B / c1 正式採用)
+#   - docs/design/pne_binary_layout.md §6-4 (= ADPCM-B yaml 配置 / ownership)
+#
+# 本 yaml の責務:
+#   PMDNEO build pipeline で vromtool.py に渡す ADPCM-B sample entry を
+#   hand-written で持つ。 `.PNE` は ADPCM-A 専用 format (= ADR-0021 §scope-out)、
+#   ADPCM-B は本 yaml で別系統管理 (= c1 採用根拠)。
+#
+# ownership:
+#   - 手編集対象 / source of truth retained
+#   - generated artifact ではない (= scripts/pne-to-ngdevkit.py からは生成されない)
+#
+# build pipeline 経路:
+#   1. scripts/build-poc.sh が本 yaml を vendor/ngdevkit-examples/00-template/assets/
+#      へ cp する
+#   2. vendor Makefile の Makefile が samples-map-adpcma.yaml (= converter 生成) と
+#      samples-map-adpcmb.yaml (= 本 yaml の cp) を vromtool.py に渡す
+#   3. vromtool.py が両 yaml を merge して VROM + samples.inc を生成
+#
+# 注意:
+#   - uri の絶対 path は α-2 時点で既存形式踏襲 (= docs/design/pne_binary_layout.md §2-2)
+#   - 相対 path 化は別 sprint で扱う
+#   - 後続 sprint で WebApp 経由 ADPCM-B 管理 UI を作る場合、 本 yaml を生成する
+#     converter を別途設計 (= Phase 4 領域)
+
+- adpcm_b:
+    name: beat
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/vendor/ngdevkit-examples/00-template/assets/beat.wav

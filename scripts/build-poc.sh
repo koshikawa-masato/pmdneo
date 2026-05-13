@@ -78,6 +78,25 @@ for f in "$DRIVER_SRC"/*.s "$DRIVER_SRC"/*.inc; do
     echo "  $base -> ../../../src/driver/$base"
 done
 
+# ADR-0021 step 7 β-2: .PNE → ngdevkit 入力 converter 実行 (= path B / c1)
+# 関連: docs/design/pne_binary_layout.md §6 / ADR-0021 §決定 5
+echo "=== .PNE → samples-map-adpcma.yaml + .adpcma 抽出 (= path B / c1 converter) ==="
+PNE_FILE="${PMDNEO_PNE:-$PMDNEO_ROOT/assets/pne/PMDNEO01.PNE}"
+if [ ! -f "$PNE_FILE" ]; then
+    echo "ERROR: .PNE file が見つからない: $PNE_FILE" >&2
+    echo "  scripts/pne-pack-prototype.py で bootstrap してください" >&2
+    exit 1
+fi
+python3 "$PMDNEO_ROOT/scripts/pne-to-ngdevkit.py" "$PNE_FILE" \
+    --output-dir "$TEMPLATE_DIR/assets" > /dev/null
+echo "  source: $PNE_FILE"
+echo "  generated: samples-map-adpcma.yaml + {bd,sd,hh,rim,tom,top}.adpcma"
+
+# ADR-0021 step 7 β-2: ADPCM-B passthrough yaml 配置 (= c1 採用、 hand-written retained)
+echo "=== ADPCM-B passthrough yaml を配置 (= c1 採用、 hand-written) ==="
+cp "$PMDNEO_ROOT/assets/pne/samples-map-adpcmb.yaml" "$TEMPLATE_DIR/assets/samples-map-adpcmb.yaml"
+echo "  samples-map-adpcmb.yaml <- assets/pne/samples-map-adpcmb.yaml"
+
 echo "=== SAMPLE.M を sdasz80 用 .db source に変換 ==="
 python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
     "$PMDNEO_ROOT/vendor/pmd48s/SAMPLE.M" \

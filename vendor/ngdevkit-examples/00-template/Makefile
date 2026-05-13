@@ -113,7 +113,7 @@ $(BUILDDIR)/PMDNEO.rel: PMDNEO.s WORKAREA.inc REGMAP.inc IRQ.inc KR_STUB.inc PMD
 # the dependencies automatically.
 # By default, no sample is used, so the VROM is empty
 # Note: build rules (%.wav-> %.adpcm<a,b>) are defined in Makefile.build
-$(VROM1): assets/samples-map.yaml
+$(VROM1): assets/samples-map-adpcma.yaml assets/samples-map-adpcmb.yaml
 
 
 
@@ -138,8 +138,8 @@ CUSTOM_GENERATE_TARGETS=generate-sfx
 
 generate-sfx: $(BUILDDIR)/assets/samples.inc
 
-$(BUILDDIR)/assets/samples.inc: assets/samples-map.yaml
-	$(VROMTOOL) --asm -s $(VROMSIZE) $< -o $(VROM1) -m $@
+$(BUILDDIR)/assets/samples.inc: assets/samples-map-adpcma.yaml assets/samples-map-adpcmb.yaml
+	$(VROMTOOL) --asm -s $(VROMSIZE) $^ -o $(VROM1) -m $@
 
 poc-cart-zip: $(PROM1) $(PROM2) standalone_z80 $(SROM1) $(CROM1) $(CROM2) $(CROM3) $(CROM4) $(CROM5) $(CROM6) $(VROM1)
 	cd $(ROM) && for i in `ls -1 | grep -v -e \.bin -e \.zip`; do ln -nsf $$i $${i%.*}.bin; done; \

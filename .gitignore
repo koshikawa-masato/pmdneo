@@ -48,6 +48,19 @@ NEOGEO.ZIP
 
 # IPL binary distribution (separate repo / releases)
 ipl_binary/
+
+# PMDNEO Step 7 path B / c1 採用 (= ADR-0021 §決定 5 + docs/design/pne_binary_layout.md §6)
+# converter 生成 + build-poc.sh による cp の generated artifact、 手編集禁止、
+# source of truth は assets/pne/ 配下 (= .PNE + samples-map-adpcmb.yaml)
+vendor/ngdevkit-examples/00-template/assets/samples-map-adpcma.yaml
+vendor/ngdevkit-examples/00-template/assets/samples-map-adpcmb.yaml
+# 注意 (= 強い glob、 future contributor 向け):
+#   下記 *.adpcma glob は **scripts/pne-to-ngdevkit.py が生成する artifact のみ** を
+#   想定。 この dir 配下に手書き .adpcma を置かない前提 (= source of truth は
+#   `.PNE` 経由のみ、 path B / c1 規律)。 もし手書き .adpcma を持ちたい場合は
+#   `assets/pne/` 配下や別 dir に置き、 converter / build-poc.sh で配置する流儀へ
+#   移行する (= 本 ignore は変更しない、 path B 規律を曲げない)。
+vendor/ngdevkit-examples/00-template/assets/*.adpcma
 *.ipl
 
 # claude / agent harness
