@@ -112,12 +112,16 @@
         .equ    part_workarea,           0xF820
         ;; 20 x 64 = 1280 bytes occupies 0xF820-0xFD1F (= ADR-0006 §A 20 part)
 
-        ;; ADR-0022 step 8: PNE runtime observation block (= 0xFD20-0xFD31, 18 byte)
-        ;;   driver_pne_filename_buf      0xFD20-0xFD2F  16 byte  NUL-terminated ASCII (= β scope、 α 未使用)
-        ;;   driver_pne_filename_adr_word 0xFD30-0xFD31   2 byte  LE u16 (= m_buf-relative pne_filename_adr)
-        ;; α: pne_filename_adr word のみ書込、 buffer は未使用 (= ADR-0022 §決定 7 α scope)
+        ;; ADR-0022 step 8 + ADR-0023 step 9: PNE runtime block (= 0xFD20-0xFD32, 19 byte)
+        ;;   driver_pne_filename_buf       0xFD20-0xFD2F  16 byte  NUL-terminated ASCII (= ADR-0022 §決定 4)
+        ;;   driver_pne_filename_adr_word  0xFD30-0xFD31   2 byte  LE u16 m_buf-relative (= ADR-0022 §決定 4)
+        ;;   driver_pne_sample_table_id    0xFD32          1 byte  resolver 出力 (= ADR-0023 §決定 4)
+        ;;     0x00-0xFE = valid id、 0xFF = mismatch sentinel
+        ;;     ADR-0023 step 9 α scope = data placement only、 まだ書込みされない (= resolver routine は β、 call は γ)
+        ;;     ADR-0023 §決定 11: Step 9 内で playback decision に使用しない
         .equ    driver_pne_filename_buf,       0xFD20
         .equ    driver_pne_filename_adr_word,  0xFD30
+        .equ    driver_pne_sample_table_id,    0xFD32
 
         .include "assets/samples.inc"
 
@@ -126,9 +130,10 @@
 ;;;   0xF800 - 0xF80F   reserved future (16 bytes、cmd FIFO 検討中)
 ;;;   0xF810 - 0xF81F   driver_state (= 16 bytes 既存)
 ;;;   0xF820 - 0xFD1F   part_workarea (= 20 x 64 = 1280 bytes、ADR-0006 §A)
-;;;   0xFD20 - 0xFD2F   driver_pne_filename_buf (= 16 bytes、ADR-0022 §決定 4、 β scope で使用)
-;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4、 α scope)
-;;;   0xFD32 - 0xFFBF   free / 後続 phase 用 (= 654 bytes 余裕)
+;;;   0xFD20 - 0xFD2F   driver_pne_filename_buf (= 16 bytes、ADR-0022 §決定 4)
+;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4)
+;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
+;;;   0xFD33 - 0xFFBF   free / 後続 phase 用 (= 653 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -2847,6 +2852,28 @@ adpcma_sample_tom:
         .db     TOM_START_LSB, TOM_START_MSB, TOM_STOP_LSB, TOM_STOP_MSB
 adpcma_sample_top:
         .db     TOP_START_LSB, TOP_START_MSB, TOP_STOP_LSB, TOP_STOP_MSB
+
+;;; ----------------------------------------------------------------
+;;; ADR-0023 step 9 α: PNE filename directory (= hand-written D1 placeholder)
+;;;
+;;; ADR-0023 §決定 3 / §決定 5 整合: 17 byte/entry, fixed length
+;;;   filename:         16 byte, fixed length, NUL-padded ASCII
+;;;   sample_table_id:   1 byte (= 0x00-0xFE valid id、 0xFF terminator marker)
+;;;
+;;; α scope: data placement only. resolver routine は β、 call insertion は γ。
+;;; ADR-0023 §決定 11: driver_pne_sample_table_id は Step 9 内で playback decision に使用しない。
+;;; ADR-0023 §決定 3: D1 = proof 用 placeholder、 最終 directory ownership ではない (= future D3 generated)
+pne_sample_directory:
+        ;; entry 0: filename = "PMDNEO01.PNE" (= 12 char + 4 NUL pad = 16 byte)
+        ;;          sample_table_id = 0x00
+        .db     0x50, 0x4D, 0x44, 0x4E, 0x45, 0x4F, 0x30, 0x31   ; "PMDNEO01"
+        .db     0x2E, 0x50, 0x4E, 0x45, 0x00, 0x00, 0x00, 0x00   ; ".PNE\0\0\0\0"
+        .db     0x00                                              ; sample_table_id = 0x00
+
+        ;; terminator entry (= sample_table_id == 0xFF、 filename don't care = NUL)
+        .db     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        .db     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+        .db     0xFF                                              ; sample_table_id = 0xFF (terminator)
 
 rhythm_main:
         ret
