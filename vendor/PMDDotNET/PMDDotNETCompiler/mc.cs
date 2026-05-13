@@ -2643,6 +2643,21 @@ namespace PMDDotNET.Compiler
             if (mml_seg.pne_filename != null)
             {
                 mml_seg.pne_filename = mml_seg.pne_filename.TrimEnd('\r', '\n', ' ', '\t');
+                // ADR-0021 step 7 δ-fix (= 2026-05-13 8th session): surrounding quotes は
+                // delimiter として strip し、 .MN embed 本体には含めない。
+                //   #PNEFile "step5.PNE" → step5.PNE
+                //   #PNEFile  step5.PNE  → step5.PNE
+                // 片側だけの quote (= 異常入力) は副作用回避のため strip しない。
+                // scope: 本 fix は #PNEFile filename normalization のみ。 他 # cmd
+                //   (= #Title / #Composer / #Memo 等) の quote handling には踏み込まない
+                //   (= future contributor が「quote parser 全体を直した」 と誤解しないよう明示)。
+                if (mml_seg.pne_filename.Length >= 2
+                    && mml_seg.pne_filename.StartsWith("\"")
+                    && mml_seg.pne_filename.EndsWith("\""))
+                {
+                    mml_seg.pne_filename = mml_seg.pne_filename.Substring(
+                        1, mml_seg.pne_filename.Length - 2);
+                }
             }
         }
 
