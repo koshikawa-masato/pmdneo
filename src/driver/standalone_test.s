@@ -2875,6 +2875,71 @@ pne_sample_directory:
         .db     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
         .db     0xFF                                              ; sample_table_id = 0xFF (terminator)
 
+;;; ----------------------------------------------------------------
+;;; ADR-0023 step 9 β: pmdneo_resolve_sample_table_id
+;;;
+;;; ADR-0023 §決定 6 整合: 独立 init routine、 .MN load chain 末尾 call (= γ scope)
+;;; β scope: routine 単体実装、 call insertion は γ scope (= まだ呼ばれない)
+;;; ADR-0023 §決定 11: 出力 (= 0xFD32) は Step 9 内で playback decision に使用しない
+;;;
+;;; 入力:
+;;;   driver_pne_filename_buf (= 0xFD20-0xFD2F): NUL-padded ASCII filename (= Step 8 で書込済)
+;;;   pne_sample_directory: hand-written directory (= 17 byte/entry, 0xFF terminator)
+;;;
+;;; 出力:
+;;;   driver_pne_sample_table_id (= 0xFD32): 0x00-0xFE = valid id、 0xFF = mismatch sentinel
+;;;
+;;; 動作:
+;;;   1. HL = pne_sample_directory (= entry head)
+;;;   2. loop:
+;;;        terminator check (= entry+16 が 0xFF か peek) → 0xFF なら mismatch branch
+;;;        16 byte memcmp (entry filename vs driver_pne_filename_buf)
+;;;        match → A = entry+16 (= sample_table_id) を 0xFD32 に store + ret
+;;;        mismatch → HL += 17 (= next entry) + loop
+;;;
+;;; clobber: A, B, DE, HL (= caller 保存規約は既存 driver routine 群と同じ無し)
+pmdneo_resolve_sample_table_id:
+        ld      hl, #pne_sample_directory
+resolve_loop:
+        ;; HL = current entry head
+        ;; --- terminator check (= entry+16 が 0xFF か peek) ---
+        push    hl                              ; save entry head
+        ld      de, #16
+        add     hl, de
+        ld      a, (hl)                         ; A = entry の sample_table_id byte
+        pop     hl                              ; restore entry head
+        cp      #0xFF
+        jr      z, resolve_mismatch             ; terminator hit → mismatch
+
+        ;; --- 16 byte memcmp (entry filename vs driver_pne_filename_buf) ---
+        push    hl                              ; save entry head (for resolve_next)
+        ld      de, #driver_pne_filename_buf
+        ld      b, #16
+resolve_cmp_loop:
+        ld      a, (de)
+        cp      (hl)
+        jr      nz, resolve_next                ; byte mismatch → next entry
+        inc     hl
+        inc     de
+        djnz    resolve_cmp_loop
+
+        ;; match: HL = entry head + 16 = sample_table_id field
+        ld      a, (hl)                         ; A = sample_table_id
+        ld      (driver_pne_sample_table_id), a
+        pop     hl                              ; discard saved entry head
+        ret
+
+resolve_next:
+        pop     hl                              ; restore entry head
+        ld      de, #17
+        add     hl, de                          ; HL = next entry head
+        jr      resolve_loop
+
+resolve_mismatch:
+        ld      a, #0xFF
+        ld      (driver_pne_sample_table_id), a
+        ret
+
 rhythm_main:
         ret
 
