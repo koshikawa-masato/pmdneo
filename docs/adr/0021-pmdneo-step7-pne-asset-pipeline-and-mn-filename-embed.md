@@ -130,46 +130,105 @@ mc compiler `/B` path の `#PNEFile` 受け取り + `pne_filename_adr` embed + f
 - slot count 拡張 (= 6 → 任意) を将来 sprint で扱える
 - name index は build-time converter / WebApp UI 両方で参照可能
 
-### 決定 5: build-time converter + generated include 方針
+### 決定 5: build-time converter + ngdevkit vromtool.py 経路温存 (= path B / c1、 α-2 で正式確定)
 
-`.PNE` → driver consumable な include への変換を **build-time** で行う。 driver source は変更せず、 既存 `adpcma_ch_sample_ptr_table` / `adpcma_sample_*` の **定義位置を `standalone_test.s` 直書きから生成 include へ移行** する。
+#### 補正経緯 (= α-1 / α-2 で path A → path B へ修正)
 
-**変換 pipeline**:
+ADR-0021 起票時 (= 2026-05-13 8th session 冒頭) は path A (= 「`.PNE` → 直接 `samples.inc` 生成 + driver source の sample data 部を生成 include へ移行」) を想定していた。
+
+α-1 (= commit `38e35bf`、 `docs/design/pne_binary_layout.md` 起票) の provenance 調査で、 **既存 driver build pipeline は ngdevkit native の vromtool.py 経由で `samples.inc` を自動生成済** という事実が判明:
 
 ```
-1. `.PNE` file を build script が読む
-2. slot table を parse、 各 slot の (name, start_addr, stop_addr) を抽出
-3. ADPCM-A raw sample data を ROM 配置位置に embed (= ngdevkit ROM build 経由)
-4. start_addr / stop_addr を ROM 配置に応じて確定
-5. driver consumable な `samples.inc` を生成 (= `BD_START_LSB`/`BD_START_MSB`/`BD_STOP_LSB`/`BD_STOP_MSB` 等の `.equ` 定義 + 既存 `adpcma_sample_*` `.db` 列を生成 include 化)
-6. `standalone_test.s` は生成 include を `.include "samples.inc"` で取り込む
+assets/sounds/adpcma/2608_*.adpcma + samples-map.yaml
+  ↓ vromtool.py (ngdevkit native)
+build/assets/samples.inc (= BD_START_LSB 等 .equ defines)
+  ↓ assembler
+driver build
 ```
 
-**driver source 改修範囲** (= 決定 2 で driver 不変としたが、 厳密には:):
-- `standalone_test.s:2829-2840` `adpcma_sample_bd/sd/hh/tom/rim/top` の `.db` 列を生成 include へ移動
-- `standalone_test.s:2825-2827` `adpcma_ch_sample_ptr_table` も同様
-- ただし **routine / dispatch / register write の意味的変更は 0** (= byte-identical trace 維持)
-- これは「driver の `code` 部分は不変、 `data` 部分のみ生成へ移行」 という limited な改修
+つまり driver source の sample data 部 (= `standalone_test.s:2825-2840`) は **既に生成 file の defines を消費する形** に成立しており、 改めて include 化する必要なし。
 
-つまり厳密には決定 2「driver 完全不変」 と微妙に矛盾するが、 **register trace 軸では完全に同等 (= byte-identical)** という整合性を持つ。 step 5/6 で確立した primary gate (= register trace) で確認できる範疇に収まる。
+α-2 (= 本 commit) で更に vromtool.py 実仕様調査を行い:
+- usage `FILE [FILE ...]` (= 複数 yaml file 受付可能)
+- 実装 `load_sample_map_file(filenames)` で全 entry を merge
 
-**運用**:
-- 生成 include は `src/driver/generated/` (= 新規 dir) に配置 (= 手書き source と区別)
-- build script (= `scripts/build-poc.sh` or 新規 `scripts/pne-to-inc.py`) が `.PNE` を読んで生成 include を出力
-- 生成 include は git ignore か、 build artifact として commit するかは step 7 内で判断
-- `.PNE` file 実体は `assets/pne/` (= 新規 dir) に配置
+を確認、 **path B (= `.PNE` → `samples-map-adpcma.yaml` + `.adpcma` → vromtool.py → samples.inc) + c1 (= ADPCM-A / ADPCM-B yaml 分離)** を正式採用する。
 
-#### 生成 include の ownership / 手編集禁止
+#### path B / c1 経路図
 
-`src/driver/generated/samples.inc` 等の生成 include は **build artifact** であり、 **手編集禁止** とする:
+```
+[source of truth — 手書き / 編集対象]
+assets/pne/PMDNEO01.PNE              assets/pne/samples-map-adpcmb.yaml
+(ADPCM-A 6 slot)                     (ADPCM-B 1 entry = beat)
+       |                                       |
+       ↓ converter (= β で実装)                ↓ cp / symlink (= β で経路確定)
+       |                                       |
+[generated artifact — 編集禁止]               [retained — vendor dir に配置]
+vendor/ngdevkit-examples/00-template/assets/samples-map-adpcma.yaml
+vendor/ngdevkit-examples/00-template/assets/{bd,sd,hh,rim,tom,top}.adpcma
+                                              + samples-map-adpcmb.yaml
+                                              |
+                                              ↓ vromtool.py (= ngdevkit native、 完全不変)
+                                                 + 引数順序: adpcma yaml 先 / adpcmb yaml 後
+                                              |
+                                              ↓
+                              build/assets/samples.inc (= 既存と byte-identical)
+                                              |
+                                              ↓ assembler
+                              driver build (= standalone_test.s 完全不変)
+```
 
-- **source of truth は `.PNE` file** (= `assets/pne/*.PNE`)
-- **唯一の生成元は `scripts/pne-to-inc.py`** (= build-time converter)
-- 手編集が必要な変更は必ず **`.PNE` 側 or converter 側** に施す (= 生成 include 側で受けない)
-- 生成 include の先頭に「DO NOT EDIT — generated from `.PNE` by `scripts/pne-to-inc.py`」 等の警告 header を入れる (= 事故防止)
-- git ignore か commit するかは別判断 (= step 7-β / γ で決定)、 ただし **「source of truth ではない」 ことは不変**
+#### converter の責務境界 (= vromtool.py 前段 layer)
 
-future contributor が生成 include を直接編集すると、 次回 build で上書きされて作業が消える事故が起きる。 これを明示的に防ぐ。 driver の `code` 部分 (= `standalone_test.s` 本体) は引き続き手書き source of truth として扱う。
+Step 7 converter (= `scripts/pne-to-ngdevkit.py`、 β で実装) は **既存 production pipeline である vromtool.py の前段 layer** と位置付ける。 converter は「`.PNE` → normalized yaml + `.adpcma` extraction」 までを責務とし、 **VROM packing 自体は引き続き vromtool.py の責務**。
+
+つまり:
+
+- **converter (= 新規)**: `.PNE` を解いて vromtool.py が受け取れる形 (= yaml + 個別 `.adpcma` binary) に正規化するだけ
+- **vromtool.py (= 既存、 不変)**: yaml + `.adpcma` を読んで VROM 配置 + address 計算 + `samples.inc` 生成
+
+future contributor が converter を「新 VROM generator」 と誤解しないよう、 layer 境界を明示する。 vromtool.py を「ngdevkit native の確立済 production pipeline」 として尊重し、 PMDNEO 側でその責務範囲には踏み込まない (= driver 不変規律 / vendor 改造最小規律と同精神)。
+
+#### driver source 改修範囲 (= 完全に不要、 決定 2 と完全整合)
+
+path B 採用により、 driver source (= `src/driver/standalone_test.s`) は **本当に完全不変** (= `standalone_test.s:2825-2840` の sample table も touch しない)。 既存 vromtool.py が生成する `samples.inc` を assembler が既に解決済のため、 改めて include 化や定義移動は不要。
+
+これは決定 2「driver runtime parser / driver 側 filename read は scope-out」 と **完全整合**する (= 元 ADR-0021 で「driver の data 部のみ生成へ移行」 という limited な改修を許容していた点は撤回)。
+
+#### 改修対象の全件列挙
+
+path B / c1 採用後の Step 7 改修対象は以下 4 件のみ:
+
+| 件 | 対象 | sub-sprint | 改修規模 |
+|---|---|---|---|
+| 1 | `scripts/pne-to-ngdevkit.py` (= converter 新規) | β | 100 行以下見込み |
+| 2 | `vendor/ngdevkit-examples/00-template/Makefile` 3 行改修 (= 案 1 採用、 `$<` → `$^` + prerequisite 列挙) | β | 3 行 diff |
+| 3 | `scripts/build-poc.sh` に ADPCM-B yaml 配置経路追加 | β/γ | 数行 |
+| 4 | `assets/pne/PMDNEO01.PNE` + `assets/pne/samples-map-adpcmb.yaml` 新規 asset | β | 新規 file |
+
+詳細仕様は `docs/design/pne_binary_layout.md` §6 (= path B 経路 + Makefile 改修方針 + ADPCM-B yaml 配置) + §12 (= converter I/O contract) を参照。
+
+#### 生成 artifact の ownership / 手編集禁止
+
+`vendor/ngdevkit-examples/00-template/assets/samples-map-adpcma.yaml` および `{bd,sd,hh,rim,tom,top}.adpcma` 6 件は **build artifact** であり、 **手編集禁止** とする:
+
+- **source of truth は `.PNE` file** (= `assets/pne/PMDNEO01.PNE`)
+- **唯一の生成元は `scripts/pne-to-ngdevkit.py`** (= build-time converter、 β で実装)
+- 手編集が必要な変更は必ず **`.PNE` 側** に施す (= 生成 yaml / .adpcma 側で受けない)
+- 生成 yaml の先頭に「DO NOT EDIT — generated from {input .PNE filename} by scripts/pne-to-ngdevkit.py」 警告 comment を入れる (= 事故防止、 §12-3 で詳述)
+- git ignore か commit するかは別判断 (= β / γ で決定)、 ただし **「source of truth ではない」 ことは不変**
+
+`assets/pne/samples-map-adpcmb.yaml` (= ADPCM-B 用 hand-written) は **手編集対象、 source of truth retained** であり、 上記 ownership 規約とは独立 (= ADPCM-A と ADPCM-B の系統分離が c1 採用の本質)。
+
+driver の `code` + `data` 部分 (= `standalone_test.s` 全体) は引き続き手書き source of truth として扱う (= path B により data 部の生成 include 化も発生しないため、 driver source の ownership は touch なし)。
+
+#### `assets/sounds/adpcma/2608_*.adpcma` の扱い
+
+既存 `assets/sounds/adpcma/2608_*.adpcma` 6 件は **path B 採用後は source of truth でなくなる** (= `.PNE` 内 raw data に統合される予定、 β で実体化)。 ただし β/γ 完了まで:
+
+- 既存 file は **retain** (= 削除しない、 PMDNEO 累積資産)
+- `.PNE` 内 raw data は既存 file から pack して作成 (= round-trip test で byte-identical 確認)
+- β/γ 完了後の cold storage 移動判断は別 micro-sprint で扱う
 
 ### 決定 6: `.PNE` asset の初期内容
 
