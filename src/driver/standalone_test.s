@@ -112,6 +112,13 @@
         .equ    part_workarea,           0xF820
         ;; 20 x 64 = 1280 bytes occupies 0xF820-0xFD1F (= ADR-0006 §A 20 part)
 
+        ;; ADR-0022 step 8: PNE runtime observation block (= 0xFD20-0xFD31, 18 byte)
+        ;;   driver_pne_filename_buf      0xFD20-0xFD2F  16 byte  NUL-terminated ASCII (= β scope、 α 未使用)
+        ;;   driver_pne_filename_adr_word 0xFD30-0xFD31   2 byte  LE u16 (= m_buf-relative pne_filename_adr)
+        ;; α: pne_filename_adr word のみ書込、 buffer は未使用 (= ADR-0022 §決定 7 α scope)
+        .equ    driver_pne_filename_buf,       0xFD20
+        .equ    driver_pne_filename_adr_word,  0xFD30
+
         .include "assets/samples.inc"
 
 ;;; ----- Z80 SRAM layout (= 2 KB at 0xF800-0xFFFF) -----
@@ -119,7 +126,9 @@
 ;;;   0xF800 - 0xF80F   reserved future (16 bytes、cmd FIFO 検討中)
 ;;;   0xF810 - 0xF81F   driver_state (= 16 bytes 既存)
 ;;;   0xF820 - 0xFD1F   part_workarea (= 20 x 64 = 1280 bytes、ADR-0006 §A)
-;;;   0xFD20 - 0xFFBF   free / 後続 phase 用 (= 672 bytes 余裕)
+;;;   0xFD20 - 0xFD2F   driver_pne_filename_buf (= 16 bytes、ADR-0022 §決定 4、 β scope で使用)
+;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4、 α scope)
+;;;   0xFD32 - 0xFFBF   free / 後続 phase 用 (= 654 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -2977,6 +2986,18 @@ pmdneo_mn_direct_load_lq_part_addr::
         ;; offset_table_base = pmddotnet_song + 1 + extended_data_adr
         ld      hl, #pmddotnet_song + 1
         add     hl, de                  ; HL = offset_table file addr
+
+        ;; ★ ADR-0022 step 8 α: pne_filename_adr observation
+        ;; pne_filename_adr field file addr = offset_table_base + 12 (= m_buf 相対 +12..13)
+        ;; α scope: word を 0xFD30-0xFD31 に保存するのみ (= string copy は β、 §決定 7)
+        push    hl                      ; preserve offset_table base
+        ld      bc, #12
+        add     hl, bc                  ; HL = pne_filename_adr field file addr
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)                 ; DE = pne_filename_adr (LE u16、 m_buf-relative)
+        ld      (driver_pne_filename_adr_word), de  ; store to 0xFD30-0xFD31
+        pop     hl                      ; restore offset_table base
 
         ;; offset_table[lq_idx] = base + lq_idx * 2 (= γ-a 一般化点)
         pop     af                      ; A = lq idx restore
