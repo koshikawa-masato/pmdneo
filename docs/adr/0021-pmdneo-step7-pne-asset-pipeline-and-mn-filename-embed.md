@@ -1,6 +1,6 @@
 # ADR-0021: PMDNEO step 7 `.PNE` asset pipeline + `.MN` filename embed sprint (= C2 採用、 runtime parser は scope-out)
 
-- 状態: **Proposed** (= 2026-05-13 8th session 着手前 起票)
+- 状態: **Accepted** (= 2026-05-13 8th session、 step 7 ε 完了統合で Accepted 移行)
 - 起票日: 2026-05-13
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 7 = `.PNE` 関連)、 ADR-0019 (= step 5 §決定 3 で `.PNE` parser を「次 sprint へ分離」 と接続点予約)、 ADR-0020 (= step 6 完了 + 次 sprint 候補に `.PNE` parser を明示)
@@ -341,6 +341,59 @@ step 7 の handoff doc は sub-sprint ごと独立、 完了統合は別 doc。
 - `feedback_refactor_gate_register_trace_not_wav.md` (= primary gate = register trace)
 - `feedback_push_per_commit.md` / `feedback_post_commit_push_report_format.md` / `feedback_explain_in_plain_japanese_before_commit.md`
 - `feedback_trivial_verify_detection_and_correction_commit.md` (= trivial verify 検出 + 補正 commit 規律)
+
+## 完了判定達成状況 (= 2026-05-13 8th session、 step 7 ε 完了統合)
+
+### 全体完了判定 10 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | α-1: `.PNE` format 仕様確定 + `pne_binary_layout.md` 起票 | ✅ | `38e35bf` |
+| 2 | α-1: 既存 sample 出処調査結果を α handoff doc 記録 | ✅ | `38e35bf` §2 |
+| 3 | β-1: `scripts/pne-to-ngdevkit.py` (= converter) 実装 + unit test PASS | ✅ | `a25155d` |
+| 4 | β-1: 生成 sample が直書き source と byte-identical (= round-trip) | ✅ (= 6/6 sha256 PASS) | `a25155d` |
+| 5 | γ: `standalone_test.s:2825-2840` の sample data 部を生成 include へ移行 | ⏸ **skip** (= path B 採用で不要、 §決定 5 補正済) | — |
+| 6 | γ: ROM byte-identical 確認 | ✅ (= β-3 で samples.inc + VROM 4 件全件 byte-identical、 driver / vromtool.py 不変から ROM final 数学的同値) | `e3fdda5` |
+| 7 | δ: mc compiler `/B` path `pne_filename_adr` embed verify + hex dump | ✅ (= 4/4 gate PASS、 前提 fix = `d653d62`) | `50d34d8` |
+| 8 | δ: `.MN` 内 filename string が NUL-terminated で正しく入っている | ✅ (= `step5.PNE\0` 9 byte + NUL) | `50d34d8` |
+| 9 | ε: step 6 silent-bcef fixture + MAME 試聴 で regression なし | ✅ (= β-3 で step 6 verify 改修不要で 7/7 PASS) | `e3fdda5` |
+| 10 | ε: step 7 完了統合 handoff doc + ADR-0021 Accepted 移行 | ✅ | 本 commit |
+
+→ **10/10 達成** (= #5 は path B 採用で正規に skip、 残り 9 項目すべて PASS)。
+
+### sub-sprint commit chain (= step 7 全 8 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| 起票 | `60e78d4` | docs(adr): step 7 着手前に ADR-0021 起票 |
+| α-1 | `38e35bf` | docs(design): `.PNE` binary layout 起票 + provenance 調査 (= path B 推奨判明) |
+| α-2 | `e30ef4c` | docs(design): path B / c1 正式採用 + converter I/O contract + ADR-0021 §決定 5 補正 |
+| β-1 | `a25155d` | feat(asset): converter prototype + canonical test asset + round-trip 4 gate PASS |
+| β-2 | `0668594` | feat(build): build pipeline 接続 (= vendor Makefile + build-poc.sh + ADPCM-B yaml 分離) |
+| β-3 | `e3fdda5` | test(infra): byte-identical primary gate + regression verify |
+| δ-fix | `d653d62` | fix(compiler): mc compiler `#PNEFile` surrounding quotes strip (= 局所修正) |
+| δ | `50d34d8` | test(infra): `pne_filename_adr` embed 4 gate verify (= `.MN` ↔ `.PNE` format contract 接続) |
+| ε | 本 commit | docs(adr): step 7 完了統合 + ADR-0021 Accepted 移行 |
+
+### Accepted 移行根拠
+
+- 完了判定 10 項目中 9 項目 PASS + 1 項目 (= γ) 正規 skip
+- ADR-0021 §scope-out 全 9 項目 維持確認済 (= 完了統合 handoff doc 参照)
+- step 5/6 verify 改修不要で新経路 regression なし PASS (= 既存 architecture 整合性確認)
+- ROM final byte-identical 数学的同値性成立 (= primary gate)
+- driver completely unchanged (= literal 完全不変、 ADR-0021 §決定 2 が literal に成立)
+
+→ ADR-0021 = **Accepted**。
+
+### Accepted 後の重要境界 (= future contributor 向け明示)
+
+**Step 7 は `.PNE` runtime parser を実装していない**。 現時点で `.PNE` は **build-time source-of-truth** であり、 runtime resolution は **Step 8 以降の候補**:
+
+- `.PNE` の解決は build pipeline (= converter + vromtool.py) が担当
+- driver / runtime は `.PNE` を直接読まない (= `pne_filename_adr` は format 先行固定のみ、 driver 不参照)
+- 楽曲交換時は ROM rebuild が必要 (= 「ROM rebuild なし楽曲交換」 は Step 8 候補)
+
+`.PNE` filename embed が成立しているため誤解しやすいが、 これは **future runtime parser のための format contract 先行固定**。 完了統合 handoff doc §architecture observation 末尾と同整理。
 
 ## 関連 doc
 
