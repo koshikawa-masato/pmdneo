@@ -1,6 +1,6 @@
 # ADR-0023: PMDNEO step 9 runtime `.PNE` filename → `sample_table_id` resolver sprint (= D1 hand-written directory + T3 independent init routine + G2 memory inspection primary)
 
-- 状態: **Proposed** (= 2026-05-13 10th session 着手前起票)
+- 状態: **Accepted** (= 2026-05-13 10th session、 δ 完了統合で Accepted 移行)
 - 起票日: 2026-05-13
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 9 = runtime resolver 関連)、 ADR-0019 (= step 5 §決定 3 で `.PNE` parser を「次 sprint へ分離」 と接続点予約、 §決定 4 sample addr 引き build-time embed 維持)、 ADR-0020 (= step 6 完了 + 次 sprint 候補に runtime resolver を明示)、 ADR-0021 (= step 7 完了で `.MN` filename embed 経路成立、 §Accepted 後の重要境界で「runtime resolution は Step 8 以降」 と明記)、 ADR-0022 (= step 8 完了で runtime filename observation 成立、 §Accepted 後の重要境界で「driver は filename を読めるが解決していない」 と明記)
@@ -424,6 +424,70 @@ step 9 の handoff doc は sub-sprint ごと独立、 完了統合は別 doc。
 - `feedback_trivial_verify_detection_and_correction_commit.md` (= trivial verify 検出 + 補正 commit 規律、 sub α/β/γ 分割で対応)
 - `feedback_audio_gate_solo_isolation.md` (= solo 化 + scope 外 audio 排除、 step 6-a fixture 流用)
 - `feedback_verify_script_serial_execution.md` (= verify script 群は serial 実行、 δ で適用)
+
+## 完了判定達成状況 (= 2026-05-13 10th session、 step 9 δ 完了統合)
+
+### 全体完了判定 12 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | α: `driver_pne_sample_table_id` (= 0xFD32) state cell 定義 + .equ + WORKAREA 追加 + commit + push | ✅ | `319aa3c` |
+| 2 | α: driver code 内 hand-written directory 追加 (= 初期 entry + terminator) + symbol export 確認 | ✅ (= γ で entry 0 を "step5.PNE" に補正) | `319aa3c` + `bb3d9a9` |
+| 3 | β: `pmdneo_resolve_sample_table_id` routine 単体実装 + commit + push (= call は未挿入) | ✅ | `21fd94c` |
+| 4 | β: routine size sanity + register trace = α と byte-identical (= call されていないため挙動同一) | ✅ (= 47 byte / 0x1070-0x109E、 dead code、 chip register write 完全不変) | `21fd94c` |
+| 5 | γ: `.MN` load chain 末尾に `call pmdneo_resolve_sample_table_id` 追加 + commit + push | ✅ (= filename copy 完了直後、 push/pop 命令追加なしで自然 insertion) | `bb3d9a9` |
+| 6 | γ: filename match fixture (= l-q-rhythm-song.mml + PMDDOTNET_MODE=B、 embedded filename = "step5.PNE") で `0xFD32 == 0x00` を memory inspection で確認 | ✅ (= 6 件 idempotent、 verify-step9-resolver.sh gate 1-3 PASS) | `bb3d9a9` |
+| 7 | γ: α 補正 (= directory entry 0 を `step5.PNE` に修正 + 本 ADR §決定 5 改訂、 §γ 着手時 finding 反映) | ✅ (= asset canonical vs runtime fixture 責務差を明示) | `bb3d9a9` |
+| 8 | δ: filename mismatch fixture (= directory に存在しない filename を持つ fixture) で `0xFD32 == 0xFF` を確認 | ✅ (= ROM 1 byte patch approach、 source 不変、 verify-step9-resolver.sh gate 4-5 PASS、 6 件 idempotent) | 本 commit |
+| 9 | δ: verify infra (= `verify-step9-resolver.sh` 等) 整備 + commit + push | ✅ (= 5 段階 gate、 match + mismatch 両 path 検証可能) | 本 commit |
+| 10 | δ: step 5/6/7/8 既存 verify script 全件 PASS (= 既存 architecture regression なし) | ✅ (= step 7 β-1/β-3/δ-MN-filename/δ-fix-quote-strip + step 8 filename-observation の 5 件 serial PASS) | 本 commit |
+| 11 | δ: MAME 試聴で audible regression なし (= step 6-a silent-bcef fixture で確認) | ✅ (= 6 段階 gate PASS + user 試聴 OK「同じ速さで同じ音がなりました」、 wav sha256 = `7c028276...`) | 本 commit |
+| 12 | δ: step 9 完了統合 handoff doc + ADR-0023 Accepted 移行 + commit + push | ✅ | 本 commit |
+
+→ **12/12 達成** (= 全項目 PASS、 scope-out も維持)
+
+### sub-sprint commit chain (= step 9 全 5 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| 起票 | `7241b0d` | docs(adr): step 9 着手前に ADR-0023 起票 (= C2 identity + D1 hand-written directory + T3 independent init routine + G2 memory inspection primary、 sample_table_id は playback decision に使用しない明示含む) |
+| α | `319aa3c` | feat(driver): step 9 α — driver_pne_sample_table_id (= 0xFD32) + hand-written pne_sample_directory (= data placement only、 resolver routine は β scope) |
+| β | `21fd94c` | feat(driver): step 9 β — pmdneo_resolve_sample_table_id routine 単体実装 (= directory compare + match/mismatch sentinel store、 call insertion は γ scope、 β 時点では dead code 状態) |
+| γ | `bb3d9a9` | feat(driver): step 9 γ — .MN load chain への resolver call insertion + match primary gate PASS (= 0xFD32 = 0x00 idempotent、 α 補正 entry 0 を step5.PNE に修正 + ADR γ 改訂で finding 反映、 mismatch verify は δ scope) |
+| δ | 本 commit | feat(driver): step 9 δ 完了統合 + ADR-0023 Accepted 移行 + mismatch primary gate (= 0xFD32 = 0xFF) + 既存 regression PASS + audible OK |
+
+### Accepted 移行根拠
+
+- 完了判定 12 項目すべて達成 (= γ 改訂後 renumber 含む)
+- §scope-out 全 12 項目 維持確認済 (= 完了統合 handoff doc 参照、 sample table addr 直返却 / keyon refactor / .PNE binary parse / multi-`.PNE` switching 等いずれも touch せず)
+- driver source 改修は最小限:
+  - α: `.equ` 1 行 + SRAM layout コメント更新 + `pne_sample_directory` 34 byte data 追加
+  - β: `pmdneo_resolve_sample_table_id` routine 47 byte (= 0x1070-0x109E)
+  - γ: `pmdneo_mn_direct_load_lq_part_addr` 末尾に `call` 1 行追加 + directory entry 0 filename 16 byte 上書き
+  - δ: source 不変 (= verify script 拡張 + handoff doc + ADR Accepted のみ)
+- step 5/6/7/8 verify regression なし (= 既存 21 gate + step 9 新規 5 gate)
+- audible regression なし (= silent-bcef fixture 6 段階 gate + user 試聴 OK)
+- ADR-0021 / 0022 で確立した「動いているものを壊さない」 規律遵守
+- §γ 着手時 finding (= asset canonical vs runtime fixture 責務差) を ADR / handoff / memory に明示固定し future contributor 向け navigation 整備
+
+→ ADR-0023 = **Accepted**
+
+### Accepted 後の重要境界 (= future contributor 向け明示)
+
+**Step 9 は `.PNE` runtime resolver の identity 段階まで完成、 ただし sample table addr / playback decision には未接続**。 現時点で driver は:
+
+- `.MN` 内 filename string を runtime state として **観測可能** にし (= ADR-0022 step 8)、 さらに **identity (= sample_table_id) として resolve可能** にした (= 本 ADR step 9)
+- sample table addr は依然 build-time に `samples.inc` 経由で固定埋込 (= ADR-0019 §決定 3 / ADR-0022 §決定 8 / 本 ADR §決定 10 維持)
+- 楽曲交換時は依然 ROM rebuild が必要 (= multi-`.PNE` runtime 切替は未実装)
+- 0xFD32 (= `driver_pne_sample_table_id`) は **保存されるが consume されない** runtime state (= 本 ADR §決定 11 literal 整合)
+
+`pmdneo_resolve_sample_table_id` の出力先 0xFD32 が現状 **read 用 runtime state** に留まり、 playback path (= `adpcma_keyon_simple` / `adpcma_ch_sample_ptr_table` / `samples.inc`) は完全不変であることを future contributor が誤解しないよう明示。 これは本 ADR §決定 11 (= Step 9 内で `sample_table_id` は playback decision に使用しない) の literal 整合。
+
+D1 hand-written directory は **proof 用 placeholder** であり最終 ownership ではない (= 本 ADR §決定 3 §D1 明示、 future D3 generated directory への migration sprint で更新予定)。
+
+asset canonical 名 (= `PMDNEO01.PNE`) と runtime fixture 名 (= `step5.PNE`) の責務差は **本 ADR §決定 5 §γ 着手時 finding** + memory `project_pne_directory_entry_runtime_fixture_vs_asset_canonical.md` に固定。 future multi-`.PNE` / D3 migration sprint では命名軸 contract を最初に決定する。
+
+完了統合 handoff doc (= `docs/design/handoff/adr-0023-step9-completion.md`) も参照。
 
 ## 関連 doc
 
