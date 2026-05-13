@@ -2999,6 +2999,30 @@ pmdneo_mn_direct_load_lq_part_addr::
         ld      (driver_pne_filename_adr_word), de  ; store to 0xFD30-0xFD31
         pop     hl                      ; restore offset_table base
 
+        ;; ★ ADR-0022 step 8 β: filename string copy (= 0xFD20-0xFD2F buffer)
+        ;; filename string file addr = pmddotnet_song + 1 + pne_filename_adr
+        ;; β scope: NUL-terminated ASCII を最大 15 byte copy + byte15 強制 NUL (= §決定 5 overflow 規約)
+        ;; β-A: 通常 contract (= DOS 8.3 / NUL-terminated) を通すのみ、 16+ byte fixture verify は γ / future
+        push    hl                      ; preserve offset_table base
+        ld      hl, #pmddotnet_song + 1
+        add     hl, de                  ; HL = filename string file addr
+        ld      de, #driver_pne_filename_buf  ; DE = 0xFD20 (buffer 先頭)
+        ld      b, #15                  ; max non-NUL byte 数 (= byte15 は overflow 時 NUL 用に予約)
+pmdneo_mn_pne_fn_copy_loop:
+        ld      a, (hl)
+        ld      (de), a                 ; copy 1 byte (= NUL も含めて write)
+        or      a
+        jr      z, pmdneo_mn_pne_fn_copy_done  ; A = NUL → 早期終了 (= 通常 path)
+        inc     hl
+        inc     de
+        djnz    pmdneo_mn_pne_fn_copy_loop
+        ;; overflow path: 15 byte 全 copy で NUL 未検出 (= source filename ≥ 16 byte)
+        ;; byte15 (= 0xFD2F) を強制 NUL、 driver halt せず継続 (= §決定 5)
+        xor     a
+        ld      (de), a                 ; (DE) = 0xFD2F = 0x00 強制
+pmdneo_mn_pne_fn_copy_done:
+        pop     hl                      ; restore offset_table base
+
         ;; offset_table[lq_idx] = base + lq_idx * 2 (= γ-a 一般化点)
         pop     af                      ; A = lq idx restore
         add     a, a                    ; A = lq_idx * 2
