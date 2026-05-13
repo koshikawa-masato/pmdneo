@@ -1,6 +1,6 @@
 # ADR-0022: PMDNEO step 8 runtime `.PNE` filename observation sprint (= sub-A 採用、 resolver / multi-`.PNE` は scope-out)
 
-- 状態: **Proposed** (= 2026-05-13 9th session、 step 8 着手前に起票)
+- 状態: **Accepted** (= 2026-05-13 9th session、 step 8 γ 完了統合で Accepted 移行)
 - 起票日: 2026-05-13
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 8 = runtime `.PNE` 関連)、 ADR-0019 (= step 5 §決定 3 で `.PNE` parser を「次 sprint へ分離」 と接続点予約)、 ADR-0020 (= step 6 完了 + 次 sprint 候補に `.PNE` parser を明示)、 ADR-0021 (= step 7 完了で `.MN` filename embed 経路成立、 §Accepted 後の重要境界で「runtime resolution は Step 8 以降」 と明記)
@@ -227,9 +227,55 @@ step 8 の handoff doc は sub-sprint ごと独立、 完了統合は別 doc。
 - `feedback_trivial_verify_detection_and_correction_commit.md` (= trivial verify 検出 + 補正 commit 規律)
 - `feedback_audio_gate_solo_isolation.md` (= solo 化 + scope 外 audio 排除)
 
-## 完了判定達成状況 (= Accepted 移行時に追記)
+## 完了判定達成状況 (= 2026-05-13 9th session、 step 8 γ 完了統合)
 
-(= ε 完了 + Accepted 移行時にこの section に達成状況を追記)
+### 全体完了判定 9 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | α: driver `.MN` parser に `pne_filename_adr` field 読込経路追加 + commit + push | ✅ | `a6c6695` |
+| 2 | α: `driver_pne_filename_adr_word` (= 0xFD30-0xFD31) に保存される trace 確認 | ✅ (= 0x00A4 一致) | `a6c6695` |
+| 3 | β: `pne_filename_adr` follow + filename string copy 実装 + commit + push | ✅ | `6cf30dd` |
+| 4 | β: `driver_pne_filename_buf` の中身が `.MN` filename string と byte-identical | ✅ (= `"step5.PNE\0"` 一致) | `6cf30dd` |
+| 5 | β: overflow 規約が 16+ byte filename で正しく動作 | ⏸ **β-A 正規 scope-out** (= code path 実装済、 fixture verify は future) | `6cf30dd` |
+| 6 | γ: filename runtime observation 用 trace script 整備 | ✅ (= `verify-step8-filename-observation.sh` 5 gate) | 本 commit |
+| 7 | γ: step 5/6/7 既存 verify script 全件 PASS | ✅ (= 21 gate 全 PASS) | 本 commit |
+| 8 | γ: MAME 試聴で audible regression なし | ✅ (= user 試聴 OK + step 6-a PASS) | 本 commit |
+| 9 | γ: step 8 完了統合 handoff doc + ADR-0022 Accepted 移行 + commit + push | ✅ | 本 commit |
+
+→ **9/9 達成** (= #5 は β-A 採用で正規 scope-out、 残り 8 項目すべて PASS)
+
+### sub-sprint commit chain (= step 8 全 4 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| 起票 | `57b4bad` | docs(adr): step 8 着手前に ADR-0022 起票 (= sub-A 採用) |
+| α | `a6c6695` | feat(driver): step 8 α — driver_pne_filename_adr_word read (= word observation) |
+| β | `6cf30dd` | feat(driver): step 8 β — filename string copy to driver_pne_filename_buf (= β-A 採用) |
+| γ | 本 commit | docs(adr): step 8 γ 完了統合 + ADR-0022 Accepted + verify-step8-filename-observation.sh |
+
+### Accepted 移行根拠
+
+- 完了判定 9 項目中 8 項目 PASS + 1 項目 (= #5) 正規 scope-out (= β-A 採用)
+- ADR-0022 §scope-out 全 12 項目 維持確認済 (= 完了統合 handoff doc 参照)
+- step 5/6/7 verify 改修不要で 21 gate 全 PASS (= 既存 architecture 整合性確認)
+- α/β の driver 改修は `pmdneo_mn_direct_load_lq_part_addr` 内 +37 line に限局、 既存 logic literal 不変
+- `samples.inc` / VROM 4 件 byte-identical 維持 (= step 7 β-3 PASS、 build pipeline 完全不変)
+- audible regression なし (= user 試聴 OK + step 6-a 7 gate PASS)
+
+→ ADR-0022 = **Accepted**
+
+### Accepted 後の重要境界 (= future contributor 向け明示)
+
+**Step 8 は `.PNE` runtime resolver / parser を実装していない**。 現時点で driver は:
+
+- `.MN` 内 filename string を runtime state として **観測可能** にしているが、 **解決には使っていない**
+- sample addr は依然 build-time に `samples.inc` 経由で固定埋込 (= ADR-0019 §決定 3 維持)
+- 楽曲交換時は依然 ROM rebuild が必要 (= multi-`.PNE` runtime 切替は未実装)
+
+`driver_pne_filename_buf` / `driver_pne_filename_adr_word` が現状 **read 用 observation state** に留まっていることを future contributor が誤解しないよう明示。 これは ADR-0022 §決定 8 (= 既存 sample playback path は完全不変) の literal 整合。
+
+完了統合 handoff doc §Accepted 後の重要境界 + §Step 5/6/7/8 全体での役割位置づけ も参照。
 
 ## 関連 doc
 
