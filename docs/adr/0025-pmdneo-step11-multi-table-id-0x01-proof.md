@@ -202,39 +202,45 @@ filename / `.MN` fixture の命名 contract:
 - `PMDNEO01.PNE` (= ADR-0023 γ 経緯で出てきた asset canonical 想定名) とは役割が異なる
 - 将来 D3 generated directory に移行する際、 fixture 命名の asset canonical 化は別 sprint で検討
 
-### 決定 4: directory entry format = filename only、 entry_index = id 暗黙、 EQU 軽柔軟性 (= axis 3 / α + α' 採用)
+### 決定 4: directory entry format = Step 9 既存 layout 踏襲 (= filename 16 byte + sample_table_id 1 byte + 0xFF terminator)、 entry_index = id byte 値一致 convention、 EQU 軽柔軟性 (= axis 3 / α + α' 採用)
 
 `.PNE` 内 directory の format / 拡張方針:
 
-#### entry layout
+#### entry layout (= Step 9 既存 layout 踏襲、 axis 3-c 採用整合)
 
-| entry | field | value |
+| entry | filename (16 byte、 NUL-pad ASCII) | sample_table_id (1 byte) |
 |---|---|---|
-| 0 | filename string | `step5.PNE` (= ASCII、 長さ ≤ 18 byte、 ADR-0022 buffer 長と整合) |
-| 1 | filename string | `step5b.PNE` (= ASCII、 長さ ≤ 18 byte) |
+| 0 | `"step5.PNE\0\0\0\0\0\0\0"` (= 9 char + 7 NUL = 16 byte) | `0x00` |
+| 1 | `"step5b.PNE\0\0\0\0\0\0"` (= 10 char + 6 NUL = 16 byte) | `0x01` |
+| terminator | `0x00 × 16` (= don't care) | `0xFF` (= terminator marker) |
 
-- entry format = **filename string のみ** (= 1 byte explicit id field なし、 terminator なし、 count byte なし)
-- entry_index = `sample_table_id` の **暗黙決定** (= entry 0 → id=0x00、 entry 1 → id=0x01)
-- entry 物理 layout は **Step 9 layout 踏襲** (= 単純に 1 entry slot に 2 entry slot 連結のみ、 header / count byte / terminator 追加なし)
-- match 優先 = **先勝ち** (= 最小実装、 重複 filename は実運用想定外で scope-out)
+- entry stride = **17 byte** (= filename 16 + sample_table_id 1) (= Step 9 既存 layout 踏襲)
+- terminator = **sample_table_id == `0xFF`** marker (= entry の filename field は don't care、 17th byte が `0xFF` なら resolver は loop 終了 + mismatch branch)
+- resolver は **terminator driven loop** (= entry 数 hard-code なし、 自然に entry 追加に追従、 既存 routine `pmdneo_resolve_sample_table_id` 完全不変)
+- sample_table_id byte literal は **entry_index と一致する convention** で書く (= entry 0 byte = `0x00`、 entry 1 byte = `0x01`)、 この一致は Step 11 proof 用の暫定規約
+- match 優先 = **先勝ち** (= 最小実装、 resolver は entry 0 から順に memcmp、 最初の match で確定、 重複 filename は実運用想定外で scope-out)
 
-#### EQU 定数導入 (= α' 採用)
+#### Step 11 で entry 1 を追加 (= α scope)
 
-resolver の loop 回数を hard-code 2 ではなく `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` で持つ。 driver source に以下を新規追加 (= β sub-sprint):
+既存 entry 0 と terminator entry の間に entry 1 (= filename `step5b.PNE` + `sample_table_id 0x01`) を挿入。 terminator entry は 17 byte 後ろにずれる。 resolver は terminator driven のため code 改修不要、 entry 1 を自然に loop 対象として認識する。
 
-```
-PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2  ; Step 11: directory entry 数 + accepted id range の上限
-```
+#### EQU 定数導入 (= α' 採用、 selector 上限判定用)
 
-resolver は entry 数を EQU 参照で loop、 selector は EQU 参照で id 上限判定 (= `cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` 等)。 1 つの定数で「directory entry 数」 と「accepted id range」 を同期する規約。
+`PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` を driver source に α で宣言追加。 用途:
+
+- **resolver は参照しない** (= terminator driven loop のため、 本 EQU は resolver 動作に無関係)
+- **selector が β で参照** (= `cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` で id 上限判定、 範囲外は sentinel silent に倒す)
+- 1 つの定数で「directory entry 数」 と「accepted id range」 を同期する規約 (= entry 数変更時 1 行修正で driver 全体に伝播)
+
+α 時点では declare のみで unused reserve、 β の selector 拡張で参照開始する。
 
 #### ADR / handoff 記載 contract
 
-- 「entry_index = id は Step 11 proof 用の暫定規約」 (= future contributor 向け literal 明記)
-- 最終 directory ownership / explicit id / terminator / count header / multi-entry random access は **D3 migration 以降で再検討** (= ADR-0021 §決定 / generated directory 化局面で)
+- **entry の `sample_table_id` byte 値は entry_index と一致するように書く convention** (= explicit id byte field 自体は Step 9 から既存、 Step 11 で値の決め方を convention 化)
+- 最終 directory ownership / explicit id 自由割当 / count header / multi-entry random access は **D3 migration 以降で再検討** (= ADR-0021 §決定 / generated directory 化局面で)
 - duplicate filename 処理は **scope-out**、 現時点では先勝ち
 - `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` は **entry 数 + accepted id range の上限を兼ねる**
-- entry 数を変更する将来 sprint では本 EQU の 1 行修正で対応 (= driver code 群の hard-code を増やさない)
+- entry 数を変更する将来 sprint では本 EQU の 1 行修正 + directory entry 追記 + terminator 位置移動で対応 (= resolver / selector の hard-code を増やさない)
 
 ### 決定 5: selector accept rule 拡張 = explicit if/jr + table 隣接 + `_b` suffix (= axis 4 / 推奨組合せ採用)
 
@@ -403,60 +409,81 @@ Step 11 で導入される暫定規約 / 命名 contract を future contributor 
 
 | 項目 | 内容 | 再検討契機 |
 |---|---|---|
-| entry_index = `sample_table_id` 暗黙対応 | Step 11 proof 用、 explicit id field は持たない | D3 generated directory migration 以降 |
+| entry の `sample_table_id` byte 値 = entry_index 一致 convention | Step 9 から explicit id byte field 自体は既存、 Step 11 で「値は entry_index と一致するように書く」 と convention 化 (= entry 0 → 0x00 byte、 entry 1 → 0x01 byte) | D3 generated directory migration 以降で id 自由割当を再検討 |
 | filename 命名 `step5b.PNE` 等 | runtime proof 用、 asset canonical 名ではない | asset canonical 化が必要な sprint で別途 |
 | `PMDNEO01.PNE` との区別 | `PMDNEO01.PNE` は ADR-0023 γ 経緯の asset canonical 想定名、 `step5*.PNE` とは役割が異なる | D3 migration 以降で命名軸統合検討 |
 | explicit if/jr selector dispatch | Step 11 proof 用、 N table 化は別 sprint | multi-table が 3 table 以上になる sprint で table-of-tables 化検討 |
-| `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` 兼用 | entry 数 + accepted id range 上限を 1 定数で同期 | 暫定規約として継続維持 |
+| `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` 兼用 | entry 数 + accepted id range 上限を 1 定数で同期、 resolver は参照せず (= terminator driven) selector が β で参照 | 暫定規約として継続維持 |
 | duplicate filename = 先勝ち | 最小実装、 重複は実運用想定外 | duplicate を意図的に許容する sprint で別途 |
 | MML body 同一流用 | 差分原因を filename / table selection に限定 | proof 完了後の現役 fixture では body 変更可 |
+| resolver terminator driven loop 継承 | Step 9 既存 routine 完全不変、 entry 数増減は terminator 位置で表現 (= EQU 不参照) | future D3 migration で count header / static count 化検討時に変更 |
 
-### 決定 8: sub-sprint 分割 = α/β/γ/δ 4 段
+### 決定 8: sub-sprint 分割 = α/β/γ/δ 4 段 (= 12th session α 着手時に user 指示で revised、 ADR commit を α と分離 + 旧 α/β を新 α に合流)
 
 step 11 を **α / β / γ / δ の 4 sub-sprint 構造** で進める。 trivial verify (= ADR-0016 step 3c-2 / V-1 / W-1 / W-3 / ADR-0023 / ADR-0024 で確立した「dead code → call insertion → behavior change」 段階分離) を防ぐため、 各 sub の primary gate を明確化する。
 
+#### 12th session α 着手時の sub-sprint 分割改定
+
+ADR-0025 commit (= `bc60663`) 直後、 user 12th session α 着手指示で sub-sprint 分割は以下に **revised**:
+
+- **ADR-0025 起票は α と分離** (= 単独 commit `bc60663` で完了済、 driver source 不変の純文書化)
+- **旧 α + 旧 β を新 α に合流** (= EQU 宣言 + directory entry 1 + table B + step5b fixture をすべて α scope)
+- **selector 拡張は新 β** (= 元 γ scope を β に前倒し)
+- **verify script 新設は新 γ** (= 元 δ 前半を γ に分離)
+- **regression + audible + Accepted 移行は新 δ** (= 元 δ 後半のみ)
+
+revised split の理由 (= user 12th session α 着手時整理):
+- Step 11 α は fixture / table / directory / EQU など複数軸が入るため、 ADR を先に固定してから実装に入った方が review が読みやすい
+- 旧 resolver が **terminator driven** で entry 数を hard-code しない finding により、 EQU declaration を α に前倒ししても resolver code 改修なしで成立 (= EQU は β で selector が参照開始する unused reserve)
+- これにより α は driver code path 完全不変 = pure data placement、 「data placement / selector behavior / verify infra / completion」 の 4 軸分離が clean に成立
+
+#### revised sub-sprint table
+
 | sub | 範囲 | primary gate |
 |---|---|---|
-| α | ADR-0025 起票 (= Draft 章 1-5 全章記述、 Annex は δ で追記) + `adpcma_ch_sample_ptr_table_b` 追加 (= dead code 状態、 selector 未拡張) + `step5b.PNE` / `step5b.MN` fixture 作成 + directory entry 1 追加 (= ただし `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU` 未導入、 resolver は entry 0 のみ見る) | build PASS + step5.PNE register write trace byte-identical (= dead code 確認) + table B symbol 存在確認 + step5b.PNE run = mismatch silent path 経由で silent (= entry 1 が read されないので 0xFD32 = 0xFF) |
-| β | `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 導入 + resolver loop 回数を EQU 参照に置換 (= entry 1 を見るようになる) | build PASS + step5.PNE register write trace byte-identical (= regression 0) + step5b.PNE run 0xFD32 = 0x01 (= memory inspection primary) + step5b.PNE run keyon trigger 0 (= selector で id=0x01 unaccept、 sentinel silent) |
-| γ | `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept、 explicit if/jr、 `adpcma_ch_sample_ptr_table_b` 引き) + EQU 上限判定追加 | build PASS + step5.PNE register write trace byte-identical (= regression 0) + step5b.PNE run L ch addr regs differ literal + step5b.PNE run M-Q addr regs identical literal + step5b.PNE run keyon count = step5.PNE run keyon count + step5b.PNE run audio audible (= silent ではない) |
-| δ | `verify-step11-multi-table.sh` 新設 (= differential proof script) + Step 5/6/7/8/9/10 既存 regression 全 PASS 確認 + user 試聴 (= step5 BD / step5b SD audible) + handoff doc + ADR-0025 Accepted 移行 + memory `project_pmdneo_step11_complete.md` 起票 + MEMORY.md index 更新 | 全 sub primary gate PASS + 既存 verify regression PASS + audible OK |
+| α | (post ADR commit) `adpcma_ch_sample_ptr_table_b` 追加 (= dead code、 selector 未拡張) + `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` 新規 fixture + `pne_sample_directory` entry 1 = `step5b.PNE` + `0x01` byte 挿入 + `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 宣言 (= α では unused reserve) + ADR-0025 §決定 8 sub-sprint 表改定 | build PASS + step5.PNE register write trace byte-identical (= regression 0) + 新 symbol 存在確認 (= table B / directory entry 1 / EQU) + driver source の resolver / selector / keyon path 完全不変 (= terminator driven resolver は自然に entry 1 を見るが、 selector id=0x00 only-accept のため step5b.PNE run は依然 sentinel silent) |
+| β | `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept、 explicit if/jr、 `cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` で範囲外判定、 `adpcma_ch_sample_ptr_table_b` 引き) | build PASS + step5.PNE register write trace byte-identical (= regression 0) + step5b.PNE run `0xFD32` = `0x01` (= memory inspection primary) + step5b.PNE run L ch addr regs differ literal + step5b.PNE run M-Q addr regs identical + step5b.PNE run keyon count = step5.PNE run keyon count + step5b.PNE run audio audible (= silent ではない、 L ch SD 音色) |
+| γ | `verify-step11-multi-table.sh` 新設 (= differential proof script、 step5.PNE / step5b.PNE 比較 + L differ / M-Q identical / keyon count identical の 3 観点同時 + BD addr literal / SD addr literal 具体値 assert で trivial verify 防止) | script PASS + 既存 Step 5/6/7/8/9/10 verify script regression 全件確認 |
+| δ | user 試聴 (= step5 BD audible / step5b SD audible secondary gate) + ADR-0025 Accepted 移行 + handoff doc 起票 + memory `project_pmdneo_step11_complete.md` 起票 + MEMORY.md index 更新 | 全 sub primary gate PASS + 既存 verify regression PASS + audible OK |
 
-#### α 時点での重要境界 (= future contributor 向け短文明記)
+#### α 時点での重要境界 (= revised 後の future contributor 向け短文明記)
 
-**Step 11 α 時点では `adpcma_ch_sample_ptr_table_b` は dead code、 directory entry 1 = `step5b.PNE` は resolver から read されない**。 `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` EQU はまだ導入されず resolver loop 回数は依然 1。 step5b.PNE run は entry 1 と比較されず、 entry 0 (= step5.PNE) と filename 比較で mismatch、 `0xFD32` = `0xFF` で Step 10 mismatch silent path に倒れる。 α 完了時点で:
+**Step 11 α 時点では `adpcma_ch_sample_ptr_table_b` は dead code (= selector 未拡張で到達しない)、 directory entry 1 = `step5b.PNE` は resolver から read される (= terminator driven のため自然に追加 entry を見る)、 `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` EQU は declare 済だが selector 未拡張のため unused reserve**。 α 完了時点で:
 
-- ADR-0024 §決定 3 (= id=0x00 only-accept) は **依然有効**
-- `0xFD32` は match 時のみ 0x00、 step5b.PNE run も含めそれ以外は 0xFF
-- match path / mismatch path どちらも Step 10 完了時 (= commit `0746073`) と byte-identical
+- step5.PNE run: 既存挙動完全保存 (= filename match → `0xFD32` = `0x00` → selector id=0x00 accept → table A 引き → audible)
+- step5b.PNE run: resolver は entry 1 を match → `0xFD32` = `0x01` (= memory inspection で observable な新挙動)、 selector は id=0x00 only-accept のため sentinel silent → keyon trigger 0 → audio silent
+- 「id=0x01 はまだ playback に影響しない」 (= user α scope 整合、 0xFD32 値は変わるが playback は silent path 経由で不変)
+- ADR-0024 §決定 3 (= id=0x00 only-accept) は **依然有効** (= selector 完全不変)
 - table B symbol は ROM に存在するが selector からは到達しない (= dead code)
+- EQU 定数は declare 済だが driver code から参照されない (= β で selector が参照開始)
+- step5.PNE run register write trace は Step 10 完了時 (= commit `0746073`) と byte-identical
 
-β で EQU 導入により resolver が entry 1 を見るようになり、 step5b.PNE run で `0xFD32` = `0x01` が立つが、 selector が id=0x01 unaccept のため依然 sentinel silent。 γ で初めて selection differentiation が effective になる (= ADR-0025 §決定 6 hybrid gate が initial 通過)。
+β で selector 拡張により selection differentiation が initial に effective になる (= step5b.PNE run で L ch = table B 引きで SD addr regs write、 audible 差分が出る)。 γ で literal value assert script を新設して formal proof 確立。 δ で regression + audible + completion 統合。
 
 **1 sub = 1 commit + 1 push 規律** (= `feedback_push_per_commit` / `feedback_post_commit_push_report_format`) を維持。 各 commit で user 都度レビュー待ち。
 
-#### 分割根拠
+#### revised 分割根拠
 
-- α は「structure を作る」 だけで connect 未挿入 → trivial verify (= 既存 path で false PASS) を detect しやすい dead code 段階
-- β は EQU 導入で resolver が拡張、 ただし selector はまだ id=0x01 unaccept → memory inspection で「resolver が正しく id を立てた」 を独立 verify、 audio はまだ silent
-- γ で initial に selection differentiation が effective、 differential register trace primary gate 確立
-- δ で既存 verify infra と統合し regression を保証、 user 試聴で完了
+- α は「data placement only」 (= driver code path 完全不変、 connect 未挿入、 EQU は unused reserve) → trivial verify (= 既存 path で false PASS) を detect しやすい pure dead code 段階
+- β で selector 拡張により id=0x01 accept、 step5b.PNE で L ch table B 引きが effective → differential register trace で「selection が effective」 を literal 観測、 audio で audible 差分が出る
+- γ で literal value assert script を新設 (= BD addr literal / SD addr literal 具体値で trivial verify 防止)、 既存 regression と並列確認
+- δ で user 試聴 + Accepted 移行 + handoff + memory 起票で完了統合
 
 ## scope-in / scope-out 明示
 
-### scope-in (= step 11 本 sprint 範囲)
+### scope-in (= step 11 本 sprint 範囲、 12th session α 着手時 revised split に基づく)
 
-- `adpcma_ch_sample_ptr_table_b` 新規追加 (= L ch のみ別 sample、 M-Q = table A と同 symbol) (= α)
-- `step5b.PNE` 新規 fixture 作成 (= filename + L ch SD-相当 sample 含む) (= α)
-- `step5b.MN` 新規 fixture 作成 (= step5.MN body 同一流用 + `#PNEFile` 差替) (= α)
-- `.PNE` directory entry 1 = `step5b.PNE` 追加 (= α、 ただし resolver は β まで参照しない)
-- `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 導入 (= β)
-- resolver loop 回数を EQU 参照に置換 (= β、 entry 1 を見るようになる)
-- `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept、 explicit if/jr、 `_b` table 引き、 EQU 上限判定) (= γ)
-- `verify-step11-multi-table.sh` 新設 (= differential proof script、 L ch differ + M-Q identical + keyon count identical + literal value assert) (= δ)
-- step 5/6/7/8/9/10 既存 verify script regression 全件確認 (= δ)
+- ADR-0025 起票 (= 単独 commit、 12th session 冒頭壁打ち 5 axes + §決定 8 件 + sub-sprint 分割を文書化) (= **ADR commit、 done at `bc60663`**)
+- `adpcma_ch_sample_ptr_table_b` 新規追加 (= L ch のみ別 sample = adpcma_sample_sd、 M-Q = table A と同 symbol) (= α)
+- `pne_sample_directory` に entry 1 = `step5b.PNE` + `0x01` byte 挿入 + terminator 後ろにずらし (= α、 resolver は terminator driven で自然に対応)
+- `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 宣言 (= α、 declare のみで unused reserve、 β で selector が参照開始)
+- `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` 新規 fixture 作成 (= step5/l-q-rhythm-song.mml body 同一流用 + `#PNEFile "step5b.PNE"` 差替) (= α)
+- ADR-0025 §決定 8 sub-sprint 表改定 (= revised split を ADR に反映) (= α 内、 α commit に含める)
+- `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept、 explicit if/jr、 `cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` 範囲外判定、 `_b` table 引き) (= β)
+- `verify-step11-multi-table.sh` 新設 (= differential proof script、 L ch differ + M-Q identical + keyon count identical + literal value assert) (= γ)
+- step 5/6/7/8/9/10 既存 verify script regression 全件確認 (= γ)
 - MAME 試聴で step5 BD / step5b SD audible 確認 (= δ)
-- step 11 完了統合 handoff doc + ADR-0025 Accepted 移行 (= δ)
+- step 11 完了統合 handoff doc + ADR-0025 Accepted 移行 + memory + MEMORY.md index (= δ)
 
 ### scope-out (= step 11 範囲外、 後続 sprint で扱う)
 
@@ -483,58 +510,63 @@ step 11 を **α / β / γ / δ の 4 sub-sprint 構造** で進める。 trivia
 
 ## 完了判定
 
-### step 11 全体完了判定 (= ADR-0025 Accepted 移行条件)
+### step 11 全体完了判定 (= ADR-0025 Accepted 移行条件、 revised split 後)
 
-1. **α**: ADR-0025 draft file 起票 (= 章 1-5 全章記述、 Annex は δ で追記) + commit + push
-2. **α**: `adpcma_ch_sample_ptr_table_b` 追加 (= L ch のみ別 sample、 M-Q = table A 同 symbol、 dead code 状態) + commit + push
-3. **α**: `step5b.PNE` / `step5b.MN` fixture 作成 + `.PNE` directory entry 1 追加 + commit + push
-4. **α**: build PASS + step5.PNE register write trace byte-identical (= dead code 確認) + table B symbol 存在確認 + step5b.PNE run = mismatch silent path
-5. **β**: `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 導入 + resolver loop 回数を EQU 参照に置換 + commit + push
-6. **β**: build PASS + step5.PNE register write trace byte-identical (= regression 0) + step5b.PNE run 0xFD32 = 0x01 (= memory inspection) + step5b.PNE run keyon trigger 0 (= selector 未拡張 silent)
-7. **γ**: `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept + EQU 上限判定 + table B 引き) + commit + push
-8. **γ**: step5.PNE register write trace byte-identical + step5b.PNE run L ch addr differ literal + M-Q identical + keyon count identical + audio audible
-9. **δ**: `verify-step11-multi-table.sh` 新設 + step 5/6/7/8/9/10 既存 regression 全 PASS + user 試聴 (= step5 BD / step5b SD audible) + commit + push
-10. **δ**: step 11 完了統合 handoff doc + ADR-0025 Accepted 移行 + commit + push
+1. **ADR**: ADR-0025 draft file 起票 (= 章 1-5 全章記述、 Annex は δ で追記) + commit + push (= **done at commit `bc60663`**)
+2. **α**: `adpcma_ch_sample_ptr_table_b` 追加 (= L ch のみ別 sample、 M-Q = table A 同 symbol、 dead code 状態)
+3. **α**: `pne_sample_directory` entry 1 = `step5b.PNE` + `0x01` byte 挿入 (= terminator 後ろ移動、 resolver は terminator driven で自然対応)
+4. **α**: `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 宣言 (= α では unused reserve)
+5. **α**: `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` 新規 fixture 作成 + ADR-0025 §決定 8 sub-sprint 表改定 (= revised split を ADR に反映) + commit + push
+6. **α**: build PASS + step5.PNE register write trace byte-identical (= regression 0) + 新 symbol 存在確認 (= table B / directory entry 1 / EQU) + driver source の resolver / selector / keyon path 完全不変
+7. **β**: `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept + EQU 上限判定 + table B 引き) + commit + push
+8. **β**: build PASS + step5.PNE byte-identical + step5b.PNE run `0xFD32` = `0x01` + L ch addr differ literal + M-Q identical + keyon count identical + audio audible (= silent ではない)
+9. **γ**: `verify-step11-multi-table.sh` 新設 (= differential proof script、 BD addr literal / SD addr literal 具体値 assert) + step 5/6/7/8/9/10 既存 regression 全 PASS + commit + push
+10. **δ**: user 試聴 (= step5 BD audible / step5b SD audible) + ADR-0025 Accepted 移行 + handoff doc 起票 + commit + push
 11. **δ**: memory `project_pmdneo_step11_complete.md` 起票 + MEMORY.md index 更新
 
 ### sub-sprint 完了判定 (= 個別)
 
 各 sub-sprint の完了判定は handoff doc に記述。 全 sub-sprint で「1 sub = 1 commit + 1 push + user 都度レビュー待ち」 規律を遵守。
 
-## verify gate 構成
+## verify gate 構成 (= revised split 後)
 
-### α gate (= dead code 段階、 4 段)
+### α gate (= data placement 段階、 4 段)
 
 1. **build PASS**: sdcc / sdasz80 / lkz80 通過、 ROM .neo 生成
-2. **step5.PNE register write trace byte-identical**: reachable code path 不変 (= table B が dead code として未使用、 既存 path register write 完全一致)
-3. **table B symbol 存在確認**: `.lst` / `.map` / symbol dump で `adpcma_ch_sample_ptr_table_b` entry point が確認可能
-4. **step5b.PNE run = mismatch silent path**: entry 1 が resolver から read されないため filename 比較 mismatch → `0xFD32` = `0xFF` → selector で sentinel silent (= Step 10 mismatch silent 挙動)
+2. **step5.PNE register write trace byte-identical**: reachable code path 完全不変 (= table B / entry 1 / EQU が dead/unused、 driver の resolver / selector / keyon source 完全不変、 既存 register write 完全一致)
+3. **新 symbol 存在確認**: `.lst` / `.map` / symbol dump で `adpcma_ch_sample_ptr_table_b` + `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` + `pne_sample_directory` 領域内の entry 1 (= "step5b.PNE" string + 0x01 byte) が確認可能
+4. **driver source 完全不変確認**: `pmdneo_resolve_sample_table_id` / `pmdneo_select_sample_pointer` / `adpcma_keyon_simple` の code 行が Step 10 完了時 (= commit `0746073`) と byte-identical (= data 領域のみ追加、 routine 自体は無改修)
 
-### β gate (= resolver 拡張、 4 段)
+(= step5b.PNE run の動的 verify は β scope で初めて行う。 α では data placement のみで step5b 駆動 verify は不要、 user α scope 「id=0x01 はまだ playback に影響しない」 整合)
 
-1. **build PASS**: 同上
-2. **step5.PNE register write trace byte-identical**: match path で既存 audio 再現 (= 0xFD32 = 0x00 で table A 引き、 既存 register write 完全一致)
-3. **step5b.PNE run 0xFD32 = 0x01**: memory inspection primary gate (= resolver が entry 1 を見て filename match 成立、 id=0x01 立つ)
-4. **step5b.PNE run keyon trigger 0**: selector が id=0x01 unaccept のため sentinel silent、 keyon register 0x00 write 不発生
-
-### γ gate (= selector 拡張、 5 段)
+### β gate (= selector 拡張、 6 段)
 
 1. **build PASS**: 同上
-2. **step5.PNE register write trace byte-identical**: regression 0 (= match path table A で既存挙動完全保存)
-3. **step5b.PNE run L ch addr regs differ literal**: L ch reg 0x10/0x18/0x20/0x28 の write 値が step5 と異なる、 step5 = BD addr literal / step5b = SD addr literal で具体値 assert (= trivial verify 防止)
-4. **step5b.PNE run M-Q addr regs identical**: M-Q ch reg 0x10/0x18/0x20/0x28 の write 値が step5 と byte-identical (= 副作用なし証明)
-5. **step5b.PNE run keyon count = step5.PNE run keyon count**: 両 run で keyon trigger 数が一致 (= silent 経路ではない literal、 selection differentiation が effective)
+2. **step5.PNE register write trace byte-identical**: match path で既存 audio 再現 (= 0xFD32 = 0x00 で table A 引き、 既存 register write 完全一致、 regression 0)
+3. **step5b.PNE run `0xFD32` = `0x01`**: memory inspection primary gate (= resolver が entry 1 を見て filename match 成立、 id=0x01 立つ、 α から確認可能だが β で audio に反映)
+4. **step5b.PNE run L ch addr regs differ literal**: L ch reg `0x10/0x18/0x20/0x28` write 値が step5 と異なる、 step5 = BD addr literal / step5b = SD addr literal で具体値 observable
+5. **step5b.PNE run M-Q addr regs identical**: M-Q ch reg `0x10/0x18/0x20/0x28` write 値が step5 と byte-identical (= 副作用なし)
+6. **step5b.PNE run keyon count = step5.PNE run keyon count**: 両 run で keyon trigger 数が一致 (= silent 経路ではない literal、 selection differentiation が effective)
 
-### δ gate (= regression + audible、 包括)
+### γ gate (= verify infra 確立、 包括)
 
-- step 5 verify script 全件 PASS
-- step 6 verify script 全件 PASS
-- step 7 verify script 全件 PASS
-- step 8 verify script 全件 PASS
-- step 9 verify script 全件 PASS
-- step 10 verify script 全件 PASS
-- 新規 `verify-step11-multi-table.sh` PASS (= γ gate 5 段を script 化)
-- audible regression なし最終確認 (= silent-bcef fixture で確認 + step5 BD audible + step5b SD audible で user 試聴 OK)
+1. **build PASS**: 同上
+2. **`verify-step11-multi-table.sh` PASS**: differential proof script、 β gate 4-6 + BD addr literal / SD addr literal 具体値 assert で trivial verify 防止
+3. **step 5 verify script 全件 PASS**
+4. **step 6 verify script 全件 PASS**
+5. **step 7 verify script 全件 PASS**
+6. **step 8 verify script 全件 PASS**
+7. **step 9 verify script 全件 PASS**
+8. **step 10 verify script 全件 PASS**
+
+### δ gate (= audible + completion、 包括)
+
+- silent-bcef fixture audible regression なし最終確認 (= verify-silent-bcef-audio-isolation.sh PASS)
+- step5 BD audible 試聴 OK (= user)
+- step5b SD audible 試聴 OK (= user、 silent ではない、 BD と区別可能)
+- handoff doc 起票
+- ADR-0025 Accepted 移行
+- memory + MEMORY.md update
 
 ## 関連 memory
 

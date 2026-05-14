@@ -123,6 +123,14 @@
         .equ    driver_pne_filename_adr_word,  0xFD30
         .equ    driver_pne_sample_table_id,    0xFD32
 
+        ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
+        ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
+        ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
+        ;;   α scope: declare のみ (= 既存 resolver は terminator driven、 selector は id=0x00 only-accept のまま)
+        ;;   β scope: selector が `cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT` で id 上限判定に使用、 範囲外は sentinel silent
+        ;;   entry 数を増減する将来 sprint では本 EQU の 1 行修正で driver 全体に伝播 (= magic number 排除)
+        .equ    PNE_SAMPLE_DIRECTORY_ENTRY_COUNT, 2
+
         .include "assets/samples.inc"
 
 ;;; ----- Z80 SRAM layout (= 2 KB at 0xF800-0xFFFF) -----
@@ -2845,6 +2853,24 @@ adpcma_ch_sample_ptr_table:
         .dw     adpcma_sample_bd, adpcma_sample_sd, adpcma_sample_hh
         .dw     adpcma_sample_tom, adpcma_sample_rim, adpcma_sample_top
 
+;;; ----------------------------------------------------------------
+;;; ADR-0025 step 11 α: adpcma_ch_sample_ptr_table_b (= table B、 multi-table id=0x01 proof)
+;;;
+;;; ADR-0025 §決定 2 整合 (= axis 1 / i 採用): L ch のみ別 sample 差替 + M-Q = table A と同 symbol
+;;;   L = adpcma_sample_sd (= SD 相当、 sample swap 対象、 既存 VROM 内 sample 再利用 = axis 1-b / α)
+;;;   M-Q = table A と完全同 symbol (= 物理 pointer 一致、 register trace で identical 期待値)
+;;;
+;;; α scope: dead code 状態 (= selector 未拡張、 keyon path 未影響)
+;;;          step5b.PNE run で resolver は entry 1 match → 0xFD32 = 0x01 立つが、 selector は id=0x00 only-accept のため
+;;;          本 table は参照されず sentinel silent (= playback 不影響、 ADR-0025 §決定 8 α gate 整合)
+;;; β scope: selector が id=0x01 で本 table を引く explicit if/jr 拡張を入れる (= ADR-0025 §決定 5)
+;;;
+;;; trivial verify 防止: M-Q を同 symbol で書くことで、 β 完了後 step5.PNE vs step5b.PNE の
+;;;                       register trace 比較で「L 違う / M-Q identical」 を literal 観測可能 (= 副作用なし証明)
+adpcma_ch_sample_ptr_table_b:
+        .dw     adpcma_sample_sd, adpcma_sample_sd, adpcma_sample_hh
+        .dw     adpcma_sample_tom, adpcma_sample_rim, adpcma_sample_top
+
 adpcma_sample_bd:
         .db     BD_START_LSB, BD_START_MSB, BD_STOP_LSB, BD_STOP_MSB
 adpcma_sample_sd:
@@ -2880,6 +2906,21 @@ pne_sample_directory:
         .db     0x73, 0x74, 0x65, 0x70, 0x35, 0x2E, 0x50, 0x4E   ; "step5.PN"
         .db     0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00   ; "E\0\0\0\0\0\0\0"
         .db     0x00                                              ; sample_table_id = 0x00
+
+        ;; ADR-0025 step 11 α: entry 1 (= multi-table id=0x01 proof 用 fixture)
+        ;;   filename = "step5b.PNE" (= 10 char + 6 NUL pad = 16 byte)
+        ;;   sample_table_id = 0x01
+        ;;
+        ;; ADR-0025 §決定 3 / axis 2 整合: step5b.PNE = table B selection fixture
+        ;;   (= runtime proof 用 命名、 asset canonical name ではない、 PMDNEO01.PNE とは役割が異なる)
+        ;;
+        ;; α scope: directory placement のみ。 resolver は terminator driven のため自然に entry 1 を見るようになる。
+        ;;          selector は id=0x00 only-accept のため、 step5b.PNE run でも sentinel silent (= playback 不影響)。
+        ;;          memory inspection で 0xFD32 = 0x01 は observable (= 「resolver は entry 1 を正しく見ている」 literal 証跡)。
+        ;; β scope: selector 拡張で id=0x01 → table B 引き → L ch addr regs differ で audible 差分が出る。
+        .db     0x73, 0x74, 0x65, 0x70, 0x35, 0x62, 0x2E, 0x50   ; "step5b.P"
+        .db     0x4E, 0x45, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00   ; "NE\0\0\0\0\0\0"
+        .db     0x01                                              ; sample_table_id = 0x01
 
         ;; terminator entry (= sample_table_id == 0xFF、 filename don't care = NUL)
         .db     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
