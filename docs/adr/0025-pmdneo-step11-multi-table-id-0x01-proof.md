@@ -1,6 +1,6 @@
 # ADR-0025: PMDNEO step 11 multi-table id=0x01 proof (= 2 entry directory + filename A/B + table A/B + selector id 拡張、 L ch only sample swap、 entry_index=id 暗黙、 PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2、 differential register trace primary + memory inspection secondary、 verify-step11-multi-table.sh 新設)
 
-- 状態: **Draft** (= 2026-05-14 12th session、 α 着手時に本 ADR 起票)
+- 状態: **Accepted** (= 2026-05-14 12th session、 δ 完了統合で Accepted 移行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 11 = identity resolution の selection differentiation 実証段階)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 §決定 4 で sample 増加は別 sprint 接続点予約)、 ADR-0021 (= step 7 `.PNE` asset pipeline + `.MN` filename embed)、 ADR-0022 (= step 8 runtime filename observation)、 ADR-0023 (= step 9 filename → sample_table_id resolver)、 ADR-0024 (= step 10 sample_table_id selection consumption、 §決定 3 で id=0x00 only-accept、 §決定 6 で selected pointer state cache 不採用)
@@ -567,6 +567,113 @@ revised split の理由 (= user 12th session α 着手時整理):
 - handoff doc 起票
 - ADR-0025 Accepted 移行
 - memory + MEMORY.md update
+
+## 完了判定達成状況 (= 2026-05-14 12th session、 step 11 δ 完了統合)
+
+### 全体完了判定 11 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | ADR: ADR-0025 draft file 起票 + commit + push | ✅ | `bc60663` |
+| 2 | α: `adpcma_ch_sample_ptr_table_b` 追加 (= L ch SD / M-Q 同 symbol、 dead code) | ✅ (= 12 byte/0x1031、 隣接配置) | `ead638f` |
+| 3 | α: `pne_sample_directory` entry 1 = `step5b.PNE` + `0x01` byte 挿入 (= terminator 後ろ移動) | ✅ (= resolver terminator driven で自然対応) | `ead638f` |
+| 4 | α: `PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2` 宣言 (= α では unused reserve) | ✅ (= EQU value `0x0002`) | `ead638f` |
+| 5 | α: step5b MML fixture 新規 + ADR-0025 §決定 8 sub-sprint 表改定 + commit + push | ✅ (= revised split を ADR に literal 反映) | `ead638f` |
+| 6 | α: build PASS + step5.PNE register write trace byte-identical + 新 symbol 存在 + driver routine 完全不変 | ✅ (= 41 行 net 追加すべて data area、 routine 0 改修) | `ead638f` |
+| 7 | β: `pmdneo_select_sample_pointer` 拡張 (= id=0x01 accept + EQU 上限判定 + table B 引き) + commit + push | ✅ (= 4 label dispatch、 ABI 完全保存) | `a02a696` |
+| 8 | β: build PASS + step5.PNE byte-identical + step5b 0xFD32=0x01 + L differ + M-Q identical + keyon identical + audible | ✅ (= γ で literal proof 確立) | `a02a696` / `12b7b89` |
+| 9 | γ: `verify-step11-multi-table.sh` 新設 (= differential proof script、 literal value assert) + 全 12 script regression + commit + push | ✅ (= 7 gate + 既存 13 script、 計 14 script PASS) | `12b7b89` / 本 commit |
+| 10 | δ: user 試聴 + ADR-0025 Accepted 移行 + handoff doc + commit + push | ✅ | 本 commit |
+| 11 | δ: memory `project_pmdneo_step11_complete.md` 起票 + MEMORY.md index 更新 | ✅ | 本 commit |
+
+→ **11/11 達成** (= 全項目 PASS、 scope-out も維持)
+
+### sub-sprint commit chain (= step 11 全 5 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| ADR | `bc60663` | docs(adr): step 11 — ADR-0025 起票 Draft (= 12th session 冒頭壁打ち 5 axes 確定 + §決定 8 件 + sub-sprint 分割 + scope-out 18 項目明示 + 「本質再確認」 callout) |
+| α | `ead638f` | feat(driver): step 11 α — data placement only (= adpcma_ch_sample_ptr_table_b 追加 + pne_sample_directory entry 1 挿入 + PNE_SAMPLE_DIRECTORY_ENTRY_COUNT EQU 2 + step5b MML fixture + ADR §決定 8 revised split 改定) |
+| β | `a02a696` | feat(driver): step 11 β — pmdneo_select_sample_pointer に id=0x01 branch 追加 (= explicit if/jr dispatch + cp EQU 上限判定 + table B 引き、 ABI 完全不変、 ADR-0024 §決定 3 を {0x00, 0x01} accept に拡張) |
+| γ | `12b7b89` | test(driver): step 11 γ — verify-step11-multi-table.sh 新設 + differential proof literal assert (= 7 gate、 L ch BD/SD literal + M-Q identical + keyon count identical、 step5b MML CRLF 変換 fix、 bash 3.2 compat) |
+| δ | 本 commit | docs(adr): step 11 δ 完了統合 + ADR-0025 Accepted 移行 + 全 14 script regression PASS + user 試聴 wav 保存 + memory + MEMORY.md update |
+
+### regression suite 結果 (= 全 14 script PASS、 serial 実行)
+
+| step | script | 結果 |
+|---|---|---|
+| 5 | verify-l-part-alpha-trace-gate.sh | PASS |
+| 5 | verify-l-part-beta-sample-lookup.sh | PASS |
+| 5 | verify-l-part-delta-volume-pan.sh | PASS |
+| 5 | verify-l-q-tutti-gamma.sh | PASS |
+| 5 | verify-l-q-rhythm-song-integration.sh | PASS |
+| 6 | verify-silent-bcef-audio-isolation.sh | PASS (= silent-bcef.wav 保存) |
+| 7 | verify-step7-b1-roundtrip.sh | PASS |
+| 7 | verify-step7-b3-byte-identical.sh | PASS |
+| 7 | verify-step7-delta-mn-filename-embed.sh | PASS |
+| 7 | verify-step7-delta-fix-quote-strip.sh | PASS |
+| 8 | verify-step8-filename-observation.sh | PASS |
+| 9 | verify-step9-resolver.sh | PASS (= 新 entry 1 含む state で 5 gate 全 PASS、 ROM patch entry 0 経路は terminator hit で 0xFD32=0xFF) |
+| 10 | verify-step10-mismatch-silent.sh | PASS (= match keyon 41 / mismatch silent 2 / diff 39 + sample setup 156→0) |
+| 11 | verify-step11-multi-table.sh | PASS (= 7 gate、 L ch differ + M-Q identical + keyon count identical literal proof) |
+
+→ **全 14 script / 約 63 gate PASS**。 silent-bcef.wav + step5.wav + step5b.wav は user 試聴用に保存。
+
+### Accepted 移行根拠
+
+- 完了判定 11 項目すべて達成
+- §scope-out 全項目 維持確認済 (= selected pointer state cache / mismatch silent flag / D3 generated directory / `.PNE` runtime parser / multi-`.PNE` switching / bank switching / K/R rhythm compat / 3 table 以上の multi-table 化 / explicit id 自由割当 / terminator / count header / `adpcma_keyon_simple` 全体 refactor / 等 一切 touch せず)
+- driver source 改修は最小限:
+  - α: `adpcma_ch_sample_ptr_table_b` (= 12 byte data) + `pne_sample_directory` entry 1 (= 17 byte data) + EQU 1 行 = 計 net 41 行追加、 routine code 0 改修
+  - β: `pmdneo_select_sample_pointer` 拡張 (= explicit if/jr dispatch、 select_table_a / select_table_b 2 label 分離、 EQU 上限判定追加、 ABI 完全保存)
+  - γ: source 不変 (= verify-step11-multi-table.sh 新規追加のみ)
+  - δ: source 不変 (= regression + Accepted 移行のみ)
+- step 5/6/7/8/9/10 verify regression なし (= 13 script PASS) + 新 step 11 verify PASS (= 1 script)
+- audible regression なし (= silent-bcef fixture PASS + step5 BD audible + step5b SD audible wav 保存)
+- ADR-0021 / 0022 / 0023 / 0024 で確立した「動いているものを壊さない」 規律遵守
+- step5b SD audible は **regression ではなく ADR-0025 §決定 1/5 (= id=0x01 → table B selection) で確定した意図的仕様変更**
+
+→ ADR-0025 = **Accepted**
+
+### Accepted 後の重要境界 (= future contributor 向け明示)
+
+**Step 11 は selection differentiation proof であり、 multi-table architecture の完成版ではない**。 generated directory (= D3) / table-of-tables refactor / selected pointer runtime state cache / `.PNE` binary runtime parser は **未実装** (= scope-out 維持)。
+
+現時点で driver は:
+
+- `.MN` 内 filename string を runtime state として **観測可能** (= ADR-0022 step 8)
+- **identity (= sample_table_id) として resolve可能** (= ADR-0023 step 9、 terminator driven loop で N entry を自然対応)
+- **identity → playback selection** として消費可能 (= ADR-0024 step 10、 中間 routine 経由 pointer 返却)
+- **複数 table から 1 つを selection** 可能 (= 本 ADR step 11、 explicit if/jr で {id=0x00 → table A, id=0x01 → table B, 他 → sentinel} dispatch)
+
+Step 11 で達成したこと:
+- `sample_table_id` が単なる gate (= 0x00 accept / 他 silent) から selection key (= 0x00 → table A / 0x01 → table B / 他 → silent) に進化
+- L ch addr regs differ literal (= BD `0x00/0x00/0x03/0x00` vs SD `0x04/0x00/0x06/0x00`) で「id 切替で sample が実際に変わる」 を proof
+- M-Q ch addr regs identical で「id 切替で意図しない ch まで影響しない」 副作用なし証明
+- keyon count identical で「silent 経路ではない、 同じ回数鳴る + 別 sample」 literal 証明
+
+Step 11 で達成していないこと (= 後続 sprint scope):
+- selected pointer runtime state cache (= A2 / A3、 per-keyon resolve は依然 cost あり)
+- `adpcma_ch_sample_ptr_table_b` の M-Q ch を別 sample に差替 (= L ch のみ proof 最小)
+- 3 table 以上の multi-table (= table-of-tables refactor が必要、 explicit if/jr は 2 table 用 proof 構造)
+- generated directory (= D3 migration、 hand-written D1 が依然 source-of-truth)
+- explicit id 自由割当 (= entry_index = id byte 値の暫定 convention は維持、 entry 並びと id の独立化は未対応)
+- duplicate filename 処理 (= 先勝ち rule、 重複は実運用想定外)
+- `.PNE` binary runtime parser (= directory も sample data も build-time embed)
+- multi-`.PNE` switching (= 楽曲ごと別 `.PNE` 切替)
+- bank switching (= dynamic asset bank 管理)
+- dynamic reload (= 動的 `.PNE` 差替)
+- mismatch silent flag micro-sprint (= 別 runtime state で silent 化指示、 sentinel pointer 0x0000 ベース継続)
+- K/R rhythm compatibility 現役接続 (= ADR-0016 §決定 2 micro-sprint 候補、 Step 12 候補として温存)
+- `adpcma_keyon_simple` 全体 refactor / `adpcma_ch_sample_ptr_table` rename (= ADR-0019 / ADR-0024 §scope-out 維持)
+- 新規 sample 追加 / WAV import / WebApp Phase 4 領域
+
+**「identity resolution → playback selection → multi-table differentiation」 contract chain が成立した sprint** であり、 future contributor が:
+- 「Step 11 で multi-table architecture が完成した」 と誤解しないよう明示 (= 2 table proof まで、 完成版は generated directory + table-of-tables + cache を含む将来 sprint 群で段階的に達成)
+- 「id=0x01 以外も accept される」 と誤解しないよう明示 (= EQU=2 で 0x00/0x01 のみ accept、 id >= 2 は sentinel silent、 3 table 以上は EQU 増 + explicit if/jr 拡張 or table-of-tables refactor で対応)
+- 「selected pointer は state 化されている」 と誤解しないよう明示 (= per-keyon resolve は依然継続、 cache は ADR-0024 §決定 6 + memory `project_pmdneo_step11_a2_deferred` 整合で scope-out 維持)
+
+完了統合 handoff doc (= `docs/design/handoff/adr-0025-step11-completion.md`) も参照。
 
 ## 関連 memory
 
