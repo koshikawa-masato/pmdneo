@@ -1,0 +1,33 @@
+#Title		ADR-0030 step 16 beta K part t-only fixture (= K part rhythm command backslash-t TOM trigger proof)
+#Composer	M.Koshikawa.
+#Memo		ADR-0030 §決定 2 b+s+c+h+t proof、 PMDDotNET rs00 経由 0xEB 0x10 emit を狙う、 tr = \t + r(rest) fixture pattern (= sample 名 tom と PMD semantics 名 TOM 完全一致、 「tr」 は「TOM」 略ではない、 PMDDotNET 内部名 tamset の TOM semantics、 ADR-0029 「top」 vs「CYM」 wording 分離 pattern と違う = alias 新設不要)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14/step15 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+; K part — Step 16 beta proof、 PMDDotNET tamset() rhythm trigger (= TAM legacy naming、 PMDNEO 側 wording は TOM 統一 = ADR-0030 §決定 3 「用語対応表」 + §Annex A-1 literal)、 tr = \t + r(rest) fixture pattern (= NOT "TOM" abbreviation、 sample 名 tom と PMD semantics 名 TOM 完全一致)
+; expect: 0xEB 0x10 0x80 (= rhykey TOM bitmap + part end)
+; ADR-0030 §決定 3 / 軸 1: TOM sample source = existing adpcma_sample_tom symbol reuse (= 「tom」 = sample provenance 名 + PMD semantics 名 完全一致、 alias 新設不要、 ADR-0029 「top」 vs「CYM」 wording 分離 pattern と違う、 PMDDotNET 内部名 tamset は ground truth として記録 + PMDNEO 側 wording は TOM 統一)
+K	\t
+
+; L-Q silent (= 記載なし)
