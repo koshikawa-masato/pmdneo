@@ -3188,23 +3188,26 @@ rhythm_main_part_end:
 ;;;   input: A = rhythm bitmap byte
 ;;;          bit 0 = BD trigger (= Step 12 b-only proof、 ADR-0026 §決定 5)
 ;;;          bit 1 = SD trigger (= Step 13 b+s proof、 ADR-0027 §決定 2、 14th session β)
-;;;          bit 2-5 = future drum (= CYM \c / HH \h / TOM \t / RIM \i、 silent ignore)
+;;;          bit 3 = HH trigger (= Step 14 b+s+h proof、 ADR-0028 §決定 2、 15th session β)
+;;;          bit 2 = CYM \c (= silent ignore、 future drum 種拡張)
+;;;          bit 4 = TOM \t (= silent ignore、 future drum 種拡張)
+;;;          bit 5 = RIM \i (= silent ignore、 future drum 種拡張、 `\r` ではない = ADR-0027 §Annex A-1 / memory project-pmd-rim-drum-char-correction)
 ;;;          bit 6-7 = scope-out (= PMDDotNET note byte 識別 flag 等、 silent ignore)
-;;;   output: なし (= side effect = ADPCM-A L ch BD/SD trigger if bit 0/1 set)
+;;;   output: なし (= side effect = ADPCM-A L ch BD/SD/HH trigger if bit 0/1/3 set)
 ;;;   clobber: A, B, C, HL (= conservative、 caller 側で必要なら push/pop)
 ;;;
-;;; ADR-0026 §決定 8 / ADR-0027 §決定 9 整合: 本 routine の entry addr が PC trace で literal observable な marker、 drum 種拡張 (= Step 13 bit 1 SD 追加) でも entry addr 不変保持
-;;; ADR-0026 §決定 3 / ADR-0027 §決定 3 整合: 既存 adpcma_sample_bd + adpcma_sample_sd (= driver-embedded fixture) を直接 trigger、 multi-table selector (= pmdneo_select_sample_pointer) は経由しない
+;;; ADR-0026 §決定 8 / ADR-0027 §決定 9 / ADR-0028 §決定 9 整合: 本 routine の entry addr が PC trace で literal observable な marker、 drum 種拡張 (= Step 13 bit 1 SD 追加 + Step 14 bit 3 HH 追加) でも entry addr 不変保持
+;;; ADR-0026 §決定 3 / ADR-0027 §決定 3 / ADR-0028 §決定 3 整合: 既存 adpcma_sample_bd + adpcma_sample_sd + adpcma_sample_hh (= driver-embedded fixture、 ADR-0028 §決定 3 / 軸 6 = existing adpcma_sample_hh symbol reuse) を直接 trigger、 multi-table selector (= pmdneo_select_sample_pointer) は経由しない
 ;;; ADR-0026 §決定 4 整合: L ch (= ch 0) 暫定占有 scaffold
-;;; ADR-0026 §決定 6 / ADR-0027 §決定 8 整合: K / R 共通 dispatch + drum 種拡張で dispatch path を増やさない
-;;; ADR-0027 §決定 7 整合: BD fixture 完全不変保証 (= bit 0 only fixture では既存 register write sequence と byte-identical)
-;;; ADR-0027 §決定 11 整合: BD+SD 同時打ち (= bitmap = 0x03) は Step 13 fixture では生成しない、 driver 側は arrive 時に BD trigger + SD trigger 連続 register write で対応 (= harmful なし、 Step 14 候補 scope-in 時の二次改修不要)
+;;; ADR-0026 §決定 6 / ADR-0027 §決定 8 / ADR-0028 §決定 8 整合: K / R 共通 dispatch + drum 種拡張で dispatch path を増やさない (= 3 drum 段で routine entry addr 不変 literal 保証)
+;;; ADR-0027 §決定 7 / ADR-0028 §決定 7 整合: BD + SD fixture 完全不変保証 (= bit 0 only + bit 1 only fixture では既存 register write sequence と byte-identical、 Step 12/Step 13 既存 K-BD/R-BD/K-SD/R-SD verify regression 維持)
+;;; ADR-0027 §決定 11 / ADR-0028 §決定 11 整合: simultaneous trigger (= bitmap = 0x03 / 0x09 / 0x0A / 0x0B = BD+SD / BD+HH / SD+HH / BD+SD+HH) は Step 14 fixture では生成しない、 driver 側は arrive 時に対応 bit の trigger を連続 register write で対応 (= harmful なし、 Step 15+ 候補 scope-in 時の二次改修不要)
 ;;;
-;;; register sequence (= L ch ch 0 固定、 BD / SD で sample addr のみ違う):
-;;;   reg 0x10 = adpcma_sample_<bd|sd>[0] (= START_LSB)
-;;;   reg 0x18 = adpcma_sample_<bd|sd>[1] (= START_MSB)
-;;;   reg 0x20 = adpcma_sample_<bd|sd>[2] (= STOP_LSB)
-;;;   reg 0x28 = adpcma_sample_<bd|sd>[3] (= STOP_MSB)
+;;; register sequence (= L ch ch 0 固定、 BD / SD / HH で sample addr のみ違う):
+;;;   reg 0x10 = adpcma_sample_<bd|sd|hh>[0] (= START_LSB)
+;;;   reg 0x18 = adpcma_sample_<bd|sd|hh>[1] (= START_MSB)
+;;;   reg 0x20 = adpcma_sample_<bd|sd|hh>[2] (= STOP_LSB)
+;;;   reg 0x28 = adpcma_sample_<bd|sd|hh>[3] (= STOP_MSB)
 ;;;   reg 0x08 = vol/pan (= 0xC0 pan L|R | 0x1F vol = 0xDF、 固定値 proof 用)
 ;;;   reg 0x00 = keyon mask 0x01 (= L ch bit 0)
 ;;;
@@ -3212,17 +3215,25 @@ rhythm_main_part_end:
 ;;;   bitmap = 0x00          → silent (= chip touch なし)
 ;;;   bitmap = 0x01 (BD)     → _rhythm_event_bd_trigger 6 件 reg write (= L ch BD)
 ;;;   bitmap = 0x02 (SD)     → _rhythm_event_sd_trigger 6 件 reg write (= L ch SD)
-;;;   bitmap = 0x03 (BD+SD)  → BD 6 件 + SD 6 件 連続 reg write (= ADR-0027 §決定 11 scope-out 動作、 fixture では emit せず)
-;;;   bitmap & 0x3C (CYM/HH/TOM/RIM) → silent ignore (= future drum 種拡張で _rhythm_event_{cym|hh|tom|rim}_trigger 追加)
+;;;   bitmap = 0x03 (BD+SD)  → BD 6 件 + SD 6 件 連続 reg write (= ADR-0027 §決定 11 / ADR-0028 §決定 11 scope-out 動作、 fixture では emit せず)
+;;;   bitmap = 0x08 (HH)     → _rhythm_event_hh_trigger 6 件 reg write (= L ch HH、 ADR-0028 §決定 2/3 新規)
+;;;   bitmap = 0x09 (BD+HH)  → BD 6 件 + HH 6 件 連続 reg write (= ADR-0028 §決定 11 scope-out 動作、 fixture では emit せず)
+;;;   bitmap = 0x0A (SD+HH)  → SD 6 件 + HH 6 件 連続 reg write (= ADR-0028 §決定 11 scope-out 動作、 fixture では emit せず)
+;;;   bitmap = 0x0B (BD+SD+HH) → BD 6 件 + SD 6 件 + HH 6 件 連続 reg write (= ADR-0028 §決定 11 scope-out 動作、 fixture では emit せず)
+;;;   bitmap & 0x34 (CYM/TOM/RIM) → silent ignore (= future drum 種拡張で _rhythm_event_{cym|tom|rim}_trigger 追加)
 pmdneo_rhythm_event_trigger::
-        push    af                               ; A 保持 (= bit 0/1 両方 check 用)
+        push    af                               ; A 保持 (= bit 0/1/3 全 check 用)
         bit     0, a
         call    nz, _rhythm_event_bd_trigger     ; bit 0 立 → BD trigger
         pop     af
+        push    af                               ; A 保持 (= bit 3 check 用、 Step 14 で追加)
         bit     1, a
-        ret     z                                ; bit 1 不立 → ret (= silent ignore for bit 2-5)
-        ;; --- bit 1 立 = SD trigger (= Step 13 新規) ---
-        jr      _rhythm_event_sd_trigger
+        call    nz, _rhythm_event_sd_trigger     ; bit 1 立 → SD trigger (= Step 14 で jr→call nz、 続く bit 3 check 用に A 保持)
+        pop     af
+        bit     3, a
+        ret     z                                ; bit 3 不立 → ret (= silent ignore for bit 2/4/5)
+        ;; --- bit 3 立 = HH trigger (= Step 14 新規、 ADR-0028 §決定 2/3) ---
+        jr      _rhythm_event_hh_trigger
 
 _rhythm_event_bd_trigger:
         ;; ADR-0026 §決定 5 Step 12 既存 BD path (= 6 件 reg write 完全不変、 sample addr = adpcma_sample_bd)
@@ -3265,6 +3276,46 @@ _rhythm_event_bd_trigger:
 _rhythm_event_sd_trigger:
         ;; ADR-0027 §決定 2/3 Step 13 新規 SD path (= 6 件 reg write、 sample addr = adpcma_sample_sd)
         ld      hl, #adpcma_sample_sd            ; HL = SD sample 4-byte struct
+
+        ;; reg 0x10 = start LSB
+        ld      b, #0x10
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x18 = start MSB
+        ld      b, #0x18
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x20 = stop LSB
+        ld      b, #0x20
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x28 = stop MSB
+        ld      b, #0x28
+        ld      c, (hl)
+        call    ym2610_write_port_b
+
+        ;; reg 0x08 = volume/pan (= L ch、 0xC0 pan + 0x1F max vol = 0xDF 固定値 proof 用)
+        ld      b, #0x08
+        ld      c, #0xDF
+        call    ym2610_write_port_b
+
+        ;; reg 0x00 = keyon (= L ch mask 0x01)
+        ld      b, #0x00
+        ld      c, #0x01
+        call    ym2610_write_port_b
+        ret
+
+_rhythm_event_hh_trigger:
+        ;; ADR-0028 §決定 2/3 Step 14 新規 HH path (= 6 件 reg write、 sample addr = adpcma_sample_hh、 既存 symbol reuse)
+        ;; ADR-0028 §決定 3 / 軸 6 整合: existing adpcma_sample_hh symbol reuse as driver-embedded proof fixture
+        ;; (= melody architecture N ch sample symbol と現段階で symbol 共有、 final rhythm sample ownership は未確定)
+        ld      hl, #adpcma_sample_hh            ; HL = HH sample 4-byte struct (= 既存 L-Q architecture N ch sample symbol reuse)
 
         ;; reg 0x10 = start LSB
         ld      b, #0x10

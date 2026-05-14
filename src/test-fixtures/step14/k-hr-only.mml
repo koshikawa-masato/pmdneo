@@ -1,0 +1,32 @@
+#Title		ADR-0028 step 14 beta K part h-only fixture (= K part rhythm command backslash-h HH trigger proof)
+#Composer	M.Koshikawa.
+#Memo		ADR-0028 §決定 2 b+s+h proof、 PMDDotNET rs00 経由 0xEB 0x08 emit を狙う、 hr = \h + r(rest) fixture pattern
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+; K part — Step 14 beta proof、 PMDDotNET hihset() rhythm trigger、 hr = \h + r(rest) fixture pattern (= NOT "hi-hat" abbreviation)
+; expect: 0xEB 0x08 0x80 (= rhykey HH bitmap + part end)
+K	\h
+
+; L-Q silent (= 記載なし)
