@@ -1,0 +1,32 @@
+#Title		ADR-0026 step 12 beta K part b-only fixture (= K part rhythm command backslash-b BD trigger proof)
+#Composer	M.Koshikawa.
+#Memo		ADR-0026 §決定 5 b-only proof、 PMDDotNET rs00 経由 0xEB 0x01 emit を狙う
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+; K part — Step 12 beta proof、 PMDDotNET bdset() rhythm trigger
+; expect: 0xEB 0x01 0x80 (= rhykey BD bitmap + part end)
+K	\b
+
+; L-Q silent (= 記載なし)

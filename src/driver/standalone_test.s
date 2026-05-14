@@ -1419,8 +1419,15 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      b, #0
         ld      c, #0
         call    pmdneo5_init_part
+        ;; ADR-0026 step 12 β: K part (= PART_RHYTHM) addr load 経路
+        ;; PMDDOTNET_MML mode では pmddotnet_song の K part offset (= file byte 21-22 = m_buf[20..21]) から body addr を計算
+        ;; legacy compile.py mode では既存 load_song_part_addr 経路 (= song_table[song_id*20 + 10*2])
+.if PMDNEO_USE_PMDDOTNET == 1
+        call    pmdneo_mn_direct_load_k_part_addr   ; HL = K body addr (= pmddotnet_song + 1 + K_offset)
+.else
         ld      a, #10
         call    load_song_part_addr
+.endif
         ld      a, #PART_RHYTHM
         ld      b, #0
         ld      c, #0
@@ -3089,7 +3096,141 @@ select_unknown_id:
         ld      de, #0x0000
         ret
 
+;;; ----------------------------------------------------------------
+;;; ADR-0026 step 12 β: rhythm_main K part body parser + pmdneo_rhythm_event_trigger 共通 hook
+;;;
+;;; ADR-0026 §決定 1 整合: 「K part 0xEB path から hook に接続」
+;;; ADR-0026 §決定 5 (= drum 種 b only proof、 BD bit 0 のみ accept、 bit 1-5 silent ignore)
+;;; ADR-0026 §決定 6 (= K と R の dispatch = 共通 rhythm event hook、 R command は γ scope)
+;;; ADR-0026 §決定 7 (= normalize 担当 layer = driver `.MN` direct parser)
+;;; ADR-0026 §決定 8 (= rhythm event observability marker = 独立 routine label PC hit)
+;;;
+;;; PC trace marker: `pmdneo_rhythm_event_trigger` の entry addr が PC trace で literal observable
+;;;
+;;; β scope (= 本 commit):
+;;;   - rhythm_main を empty stub から K part body parser に拡張
+;;;   - 0xEB rhykey 検出 → bitmap fetch → pmdneo_rhythm_event_trigger 呼出
+;;;   - 0x00-0x7F note byte = silent fallback (= K part body 内 R# 番号、 Step 12 では未対応)
+;;;   - 0x80 / 0x81-0xB0 = part end (= PART_OFF_ADDR clear)
+;;;   - 他 0xB1-0xFF command = silent fallback (= 1 byte 消費して継続)
+;;;   - pmdneo_rhythm_event_trigger: A = bitmap、 bit 0 立 → ADPCM-A L ch BD trigger (= adpcma_sample_bd)
+;;;   - 既存 adpcma_keyon_simple 経路 (= pmdneo_select_sample_pointer 経由 multi-table) は使わない
+;;;     (= rhythm trigger は sample_table_id 状態と独立、 ADR-0026 §決定 3 driver-embedded fixture proof 整合)
+;;;
+;;; γ scope (= 次 commit):
+;;;   - commandsp に 0xEB 分岐追加 (= melody part 内 \b inline → 同 hook 呼出)
+;;;
+;;; future drum 種拡張 scope (= 残り 5 drum sub-sprint):
+;;;   - bit 1 (= SD), bit 2 (= CYM), bit 3 (= HH), bit 4 (= TOM), bit 5 (= RIM)
+;;;   - dispatch path は不変、 drum 種 → sample pointer mapping を 1 軸拡張
+
 rhythm_main:
+        ;; tick wait check (= PART_OFF_LEN > 0 ならば decrement して終了)
+        ld      a, PART_OFF_LEN(ix)
+        or      a
+        jr      z, rhythm_main_parse
+        dec     a
+        ld      PART_OFF_LEN(ix), a
+        ret
+
+rhythm_main_parse:
+        call    pmdneo_part_fetch_byte
+        cp      #0x80
+        jr      z, rhythm_main_part_end          ; 0x80 = part end / loop マーカー
+        jr      c, rhythm_main_note              ; 0x00-0x7F = note byte (= R# index、 silent fallback)
+        cp      #0xB1
+        jr      c, rhythm_main_part_end          ; 0x81-0xB0 = out_of_commands
+
+        ;; 0xB1-0xFF = control command
+        cp      #0xEB
+        jr      z, rhythm_main_rhykey
+
+        ;; 他 control command = silent fallback (= 1 byte 消費して継続、 driver 「未対応 cmd スルー」 思想)
+        ;; ADR-0026 Annex A-6 整合: 6 個の他 K/R handler (= rhyvs / rmsvs 等) は no-op stub 思想を継続
+        call    pmdneo_part_fetch_byte
+        jr      rhythm_main_parse
+
+rhythm_main_rhykey:
+        ;; 0xEB rhykey: bitmap byte fetch + 共通 hook 呼出
+        call    pmdneo_part_fetch_byte           ; A = bitmap byte
+        call    pmdneo_rhythm_event_trigger
+        jr      rhythm_main_parse
+
+rhythm_main_note:
+        ;; K part body 内 note byte (= PMD V4.8s 仕様 = R# index referencing radtbl)
+        ;; Step 12 b-only proof scope-out: R# pattern body 2 段構造は未対応
+        ;; silent fallback: length byte 消費 + PART_OFF_LEN 設定 (= 次 tick 待ち)
+        call    pmdneo_part_fetch_byte           ; length byte
+        call    pmdneo_scale_mml_length
+        ld      PART_OFF_LEN(ix), a
+        ret
+
+rhythm_main_part_end:
+        ;; 0x80 / 0x81-0xB0 hit = part end、 PART_OFF_ADDR clear で次 tick skip
+        xor     a
+        ld      PART_OFF_ADDR(ix), a
+        ld      PART_OFF_ADDR+1(ix), a
+        ret
+
+;;; pmdneo_rhythm_event_trigger:
+;;;   input: A = rhythm bitmap byte
+;;;          bit 0 = BD trigger (Step 12 b-only proof)
+;;;          bit 1-5 = future drum (silent ignore in Step 12)
+;;;          bit 6-7 = scope-out
+;;;   output: なし (= side effect = ADPCM-A L ch BD trigger if bit 0 set)
+;;;   clobber: A, B, C, HL (= conservative、 caller 側で必要なら push/pop)
+;;;
+;;; ADR-0026 §決定 8 整合: 本 routine の entry addr が PC trace で literal observable な marker
+;;; ADR-0026 §決定 3 整合: 既存 adpcma_sample_bd (= driver-embedded fixture) を直接 trigger
+;;;                       multi-table selector (= pmdneo_select_sample_pointer) は経由しない
+;;; ADR-0026 §決定 4 整合: L ch (= ch 0) 暫定占有 scaffold
+;;; ADR-0026 §決定 6 整合: K / R 共通 dispatch (= R command は γ で同 routine に接続)
+;;;
+;;; register sequence (= adpcma_keyon_simple line 2770-2830 と同 format、 ch 0 / L ch 固定):
+;;;   reg 0x10 = adpcma_sample_bd[0] (= BD_START_LSB)
+;;;   reg 0x18 = adpcma_sample_bd[1] (= BD_START_MSB)
+;;;   reg 0x20 = adpcma_sample_bd[2] (= BD_STOP_LSB)
+;;;   reg 0x28 = adpcma_sample_bd[3] (= BD_STOP_MSB)
+;;;   reg 0x08 = vol/pan (= 0xC0 pan L|R | 0x1F vol = 0xDF、 固定値 proof 用)
+;;;   reg 0x00 = keyon mask 0x01 (= L ch bit 0)
+pmdneo_rhythm_event_trigger::
+        bit     0, a
+        ret     z                                ; bit 0 不在 (or bitmap = 0) → silent ignore
+        ;; --- bit 0 立 = BD trigger ---
+        ld      hl, #adpcma_sample_bd            ; HL = BD sample 4-byte struct
+
+        ;; reg 0x10 = start LSB
+        ld      b, #0x10
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x18 = start MSB
+        ld      b, #0x18
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x20 = stop LSB
+        ld      b, #0x20
+        ld      c, (hl)
+        call    ym2610_write_port_b
+        inc     hl
+
+        ;; reg 0x28 = stop MSB
+        ld      b, #0x28
+        ld      c, (hl)
+        call    ym2610_write_port_b
+
+        ;; reg 0x08 = volume/pan (= L ch、 0xC0 pan + 0x1F max vol = 0xDF 固定値 proof 用)
+        ld      b, #0x08
+        ld      c, #0xDF
+        call    ym2610_write_port_b
+
+        ;; reg 0x00 = keyon (= L ch mask 0x01)
+        ld      b, #0x00
+        ld      c, #0x01
+        call    ym2610_write_port_b
         ret
 
 psg_fine_regs:
@@ -3294,6 +3435,38 @@ pmdneo_mn_direct_lq_not_mn:
         pop     af                      ; A = lq idx restore (0-5)
         add     a, #11                  ; A = song_table idx (11-16)
         jp      load_song_part_addr     ; tail call、 HL は load_song_part_addr 設定
+
+;;; ADR-0026 step 12 β: K part body addr load (= PMDDOTNET_MML 経路)
+;;;
+;;; 入力: なし
+;;; 出力: HL = K part body file 内 addr (= pmddotnet_song + 1 + K_offset)
+;;; 破壊: AF, DE, HL
+;;;
+;;; .M / .MN file layout (= analysis_m_data_structure.md §2-3 整合):
+;;;   pmddotnet_song[0]      = m_start
+;;;   pmddotnet_song[1..2]   = m_buf[0..1]   = part A offset (LE 16-bit)
+;;;   pmddotnet_song[3..4]   = m_buf[2..3]   = part B offset
+;;;   ...
+;;;   pmddotnet_song[21..22] = m_buf[20..21] = **part 10 (K = R body) offset** (LE 16-bit)
+;;;   pmddotnet_song[23..24] = m_buf[22..23] = rhythm address table offset
+;;;
+;;; pointer 解決規則 (= L-Q routine と同じ規約):
+;;;   K_offset 値は m_buf-relative
+;;;   K body file addr = pmddotnet_song + 1 + K_offset
+;;;
+;;; bit 2 m_start check は不要 (= K offset は標準 m_buf header の固定位置、 .M / .MN 共通)
+;;; L-Q routine は bit 2 check を持つが、 これは ADPCM-A 拡張領域 (= extended_data_adr) 経由
+;;; K 用 sample table id resolver は呼ばない (= ADR-0026 §決定 3 driver-embedded fixture proof、
+;;;                                            sample_table_id 状態と独立)
+pmdneo_mn_direct_load_k_part_addr::
+        ;; K part offset position: pmddotnet_song + 21 (= m_buf[20..21])
+        ld      hl, #pmddotnet_song + 21
+        ld      e, (hl)                 ; E = K offset LO
+        inc     hl
+        ld      d, (hl)                 ; D = K offset HI (LE)
+        ld      hl, #pmddotnet_song + 1
+        add     hl, de                  ; HL = K body file addr (= pmddotnet_song + 1 + K_offset)
+        ret
 .endif
 
 ;; Phase 12a-2: song data は compile.py 経由 song_data.inc で取込済 (= driver
