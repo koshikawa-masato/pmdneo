@@ -2993,35 +2993,45 @@ resolve_mismatch:
         ret
 
 ;;; ----------------------------------------------------------------
-;;; ADR-0024 step 10 α: pmdneo_select_sample_pointer
+;;; ADR-0024 step 10 α: pmdneo_select_sample_pointer (= 中間 routine 経由 pointer 返却)
+;;; ADR-0025 step 11 β: id=0x01 branch 追加 + EQU 上限判定追加 (= multi-table id=0x01 proof、 explicit if/jr dispatch)
 ;;;
 ;;; ADR-0024 §決定 1/4 整合: 中間 routine 経由 pointer 返却 (= A2 採用)
-;;; α scope: routine 単体実装 (= dead code 状態、 keyon 未接続)。
-;;;          β で adpcma_keyon_simple から call insertion。
+;;; α scope (= Step 10): routine 単体実装 + adpcma_keyon_simple から call insertion。
 ;;;
 ;;; ADR-0024 §決定 2 (= 1-A 採用): id=0x00 canonical table は既存
 ;;;          adpcma_ch_sample_ptr_table を再利用。
 ;;; ADR-0024 §決定 3 (= 2-C 採用): id=0x00 only-accept、 それ以外 (= 0xFF
 ;;;          + 全 unknown) は 0x0000 sentinel で silent。
+;;;
+;;; ADR-0025 step 11 β 拡張:
+;;;   ADR-0025 §決定 5 (= axis 4 採用): explicit if/jr で id=0x00/0x01 dispatch、
+;;;          id 上限判定は cp PNE_SAMPLE_DIRECTORY_ENTRY_COUNT で実施、 範囲外は既存
+;;;          sentinel path 流用 (= Step 10 silent 挙動完全保存)。
+;;;   ADR-0024 §決定 3 (= id=0x00 only-accept) は本 β で {id=0x00, id=0x01} accept に拡張。
+;;;          0xFF (= mismatch) と id >= PNE_SAMPLE_DIRECTORY_ENTRY_COUNT は依然 sentinel。
+;;;   ADR-0025 §決定 2 (= axis 1 / i 採用): id=0x01 で adpcma_ch_sample_ptr_table_b 引き、
+;;;          L ch のみ別 sample (= adpcma_sample_sd) / M-Q = table A 同 symbol。
+;;;
 ;;; ADR-0024 §決定 4 整合: ABI = 入力 A + 0xFD32 read、 出力 DE = pointer
-;;;          or 0x0000、 clobber A/HL、 preserve BC/IX/IY。
+;;;          or 0x0000、 clobber A/HL、 preserve BC/IX/IY。 β でも ABI 完全不変。
 ;;; ADR-0024 §決定 5 整合: voice >= 6 range check は呼出側責務、 routine
 ;;;          内で実施しない (= 二重 check を持たせない)。
 ;;; ADR-0024 §決定 7: ADR-0023 §決定 11「playback decision に使用しない」
-;;;          contract は step 10 で解除。 本 routine の β call insertion で
-;;;          0xFD32 が playback selection に effective になる。
+;;;          contract は step 10 β commit (= 9f454f5) で解除済。 本 routine の β 拡張で
+;;;          複数 table から選ぶ selection key として initial に effective になる。
 ;;;
 ;;; 入力:
 ;;;   A: voice index (= 0..5、 6 以上の range check は呼出側で実施済前提)
 ;;;   driver_pne_sample_table_id (= 0xFD32): 0x00-0xFE valid id、 0xFF mismatch
 ;;;
 ;;; 出力:
-;;;   DE: id=0x00 + voice valid 時 → adpcma_ch_sample_ptr_table[voice] が指す
-;;;       sample header pointer (= 既存 adpcma_keyon_simple L2748-2755 と同 entry)
-;;;       それ以外 (= id!=0x00) → 0x0000 sentinel (= caller で keyon skip)
+;;;   DE: id=0x00 + voice valid 時 → adpcma_ch_sample_ptr_table[voice]
+;;;       id=0x01 + voice valid 時 → adpcma_ch_sample_ptr_table_b[voice] (= β 新規)
+;;;       それ以外 (= id >= EQU 含む) → 0x0000 sentinel (= caller で keyon skip)
 ;;;
 ;;; clobber:
-;;;   A, HL (= 必要最小限)
+;;;   A, HL (= 必要最小限、 β でも不変)
 ;;;
 ;;; preserve:
 ;;;   BC, IX, IY (= caller adpcma_keyon_simple の ch index B 等を温存)
@@ -3029,30 +3039,53 @@ resolve_mismatch:
 ;;; 動作:
 ;;;   1. L = voice index (= 入力 A を退避、 後段の HL = voice*2 計算用)
 ;;;   2. A = driver_pne_sample_table_id (= 0xFD32 read)
-;;;   3. A != 0x00 → select_unknown_id branch (= DE = 0x0000 + ret)
-;;;   4. id == 0x00 path:
-;;;        H = 0、 HL = voice * 2 (= add hl,hl)
-;;;        HL = adpcma_ch_sample_ptr_table + voice * 2 (= entry addr)
-;;;        DE = (HL) (= sample header pointer、 LE order で e/d を順に load)
-;;;        ret
+;;;   3. A >= PNE_SAMPLE_DIRECTORY_ENTRY_COUNT → select_unknown_id (= 上限超え silent、 β 新規)
+;;;   4. id 値 dispatch (= explicit if/jr、 β 新規):
+;;;        A == 0x00 → select_table_a (= adpcma_ch_sample_ptr_table 引き)
+;;;        A == 0x01 → select_table_b (= adpcma_ch_sample_ptr_table_b 引き、 β 新規)
+;;;        その他 (= 通常 unreachable with EQU=2) → select_unknown_id
+;;;   5. select_table_a / select_table_b: H = 0、 HL = voice*2、 table base + HL = entry addr、 DE = (HL,HL+1)
 pmdneo_select_sample_pointer:
         ld      l, a                            ; L = voice index (= 後段 HL=voice*2 用に退避)
         ld      a, (driver_pne_sample_table_id) ; A = 0xFD32 (= sample_table_id)
+        ;; β: id 範囲 check (= axis 4-e EQU 上限判定、 範囲外は sentinel silent)
+        cp      #PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
+        jr      nc, select_unknown_id           ; id >= EQU → silent (= 上限超え)
+        ;; β: id 値 dispatch (= axis 4-a explicit if/jr、 EQU=2 では A は 0 or 1)
         or      a
-        jr      nz, select_unknown_id           ; id != 0x00 → silent sentinel
-        ;; id == 0x00 path: voice index で adpcma_ch_sample_ptr_table 引き
+        jr      z, select_table_a               ; id == 0x00 → table A
+        cp      #1
+        jr      z, select_table_b               ; id == 0x01 → table B
+        ;; future: cp #2 / jr z, select_table_c ... の形で N table 拡張可能
+        ;; ここに来るのは EQU >= 3 + 中間 id 未実装の不整合時のみ (= 通常 unreachable)
+        jr      select_unknown_id
+
+select_table_a:
+        ;; id == 0x00 path: voice index で adpcma_ch_sample_ptr_table 引き (= 既存 Step 10 path)
         ld      h, #0
         add     hl, hl                          ; HL = voice * 2
         ld      de, #adpcma_ch_sample_ptr_table
         add     hl, de                          ; HL = sample ptr table entry addr
         ld      e, (hl)
         inc     hl
-        ld      d, (hl)                         ; DE = sample header pointer
+        ld      d, (hl)                         ; DE = sample header pointer (= table A)
+        ret
+
+select_table_b:
+        ;; ADR-0025 step 11 β: id == 0x01 path (= multi-table proof)
+        ;; voice index で adpcma_ch_sample_ptr_table_b 引き
+        ld      h, #0
+        add     hl, hl                          ; HL = voice * 2
+        ld      de, #adpcma_ch_sample_ptr_table_b
+        add     hl, de                          ; HL = sample ptr table_b entry addr
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)                         ; DE = sample header pointer (= table B、 L ch SD)
         ret
 
 select_unknown_id:
-        ;; id != 0x00 (= mismatch + 全 unknown): 0x0000 sentinel 返却
-        ;; caller (= adpcma_keyon_simple、 β scope) は DE == 0x0000 で keyon skip
+        ;; id != accepted (= mismatch 0xFF + id >= EQU + 未実装 id): 0x0000 sentinel 返却
+        ;; caller (= adpcma_keyon_simple) は DE == 0x0000 で keyon skip (= silent)
         ld      de, #0x0000
         ret
 
