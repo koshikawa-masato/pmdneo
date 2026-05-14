@@ -110,7 +110,19 @@ printf "  [PASS] 0xFD32 = 0x%s (= match、 全 %d 件 idempotent)\n" "$FD32_LAST
 # patched ROM で MAME 起動。 driver_pne_filename_buf = 'step5.PNE' (= unchanged)
 # と directory entry 'Step5.PNE' が不一致 → terminator hit → 0xFD32 = 0xFF
 ROM_PATH="$PROJECT_ROOT/vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1"
-DIRECTORY_OFFSET=0x104E  # γ build 時の standalone_test.lst で確認した pne_sample_directory 先頭 addr
+LST_PATH="$PROJECT_ROOT/vendor/ngdevkit-examples/00-template/build/standalone_test.lst"
+# directory offset を .lst から dynamic 取得 (= ADR-0024 step 10 β で keyon path
+# が 5 byte 縮みアドレス shift する等、 driver 変更ごとに hardcoded value が
+# stale になる問題への耐性化、 fmt 例: `      001049                       2871 pne_sample_directory:`)
+if [[ ! -f "$LST_PATH" ]]; then
+    echo "  [FAIL] infra: .lst not found ($LST_PATH)"
+    exit 2
+fi
+DIRECTORY_OFFSET="0x$(awk '/pne_sample_directory:/ {print $1; exit}' "$LST_PATH")"
+if [[ -z "$DIRECTORY_OFFSET" || "$DIRECTORY_OFFSET" == "0x" ]]; then
+    echo "  [FAIL] infra: pne_sample_directory addr not found in .lst"
+    exit 2
+fi
 ROM_BACKUP="$TMPDIR/243-m1.m1.original"
 
 echo ""

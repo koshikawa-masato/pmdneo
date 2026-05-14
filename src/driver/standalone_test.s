@@ -2741,18 +2741,23 @@ adpcma_init:
 adpcma_keyon_simple:
         and     #0x07                   ; A = ch index (0-7 mask)
         ld      b, a                    ; B = ch index (= reg base 計算用、 preserve)
-        ;; β-2b: voice index で sample table 引き
+        ;; ADR-0016 step 5 β-2b 由来 + ADR-0024 step 10 β refactor:
+        ;; voice index range check (= 4-A 採用、 routine 内では二重 check しない)
         ld      a, PART_OFF_INSTRUMENT(ix)
         cp      #6                      ; voice >= 6 は範囲外
         ret     nc                      ; → keyon skip (= 誤 sample 鳴動より安全)
-        ld      l, a
-        ld      h, #0
-        add     hl, hl                  ; HL = voice * 2
-        ld      de, #adpcma_ch_sample_ptr_table
-        add     hl, de                  ; HL = sample ptr table entry (voice 引き)
-        ld      e, (hl)
-        inc     hl
-        ld      d, (hl)                 ; DE = sample addr pointer
+        ;; --- ADR-0024 step 10 β: 中間 routine 経由で sample header pointer 取得 ---
+        ;; A = voice index (= L2745-2747 で setup + range check 済)
+        ;; B = ch index (= preserve、 pmdneo_select_sample_pointer は BC preserve)
+        ;; 出力 DE = sample header pointer (= id == 0x00 + voice valid) or 0x0000 sentinel
+        ;;        既存 inc de path (= L2757 以降) はそのまま接続可 (= 3-B DE 返却整合)
+        ;; ADR-0024 §決定 3 (= 2-C): id != 0x00 → DE = 0x0000 → keyon skip (= mismatch silent)
+        ;; ADR-0024 §決定 7: ADR-0023 §決定 11 contract 解除、 本 call で initial effective
+        ;;        (= step 10 で sample_table_id が initial に playback selection に効く)
+        call    pmdneo_select_sample_pointer
+        ld      a, d
+        or      e
+        ret     z                       ; DE == 0x0000 → mismatch / unknown id keyon skip
 
         ld      a, #0x10
         add     a, b
