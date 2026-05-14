@@ -1,0 +1,37 @@
+#Title		ADR-0029 step 15 gamma R command c-only fixture (= L part \c only proof、 K-CYM と同 dispatch path 証明)
+#Composer	M.Koshikawa.
+#Memo		melody part (= L) 内 \c inline → 0xEB 0x04 → commandsp_rhykey → pmdneo_rhythm_event_trigger 共通 hook → CYM trigger、 cr = \c + r(rest) fixture pattern (= sample 名 top とは別、 「CYM」 略ではない)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+K ;empty (= K part は使わない、 R 経路のみ proof)
+
+; L part — Step 15 γ proof 対象、 melody part 内 \c inline (= R command CYM semantics)、 cr = \c + r(rest) fixture pattern (= NOT "CYM" abbreviation、 NOT related to sample symbol name "top")
+; PMDDotNET emit 期待: L part body bytecode = 0xEB 0x04 (+ 0x80 part end)
+; driver pmdneo_part_main → commandsp(0xEB) → commandsp_rhykey → pmdneo_rhythm_event_trigger → bit 2 → _rhythm_event_cym_trigger → ADPCM-A L ch CYM trigger (= adpcma_sample_top reuse)
+; ADR-0029 §決定 3 / 軸 1: CYM sample source = existing adpcma_sample_top symbol reuse (= 「top」 = sample provenance 名 / 「CYM」 = PMD semantics 名 wording 分離、 alias 新設なし)
+; K-CYM fixture (= k-cr-only.mml) と同 routine addr hit + 同 CYM register write の literal differential proof
+L	\c
+
+; M-Q (= ADPCM-A ch 1-5 native melody) silent (= 記載なし)
