@@ -687,3 +687,352 @@ doc commit、 driver source 不変、 gate 不要 (= 既存 14 script regression
    - D3 generated directory migration
    - runtime `.PNE` parser / multi-`.PNE` switching / bank switching
    - `.PPC` / `.P86` / ADPCM-B subsystem 起票 (= 別 subsystem、 PMDNEO architecture 拡張)
+
+## Annex A: α 調査結果 (= 2026-05-14 13th session α、 driver / `.MN` format / PMDDotNET / 既存 verify script 不変、 純調査)
+
+α sub-sprint で 4 軸 (= K/R bytecode + legacy K/R routine + K と R の bytecode 差 + normalize 入口) を調査した結果を literal 反映する。 driver source / `.MN` format / PMDDotNET / 既存 verify script は一切 touch せず、 純文書化 commit として完結する。
+
+### A-1. PMD V4.8s K/R 用語と user framing の差 (= 重要 finding、 β 着手前 user 判断軸)
+
+13th session 冒頭壁打ちでの user framing と PMD V4.8s manual / PMDDotNET source の用語に差異が確認された。 β 着手前に user 判断で β scope を再確認推奨。
+
+#### user framing (= ADR-0026 §背景 + §決定で literal 固定済)
+
+- **K part** = drum 専用 part (= 6 種 drum 識別文字 `b` / `s` / `c` / `h` / `t` / `r` で trigger を書く part)
+- **R command** = melody part 内 inline rhythm trigger (= 例: A part 内 `R B` で BD trigger)
+- K と R は source syntax は別、 runtime dispatch は同じ「rhythm trigger event」 に collapse される
+
+#### PMD V4.8s manual 用語 (= `docs/manual/PMDMML_MAN_V48s_utf8.txt`)
+
+- **K パート** = 「リズム選択」 part (= R# 番号列を書く、 例: `K  R0 L [R1]3 R2`)
+- **R パート** = 「リズム定義」 part (= 各 R# pattern body を書く、 例: `R0  l16 [@64c]4`)
+- 「リズム音源コマンド」 (= `\br` / `\sr` / `\hr` / `\cr` / `\tr` 等) = melody part / K/R part / どの part でも書ける inline drum trigger
+- `\br` = Bass Drum trigger、 `\sr` = Snare Drum trigger、 `\hr` = Hi-Hat trigger、 等 (manual §1-2-2 / §14 参照)
+
+#### PMDDotNET source 用語 (= `vendor/PMDDotNET/PMDDotNETCompiler/mc.cs`)
+
+- `mml_seg.rhythm = 18` = R パート (= リズム定義、 OPNA built-in rhythm)
+- `mml_seg.rhythm2 = 11` = K パート (= 「Towns の K パート」 comment、 PCM 相当)
+- `vd_rhythm` handler (= line 8324) = `R` letter 検出時の voldown 設定
+
+#### 差異整理
+
+| user 用語 | PMD V4.8s manual 用語 | PMDDotNET source 識別 |
+|---|---|---|
+| **K part** (= drum 専用) | **K パート** (= リズム選択) | `mml_seg.rhythm2 = 11` (= Towns 由来、 PCM 相当) |
+| (未定義) | **R パート** (= リズム定義、 R0/R1 pattern body) | `mml_seg.rhythm = 18` (= OPNA built-in rhythm) |
+| **R command** (= melody part 内 inline) | **リズム音源コマンド** (= `\br` / `\sr` 等、 全 part 共通) | 0xEB rhykey opcode emit (= mc.cs line 9748) |
+
+#### Step 12 b-only proof との整合
+
+ADR-0026 §決定 5/6 で固定した「K と R は共通 rhythm event hook に normalize」 は、 source layer の解像度を上げると以下のように対応する:
+
+- **K fixture** (= user framing): K part body に `\br` を直書き (= manual §1-2-2 「リズム音源コマンドはどのパートでも表記できる」 経路)
+  - PMDDotNET emit: K part bytecode = `0xEB 0x01 0x80` (= rhykey BD bitmap + part end)
+- **R fixture** (= user framing): melody part body 内 `\br` inline
+  - PMDDotNET emit: melody part bytecode = `0xEB 0x01` inline (+ note 続行 or 0x80 end)
+
+両 fixture は **同じ 0xEB rhykey opcode** に collapse される。 driver layer での normalize 入口は **0xEB rhykey 分岐** が自然な接続点となる。
+
+PMD V4.8s 用語の「R パート (= リズム定義)」 + 「R# pattern body 2 段構造」 (= radtbl 経由) は **Step 12 scope-out** として明確化する (= scope-out 26 項目に既に「full K/R pattern compatibility」 として包含)。
+
+#### β scope 確認推奨事項 (= user 判断軸)
+
+β 着手時に以下を user 判断で再確認:
+
+- (Q-α1) Step 12 「K fixture」 は K part letter + `\br` 直書き (= 上記対応) で OK か、 それとも user framing 通りの「drum 識別文字 `b`」 直書き (= 別 syntax、 PMD V4.8s manual には該当しない可能性) が必要か
+- (Q-α2) Step 12 「R fixture」 は melody part 内 `\br` inline (= 上記対応) で OK か
+- (Q-α3) 「user 用語 vs PMD V4.8s 用語」 を ADR-0026 §決定 5 (= drum 種 = b only) の「b」 として manual 「`\br`」 に解釈統一して進めて良いか
+
+α 調査時点での推奨解釈:
+- user 用語 「K part の drum 識別文字 `b` = BD」 は **manual 用語 「リズム音源コマンド `\br`」 に対応** と解釈する
+- これは driver layer で 0xEB rhykey opcode に collapse される dispatch path 1 本化と最も整合する
+- user 用語をそのまま literal 適用すると PMD V4.8s 標準 syntax を逸脱する可能性があり、 「PMD MML として書ける」 という Step 12 定義から外れる
+
+### A-2. PMDDotNET の K/R emit 状況 (= Task #7、 driver-embedded fixture 用 bytecode 確定)
+
+#### `mc.cs` line 9748 = rhykey emit core path
+
+```csharp
+// 直前 byte = 0xEB (= rhykey) かつ bitmap byte の bit 7 = 0 なら、 続く drum bitmap を OR で結合
+if (cch != 0xeb) goto rs02;
+cch = (byte)m_seg.m_buf.Get(work.di - 1).dat;
+if ((cch & 0x80) != 0) goto rs02;
+if (mml_seg.prsok != 0x80) goto rs02;  // 直前byte = リズム?
+work.al |= cch;                          // bitmap OR で結合
+m_seg.m_buf.Set(work.di - 1, new MmlDatum(work.al));
+goto rsexit;
+
+rs02:
+// 新規 rhykey opcode + bitmap byte を emit
+m_seg.m_buf.Set(work.di, new MmlDatum(0xeb));      // emit 0xEB (rhykey opcode)
+m_seg.m_buf.Set(work.di + 1, new MmlDatum(work.al)); // emit bitmap byte
+work.di += 2;
+```
+
+#### emit semantics
+
+- `\br` 単体 → `0xEB 0x01` (= rhykey + BD bitmap、 bit 0 = BD)
+- `\sr` 単体 → `0xEB 0x02` (= rhykey + SD bitmap、 bit 1 = SD)
+- `\br\sr` 連続 (= 同時打ち) → `0xEB 0x03` (= rhykey + BD|SD bitmap、 OR 結合で 1 opcode に圧縮)
+- `\br c4 \sr` 等で間が空く場合 → `0xEB 0x01` (note) `0xEB 0x02` (= 2 separate opcodes)
+
+#### bitmap byte の bit field (= PMD V4.8s OPNA rhythm source semantics)
+
+| bit | drum 種 | manual 識別文字 | OPNA rhythm reg | PMDNEO Step 12 対応 |
+|---|---|---|---|---|
+| 0 | BD (バスドラム) | `\br` | 0x18 / KEYON 0x01 | **b-only proof 対象** (= ADPCM-A L ch BD) |
+| 1 | SD (スネア) | `\sr` | 0x19 / KEYON 0x02 | future sub-sprint |
+| 2 | TOP / CYM (シンバル) | `\cr` | 0x1A / KEYON 0x04 | future sub-sprint |
+| 3 | HH (ハイハット) | `\hr` | 0x1B / KEYON 0x08 | future sub-sprint |
+| 4 | TOM (タム) | `\tr` | 0x1C / KEYON 0x10 | future sub-sprint |
+| 5 | RIM (リム) | `\rr` | 0x1D / KEYON 0x20 | future sub-sprint |
+| 6 | (command 分岐 flag、 R# pattern body 内専用) | (なし) | - | scope-out |
+| 7 | (note byte 識別 flag) | (なし) | - | scope-out |
+
+Step 12 b-only proof = **bit 0 のみ accept**、 他 bit は (i) ignore (= silent) または (ii) sentinel に倒すかは β 着手時に確定。
+
+#### PMDDotNET 改造範囲
+
+Step 12 では PMDDotNET は **完全不変** (= ADR-0026 §決定 7 / n2 採用)。 PMDDotNET は既存の通り `\br` を `0xEB 0x01` に emit する。 driver 側で 0xEB rhykey 分岐を新規実装することで normalize を成立させる。
+
+### A-3. driver legacy K/R routine 残存状況 (= Task #6 / #2、 二系統発見)
+
+#### PMDNEO.s (= legacy 系) — KR_STUB.inc + PMD_Z80.inc で完全配線済
+
+- `KR_STUB.inc` (= 53 行) で 7 個 no-op stub handler 実装:
+  - `rhykey` (= 0xEB、 1 byte arg) — rhythm trigger bitmap
+  - `rhyvs` (= 0xEA、 1 byte arg) — rhythm volume per ch
+  - `rhyvs_sft` (= 0xE5、 2 byte arg) — rhythm vol shift
+  - `rpnset` (= 0xE9、 1 byte arg) — rhythm pattern set
+  - `rmsvs` (= 0xE8、 1 byte arg) — rhythm master vol set
+  - `rmsvs_sft` (= 0xE6、 1 byte arg) — rhythm master vol shift
+  - `pdrswitch` (= 0xF1、 1 byte arg) — PDR switch (PPSDRV mode)
+- 各 handler は `pmdneo_part_fetch_byte` で arg byte を消費して `ret`、 chip 書込なし
+- 設計書 `docs/design/PMDNEO_DESIGN.md` §2-3-3 で「K/R 内蔵 rhythm は no-op stub 化」 が literal 規定
+- `PMD_Z80.inc` line 1574-1588 で `commandsr::` 定義 (= K part 用 dispatch entry)
+- `PMD_Z80.inc` line 1682-1745+ で `cmdtblr` 定義 (= K/R 用 79 entry jump table、 cmdtblp と大半 共通だが 0xF1 のみ `pdrswitch` (= K/R 側) vs `lfoswitch` (= PSG 側) で差別化)
+- `PMD_Z80.inc` line 1466-1518 で `rhythm_main::` 定義 (= K part body parser、 byte fetch + dispatch)
+- `PMD_Z80.inc` line 1483 `rhythm_main_parse` で:
+  - byte 0x80 → part end / loop
+  - byte 0x00-0x7F → `rhythm_main_note` (= note value 保存、 但し chip 書込なし)
+  - byte 0x81-0xB0 → `rhythm_main_clear` (= part 終了処理)
+  - byte 0xB1-0xFF → `commandsr` 呼出 → cmdtblr で stub dispatch
+- `PMD_Z80.inc` line 1117 `test_fm_song_part_k` (= 既存 test fixture、 7 個 stub handler を 1 件ずつ exercise する K part bytecode)
+
+#### standalone_test.s (= 本線、 nullsound-free PoC) — K/R 完全未実装
+
+- `standalone_test.s` line 3092 `rhythm_main:` 定義 = **1 行 `ret` の empty stub**
+- `standalone_test.s` line 2242-2320 `commandsp:` 定義 = explicit if/jr 形式 (= jump table 不使用)
+- `commandsp` で対応している opcode (= 約 20 件):
+  - 0xFC (comt) / 0xFD (comv) / 0xCC (comV)
+  - 0xFE (comq) / 0xC4 (comq2) / 0xB3 (comq3) / 0xB1 (comq4)
+  - 0xDE/0xDD/0xDB/0xDA (vshift / vscale)
+  - 0xF4/0xF3 (volup / voldown)
+  - 0xF9/0xF8/0xF7 (loop)
+  - 0xFA/0xD5 (comd/comdd)
+  - 0xF6 (comlopset) / 0xFB (comtie) / 0xFF (commandsp_at)
+- **0xEB rhykey は対応していない** (= unknown opcode は `pmdneo_part_fetch_byte; ret` で 1 byte 消費 silent fallback)
+- `commandsr` 相当 / `cmdtblr` 相当 / KR_STUB.inc 相当は **不在**
+- 結果: melody part 内 `\br` (= 0xEB 0x01 inline) は silent fallback で no-op、 K part body は empty stub で完全無視
+
+#### 二系統差の literal 確認 (= [[project_pmdneo_driver_two_paths_discovery]] 整合)
+
+| 軸 | PMDNEO.s (= legacy 系) | standalone_test.s (= 本線) |
+|---|---|---|
+| K part body parser | `rhythm_main_parse` 完全実装 | `rhythm_main:` 1 行 ret |
+| 0xEB rhykey 分岐 | `commandsr / cmdtblr` 経由 `rhykey` stub | unknown opcode fallback (= silent) |
+| melody part 0xEB inline | `commandsp / cmdtblp` 経由 `rhykey` stub | unknown opcode fallback (= silent) |
+| KR_STUB.inc include | YES (= PMDNEO.s line 38) | NO |
+| PMD_Z80.inc include | YES (= PMDNEO.s line 39) | NO |
+| 設計書 §2-3-3 「no-op stub 化」 適用範囲 | literal 適用済 | 未適用 (= 「未対応 cmd スルー」 思想は commandsp の fallback で部分達成) |
+
+#### Step 12 の implementation path
+
+Step 5-11 で確立した「standalone_test.s 内で進める」 (= [[project_adr_0016_step5_design_decision_4_file_boundary_staged]]) と整合し、 **β 実装は standalone_test.s 本線で完結する**。 PMDNEO.s (= legacy 系) の KR_STUB.inc + cmdtblr 配線は **既存 reference として参照可能だが本線で reuse はしない** (= 二系統 retain + refactor 規律、 [[project_adr_0016_step5_design_decision_1_retain_refactor]] 整合)。
+
+β で standalone_test.s に追加が必要な要素:
+
+1. `rhythm_main` 内で K part body parse 経路 (= byte fetch + 0xEB 分岐 + その他 silent fallback) を 新規実装
+2. `commandsp` に 0xEB rhykey 分岐を追加 (= melody part 内 inline 用)
+3. `pmdneo_rhythm_event_trigger` 独立 routine 新規実装 (= 0xEB bitmap arg を受けて bit 0 (= BD) のみ accept、 他 bit ignore)
+4. ADPCM-A L ch BD trigger (= 既存 adpcma_keyon_simple との関係は β 着手時に確定)
+5. driver-embedded BD sample fixture (= 既存 adpcma_sample_bd を再利用 or 専用 BD sample 新規 embed、 β 着手時に確定)
+
+「retained and reconnected under PMDNEO native mapping」 の literal 意味 = standalone_test.s 本線で新規 routine 配置 (= legacy stub の reuse ではなく、 新規 native implementation)。
+
+### A-4. K と R の bytecode 差 (= Task #6 一部 + Task #8 整理)
+
+#### K part body bytecode opcode 配列 (= PMD V4.8s 仕様)
+
+| opcode | 意味 | byte 数 |
+|---|---|---|
+| 0x00-0x7F | R 番号 (= rhythm pattern index、 radtbl 経由 R# pattern body へ jump) | 1 (= note 単独) or 2 (= note + length) |
+| 0x80 | part end / loop 戻り | 1 |
+| 0x81-0xB0 | out_of_commands (= 終了処理) | 1 |
+| 0xB1-0xFF | `commandsr` 経由 cmdtblr dispatch (= 制御コマンド) | 1 + handler 依存 |
+| 0xEB | rhykey (= rhythm trigger bitmap、 cmdtblr 経由) | 2 (= opcode + bitmap) |
+
+K part body 内で **「リズム音源コマンド `\br`」 を直書きすると 0xEB 0x01 を emit** する (= manual §1-2-2 「リズム音源コマンドはどのパートでも表記できる」 経路、 mc.cs line 9748)。
+
+#### A-J melody part body bytecode (= 0xEB inline)
+
+melody part body は通常の note opcode (= 0x00-0x7F) + commandsp dispatch (= cmdtblp 経由)。 `\br` inline 時の bytecode:
+
+- melody part bytecode (例): `note0 note1 ... 0xEB 0x01 note2 ...` (= rhykey が note 列に挟まる)
+- 解釈: commandsp が 0xEB を見ると cmdtblp 経由 `rhykey` handler 呼出 (= legacy 系) または unknown fallback (= 本線)
+
+#### K bytecode と R bytecode の literal 差
+
+- **K part body** = note byte (= R# 番号) + 制御 cmd の混在、 `\br` 直書きで 0xEB 0x01 emit
+- **R command (= user 用語) inline in melody** = melody part 内 0xEB 0x01 inline (= note 列に挟まる)
+
+両者は **opcode 0xEB レベルで同一** (= 直前 byte が 0xEB なら bitmap OR 結合する PMDDotNET emit 規約も同じ)。 driver layer での dispatch は (i) どの part type (= K / melody) であるかは PART_OFF state で区別、 (ii) 0xEB 分岐は両 part type で共通 hook (= `pmdneo_rhythm_event_trigger`) に collapse できる。
+
+ADR-0026 §決定 6 「K と R の dispatch = 共通 rhythm event hook に normalize」 が literal に成立する根拠 = **両者は同一 opcode、 同一 bitmap semantics**。
+
+### A-5. normalize 入口位置確定 (= Task #6、 ADR-0026 §決定 7 整合)
+
+#### β 実装の接続点候補
+
+ADR-0026 §決定 7 「normalize layer = driver `.MN` direct parser」 を standalone_test.s 本線で実装する場合の接続点:
+
+##### 候補 (i): rhythm_main 内 + commandsp 内 の 2 箇所に独立 0xEB 分岐 + 共通 hook 呼出 (= 推奨)
+
+```
+rhythm_main:
+    ; 既存 empty stub の代わりに K part body parser を実装
+    ;; byte fetch + 0xEB なら hook 呼出 + bitmap arg fetch
+    ;; その他 opcode は silent fallback (= byte 消費)
+
+commandsp:
+    ; 既存 explicit if/jr に 0xEB 分岐を追加
+    cp      #0xEB
+    jp      z, commandsp_rhykey
+    ; ...
+commandsp_rhykey:
+    call    pmdneo_part_fetch_byte  ; bitmap arg fetch
+    jp      pmdneo_rhythm_event_trigger  ; 共通 hook 呼出
+
+pmdneo_rhythm_event_trigger:
+    ;; input: A = bitmap byte
+    ;; 動作: bit 0 (= BD) のみ accept、 他 bit ignore、 ADPCM-A L ch BD trigger
+    ;; PC marker = この routine label の addr が PC trace で literal observable
+    ...
+```
+
+利点:
+- ADR-0026 §決定 8 (= 独立 routine label PC marker) と完全整合
+- K と R で同一 routine addr hit が PC trace で literal observable
+- standalone_test.s 本線で完結、 PMDNEO.s (= legacy 系) と独立
+
+##### 候補 (ii): 既存 KR_STUB.inc / PMD_Z80.inc の `rhykey` を本線 inline で再現
+
+(= 本線で commandsr / cmdtblr / KR_STUB.inc 相当を新規実装)
+
+欠点:
+- jump table の port が必要 (= cmdtblr 79 entry 全部) で scope 肥大
+- explicit if/jr 形式 (= standalone_test.s 本線の commandsp 流儀) と一貫しない
+- 候補 (i) より実装範囲が広い
+
+→ 候補 (i) を採用推奨。
+
+#### `pmdneo_rhythm_event_trigger` 想定 ABI
+
+```
+pmdneo_rhythm_event_trigger:
+    ;; input:
+    ;;   A = bitmap byte (= 0xEB の続く byte、 bit 0 = BD trigger)
+    ;;   IX = current part workarea (= K part or melody part の PART_OFF_* access 用)
+    ;; output: なし (= side effect = ADPCM-A L ch register write)
+    ;; clobber: A, BC, DE, HL (= conservative 想定、 β 着手時に確定)
+    ;; PC trace marker: 本 routine の entry addr が PC trace で literal observable
+```
+
+#### Step 12 b-only proof の implementation flow
+
+```
+[K fixture run]
+.MN K part body → rhythm_main → byte fetch → 0xEB 分岐 → bitmap arg fetch → pmdneo_rhythm_event_trigger(A=0x01) → ADPCM-A L ch BD trigger
+
+[R fixture run]
+.MN A part body → fmmain / commandsp → byte fetch → 0xEB 分岐 → bitmap arg fetch → pmdneo_rhythm_event_trigger(A=0x01) → ADPCM-A L ch BD trigger
+```
+
+両 path で **同じ `pmdneo_rhythm_event_trigger` addr が PC trace に hit する** = ADR-0026 §決定 6/8 layering 図の literal 証跡。
+
+#### channel allocation 衝突回避 (= ADR-0026 §決定 4 整合)
+
+L-Q melody fixture (= step5*.PNE) で L part が ADPCM-A L ch を melody 用に使用している。 K/R fixture で同 ch を rhythm 用に占有する場合、 fixture 設計で衝突回避:
+
+- K fixture: 他 part (= A-J / L-Q melody) は不在 or mute、 K part 単独で `\br` 演奏
+- R fixture: A part 内 `\br` inline、 他 part (= B-J / L-Q) は不在 or mute、 A part も 0xEB 0x01 以外は note 不在 (= silent)
+
+β/γ 着手時に fixture 内容を確定する。 既存 silent-bcef fixture pattern (= ADR-0020 step 6-a) と同様の build-time isolation 流儀を採用可能。
+
+### A-6. K / R 「未対応 cmd スルー」 思想と Step 12 の overlay (= Task #9 整合)
+
+#### 設計書 §2-3-3 (= `docs/design/PMDNEO_DESIGN.md` line 599-603)
+
+literal 引用:
+
+> **K/R 内蔵 rhythm は no-op stub 化**: workarea / アドレスは OPNA layout 通り確保し、 rhykey / rhyvs / rpnset / rmsvs / rmsvs_sft / rhyvs_sft / pdrswitch の 7 個 handler は引数 byte 数だけ正しく消費する空 handler として実装(.m に K/R cmd が残っていても si pointer がずれず、 chip 側で無音化)
+
+#### Step 12 での overlay
+
+Step 12 で **`rhykey` (= 0xEB) のみを部分的に no-op から「ADPCM-A L ch BD trigger」 に格上げ** する。 他 6 handler (= rhyvs / rhyvs_sft / rpnset / rmsvs / rmsvs_sft / pdrswitch) は no-op stub 思想を継続維持する。
+
+- ADR-0016 §決定 2 「K/R legacy retained but inactive」 を Step 12 で `rhykey` のみ「retained and reconnected under PMDNEO native mapping」 に格上げ
+- 6 個の他 handler は ADR-0016 §決定 2 のまま「retained but inactive」 (= silent)
+- standalone_test.s 本線で実装する形なので、 PMDNEO.s (= legacy 系) の no-op stub 配線は一切 touch しない
+
+#### future sprint での拡張軸
+
+drum 種拡張 (= future sub-sprint で `\sr` / `\hr` / `\cr` / `\tr` / `\rr` 追加) も同 `pmdneo_rhythm_event_trigger` 内で bitmap bit を増やすだけで対応可 (= dispatch path は不変、 drum 種 → sample pointer mapping table を 1 軸拡張)。
+
+`rhyvs` / `rmsvs` 等の volume 制御 cmd は drum 別 volume 軸で別 sub-sprint 候補 (= Step 13 以降)。
+
+### A-7. β 着手前の重要 implications 整理
+
+α 調査結果を受けて、 β 着手前に user 判断で再確認すべき軸:
+
+| # | 軸 | α 推奨判断 | β 着手時 user 判断要 |
+|---|---|---|---|
+| Q-α1 | K fixture syntax = `\br` 直書き (= manual §1-2-2 経路) | YES (= user 用語 「drum 識別文字 `b`」 を manual 「`\br`」 に解釈統一) | 用語統一の literal 確認 |
+| Q-α2 | R fixture syntax = melody part 内 `\br` inline | YES (= user framing 整合) | 確認のみ |
+| Q-α3 | β implementation path = standalone_test.s 本線で新規 routine 配置 | YES (= [[project_pmdneo_driver_two_paths_discovery]] 整合) | 確認のみ |
+| Q-α4 | normalize 接続点 = rhythm_main + commandsp の 2 箇所 + 共通 hook | YES (= 候補 (i) 採用、 [[project_adr_0016_step5_design_decision_4_file_boundary_staged]] 整合) | 確認のみ |
+| Q-α5 | `pmdneo_rhythm_event_trigger` ABI | A = bitmap、 IX = part workarea、 PC marker = routine label | β 着手時に literal 確定 |
+| Q-α6 | b-only bitmap semantics = bit 0 (= BD) accept、 他 bit ignore | YES (= proof minimum) | 他 bit を sentinel 落とすか silent ignore かを literal 確定 |
+| Q-α7 | driver-embedded BD sample = 既存 `adpcma_sample_bd` 再利用 or 新規 embed | 推奨 = 既存 sample 再利用 (= scope 最小、 既存 BD 音色を rhythm trigger でも使う) | β 着手時に sample 物理選定 |
+| Q-α8 | channel 衝突回避 = fixture 側で L 占有 + 他 part mute | YES (= ADR-0020 step 6-a silent-bcef pattern 流儀) | fixture 内容確定 (= β/γ 着手時) |
+| Q-α9 | K fixture / R fixture の `.MML` ファイル新規場所 = `src/test-fixtures/step12/` | YES (= Step 5-11 命名 pattern 整合) | 確認のみ |
+
+### A-8. α 調査 deliverable まとめ
+
+α sub-sprint で確定した literal:
+
+1. ✅ **PMDDotNET K/R emit**: 0xEB rhykey + bitmap byte で emit (= mc.cs line 9748)、 連続 trigger は bitmap OR 結合
+2. ✅ **legacy K/R routine**: PMDNEO.s 系 (= KR_STUB.inc + PMD_Z80.inc) で完全配線、 standalone_test.s 本線では完全未実装 (= rhythm_main 1 行 ret、 commandsp で 0xEB 未対応)
+3. ✅ **K と R の bytecode 差**: opcode 0xEB は両者共通、 dispatch path 1 本化が literal に成立
+4. ✅ **normalize 入口**: standalone_test.s rhythm_main + commandsp の 2 箇所に 0xEB 分岐追加 + 共通 hook `pmdneo_rhythm_event_trigger` 呼出
+5. ✅ **β 着手判断軸 9 件 (= Q-α1〜Q-α9)** literal 整理
+6. ✅ **driver source / `.MN` format / PMDDotNET / 既存 verify script 完全不変** (= α 純調査規律遵守)
+7. ✅ **既存 14 script regression PASS** (= driver 不変なので当然 PASS、 literal serial 実行で確認)
+
+α 完了後、 β 着手は user 判断 (= 特に Q-α1 / Q-α6 の literal 確認後) で進める。
+
+### A-9. β 着手判断: 「PMDDotNET が K/R を emit していない」 「legacy routine がほぼ使えない」 のいずれにも該当しない (= β 進行可)
+
+user α 着手指示で確認された 2 つの fail-safe 条件:
+
+- (条件 1) 「PMDDotNET が K/R を emit していない」 と判明した場合は β に進まず user 判断を挟む
+- (条件 2) 「legacy routine がほぼ使えない」 と判明しても failure ではなく finding
+
+α 調査結果:
+
+- **条件 1**: ❌ 該当せず。 PMDDotNET は `\br` 等 「リズム音源コマンド」 を **0xEB rhykey + bitmap byte で emit している** (= mc.cs line 9748 で literal 確認)
+- **条件 2**: 部分的に finding (= standalone_test.s 本線では「ほぼ使えない」、 PMDNEO.s 系では「使えるが本線で reuse しない方針」)。 但しこれは failure ではなく、 [[project_pmdneo_driver_two_paths_discovery]] / [[project_adr_0016_step5_design_decision_4_file_boundary_staged]] で既に確立済の方針との整合 finding として扱う
+
+→ β は **進行可**。 但し user 判断軸 Q-α1〜Q-α9 を β 着手時に user 確認することで、 β scope の literal 確定を進める。
+
