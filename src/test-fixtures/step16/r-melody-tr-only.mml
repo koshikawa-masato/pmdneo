@@ -1,0 +1,37 @@
+#Title		ADR-0030 step 16 gamma R command t-only fixture (= L part \t only proof、 K-TOM と同 dispatch path 証明)
+#Composer	M.Koshikawa.
+#Memo		melody part (= L) 内 \t inline → 0xEB 0x10 → commandsp_rhykey → pmdneo_rhythm_event_trigger 共通 hook → TOM trigger、 tr = \t + r(rest) fixture pattern (= sample 名 tom と PMD semantics 名 TOM 完全一致、 「TOM」 略ではない、 PMDDotNET 内部名 tamset の TOM semantics)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14/step15 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+K ;empty (= K part は使わない、 R 経路のみ proof)
+
+; L part — Step 16 γ proof 対象、 melody part 内 \t inline (= R command TOM semantics、 PMDDotNET 内部名 tamset の TOM semantics、 PMDNEO 側 wording は TOM 統一)、 tr = \t + r(rest) fixture pattern (= NOT "TOM" abbreviation、 sample 名 tom と PMD semantics 名 TOM 完全一致)
+; PMDDotNET emit 期待: L part body bytecode = 0xEB 0x10 (+ 0x80 part end)
+; driver pmdneo_part_main → commandsp(0xEB) → commandsp_rhykey → pmdneo_rhythm_event_trigger → bit 4 → _rhythm_event_tom_trigger → ADPCM-A L ch TOM trigger (= adpcma_sample_tom reuse)
+; ADR-0030 §決定 3 / 軸 1: TOM sample source = existing adpcma_sample_tom symbol reuse (= 「tom」 = sample provenance 名 + PMD semantics 名 完全一致、 alias 新設不要、 ADR-0029 「top」 vs「CYM」 wording 分離 pattern と違う、 PMDDotNET 内部名 tamset は ground truth として記録 + PMDNEO 側 wording は TOM 統一)
+; K-TOM fixture (= k-tr-only.mml) と同 routine addr hit + 同 TOM register write の literal differential proof
+L	\t
+
+; M-Q (= ADPCM-A ch 1-5 native melody) silent (= 記載なし)
