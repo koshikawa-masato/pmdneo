@@ -2289,8 +2289,20 @@ commandsp:
         jp      z, comtie
         cp      #0xFF
         jp      z, commandsp_at
+        ;; ADR-0026 step 12 γ: melody part 内 0xEB rhykey (= R command = inline rhythm trigger)
+        ;; PMDDotNET emit (= mc.cs L9748): \b → 0xEB 0x01 (= rhykey opcode + BD bitmap)
+        ;; β で K part 経由 pmdneo_rhythm_event_trigger に dispatch、 γ で melody part 経由も同 hook へ統合
+        ;; ADR-0026 §決定 6 (= K と R 共通 dispatch path)、 §決定 8 (= 同 routine addr PC marker)
+        cp      #0xEB
+        jp      z, commandsp_rhykey
         call    pmdneo_part_fetch_byte
         ret
+commandsp_rhykey:
+        ;; ADR-0026 step 12 γ: 0xEB rhykey bitmap fetch + 共通 hook tail call
+        ;; bitmap byte は K part rhythm_main_rhykey と同 format (= bit 0 = BD、 bit 1-5 silent ignore)
+        ;; tail call (= jp) で stack frame 不要、 ret は pmdneo_rhythm_event_trigger 経由で caller (= pmdneo_part_main_parse) に戻る
+        call    pmdneo_part_fetch_byte           ; A = bitmap byte
+        jp      pmdneo_rhythm_event_trigger
 commandsp_t:
         jp      comt
 commandsp_v:
