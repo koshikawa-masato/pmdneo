@@ -1,6 +1,6 @@
 # ADR-0029: Step 15 — K/R drum kind expansion proof (c = CYM single-kind / dispatch path 1 本化不変 / 既存 adpcma_sample_top symbol reuse / BD+SD+HH fixture 不変 + CYM fixture 2 件新規 / 3 軸 verify)
 
-- 状態: **Draft** (= 2026-05-14 16th session 冒頭起票、 α-1 doc only commit、 β/γ/δ で実装 + 統合予定、 注: ADR-0028 同型 sub-sprint 5 段表 (= ADR/α/β/γ/δ) のうち α 段は user 着手判断で ADR Draft commit に統合 = ADR-0027 §Annex A-1 / §Annex A-2 で `\c → cymset → 0xEB 0x04` literal 確認済を ground truth として独立 α commit なしで β 進行)
+- 状態: **Accepted** (= 2026-05-14 16th session δ 完了統合で移行、 元 Draft 起票 2026-05-14 16th session 冒頭、 ADR/β/γ/δ 4 commit chain 全 PASS + user audio gate OK + 全 26 script regression PASS で Accepted 移行、 注: ADR-0028 同型 sub-sprint 5 段表 (= ADR/α/β/γ/δ) のうち α 段は user 着手判断で ADR Draft commit に統合 = ADR-0028 §Annex A-1 / §Annex A-2 で `\c → cymset → 0xEB 0x04` literal 確認済を ground truth として独立 α commit なしで β 進行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0028 (= step 14 K/R drum kind expansion proof — h = HH、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + §決定 2 「b+s+h proof」 + §scope-out 「c/t/i 残り 3 種」 を本 ADR で 1 軸消化、 §Annex A-1 で `'c' → cymset` literal 確認済 + §Annex A-2 で `cymset` = `work.al = 4; return rs00();` literal 確認済 + §Annex A-5 で `adpcma_sample_top` standalone_test.s L2895-2904 内 embed 済 literal 確認済)、 ADR-0027 (= step 13 K/R drum kind expansion proof — s = SD、 §決定 8 「dispatch path は drum 種拡張で増やさない」)、 ADR-0026 (= step 12 K/R rhythm compatibility proof、 §決定 6 「dispatch path 1 本化」)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 §決定 1 A2 cache scope-out 維持)、 ADR-0024 (= step 10 sample_table_id selection consumption、 explicit if/jr 流儀踏襲)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 §決定 4 sample 増加は別 sprint 接続点予約)、 ADR-0016 (= step 5 §決定 2 K/R legacy retained but inactive → step 12 で reconnected → step 13 で b+s → step 14 で b+s+h → 本 ADR で b+s+c+h drum kind 1 軸拡張)
@@ -347,9 +347,9 @@ routine 内部の implementation は拡張される:
 - bit 6-7: reserved (= no register write)
 - bitmap = 0x00: no-op
 
-#### branch 実装流儀 (= explicit if/jr、 ADR-0024 / 0025 / 0026 / 0027 / 0028 §決定 4 流儀踏襲)
+#### branch 実装流儀 (= explicit if/jr/jp、 ADR-0024 / 0025 / 0026 / 0027 / 0028 §決定 4 流儀踏襲 + Step 15 β で jr → jp 1 行精密化)
 
-bit 0 / bit 1 / bit 2 / bit 3 の分岐は **explicit if/jr** で記述 (= jump table / dispatch macro は使わない)。 ADR-0024 step 10 / ADR-0025 step 11 / ADR-0026 step 12 / ADR-0027 step 13 / ADR-0028 step 14 全てで踏襲してきた流儀:
+bit 0 / bit 1 / bit 2 / bit 3 の分岐は **explicit if/jr/jp** で記述 (= jump table / dispatch macro は使わない、 distance に応じて jr または jp を選択する Z80 標準対応)。 ADR-0024 step 10 / ADR-0025 step 11 / ADR-0026 step 12 / ADR-0027 step 13 / ADR-0028 step 14 全てで踏襲してきた流儀の精密化 (= ADR-0028 までは「explicit if/jr」 wording、 ADR-0029 で `_rhythm_event_cym_trigger` sub-routine 挿入により dispatch path 末尾 `jr _rhythm_event_hh_trigger` が jr 範囲 ±128 byte を超過したため `jp _rhythm_event_hh_trigger` に 1 行精密化、 explicit branch の精神 (= dispatch macro/jump table を使わない) は完全維持):
 
 ```asm
 pmdneo_rhythm_event_trigger::
@@ -369,7 +369,7 @@ pmdneo_rhythm_event_trigger::
     pop     af
     bit     3, a
     ret     z
-    jr      _rhythm_event_hh_trigger        ; bit 3 HH tail jr 維持
+    jp      _rhythm_event_hh_trigger        ; bit 3 HH tail jump (= ADR-0028 まで jr / ADR-0029 で jp に精密化、 cym sub-routine 挿入で jr 範囲超過対応、 explicit branch 精神維持)
 
 _rhythm_event_bd_trigger:
     ; adpcma_sample_bd を ADPCM-A L ch に register write (= Step 12 既存、 完全不変)
@@ -400,9 +400,9 @@ _rhythm_event_hh_trigger:
 - `pmdneo_rhythm_event_trigger` routine entry addr = **不変** (= 0x1126) ← **invariant の primary 軸**
 - routine ABI = **不変**
 - routine 内部の bit 2 分岐は **bit 1 と bit 3 の間に挿入** (= PMD bitmap bit 順序維持、 future bit 4/5 追加時も同 順序維持で挿入可能)
-- branch 流儀 = **explicit if/jr** (= ADR-0024 / 0025 / 0026 / 0027 / 0028 流儀踏襲)
+- branch 流儀 = **explicit if/jr/jp** (= ADR-0024 / 0025 / 0026 / 0027 / 0028 流儀踏襲 + Step 15 β で jr → jp 1 行精密化、 distance 適応で jr/jp 選択、 dispatch macro/jump table は使わない explicit branch 精神維持)
 - dispatch path は drum 種拡張で **増やさない** (= ADR-0026 §決定 6 / ADR-0027 §決定 8 / ADR-0028 §決定 8 維持、 本 ADR §決定 8 で 4 drum 段で再確認)
-- **internal sub-routine entry addr は不変保証対象ではない** (= dispatcher 改修で再 shift 可、 Step 14 で `_rhythm_event_sd_trigger` 0x115F → 0x1166 literal shift observed、 Step 15 で再 shift 想定)。 invariant の本質は **shared dispatch entry 不変 + register write sequence 不変** の 2 軸。
+- **internal sub-routine entry addr は不変保証対象ではない** (= dispatcher 改修で再 shift 可、 Step 14 で `_rhythm_event_sd_trigger` 0x115F → 0x1166 literal shift observed、 Step 15 で再 shift observed = β verify で `_rhythm_event_cym_trigger @ 0x119B` 新規、 SD/HH trigger entry addr も再 shift)。 invariant の本質は **shared dispatch entry 不変 + register write sequence 不変** の 2 軸。
 
 ### 決定 5: fixture 体制 = BD/SD/HH fixture 完全不変 + CYM fixture 2 件新規 (= 8 fixture 体制 K-BD / R-BD / K-SD / R-SD / K-HH / R-HH / K-CYM / R-CYM)
 
@@ -722,10 +722,10 @@ simultaneous trigger semantics 対応 (= 軸 4 / scope-out 採用):
 
 ### audio gate
 
-- δ 前 (= γ 完了時) に user 試聴依頼 (= 8 wav file = `k-br-only.wav` + `r-melody-br-only.wav` + `k-sr-only.wav` + `r-melody-sr-only.wav` + `k-hr-only.wav` + `r-melody-hr-only.wav` + `k-cr-only.wav` + `r-melody-cr-only.wav` で確認)
-- user judgement: 「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 = K/R で同音、 BD vs SD vs HH vs CYM で違う音色 (= 4 drum 種で聴感的に区別可能)、 FM 同居許容 (= Step 12 / Step 13 / Step 14 audio gate 規律踏襲)
-- BD 単独 / SD 単独 / HH 単独 / CYM 単独 各 fixture で音が鳴る + BD/SD/HH/CYM 4 種で聴感的に区別可能 を user judgement で確認
-- Step 15 audio gate = **OK** 判定 (= 16th session δ user 直接判定予定)
+- ✅ user 試聴 OK 確認 (= 16th session δ で user 試聴依頼、 8 wav file = `/tmp/pmdneo-step12/k-br-only.wav` + `/tmp/pmdneo-step12/r-melody-br-only.wav` + `/tmp/pmdneo-step13/k-sr-only.wav` + `/tmp/pmdneo-step13/r-melody-sr-only.wav` + `/tmp/pmdneo-step14/k-hr-only.wav` + `/tmp/pmdneo-step14/r-melody-hr-only.wav` + `/tmp/pmdneo-step15/k-cr-only.wav` + `/tmp/pmdneo-step15/r-melody-cr-only.wav` で確認、 試聴 helper script = `scripts/listen-step15.sh` (= 8 wav + sleep 3 interval + 無限繰り返し + Ctrl+C 停止)、 全 wav は γ commit `4c4c55c` driver state で生成)
+- ✅ user judgement: 「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 = K/R で同音、 BD vs SD vs HH vs CYM で違う音色 (= 4 drum 種で聴感的に区別可能)、 FM 同居許容 (= Step 12 / Step 13 / Step 14 audio gate 規律踏襲)
+- ✅ BD 単独 / SD 単独 / HH 単独 / CYM 単独 各 fixture で音が鳴る + BD/SD/HH/CYM 4 種で聴感的に区別可能 を user judgement で確認
+- ✅ Step 15 audio gate = **OK** 判定 (= 16th session δ user 直接判定)
 
 #### audio gate と trace gate の二段 verify
 
@@ -736,18 +736,18 @@ simultaneous trigger semantics 対応 (= 軸 4 / scope-out 採用):
 
 ## 完了判定
 
-Step 15 完了判定 (= 10 項目、 δ で全 10/10 ✅ 達成予定):
+Step 15 完了判定 (= 10 項目、 16th session δ で **全 10/10 ✅ 達成**):
 
-1. ADR-0029 Accepted 移行 (= δ commit で literal 達成予定)
-2. `pmdneo_rhythm_event_trigger` routine に bit 2 CYM 分岐追加 (= β commit、 既存 bit 0 / bit 1 分岐と bit 3 分岐の間に挿入、 entry addr @ 0x001126 完全不変)
-3. CYM sample pointer mapping (= bit 2 → `adpcma_sample_top` 既存 symbol reuse) 実装 (= β commit、 `_rhythm_event_cym_trigger:` label で literal addr 参照、 既存 L-Q architecture Q ch sample symbol を rhythm proof 用に reuse、 ADR-0029 §決定 3 / 軸 1 整合、 alias 新設なし)
-4. `k-cr-only.mml` fixture 新規追加 (= K-CYM path、 β commit、 UTF-8 + CRLF、 `cr = \c + r(rest) fixture pattern` 注記)
-5. `r-melody-cr-only.mml` fixture 新規追加 (= R-CYM path、 γ commit、 UTF-8 + CRLF、 `cr = \c + r(rest)` 注記)
-6. `verify-step15-cym-trigger.sh` 新規追加 + PASS (= β commit、 5 gate PASS、 pmdneo_rhythm_event_trigger @ 0x001126 + `_rhythm_event_cym_trigger` literal 確認、 CYM register write literal value PASS)
-7. `verify-step15-kr-cym-differential.sh` 新規追加 + PASS (= γ commit、 K-CYM vs R-CYM CYM register write byte-identical (= 6 件) + K-CYM=R-CYM hook addr identical + K-CYM=R-CYM cym_trigger addr identical)
-8. `verify-step15-bd-cym-differential.sh` 新規追加 + PASS (= γ commit、 BD start/stop LSB ≠ CYM start/stop LSB literal differ、 SD vs CYM / HH vs CYM は推移的に区別可能)
-9. 既存 全 script regression PASS 維持 (= δ で 26 script serial 実行、 全 26 PASS = step 4/5/6/7/8/9/10/11/12/13/14 系 23 script + step 15 新規 3 件 = 23+3 = 26 script、 BD/SD/HH path 不変保証 + driver 改修副作用なし)
-10. user 試聴 OK 確認 (= δ user 試聴依頼で「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 K/R 同音確認、 BD/SD/HH/CYM 区別可能、 FM 同居許容方針 ADR-0026 / ADR-0027 / ADR-0028 audio gate 規律踏襲、 Step 15 audio gate = OK 直接判定)
+1. ✅ ADR-0029 Accepted 移行 (= 本 δ commit で literal 達成)
+2. ✅ `pmdneo_rhythm_event_trigger` routine に bit 2 CYM 分岐追加 (= β commit `b83778f`、 既存 bit 0 / bit 1 分岐と bit 3 分岐の間に挿入、 entry addr @ 0x001126 完全不変、 PMD bitmap bit 順序維持)
+3. ✅ CYM sample pointer mapping (= bit 2 → `adpcma_sample_top` 既存 symbol reuse) 実装 (= β commit `b83778f`、 `_rhythm_event_cym_trigger:` @ 0x00119B label で literal addr 参照、 既存 L-Q architecture Q ch sample symbol を rhythm proof 用に reuse、 ADR-0029 §決定 3 / 軸 1 整合、 alias 新設なし、 「top」 = sample provenance 名 / 「CYM」 = PMD semantics 名 wording 分離)
+4. ✅ `k-cr-only.mml` fixture 新規追加 (= K-CYM path、 β commit `b83778f`、 UTF-8 + CRLF、 `cr = \c + r(rest) fixture pattern` 注記)
+5. ✅ `r-melody-cr-only.mml` fixture 新規追加 (= R-CYM path、 γ commit `4c4c55c`、 UTF-8 + CRLF、 `cr = \c + r(rest)` 注記)
+6. ✅ `verify-step15-cym-trigger.sh` 新規追加 + PASS (= β commit `b83778f`、 5 gate PASS、 pmdneo_rhythm_event_trigger @ 0x001126 + `_rhythm_event_cym_trigger` @ 0x00119B literal 確認、 CYM register write literal value PASS = 0x12 / 0x00 / 0x29 / 0x00 = TOP_START_LSB / MSB / TOP_STOP_LSB / MSB)
+7. ✅ `verify-step15-kr-cym-differential.sh` 新規追加 + PASS (= γ commit `4c4c55c`、 7 gate PASS、 K-CYM vs R-CYM CYM register write byte-identical (= 6 件) + K-CYM=R-CYM hook addr identical = 0x001126 + K-CYM=R-CYM cym_trigger addr identical = 0x00119B)
+8. ✅ `verify-step15-bd-cym-differential.sh` 新規追加 + PASS (= γ commit `4c4c55c`、 6 gate PASS、 BD start/stop LSB (0x00/0x03) ≠ CYM start/stop LSB (0x12/0x29) literal differ、 SD vs CYM / HH vs CYM は推移的に区別可能)
+9. ✅ 既存 全 script regression PASS 維持 (= δ で 26 script serial 実行、 全 26 PASS = step 4/5/6/7/8/9/10/11/12/13/14 系 23 script + step 15 新規 3 件 = 23+3 = 26 script、 BD/SD/HH path 不変保証 + driver 改修副作用なし)
+10. ✅ user 試聴 OK 確認 (= 16th session δ user 試聴依頼で「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 K/R 同音確認、 BD/SD/HH/CYM 区別可能、 FM 同居許容方針 ADR-0026 / ADR-0027 / ADR-0028 audio gate 規律踏襲、 Step 15 audio gate = OK 直接判定)
 
 ## 本質再確認
 
@@ -805,12 +805,12 @@ source layer:           K part                                R command
 
 ADR-0026 / ADR-0027 / ADR-0028 同 pattern 踏襲、 1 sub = 1 commit + 1 push 規律:
 
-| sub | 内容 | driver 改修 | fixture 追加 | verify script 追加 | 一文要約 |
-|---|---|---|---|---|---|
-| α | 本 ADR 起票 Draft + Annex A placeholder | なし (= 完全不変) | なし | なし | ADR-0029 Draft 起票 (= 11 決定 + scope-out 29+ 項目 + 5 段 gate + 完了判定 10 項目 + layering 図 + Annex A 着手、 PMDDotNET CYM emit 再確認は ADR-0028 §Annex A-1 / §Annex A-2 引用で literal 確認済を ground truth とする、 driver 完全不変純 doc commit) |
-| β | CYM trigger 接続 + K-CYM fixture + verify | bit 2 分岐追加 (= bit 1 と bit 3 の間に挿入) + `_rhythm_event_cym_trigger` sub-routine 新規 + CYM sample pointer mapping | `k-cr-only.mml` | `verify-step15-cym-trigger.sh` | pmdneo_rhythm_event_trigger に bit 2 CYM 分岐 + `_rhythm_event_cym_trigger` 新規 + adpcma_sample_top pointer mapping + K-CYM fixture + cym-trigger verify、 全 step12 + step13 + step14 BD/SD/HH regression PASS |
-| γ | R-CYM fixture + differential verify 2 件 | なし (= 既に β で対応済) | `r-melody-cr-only.mml` | `verify-step15-kr-cym-differential.sh` + `verify-step15-bd-cym-differential.sh` | R-CYM fixture + K-CYM vs R-CYM differential + BD vs CYM differential 2 script、 全 25-26 script regression PASS |
-| δ | 完了統合 + ADR Accepted + handoff + memory | なし | なし | なし | ADR-0029 Accepted 移行 + 完了判定 literal 反映 + 全 26 script 最終 regression PASS + user 試聴 OK + handoff doc + memory + MEMORY.md index 更新 |
+| sub | commit hash | 内容 | driver 改修 | fixture 追加 | verify script 追加 | 一文要約 |
+|---|---|---|---|---|---|---|
+| α | `a8355f4` | 本 ADR 起票 Draft + Annex A placeholder | なし (= 完全不変) | なし | なし | ADR-0029 Draft 起票 (= 11 決定 + scope-out 29+ 項目 + 5 段 gate + 完了判定 10 項目 + layering 図 + Annex A 着手、 PMDDotNET CYM emit 再確認は ADR-0028 §Annex A-1 / §Annex A-2 引用で literal 確認済を ground truth とする、 driver 完全不変純 doc commit) |
+| β | `b83778f` | CYM trigger 接続 + K-CYM fixture + verify | bit 2 分岐追加 (= bit 1 と bit 3 の間に挿入) + `_rhythm_event_cym_trigger` sub-routine 新規 + CYM sample pointer mapping + jr → jp 1 行精密化 (= cym sub-routine 挿入で jr 範囲超過対応) | `k-cr-only.mml` | `verify-step15-cym-trigger.sh` | pmdneo_rhythm_event_trigger に bit 2 CYM 分岐 + `_rhythm_event_cym_trigger @ 0x00119B` 新規 + adpcma_sample_top pointer mapping + K-CYM fixture + cym-trigger verify、 全 step12 + step13 + step14 BD/SD/HH regression PASS、 entry addr @ 0x001126 不変、 全 24 script PASS = 96 秒 |
+| γ | `4c4c55c` | R-CYM fixture + differential verify 2 件 | なし (= 既に β で対応済) | `r-melody-cr-only.mml` | `verify-step15-kr-cym-differential.sh` + `verify-step15-bd-cym-differential.sh` | R-CYM fixture + K-CYM=R-CYM=0x001126 entry + K-CYM=R-CYM=0x00119B cym_trigger + BD vs CYM literal differ (0x00-0x03 vs 0x12-0x29) + SD vs CYM / HH vs CYM 推移的 proof、 全 26 script PASS = 108 秒 |
+| δ | `(本 commit)` | 完了統合 + ADR Accepted + handoff + memory | なし | なし | なし | ADR-0029 Accepted 移行 + 完了判定 10/10 ✅ literal 反映 + 全 26 script 最終 regression PASS + user 試聴 audio gate OK + handoff doc + memory 3 件 + MEMORY.md index 更新 + transient step7-b3 finding = verify B 系統 (= build / asset pipeline) I/O 一時 issue 記録 (= driver runtime regression = verify A 系統 と独立) |
 
 ## Annex A: PMDDotNET CYM emit 再確認 + bitmap OR (CYM 込み combo) 動作調査 (= 16th session α 着手で literal 反映予定、 driver / fixture / verify script 完全不変純調査)
 
