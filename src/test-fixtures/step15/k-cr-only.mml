@@ -1,0 +1,33 @@
+#Title		ADR-0029 step 15 beta K part c-only fixture (= K part rhythm command backslash-c CYM trigger proof)
+#Composer	M.Koshikawa.
+#Memo		ADR-0029 §決定 2 b+s+c+h proof、 PMDDotNET rs00 経由 0xEB 0x04 emit を狙う、 cr = \c + r(rest) fixture pattern (= sample 名 top とは別、 「cr」 は「CYM」 略ではない)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+; K part — Step 15 beta proof、 PMDDotNET cymset() rhythm trigger、 cr = \c + r(rest) fixture pattern (= NOT "CYM" abbreviation、 NOT related to sample symbol name "top")
+; expect: 0xEB 0x04 0x80 (= rhykey CYM bitmap + part end)
+; ADR-0029 §決定 3 / 軸 1: CYM sample source = existing adpcma_sample_top symbol reuse (= 「top」 = sample provenance 名 / 「CYM」 = PMD semantics 名 wording 分離、 alias 新設なし)
+K	\c
+
+; L-Q silent (= 記載なし)
