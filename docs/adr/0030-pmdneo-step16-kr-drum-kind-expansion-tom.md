@@ -1,6 +1,6 @@
 # ADR-0030: Step 16 — K/R drum kind expansion proof (t = TOM single-kind / dispatch path 1 本化不変 / 既存 adpcma_sample_tom symbol reuse / BD+SD+CYM+HH fixture 不変 + TOM fixture 2 件新規 / 3 軸 verify)
 
-- 状態: **Draft** (= 2026-05-14 17th session 冒頭起票、 5 軸壁打ち確定後 α 着手、 注: ADR-0029 同型 sub-sprint 4 段表 (= ADR/β/γ/δ) のうち α 段は user 着手判断で ADR Draft commit に統合 = ADR-0029 §Annex A-1 / §Annex A-2 で `\h → hihset → 0xEB 0x08` literal 確認済 + mc.cs L9532 `('t', tamset)` literal 確認済を ground truth として独立 α commit なしで β 進行)
+- 状態: **Accepted** (= 2026-05-15 17th session δ 完了統合で移行、 元 Draft 起票 2026-05-14 17th session 冒頭、 ADR/β/γ/δ 4 commit chain 全 PASS + user audio gate OK + 全 29 script regression PASS で Accepted 移行、 注: ADR-0029 同型 sub-sprint 4 段表 (= ADR/β/γ/δ) のうち α 段は user 着手判断で ADR Draft commit に統合 = ADR-0029 §Annex A-1 / §Annex A-2 で `\h → hihset → 0xEB 0x08` literal 確認済 + mc.cs L9532 `('t', tamset)` literal 確認済を ground truth として独立 α commit なしで β 進行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0029 (= step 15 K/R drum kind expansion proof — c = CYM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + §決定 2 「b+s+c+h proof」 + §scope-out 「t/i 残り 2 種」 を本 ADR で 1 軸消化、 §Annex A-1 で `'t' → tamset` literal 確認済 + §Annex A-2 で `tamset` = `work.al = 16; return rs00();` literal 確認済 + §Annex A-5 で `adpcma_sample_tom` standalone_test.s L2901-2902 内 embed 済 literal 確認済)、 ADR-0028 (= step 14 K/R drum kind expansion proof — h = HH、 §決定 8 「dispatch path は drum 種拡張で増やさない」)、 ADR-0027 (= step 13 K/R drum kind expansion proof — s = SD、 §決定 8 「dispatch path は drum 種拡張で増やさない」)、 ADR-0026 (= step 12 K/R rhythm compatibility proof、 §決定 6 「dispatch path 1 本化」)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 §決定 1 A2 cache scope-out 維持)、 ADR-0024 (= step 10 sample_table_id selection consumption、 explicit if/jr 流儀踏襲)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 §決定 4 sample 増加は別 sprint 接続点予約)、 ADR-0016 (= step 5 §決定 2 K/R legacy retained but inactive → step 12 で reconnected → step 13 で b+s → step 14 で b+s+h → step 15 で b+s+c+h → 本 ADR で b+s+c+h+t drum kind 1 軸拡張)
@@ -770,10 +770,10 @@ simultaneous trigger semantics 対応 (= 軸 4 / scope-out 採用):
 
 ### audio gate
 
-- ⏳ user 試聴 OK 確認 (= 17th session δ で user 試聴依頼予定、 10 wav file = `/tmp/pmdneo-step12/k-br-only.wav` + `/tmp/pmdneo-step12/r-melody-br-only.wav` + `/tmp/pmdneo-step13/k-sr-only.wav` + `/tmp/pmdneo-step13/r-melody-sr-only.wav` + `/tmp/pmdneo-step14/k-hr-only.wav` + `/tmp/pmdneo-step14/r-melody-hr-only.wav` + `/tmp/pmdneo-step15/k-cr-only.wav` + `/tmp/pmdneo-step15/r-melody-cr-only.wav` + `/tmp/pmdneo-step16/k-tr-only.wav` + `/tmp/pmdneo-step16/r-melody-tr-only.wav` で確認、 試聴 helper script = `scripts/listen-step16.sh` 予定 (= 10 wav + sleep 3 interval + 無限繰り返し + Ctrl+C 停止)、 全 wav は γ commit driver state で生成)
-- ⏳ user judgement 期待: 「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 「K-TOM と R-TOM は同一」 = K/R で同音、 BD vs SD vs HH vs CYM vs TOM で違う音色 (= 5 drum 種で聴感的に区別可能)、 FM 同居許容 (= Step 12 / Step 13 / Step 14 / Step 15 audio gate 規律踏襲)
-- ⏳ BD 単独 / SD 単独 / HH 単独 / CYM 単独 / TOM 単独 各 fixture で音が鳴る + BD/SD/HH/CYM/TOM 5 種で聴感的に区別可能 を user judgement で確認
-- ⏳ Step 16 audio gate = **OK** 判定 (= 17th session δ user 直接判定予定)
+- ✅ user 試聴 OK 確認 (= 17th session δ で user 試聴依頼予定、 10 wav file = `/tmp/pmdneo-step12/k-br-only.wav` + `/tmp/pmdneo-step12/r-melody-br-only.wav` + `/tmp/pmdneo-step13/k-sr-only.wav` + `/tmp/pmdneo-step13/r-melody-sr-only.wav` + `/tmp/pmdneo-step14/k-hr-only.wav` + `/tmp/pmdneo-step14/r-melody-hr-only.wav` + `/tmp/pmdneo-step15/k-cr-only.wav` + `/tmp/pmdneo-step15/r-melody-cr-only.wav` + `/tmp/pmdneo-step16/k-tr-only.wav` + `/tmp/pmdneo-step16/r-melody-tr-only.wav` で確認、 試聴 helper script = `scripts/listen-step16.sh` 予定 (= 10 wav + sleep 3 interval + 無限繰り返し + Ctrl+C 停止)、 全 wav は γ commit driver state で生成)
+- ✅ user judgement 期待: 「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 「K-TOM と R-TOM は同一」 = K/R で同音、 BD vs SD vs HH vs CYM vs TOM で違う音色 (= 5 drum 種で聴感的に区別可能)、 FM 同居許容 (= Step 12 / Step 13 / Step 14 / Step 15 audio gate 規律踏襲)
+- ✅ BD 単独 / SD 単独 / HH 単独 / CYM 単独 / TOM 単独 各 fixture で音が鳴る + BD/SD/HH/CYM/TOM 5 種で聴感的に区別可能 を user judgement で確認
+- ✅ Step 16 audio gate = **OK** 判定 (= 17th session δ user 直接判定予定)
 
 #### audio gate と trace gate の二段 verify
 
@@ -784,18 +784,18 @@ simultaneous trigger semantics 対応 (= 軸 4 / scope-out 採用):
 
 ## 完了判定
 
-Step 16 完了判定 (= 10 項目、 17th session δ で **全 10/10 ✅ 達成予定**):
+Step 16 完了判定 (= 10 項目、 17th session δ で **全 10/10 ✅ 達成**):
 
-1. ⏳ ADR-0030 Accepted 移行 (= δ commit で literal 達成予定)
-2. ⏳ `pmdneo_rhythm_event_trigger` routine に bit 4 TOM 分岐追加 (= β commit、 既存 bit 0 / bit 1 / bit 2 / bit 3 分岐の末尾に挿入、 entry addr @ 0x001126 完全不変、 PMD bitmap bit 順序維持)
-3. ⏳ TOM sample pointer mapping (= bit 4 → `adpcma_sample_tom` 既存 symbol reuse) 実装 (= β commit、 `_rhythm_event_tom_trigger:` 新規 label で literal addr 参照、 既存 L-Q architecture O ch sample symbol を rhythm proof 用に reuse、 ADR-0030 §決定 3 / 軸 1 整合、 alias 新設なし、 「tom」 = sample provenance 名と PMD semantics 名の完全一致)
-4. ⏳ `k-tr-only.mml` fixture 新規追加 (= K-TOM path、 β commit、 UTF-8 + CRLF、 `tr = \t + r(rest) fixture pattern` 注記)
-5. ⏳ `r-melody-tr-only.mml` fixture 新規追加 (= R-TOM path、 γ commit、 UTF-8 + CRLF、 `tr = \t + r(rest)` 注記)
-6. ⏳ `verify-step16-tom-trigger.sh` 新規追加 + PASS (= β commit、 5 gate PASS、 pmdneo_rhythm_event_trigger @ 0x001126 + `_rhythm_event_tom_trigger` 新規 label literal 確認、 TOM register write literal value PASS)
-7. ⏳ `verify-step16-kr-tom-differential.sh` 新規追加 + PASS (= γ commit、 K-TOM vs R-TOM TOM register write byte-identical (= 6 件) + K-TOM=R-TOM hook addr identical = 0x001126 + K-TOM=R-TOM tom_trigger addr identical)
-8. ⏳ `verify-step16-bd-tom-differential.sh` 新規追加 + PASS (= γ commit、 BD start/stop LSB ≠ TOM start/stop LSB literal differ、 SD vs TOM / CYM vs TOM / HH vs TOM は推移的に区別可能)
-9. ⏳ 既存 全 script regression PASS 維持 (= δ で 29 script serial 実行、 全 29 PASS = step 4/5/6/7/8/9/10/11/12/13/14/15 系 26 script + step 16 新規 3 件 = 26+3 = 29 script、 BD/SD/CYM/HH path 不変保証 + driver 改修副作用なし)
-10. ⏳ user 試聴 OK 確認 (= 17th session δ user 試聴依頼で「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 「K-TOM と R-TOM は同一」 K/R 同音確認、 BD/SD/HH/CYM/TOM 区別可能、 FM 同居許容方針 ADR-0026 / ADR-0027 / ADR-0028 / ADR-0029 audio gate 規律踏襲、 Step 16 audio gate = OK 直接判定予定)
+1. ✅ ADR-0030 Accepted 移行 (= δ commit で literal 達成予定)
+2. ✅ `pmdneo_rhythm_event_trigger` routine に bit 4 TOM 分岐追加 (= β commit、 既存 bit 0 / bit 1 / bit 2 / bit 3 分岐の末尾に挿入、 entry addr @ 0x001126 完全不変、 PMD bitmap bit 順序維持)
+3. ✅ TOM sample pointer mapping (= bit 4 → `adpcma_sample_tom` 既存 symbol reuse) 実装 (= β commit、 `_rhythm_event_tom_trigger:` 新規 label で literal addr 参照、 既存 L-Q architecture O ch sample symbol を rhythm proof 用に reuse、 ADR-0030 §決定 3 / 軸 1 整合、 alias 新設なし、 「tom」 = sample provenance 名と PMD semantics 名の完全一致)
+4. ✅ `k-tr-only.mml` fixture 新規追加 (= K-TOM path、 β commit、 UTF-8 + CRLF、 `tr = \t + r(rest) fixture pattern` 注記)
+5. ✅ `r-melody-tr-only.mml` fixture 新規追加 (= R-TOM path、 γ commit、 UTF-8 + CRLF、 `tr = \t + r(rest)` 注記)
+6. ✅ `verify-step16-tom-trigger.sh` 新規追加 + PASS (= β commit、 5 gate PASS、 pmdneo_rhythm_event_trigger @ 0x001126 + `_rhythm_event_tom_trigger` 新規 label literal 確認、 TOM register write literal value PASS)
+7. ✅ `verify-step16-kr-tom-differential.sh` 新規追加 + PASS (= γ commit、 K-TOM vs R-TOM TOM register write byte-identical (= 6 件) + K-TOM=R-TOM hook addr identical = 0x001126 + K-TOM=R-TOM tom_trigger addr identical)
+8. ✅ `verify-step16-bd-tom-differential.sh` 新規追加 + PASS (= γ commit、 BD start/stop LSB ≠ TOM start/stop LSB literal differ、 SD vs TOM / CYM vs TOM / HH vs TOM は推移的に区別可能)
+9. ✅ 既存 全 script regression PASS 維持 (= δ で 29 script serial 実行、 全 29 PASS = step 4/5/6/7/8/9/10/11/12/13/14/15 系 26 script + step 16 新規 3 件 = 26+3 = 29 script、 BD/SD/CYM/HH path 不変保証 + driver 改修副作用なし)
+10. ✅ user 試聴 OK 確認 (= 17th session δ user 試聴依頼で「K-BD と R-BD は同一」 「K-SD と R-SD は同一」 「K-HH と R-HH は同一」 「K-CYM と R-CYM は同一」 「K-TOM と R-TOM は同一」 K/R 同音確認、 BD/SD/HH/CYM/TOM 区別可能、 FM 同居許容方針 ADR-0026 / ADR-0027 / ADR-0028 / ADR-0029 audio gate 規律踏襲、 Step 16 audio gate = OK 直接判定予定)
 
 ## 本質再確認
 
@@ -858,10 +858,10 @@ ADR-0026 / ADR-0027 / ADR-0028 / ADR-0029 同 pattern 踏襲、 1 sub = 1 commit
 
 | sub | commit hash | 内容 | driver 改修 | fixture 追加 | verify script 追加 | 一文要約 |
 |---|---|---|---|---|---|---|
-| α | `(本 commit)` | 本 ADR 起票 Draft + Annex A literal 反映 | なし (= 完全不変) | なし | なし | ADR-0030 Draft 起票 (= 11 決定 + scope-out 29+ 項目 + 5 段 gate + 完了判定 10 項目 + layering 図 + Annex A 着手、 mc.cs L9532 `('t', tamset)` + L9715-9719 `tamset → work.al = 16` literal 確認済を本 commit に統合、 driver 完全不変純 doc commit) |
-| β | `(未確定)` | TOM trigger 接続 + K-TOM fixture + verify | bit 4 分岐追加 (= 末尾 tail-call 挿入) + bit 3 HH tail-call → call nz pattern 戻し + `_rhythm_event_tom_trigger` sub-routine 新規 + TOM sample pointer mapping | `k-tr-only.mml` | `verify-step16-tom-trigger.sh` | pmdneo_rhythm_event_trigger に bit 4 TOM 分岐 + `_rhythm_event_tom_trigger` 新規 + adpcma_sample_tom pointer mapping + K-TOM fixture + tom-trigger verify、 全 step12 + step13 + step14 + step15 BD/SD/HH/CYM regression PASS、 entry addr @ 0x001126 不変、 全 27 script PASS 想定 |
-| γ | `(未確定)` | R-TOM fixture + differential verify 2 件 | なし (= 既に β で対応済) | `r-melody-tr-only.mml` | `verify-step16-kr-tom-differential.sh` + `verify-step16-bd-tom-differential.sh` | R-TOM fixture + K-TOM=R-TOM=0x001126 entry + K-TOM=R-TOM tom_trigger + BD vs TOM literal differ + SD vs TOM / CYM vs TOM / HH vs TOM 推移的 proof、 全 29 script PASS 想定 |
-| δ | `(未確定)` | 完了統合 + ADR Accepted + handoff + memory | なし | なし | なし | ADR-0030 Accepted 移行 + 完了判定 10/10 literal 反映 + 全 29 script 最終 regression PASS + user 試聴 audio gate OK + handoff doc + memory + MEMORY.md index 更新 |
+| α | `37904d7` | 本 ADR 起票 Draft + Annex A literal 反映 | なし (= 完全不変) | なし | なし | ADR-0030 Draft 起票 (= 11 決定 + scope-out 35 項目 + 5 段 gate + 完了判定 10 項目 + layering 図 + Annex A 着手、 mc.cs L9532 `('t', tamset)` + L9715-9719 `tamset → work.al = 16` literal 確認済を本 commit に統合 + 用語対応表 (= PMDDotNET 内部名 tamset 記録 + PMDNEO 側 wording TOM 統一) も同梱、 driver 完全不変純 doc commit) |
+| β | `ba750cd` | TOM trigger 接続 + K-TOM fixture + verify | bit 4 分岐追加 (= 末尾 tail-call 挿入) + bit 3 HH tail-call → call nz pattern 戻し + `_rhythm_event_tom_trigger` sub-routine 新規 + TOM sample pointer mapping | `k-tr-only.mml` | `verify-step16-tom-trigger.sh` | pmdneo_rhythm_event_trigger に bit 4 TOM 分岐 + `_rhythm_event_tom_trigger` @ 0x0011FC 新規 + adpcma_sample_tom pointer mapping + K-TOM fixture + tom-trigger verify、 全 step12 + step13 + step14 + step15 BD/SD/HH/CYM regression PASS、 entry addr @ 0x001126 不変、 全 27 script serial regression PASS = 326 秒 包括 (= orphan MAME zombie 切り分け済 fresh state、 各 verify 5 秒) |
+| γ | `7ba2f61` | R-TOM fixture + differential verify 2 件 | なし (= 既に β で対応済) | `r-melody-tr-only.mml` | `verify-step16-kr-tom-differential.sh` + `verify-step16-bd-tom-differential.sh` | R-TOM fixture + K-TOM=R-TOM=0x001126 entry + K-TOM=R-TOM=0x0011FC tom_trigger + BD vs TOM literal differ (0x00-0x03 vs 0x0C-0x11) + SD vs TOM / CYM vs TOM / HH vs TOM 推移的 proof、 全 29 script serial regression 107 秒 PASS、 driver 完全不変 |
+| δ | `(本 commit)` | 完了統合 + ADR Accepted + handoff + memory | なし | なし | なし | ADR-0030 Accepted 移行 + 完了判定 10/10 ✅ literal 反映 + 全 29 script 最終 regression PASS + user 試聴 audio gate OK (= 5 drum × K/R = 10 wav 全判定軸達成) + handoff doc + memory + MEMORY.md index 更新 + listen-step16.sh 同梱 (= 10 wav + sleep 3 + 無限繰り返し + Ctrl+C 停止) + transient finding (= orphan MAME zombie audio device 取り合い 14 分 hang) memory 記録 (= driver runtime regression と独立、 環境 issue として future contributor 向け切り分け方針確立) |
 
 ## Annex A: PMDDotNET TOM emit 確認 + bitmap OR (TOM 込み combo) 動作調査 (= 17th session α 着手で literal 反映、 driver / fixture / verify script 完全不変純調査)
 
