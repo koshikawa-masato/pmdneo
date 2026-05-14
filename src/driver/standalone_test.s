@@ -2946,6 +2946,70 @@ resolve_mismatch:
         ld      (driver_pne_sample_table_id), a
         ret
 
+;;; ----------------------------------------------------------------
+;;; ADR-0024 step 10 α: pmdneo_select_sample_pointer
+;;;
+;;; ADR-0024 §決定 1/4 整合: 中間 routine 経由 pointer 返却 (= A2 採用)
+;;; α scope: routine 単体実装 (= dead code 状態、 keyon 未接続)。
+;;;          β で adpcma_keyon_simple から call insertion。
+;;;
+;;; ADR-0024 §決定 2 (= 1-A 採用): id=0x00 canonical table は既存
+;;;          adpcma_ch_sample_ptr_table を再利用。
+;;; ADR-0024 §決定 3 (= 2-C 採用): id=0x00 only-accept、 それ以外 (= 0xFF
+;;;          + 全 unknown) は 0x0000 sentinel で silent。
+;;; ADR-0024 §決定 4 整合: ABI = 入力 A + 0xFD32 read、 出力 DE = pointer
+;;;          or 0x0000、 clobber A/HL、 preserve BC/IX/IY。
+;;; ADR-0024 §決定 5 整合: voice >= 6 range check は呼出側責務、 routine
+;;;          内で実施しない (= 二重 check を持たせない)。
+;;; ADR-0024 §決定 7: ADR-0023 §決定 11「playback decision に使用しない」
+;;;          contract は step 10 で解除。 本 routine の β call insertion で
+;;;          0xFD32 が playback selection に effective になる。
+;;;
+;;; 入力:
+;;;   A: voice index (= 0..5、 6 以上の range check は呼出側で実施済前提)
+;;;   driver_pne_sample_table_id (= 0xFD32): 0x00-0xFE valid id、 0xFF mismatch
+;;;
+;;; 出力:
+;;;   DE: id=0x00 + voice valid 時 → adpcma_ch_sample_ptr_table[voice] が指す
+;;;       sample header pointer (= 既存 adpcma_keyon_simple L2748-2755 と同 entry)
+;;;       それ以外 (= id!=0x00) → 0x0000 sentinel (= caller で keyon skip)
+;;;
+;;; clobber:
+;;;   A, HL (= 必要最小限)
+;;;
+;;; preserve:
+;;;   BC, IX, IY (= caller adpcma_keyon_simple の ch index B 等を温存)
+;;;
+;;; 動作:
+;;;   1. L = voice index (= 入力 A を退避、 後段の HL = voice*2 計算用)
+;;;   2. A = driver_pne_sample_table_id (= 0xFD32 read)
+;;;   3. A != 0x00 → select_unknown_id branch (= DE = 0x0000 + ret)
+;;;   4. id == 0x00 path:
+;;;        H = 0、 HL = voice * 2 (= add hl,hl)
+;;;        HL = adpcma_ch_sample_ptr_table + voice * 2 (= entry addr)
+;;;        DE = (HL) (= sample header pointer、 LE order で e/d を順に load)
+;;;        ret
+pmdneo_select_sample_pointer:
+        ld      l, a                            ; L = voice index (= 後段 HL=voice*2 用に退避)
+        ld      a, (driver_pne_sample_table_id) ; A = 0xFD32 (= sample_table_id)
+        or      a
+        jr      nz, select_unknown_id           ; id != 0x00 → silent sentinel
+        ;; id == 0x00 path: voice index で adpcma_ch_sample_ptr_table 引き
+        ld      h, #0
+        add     hl, hl                          ; HL = voice * 2
+        ld      de, #adpcma_ch_sample_ptr_table
+        add     hl, de                          ; HL = sample ptr table entry addr
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)                         ; DE = sample header pointer
+        ret
+
+select_unknown_id:
+        ;; id != 0x00 (= mismatch + 全 unknown): 0x0000 sentinel 返却
+        ;; caller (= adpcma_keyon_simple、 β scope) は DE == 0x0000 で keyon skip
+        ld      de, #0x0000
+        ret
+
 rhythm_main:
         ret
 
