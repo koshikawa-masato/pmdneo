@@ -1,6 +1,6 @@
 # ADR-0027: Step 13 — K/R drum kind expansion proof (s = SD single-kind / dispatch path 1 本化不変 / 既存 adpcma_sample_sd 再利用 / BD fixture 不変 + SD fixture 2 件新規 / 3 軸 verify)
 
-- 状態: **Draft** (= 2026-05-14 14th session 冒頭、 ADR 起票 commit、 α/β/γ/δ 4 commit chain で Accepted 移行予定)
+- 状態: **Accepted** (= 2026-05-14 14th session δ 完了統合で移行、 元 Draft 起票 2026-05-14 14th session 冒頭、 α/β/γ/δ 4 commit chain 全 PASS + user audio gate OK + 全 20 script regression PASS で Accepted 移行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0026 (= step 12 K/R rhythm compatibility proof、 §決定 6 「dispatch path 1 本化」 + §決定 5 「b-only proof」 + §scope-out 「drum 種拡張」 を本 ADR で 1 軸消化)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 §決定 1 A2 cache scope-out 維持)、 ADR-0024 (= step 10 sample_table_id selection consumption、 explicit if/jr 流儀踏襲)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 §決定 4 sample 増加は別 sprint 接続点予約)、 ADR-0016 (= step 5 §決定 2 K/R legacy retained but inactive → step 12 で reconnected → 本 ADR で drum kind 1 軸拡張)
@@ -587,24 +587,24 @@ bitmap OR semantics 対応 (= 軸 2 / (sim2) 採用):
 
 ### audio gate
 
-- user 試聴 OK 確認 (= δ commit 前に user に実機 audio 確認依頼)
-- BD 単独 / SD 単独 各 fixture で音が鳴ることを確認
-- BD と SD で **聴感的に区別可能** であることを user judgement で確認
+- ✅ user 試聴 OK 確認 (= δ commit 前 14th session δ で user 試聴依頼、 4 wav file = `/tmp/pmdneo-step12/k-br-only.wav` + `/tmp/pmdneo-step12/r-melody-br-only.wav` + `/tmp/pmdneo-step13/k-sr-only.wav` + `/tmp/pmdneo-step13/r-melody-sr-only.wav` で確認)
+- ✅ user judgement: 「k-br-only = r-melody-br-only」 「k-sr-only = r-melody-sr-only」 = K/R で同音、 BD vs SD で違う音色、 FM 同居許容 (= Step 12 audio gate 規律踏襲)
+- ✅ BD 単独 / SD 単独 各 fixture で音が鳴る + BD と SD で聴感的に区別可能 を user judgement で確認
 
 ## 完了判定
 
-Step 13 完了判定 (= 10 項目):
+Step 13 完了判定 (= 10 項目、 14th session δ で全 ✅ 達成):
 
-1. ADR-0027 Accepted 移行
-2. `pmdneo_rhythm_event_trigger` routine に bit 1 SD 分岐追加
-3. SD sample pointer mapping (= bit 1 → `adpcma_sample_sd`) 実装
-4. `k-sr-only.mml` fixture 新規追加 (= K-SD path)
-5. `r-melody-sr-only.mml` fixture 新規追加 (= R-SD path)
-6. `verify-step13-sd-trigger.sh` 新規追加 + PASS
-7. `verify-step13-kr-sd-differential.sh` 新規追加 + PASS (= K-SD vs R-SD byte-identical)
-8. `verify-step13-bd-sd-differential.sh` 新規追加 + PASS (= BD vs SD sample addr literal differ)
-9. 既存 全 step12 系 script regression PASS 維持 (= 16 script、 BD path 不変保証)
-10. user 試聴 OK 確認 (= BD / SD 区別可能、 FM 同居許容方針 ADR-0026 audio gate 規律踏襲)
+1. ✅ ADR-0027 Accepted 移行 (= 本 δ commit で literal 達成)
+2. ✅ `pmdneo_rhythm_event_trigger` routine に bit 1 SD 分岐追加 (= β commit `36588b3`、 push af / bit 0 / call nz / pop af / bit 1 / ret z / jr SD trigger 構造)
+3. ✅ SD sample pointer mapping (= bit 1 → `adpcma_sample_sd`) 実装 (= β commit `36588b3`、 `_rhythm_event_sd_trigger:` label で literal addr 参照)
+4. ✅ `k-sr-only.mml` fixture 新規追加 (= K-SD path、 β commit `36588b3`、 UTF-8 + CRLF)
+5. ✅ `r-melody-sr-only.mml` fixture 新規追加 (= R-SD path、 γ commit `2aad439`、 UTF-8 + CRLF)
+6. ✅ `verify-step13-sd-trigger.sh` 新規追加 + PASS (= β commit `36588b3`、 5 gate PASS)
+7. ✅ `verify-step13-kr-sd-differential.sh` 新規追加 + PASS (= γ commit `2aad439`、 7 gate PASS、 K-SD vs R-SD byte-identical)
+8. ✅ `verify-step13-bd-sd-differential.sh` 新規追加 + PASS (= γ commit `2aad439`、 6 gate PASS、 BD vs SD sample addr literal differ)
+9. ✅ 既存 全 script regression PASS 維持 (= δ で 20 script serial 実行、 全 PASS = step 4/5/6/7/8/9/10/11/12 系 14 script + step 12 新規 2 件 + step 13 新規 3 件 = 20 script、 BD path 不変保証 + driver 改修副作用なし)
+10. ✅ user 試聴 OK 確認 (= 14th session δ user 試聴依頼で「k-br-only = r-melody-br-only」 「k-sr-only = r-melody-sr-only」 K/R 同音確認、 BD/SD 区別可能、 FM 同居許容方針 ADR-0026 audio gate 規律踏襲)
 
 ## 本質再確認
 
