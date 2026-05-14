@@ -1,6 +1,6 @@
 # ADR-0026: Step 12 — K/R rhythm compatibility proof (b-only / driver-embedded / L ch scaffold) (= MML syntax + audible 互換 β 軸、 driver `.MN` direct parser normalize、 独立 routine `pmdneo_rhythm_event_trigger` 共通 dispatch、 PC trace + ymfm-trace 二段 gate、 drum 種 b only、 sub-sprint ADR + α/β/γ/δ 5 commit chain)
 
-- 状態: **Draft** (= 2026-05-14 13th session 冒頭壁打ち成果、 δ 完了統合時に Accepted 移行予定)
+- 状態: **Accepted** (= 2026-05-14 13th session、 δ 完了統合で Accepted 移行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 §決定 2 (= step 5 設計判断 2、 K/R rhythm compat は legacy retained but inactive、 「現役化は L-Q 成立後の別 micro-sprint で起票」 → 本 ADR がその「別 micro-sprint」 相当)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 §決定 4 sample 増加は別 sprint 接続点予約)、 ADR-0024 (= step 10 sample_table_id selection consumption、 §決定 6 selected pointer state cache 不採用)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 §決定 1 A2 cache scope-out 維持)
@@ -1035,4 +1035,120 @@ user α 着手指示で確認された 2 つの fail-safe 条件:
 - **条件 2**: 部分的に finding (= standalone_test.s 本線では「ほぼ使えない」、 PMDNEO.s 系では「使えるが本線で reuse しない方針」)。 但しこれは failure ではなく、 [[project_pmdneo_driver_two_paths_discovery]] / [[project_adr_0016_step5_design_decision_4_file_boundary_staged]] で既に確立済の方針との整合 finding として扱う
 
 → β は **進行可**。 但し user 判断軸 Q-α1〜Q-α9 を β 着手時に user 確認することで、 β scope の literal 確定を進める。
+
+## 完了判定達成状況 (= 2026-05-14 13th session、 step 12 δ 完了統合)
+
+### 全体完了判定 10 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | ADR: ADR-0026 draft file 起票 + commit + push | ✅ | `29e3174` |
+| 2 | α: K/R bytecode + legacy K/R routine 調査 + ADR §補助 doc literal 反映 + commit + push | ✅ (= Annex A 9 sub-section 追記) | `749b867` |
+| 3 | α: driver source / .MN format / PMDDotNET 完全不変 + 既存 14 script regression PASS | ✅ | `749b867` |
+| 4 | β: pmdneo_rhythm_event_trigger 独立 routine 新設 + driver-embedded rhythm fixture (= BD) + K fixture + K part bytecode parser から hook 接続 + commit + push | ✅ (= rhythm_main 拡張 + pmdneo_mn_direct_load_k_part_addr 新規 + 173 行追加) | `309c011` |
+| 5 | β: build PASS + K fixture run PC trace で pmdneo_rhythm_event_trigger addr hit + ADPCM-A L ch register write (= BD addr literal) + 既存 14 script regression PASS + L-Q melody fixture 不変 | ✅ (= verify-step12-k-rhythm-trigger.sh 5 段 gate PASS) | `309c011` |
+| 6 | γ: R command bytecode parser path から pmdneo_rhythm_event_trigger 接続 + R fixture 新規 + commit + push | ✅ (= commandsp 0xEB 分岐 + commandsp_rhykey + 14 行追加) | `5465f08` |
+| 7 | γ: build PASS + R fixture run PC trace で β と同 routine addr hit + ADPCM-A L ch register write (= K fixture と同 sample addr) + 既存 14 script regression PASS | ✅ (= verify-step12-kr-differential.sh 7 段 gate PASS、 同 addr 0x1126 + byte-identical 6 件) | `5465f08` |
+| 8 | δ: verify-step12-rhythm-event.sh 新設 (= differential proof script、 routine PC hit + BD addr literal assert) + commit + push | ✅ (= verify-step12-kr-differential.sh で γ 段で先行新設、 δ では追加なし) | `5465f08` (γ で先行) |
+| 9 | δ: user 試聴 (= K fixture audible / R fixture audible) + ADR-0026 Accepted 移行 + handoff doc 起票 + commit + push | ✅ (= 本 commit、 user δ audio gate FM 同居許容で OK 判定) | 本 commit |
+| 10 | δ: memory project_pmdneo_step12_complete.md 起票 + MEMORY.md index 更新 | ✅ | 本 commit |
+
+→ **10/10 達成** (= 全項目 PASS、 scope-out 26 項目も維持)
+
+### sub-sprint commit chain (= step 12 全 5 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| ADR | `29e3174` | docs(adr): step 12 — ADR-0026 起票 Draft (= K/R rhythm compatibility proof sprint、 13th session 冒頭壁打ち 7 軸確定 + §決定 11 件 + sub-sprint 分割 + scope-out 26 項目 + layering 図 literal 固定) |
+| α | `749b867` | docs(adr): step 12 α — ADR-0026 Annex A 追記 (= K/R bytecode + legacy K/R routine 調査結果 9 sub-section literal 反映、 driver 完全不変純調査 commit、 既存 14 script regression PASS、 fail-safe 2 件 evaluate → β 進行可) |
+| β | `309c011` | feat(driver): step 12 β — pmdneo_rhythm_event_trigger 新設 + K part 0xEB hook 接続 (= rhythm_main K part body parser + driver-embedded BD trigger、 §決定 1/3/4/5/6/7/8 整合、 全 5 gate PASS + 既存 14 regression PASS) |
+| γ | `5465f08` | feat(driver): step 12 γ — commandsp 0xEB 分岐追加 + R command path 共通 hook 接続 + K-R differential proof 確立 (= §決定 6 literal 達成、 7 段 gate PASS + 16/16 regression PASS) |
+| δ | 本 commit | docs(adr): step 12 δ 完了統合 + ADR-0026 Accepted 移行 + 全 16 script regression PASS + user 試聴 OK (FM 同居許容判断) + memory project_pmdneo_step12_complete.md 起票 + MEMORY.md index 更新 |
+
+## regression suite 結果 (= 全 16 script PASS、 serial 実行)
+
+| step | script | 結果 |
+|---|---|---|
+| 5 | verify-l-part-alpha-trace-gate.sh | PASS |
+| 5 | verify-l-part-beta-sample-lookup.sh | PASS |
+| 5 | verify-l-part-delta-volume-pan.sh | PASS |
+| 5 | verify-l-q-tutti-gamma.sh | PASS |
+| 5 | verify-l-q-rhythm-song-integration.sh | PASS |
+| 6 | verify-silent-bcef-audio-isolation.sh | PASS |
+| 7 | verify-step7-b1-roundtrip.sh | PASS |
+| 7 | verify-step7-b3-byte-identical.sh | PASS |
+| 7 | verify-step7-delta-mn-filename-embed.sh | PASS |
+| 7 | verify-step7-delta-fix-quote-strip.sh | PASS |
+| 8 | verify-step8-filename-observation.sh | PASS |
+| 9 | verify-step9-resolver.sh | PASS |
+| 10 | verify-step10-mismatch-silent.sh | PASS |
+| 11 | verify-step11-multi-table.sh | PASS |
+| 12 (β) | verify-step12-k-rhythm-trigger.sh | PASS (= 5 gate、 K rhythm BD trigger literal proof) |
+| 12 (γ) | verify-step12-kr-differential.sh | PASS (= 7 gate、 K-R byte-identical literal 証明) |
+
+→ **全 16 script / 約 75 gate PASS**。 k-br-only.wav + r-melody-br-only.wav は user 試聴用に `/tmp/pmdneo-step12/` に保存。
+
+### Accepted 移行根拠
+
+- 完了判定 10 項目すべて達成
+- §scope-out 全 26 項目 維持確認済 (= OPNA rhythm register fake / s/c/h/t/r 残り 5 drum / `.PNE` rhythm bank / 動的 channel allocation / rhythm channel concept / 6ch drum sub-allocation / PMDDotNET 改造 / `.MN` format new bytecode / selected pointer cache / mismatch silent flag / D3 generated directory / runtime `.PNE` parser / multi-`.PNE` switching / bank switching / memory marker byte / SRAM layout 拡張 / `.PPC` / `.P86` / ADPCM-B subsystem / 複数 drum 同時打ち / OPNA native rhythm timing fidelity 等 一切 touch せず)
+- driver source 改修は最小限:
+  - α: 0 行 (= 純調査 commit)
+  - β: 173 行追加 = 既存 routine 0 改修 (= K part init conditional + rhythm_main 拡張 + pmdneo_rhythm_event_trigger + pmdneo_mn_direct_load_k_part_addr 新規、 既存 L-Q melody / multi-table / sample resolver 経路完全不変)
+  - γ: 14 行追加 = commandsp 0xEB 分岐 + commandsp_rhykey label のみ、 ABI 完全保存
+  - δ: source 不変 (= 完了統合 + handoff + memory のみ)
+- step 5/6/7/8/9/10/11 verify regression なし (= 14 script PASS) + 新 step 12 verify 2 件 PASS (= β + γ)
+- audible regression なし (= silent-bcef fixture PASS) + K fixture / R fixture audible 試聴 OK (= FM 同居許容判断、 dispatch path 証明が主目的 + audio isolation は副次で OK)
+- ADR-0021 / 0022 / 0023 / 0024 / 0025 で確立した「動いているものを壊さない」 規律遵守
+- K fixture / R fixture audible は **regression ではなく ADR-0026 §決定 1/6 (= K と R 共通 dispatch、 audible 上同 BD 音色) で確定した意図的仕様**
+
+→ ADR-0026 = **Accepted**
+
+### Accepted 後の重要境界 (= future contributor 向け明示、 user δ handoff 記載要件 5 項目)
+
+**Step 12 は K/R semantics dispatch proof であり、 K/R full compatibility ではない**。 6 drum K/R full / OPNA rhythm register fake / `.PNE` rhythm bank integration / 動的 channel allocation / rhythm channel 新概念 / 6ch drum sub-allocation / OPNA native rhythm timing fidelity は **未実装** (= scope-out 維持)。
+
+現時点で driver は:
+
+- `.MN` 内 filename string を runtime state として **観測可能** (= ADR-0022 step 8)
+- **identity (= sample_table_id) として resolve可能** (= ADR-0023 step 9)
+- **identity → playback selection** として消費可能 (= ADR-0024 step 10)
+- **複数 table から 1 つを selection** 可能 (= ADR-0025 step 11)
+- **K/R semantics (= MML K part / R command syntax) → PMDNEO native ADPCM-A trigger** 接続可能 (= 本 ADR step 12、 driver-embedded BD sample、 L ch scaffold、 共通 hook routine)
+
+Step 12 で達成したこと (= user δ handoff 記載要件 5 項目を literal 明記):
+
+- **Step 12 は b-only proof** (= BD bit 0 のみ accept、 残り 5 drum 種 = s/c/h/t/r は future sub-sprint)
+- **L ch allocation は scaffold** (= ADR-0026 §決定 4、 PMDNEO 恒久仕様ではない、 L-Q melody architecture は恒久的に縮小しない)
+- **driver-embedded BD sample は proof 用** (= ADR-0026 §決定 3、 `adpcma_sample_bd` 再利用、 最終 ownership ではない)
+- **full 6 drum K/R compatibility は未実装** (= 各 drum 種別 sample 切替 / volume / pan / 複数 drum 同時打ち / pattern loop / velocity は future sprint)
+- **`.PNE` rhythm bank integration は future** (= ADR-0026 §決定 3 / scope-out、 `sample_table_id` id=0x02 rhythm bank / generated rhythm sample directory は future sprint で必要なら別途検討)
+
+加えて達成したこと:
+- K part `\b` (= PMDDotNET emit `0xEB 0x01 0x80`) → driver `rhythm_main_rhykey` → `pmdneo_rhythm_event_trigger` (@ 0x1126) → ADPCM-A L ch BD trigger の path 成立
+- R command (= melody part 内 `\b` inline、 PMDDotNET emit `0xEB 0x01`) → driver `commandsp_rhykey` → 同 `pmdneo_rhythm_event_trigger` → 同 ADPCM-A L ch BD trigger の path 成立
+- K と R の dispatch path 1 本化が **byte-identical literal proof** で確立 (= ADR-0026 §決定 6、 verify-step12-kr-differential.sh gate 6 で 6 件 reg write 完全一致 + gate 7 で keyon count identical)
+- 独立 routine label PC marker (= ADR-0026 §決定 8、 SRAM layout 不変、 memory marker byte なし、 future contributor mental model 維持)
+
+Step 12 で達成していないこと (= 後続 sprint scope):
+- s/c/h/t/r 残り 5 drum 種 compatibility (= dispatch path は不変、 drum 種 → sample pointer mapping のみ 1 軸拡張)
+- 複数 drum 同時打ち (= BD + SD 同時打ち等、 PMDDotNET bitmap OR 結合 emit の driver 側対応)
+- `.PNE` rhythm bank migration (= driver-embedded fixture → `.PNE` 経由)
+- rhythm channel concept formalization (= K part / R command の channel allocation 最終仕様、 (c2) / (c3) / (c4) のいずれか採用)
+- OPNA native rhythm timing fidelity
+- K/R 制御 cmd 現役化 (= rhyvs / rmsvs / rpnset / rmsvs_sft / rhyvs_sft / pdrswitch の 6 件、 standalone_test.s 本線では silent fallback 継続)
+- OPNA rhythm sound source register fake API (= 0x10-0x18 emulation、 PMDNEO 方針外)
+- selected pointer runtime state cache (= ADR-0024 §決定 6 / ADR-0025 §決定 1 維持)
+- mismatch silent flag micro-sprint / D3 generated directory / runtime `.PNE` parser / multi-`.PNE` switching / bank switching (= ADR-0025 §scope-out 継続維持)
+- PMDDotNET 改造 / `.MN` format new bytecode (= ADR-0026 §決定 7 維持)
+- `.PPC` / `.P86` / ADPCM-B subsystem 起票 (= 別 subsystem、 PMDNEO architecture 拡張、 [[project_pmdneo_adpcma_subsystem_boundary]] 維持)
+- WebApp Phase 4 領域 (= WAV import / 新規 sample 追加 UI)
+
+**「identity resolution → playback selection → multi-table differentiation → K/R rhythm dispatch」 contract chain が成立した sprint** であり、 future contributor が:
+- 「Step 12 で K/R full compatibility が完成した」 と誤解しないよう明示 (= b-only proof まで、 完成版は future sprint 群で段階的に達成)
+- 「driver-embedded BD sample が最終 ownership」 と誤解しないよう明示 (= proof 用、 `.PNE` migration が future 候補)
+- 「L ch が恒久的に rhythm 占有」 と誤解しないよう明示 (= scaffold、 channel allocation 最終仕様は future sprint)
+- 「OPNA rhythm register fake が実装されている」 と誤解しないよう明示 (= 方針外、 PMDNEO は YM2610(B) で物理的に rhythm source 不在)
+
+完了統合 handoff doc (= `docs/design/handoff/adr-0026-step12-completion.md`) も参照。
 
