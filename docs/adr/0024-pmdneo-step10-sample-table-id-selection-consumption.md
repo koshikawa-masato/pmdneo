@@ -1,6 +1,6 @@
 # ADR-0024: PMDNEO step 10 sample_table_id selection consumption (= identity → playback selection、 中間 routine 経由 pointer 返却、 id=0x00 only-accept + sentinel silent、 keyon path 最小変更)
 
-- 状態: **Draft** (= 2026-05-14 11th session 起票、 δ 完了統合で Accepted 移行予定)
+- 状態: **Accepted** (= 2026-05-14 11th session、 δ 完了統合で Accepted 移行)
 - 起票日: 2026-05-14
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連: ADR-0016 (= 改造実装 sprint 作業計画、 step 10 = runtime resolver consumption 段階)、 ADR-0019 (= step 5 §決定 3 で `.PNE` parser を「次 sprint へ分離」 と接続点予約、 §決定 4 sample addr 引き build-time embed 維持)、 ADR-0021 (= step 7 `.PNE` asset pipeline + `.MN` filename embed)、 ADR-0022 (= step 8 runtime filename observation 成立)、 ADR-0023 (= step 9 filename → sample_table_id resolver、 §決定 11「playback decision に使用しない」 contract は本 ADR §決定 7 で解除)
@@ -400,9 +400,90 @@ step 10 を **α / β / γ / δ の 4 sub-sprint 構造** で進める。 「作
 - `feedback_verify_script_serial_execution.md` (= verify script 群は serial 実行、 δ で適用)
 - `project_pne_directory_entry_runtime_fixture_vs_asset_canonical.md` (= asset canonical vs runtime fixture 責務差、 step 9 γ finding 由来、 step 10 でも同 fixture 系列を流用)
 
-## 完了判定達成状況 (= δ で追記)
+## 完了判定達成状況 (= 2026-05-14 11th session、 step 10 δ 完了統合)
 
-(= δ 完了統合時に commit hash + verify result + Accepted 移行根拠を Annex として追記)
+### 全体完了判定 12 項目
+
+| # | 項目 | 達成 | 関連 commit |
+|---|---|---|---|
+| 1 | α: ADR-0024 draft file 起票 (= 章 1-5 全章記述、 Annex は δ で追記) + commit + push | ✅ | `a9bb169` |
+| 2 | α: `pmdneo_select_sample_pointer` routine 単体実装 (= dead code 状態、 keyon 未接続) + commit + push | ✅ (= 22 byte / 0x109F-0x10B4 in α、 β で 0x109A-0x10AF に shift) | `a9bb169` |
+| 3 | α: build PASS + step5.PNE register write trace byte-identical (= dead code 確認) + ROM binary diff が新規 routine 領域内のみ + routine symbol 存在確認 | ✅ | `a9bb169` |
+| 4 | β: `adpcma_keyon_simple` に `call pmdneo_select_sample_pointer` + DE 0x0000 sentinel check + ret z を insert + commit + push | ✅ (= L2748-2755 11 byte → call + sentinel 6 byte = net -5 byte) | `9f454f5` |
+| 5 | β: match path で step5.PNE fixture register write trace byte-identical 確認 (= 既存 audio 再現) | ✅ (= ymfm-trace 2616 行 完全一致、 diff 0 差分) | `9f454f5` |
+| 6 | β: 中間 routine 通過 PC trace 確認 (= trivial verify 防止 primary gate) | ✅ (= PC=0FB3 78 entries = 39 calls の return-addr push pairs) | `9f454f5` |
+| 7 | γ: mismatch fixture (= 0xFD32 = 0xFF state) audio verify + commit + push | ✅ (= ROM patch approach 流用、 driver source 完全不変) | `7abf533` |
+| 8 | γ: keyon register (= 0x00) write 不発生 + register 0x10-0x28 write 不発生 + audio silent 確認 | ✅ (= keyon trigger 41 → 2 で 39 件 skip、 sample setup 156 → 0 で完全消失) | `7abf533` |
+| 9 | δ: step 5/6/7/8/9 既存 26 verify script regression 全件 PASS (= 既存 architecture regression なし) | ✅ (= 12 script PASS、 step 5 α-3 commit (= e97210c) で書かれた verify-l-part-alpha-trace-gate.sh の pre-existing 古い symbol 参照 (= pmdneo_mn_direct_load_l_part_addr → pmdneo_mn_direct_load_lq_part_addr) を rename 修正で対応) | 本 commit |
+| 10 | δ: MAME 試聴で audible regression なし (= silent-bcef fixture で確認) | ✅ (= verify-silent-bcef-audio-isolation.sh PASS、 user 試聴用 wav 保存) | 本 commit |
+| 11 | δ: step 10 完了統合 handoff doc + ADR-0024 Accepted 移行 + commit + push | ✅ | 本 commit |
+| 12 | δ: ADR-0023 §決定 11 contract 解除の literal 明記 + memory `project_pmdneo_step10_complete.md` 起票 | ✅ | 本 commit |
+
+→ **12/12 達成** (= 全項目 PASS、 scope-out も維持)
+
+### sub-sprint commit chain (= step 10 全 4 commit)
+
+| sub | commit | 内容 |
+|---|---|---|
+| α | `a9bb169` | feat(driver): step 10 α — ADR-0024 起票 + pmdneo_select_sample_pointer routine 単体実装 (= 中間 routine 経由 pointer 返却 A2 採用、 id=0x00 only-accept + 0x0000 sentinel silent、 DE 返却、 keyon 未接続 dead code 状態) |
+| β | `9f454f5` | feat(driver): step 10 β — adpcma_keyon_simple への call pmdneo_select_sample_pointer + DE 0x0000 sentinel check insertion (= L2748-2755 旧 voice 引き 8 命令を call + sentinel 4 命令に置換、 PC trace 39 calls + ymfm-trace byte-identical + 旧 path .lst 完全消去、 ADR-0023 §決定 11 contract 解除) |
+| γ | `7abf533` | test(driver): step 10 γ — mismatch silent verify (= ROM patch approach 流用、 ADPCM-A keyon trigger 41 → 2 で 39 skip + sample setup 156 → 0 完全消失、 driver source 完全不変、 ymfm-trace の port B reg "1XX" prefix finding 明記) |
+| δ | 本 commit | docs(adr): step 10 δ 完了統合 + ADR-0024 Accepted 移行 + step 5/6/7/8/9 regression 全 12 script PASS + audible regression なし確認 + ADR-0023 §決定 11 contract 解除 literal 明記 + memory step 10 完了 |
+
+### regression suite 結果 (= 全 12 script PASS、 serial 実行)
+
+| step | script | gate 数 | 結果 |
+|---|---|---|---|
+| 5 | verify-l-part-alpha-trace-gate.sh | 6 | PASS (= 古い symbol 参照を rename 修正) |
+| 5 | verify-l-part-beta-sample-lookup.sh | 3 | PASS |
+| 5 | verify-l-part-delta-volume-pan.sh | 2 | PASS |
+| 5 | verify-l-q-tutti-gamma.sh | 6 | PASS |
+| 5 | verify-l-q-rhythm-song-integration.sh | 7 | PASS |
+| 6 | verify-silent-bcef-audio-isolation.sh | 4 | PASS (= silent-bcef.wav 保存) |
+| 7 | verify-step7-b1-roundtrip.sh | 3 | PASS |
+| 7 | verify-step7-b3-byte-identical.sh | 2 | PASS |
+| 7 | verify-step7-delta-mn-filename-embed.sh | 4 | PASS |
+| 7 | verify-step7-delta-fix-quote-strip.sh | 3 | PASS |
+| 8 | verify-step8-filename-observation.sh | 5 | PASS |
+| 9 | verify-step9-resolver.sh | 5 | PASS (= β で dynamic DIRECTORY_OFFSET 化済) |
+
+→ **全 12 script / 約 50 gate PASS**。 silent-bcef は user 試聴用 wav 保存 (= `/tmp/pmdneo-step10/silent-bcef.wav`)。
+
+### Accepted 移行根拠
+
+- 完了判定 12 項目すべて達成
+- §scope-out 全 16 項目 維持確認済 (= selected pointer state 化 / silent flag / `.PNE` binary parse / multi-`.PNE` / generated directory / K-R rhythm compat / 等 一切 touch せず)
+- driver source 改修は最小限:
+  - α: `pmdneo_select_sample_pointer` routine 22 byte (= 0x109F-0x10B4 in α、 β で 0x109A-0x10AF に shift)
+  - β: `adpcma_keyon_simple` L2748-2755 (= 11 byte) を call + sentinel (= 6 byte) に置換、 net -5 byte
+  - γ: source 不変 (= verify infra 新規追加のみ)
+  - δ: source 不変 (= verify infra 維持、 step 5 α-3 verify script の pre-existing 古い symbol 参照を rename で修正)
+- step 5/6/7/8/9 verify regression なし (= 12 script PASS)
+- audible regression なし (= silent-bcef fixture PASS、 user 試聴 wav 保存)
+- ADR-0021 / 0022 / 0023 で確立した「動いているものを壊さない」 規律遵守
+- mismatch silent は **regression ではなく ADR-0024 §決定 3 (= 2-C) で確定した意図的仕様変更**、 ADR-0023 §決定 11 contract の β commit (= 9f454f5) での解除を本 ADR §決定 7 で明文化済
+
+→ ADR-0024 = **Accepted**
+
+### Accepted 後の重要境界 (= future contributor 向け明示)
+
+**Step 10 は `.PNE` runtime resolver の playback selection consumption 段階まで完成、 ただし selected pointer runtime state cache / silent flag / multi-table は未接続**。 現時点で driver は:
+
+- `.MN` 内 filename string を runtime state として **観測可能** にし (= ADR-0022 step 8)、 さらに **identity (= sample_table_id) として resolve可能** にし (= ADR-0023 step 9)、 **identity → playback selection** として消費可能になった (= 本 ADR step 10)
+- 0xFD32 (= `driver_pne_sample_table_id`) は **playback path で initial に consume される** runtime state (= 本 ADR §決定 1/7 整合、 ADR-0023 §決定 11 contract は本 ADR §決定 7 で解除済)
+- match (= 0xFD32 == 0x00) → 既存 `adpcma_ch_sample_ptr_table` から sample pointer 取得 → keyon proceeds (= ADPCM-A drum 音 audible)
+- mismatch (= 0xFD32 != 0x00) → DE = 0x0000 sentinel → `adpcma_keyon_simple` で `ret z` skip (= ADPCM-A drum 音 silent、 FM は独立に再生継続)
+- selected pointer は runtime state cache を持たず (= ADR-0024 §決定 6)、 都度 `pmdneo_select_sample_pointer` 内部で resolve (= step 11+ で必要に応じて A3 cache 化検討)
+- silent 実現は sentinel pointer (= 0x0000) ベース、 flag-based silent は step 11+ scope (= ADR-0024 §決定 6)
+- sample table addr は依然 build-time に `samples.inc` 経由で固定埋込 (= ADR-0019 §決定 3 / ADR-0024 §決定 2 1-A 維持)
+- 楽曲交換時は依然 ROM rebuild が必要 (= multi-`.PNE` runtime 切替は未実装)
+
+**「identity resolution → playback selection」 contract が成立した最初の sprint** であり、 future contributor が:
+- 「step 10 で multi-table / dynamic asset 化された」 と誤解しないよう明示 (= identity from filename → 1 table の selection まで、 multi-table 拡張は step 11+)
+- 「mismatch silent は step 9 から既に存在した」 と誤解しないよう明示 (= ADR-0023 §決定 8 で step 9 までは mismatch も playback 続行、 step 10 β commit (= 9f454f5) で initial 解除)
+- 「sample_table_id == 0xFF は silent flag」 と誤解しないよう明示 (= 0xFF はあくまで mismatch sentinel、 silent 実現は中間 routine の sentinel pointer 0x0000 返却で行う)
+
+完了統合 handoff doc (= `docs/design/handoff/adr-0024-step10-completion.md`) も参照。
 
 ## 関連 doc
 

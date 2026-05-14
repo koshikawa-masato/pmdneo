@@ -88,9 +88,9 @@ echo "  expected L body addr = 0x$EXPECTED_L_BODY (= +1 +56)"
 echo "  expected LSB = 0x$EXPECTED_LSB, MSB = 0x$EXPECTED_MSB"
 
 # parser symbol (= gate 1)
-PARSER_PC=$(grep -E "pmdneo_mn_direct_load_l_part_addr::" "$LST" | head -1 | awk '{print $1}')
+PARSER_PC=$(grep -E "pmdneo_mn_direct_load_lq_part_addr::" "$LST" | head -1 | awk '{print $1}')
 if [[ -z "$PARSER_PC" ]]; then
-    echo "FAIL infra: parser symbol pmdneo_mn_direct_load_l_part_addr not found in listing"
+    echo "FAIL infra: parser symbol pmdneo_mn_direct_load_lq_part_addr not found in listing"
     exit 2
 fi
 
@@ -118,7 +118,7 @@ fi
 # ============================================================
 echo ""
 echo "=== gate 1: .MN header parse 到達 ==="
-echo "  parser symbol (= pmdneo_mn_direct_load_l_part_addr) PC = 0x$PARSER_PC (= listing 動的取得)"
+echo "  parser symbol (= pmdneo_mn_direct_load_lq_part_addr) PC = 0x$PARSER_PC (= listing 動的取得)"
 echo "  ✅ parser symbol 存在確認 (= linker により ROM に配置)"
 echo "  (= 直接 PC trace は z80-mem-trace に出ないが、 gate 4 の workarea write で経由を間接確認)"
 
