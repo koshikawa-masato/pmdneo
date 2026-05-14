@@ -1,0 +1,36 @@
+#Title		ADR-0028 step 14 gamma R command h-only fixture (= L part \h only proof、 K-HH と同 dispatch path 証明)
+#Composer	M.Koshikawa.
+#Memo		melody part (= L) 内 \h inline → 0xEB 0x08 → commandsp_rhykey → pmdneo_rhythm_event_trigger 共通 hook → HH trigger、 hr = \h + r(rest) fixture pattern
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+K ;empty (= K part は使わない、 R 経路のみ proof)
+
+; L part — Step 14 γ proof 対象、 melody part 内 \h inline (= R command HH semantics)、 hr = \h + r(rest) fixture pattern (= NOT "hi-hat" abbreviation)
+; PMDDotNET emit 期待: L part body bytecode = 0xEB 0x08 (+ 0x80 part end)
+; driver pmdneo_part_main → commandsp(0xEB) → commandsp_rhykey → pmdneo_rhythm_event_trigger → bit 3 → _rhythm_event_hh_trigger → ADPCM-A L ch HH trigger
+; K-HH fixture (= k-hr-only.mml) と同 routine addr hit + 同 HH register write の literal differential proof
+L	\h
+
+; M-Q (= ADPCM-A ch 1-5 native melody) silent (= 記載なし)
