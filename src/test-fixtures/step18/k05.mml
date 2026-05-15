@@ -1,0 +1,34 @@
+#Title		ADR-0032 step 18 gamma K part 0x05 fixture (= K part \b\c multi-bit dispatch BD+CYM trigger proof = simultaneous trigger semantics proof representative pair γ)
+#Composer	M.Koshikawa.
+#Memo		ADR-0032 §決定 1/2/4/6/7 multi-bit bitmap dispatch latent semantics 証明 representative pair γ、 PMDDotNET mc.cs rs00 OR 蓄積 path 経由 0xEB 0x05 emit を狙う (= 連続 \b\c syntax で work.al = 1 → 0xEB 0x01 emit + prsok = 0x80 → 次 \c で work.al = 4 → rs01 OR 蓄積 work.al |= cch = 0x05 → 直前 0xEB arg を 0x05 で上書き = 単一 0xEB 0x05 bytecode に collapse)、 fixture naming = bitmap-centric hex pattern (= k05.mml = K part + bitmap 0x05 = BD bit 0 + CYM bit 2、 drum-centric semantics naming `k-br-only.mml` / `k-cr-only.mml` Step 12-17 からの転換点 = sprint chain 軸転換 milestone)、 driver Z80 source 完全不変 = latent semantics 証明 paradigm (= 既存 dispatch path 自然 call nz 連鎖が multi-bit 状況下で structurally 動作、 bit 0 BD + bit 2 CYM 順次 call nz)
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14/step15/step16 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+; K part — Step 18 γ proof、 PMDDotNET bdset() + cymset() 連続 → rs00() OR 蓄積 → 単一 0xEB 0x05 bytecode (= bit 0 BD + bit 2 CYM multi-bit dispatch、 PMDNEO 側 wording は BD+CYM 統一)
+; expect: 0xEB 0x05 0x80 (= rhykey BD+CYM bitmap + part end、 PMDDotNET rs00 OR 蓄積 path 経由)
+; ADR-0032 §決定 1/4/7: multi-bit bitmap dispatch latent semantics 証明 (= 現自然 dispatch (bit 0 → bit 5 順次 call nz 連鎖) が structurally multi-bit 処理可能 + driver Z80 source 完全不変 + 第 2 invariant 「dispatch path は simultaneous trigger でも増やさない」)
+; expected register write order (= bitmap ascending、 軸 2): BD reg writes (= reg 0x10/0x18/0x20/0x28 = 0x00/0x00/0x03/0x00 + 0x08 = 0xDF vol|pan + 0x00 = 0x01 keyon mask) → CYM reg writes (= 同 reg 0x10/0x18/0x20/0x28 = 0x12/0x00/0x29/0x00 + 0x08 = 0xDF + 0x00 = 0x01 keyon mask、 adpcma_sample_top reuse) = L ch 1 本順次上書き = last-write-dominant = CYM 支配 (= L ch scaffold 自然結果、 bug ではなく expected behavior、 軸 3)
+K	\b\c
+
+; L-Q silent (= 記載なし)
