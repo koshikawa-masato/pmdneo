@@ -1,0 +1,38 @@
+#Title		ADR-0032 step 18 β R command 0x03 fixture (= L part \b\s inline multi-bit dispatch proof、 K-0x03 と同 dispatch path 証明 = simultaneous trigger semantics proof minimal β)
+#Composer	M.Koshikawa.
+#Memo		melody part (= L) 内 \b\s inline → PMDDotNET mc.cs rs00() OR 蓄積 → 0xEB 0x03 → commandsp_rhykey → pmdneo_rhythm_event_trigger 共通 hook → bit 0 BD + bit 1 SD 順次 multi-bit dispatch、 fixture naming = bitmap-centric hex pattern (= r-melody-03.mml = R-source + bitmap 0x03、 drum-centric semantics naming `r-melody-br-only.mml` / `r-melody-sr-only.mml` Step 12-17 からの転換点 = sprint chain 軸転換 milestone)、 driver Z80 source 完全不変 = latent semantics 証明 paradigm
+#PNEFile	"step5.PNE"
+
+; FM voice (= reference template、 step5/step11/step12/step13/step14/step15/step16 fixture と同一)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+A ;silent
+B ;silent
+C ;silent
+D ;silent
+E ;silent
+F ;silent
+
+G V0
+H V0
+I V0
+
+J ;empty
+
+K ;empty (= K part は使わない、 R 経路のみ proof)
+
+; L part — Step 18 β proof 対象、 melody part 内 \b\s inline (= R command multi-bit dispatch semantics、 連続 \b\s syntax で PMDDotNET rs00() OR 蓄積 path 経由 0xEB 0x03 emit、 fixture naming = bitmap-centric hex pattern)
+; PMDDotNET emit 期待: L part body bytecode = 0xEB 0x03 (+ 0x80 part end、 rs00 OR 蓄積 path 経由)
+; driver pmdneo_part_main → commandsp(0xEB) → commandsp_rhykey → pmdneo_rhythm_event_trigger → bit 0 BD trigger + bit 1 SD trigger 順次 call nz 連鎖 → ADPCM-A L ch 順次上書き = last-write-dominant SD (= adpcma_sample_bd / adpcma_sample_sd 既存 reuse)
+; ADR-0032 §決定 4: 第 2 invariant 「dispatch path は simultaneous trigger でも増やさない」 = K-0x03 fixture (= k03.mml) と R-0x03 fixture (= 本 file) が同 routine addr (= pmdneo_rhythm_event_trigger @ 0x1126) hit + 同 register write sequence literal proof (= γ で KR byte-identical verify)
+; expected register write order (= bitmap ascending、 軸 2): BD reg writes (= reg 0x10/0x18/0x20/0x28 = 0x00/0x00/0x03/0x00 + 0x08 = 0xDF vol|pan + 0x00 = 0x01 keyon mask) → SD reg writes (= 同 reg 0x10/0x18/0x20/0x28 = 0x04/0x00/0x06/0x00 + 0x08 = 0xDF + 0x00 = 0x01 keyon mask) = L ch 1 本順次上書き = last-write-dominant = SD 支配 (= L ch scaffold 自然結果、 bug ではなく expected behavior、 軸 3)
+; ADR-0032 §決定 11: driver Z80 source 完全不変 = 「新機能追加ではなく latent semantics の証明」 paradigm (= 既存 dispatch 構造が structurally multi-bit 処理可能)
+L	\b\s
+
+; M-Q (= ADPCM-A ch 1-5 native melody) silent (= 記載なし)
