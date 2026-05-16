@@ -1,11 +1,11 @@
 # ADR-0033: リズム音源 sample の由来管理と完全自作化 migration policy (= asset provenance / licensing / redistribution 軸独立起票 / runtime semantics 軸 ADR-0026-0032 と完全分離 / Yamaha mask ROM dump 永久排除 / 越川将人 100% 著作物のみ同梱 / Surge XT 完全合成 prototype → プロ session acoustic drum 録音 → library 同梱 3 段階 migration / current temporary fixture 段階 3 完了まで暫定許容 / sound-alike caution = RX-11 似は OK / ROM sample derivative 不可 / PMD culture rhythm.wav 仕様互換 (= 2608_*.wav / 44100 Hz / 16 bit / mono) / 完全ホワイト化 milestone 確立 / runtime dispatch invariant 完全不変 / multi-table architecture (= ADR-0025) 経由 kit 入替 design)
 
-- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
+- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
 - 起票日: 2026-05-15
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR: ADR-0032 (= step 18 simultaneous trigger semantics proof、 **runtime semantics 軸**で本 ADR と完全分離、 driver dispatch invariant の semantics 拡張軸初段)、 ADR-0031 (= step 17 K/R drum kind expansion proof — i = RIM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + drum 種拡張軸 sprint chain 完成 milestone、 本 ADR は runtime invariant 完全保持を前提)、 ADR-0030 / ADR-0029 / ADR-0028 / ADR-0027 / ADR-0026 (= step 12-16 drum 種拡張 sprint chain、 「rim」 「tom」 「top」 wording 規律確立)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 本 ADR §決定 10 「multi-table architecture 経由 kit 入替」 の前提)、 ADR-0023 / ADR-0024 (= step 9 / step 10 sample_table_id resolver + selection consumption、 同前提)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 本 ADR §決定 8 chip 化 pipeline の前提)、 ADR-0021 (= step 7 `.PNE` asset pipeline、 本 ADR §決定 10 multi-table 入替の物理経路前提)
 - 関連設計書: `docs/design/PMDNEO_DESIGN.md` (= 本 ADR Accepted 後に §rhythm sample 章追記予定、 段階 3 sub-sprint β で実施)、 `README.md` (= 段階 3 sub-sprint γ で license + 由来表記更新予定)、 `CLAUDE.md` (= §中核原則「記憶は AI に、 判断は自分が握る」 + §著作権者表記「越川将人 / M.Koshikawa.」 + §設計書ファースト + §動作確認義務 + §表記スタイル との完全整合)
-- 関連 memory: `project_pmdneo_step17_complete.md` (= drum 種拡張軸 sprint chain 完成 milestone、 「Step 18+ candidate」 list に「simultaneous trigger semantics proof」 と並ぶ別軸候補として本 ADR を起票)、 `project_pmdneo_adpcma_subsystem_boundary.md` (= ADPCM-A subsystem 専用 architecture、 本 ADR は ADPCM-A rhythm sample 軸限定)、 `feedback_explain_in_plain_japanese_before_commit.md` (= 平易日本語報告規律、 段階毎 commit で遵守)
+- 関連 memory: `project_pmdneo_step17_complete.md` (= drum 種拡張軸 sprint chain 完成 milestone、 「Step 18+ candidate」 list に「simultaneous trigger semantics proof」 と並ぶ別軸候補として本 ADR を起票)、 `project_pmdneo_adpcma_subsystem_boundary.md` (= ADPCM-A subsystem 専用 architecture、 本 ADR は ADPCM-A rhythm sample 軸限定)、 `feedback_explain_in_plain_japanese_before_commit.md` (= 平易日本語報告規律、 段階毎 commit で遵守)、 `project_adr_0033_sub_sprint_alpha_5_decisions.md` (= 21st session 軸 5-9 決定 = §決定 15-19 literal 拘束 + 段階 1 sub-sprint α 着手準備完了 milestone)、 `project_adr_0033_sub_sprint_alpha_5_decisions_22nd.md` (= 22nd session 軸 10-14 決定 = §決定 20-24 literal 拘束 + sub-sprint α 実作業着手準備完了 milestone、 本 22nd session update commit 直後作成予定)
 - 関連外部資料 (= §Annex A 各 sub-section に literal 引用):
   - BambooTracker GitHub repository (= `chip/mame/fmopn_2608rom.h` 8 KB embed、 `chip/ymfm/ymfm_2608.cpp` extern reference、 `chip/nuked/nuked_2608.cpp` rhythm 不在)
   - VGMRips forum thread t=3013 (= Yamaha DD10 / YRW801 / TG100 で同 sample 再利用、 1984 RX-11 系譜)
@@ -215,6 +215,206 @@ ADR / handoff 記載要件:
 - 段階 1 completion = **先**
 - 段階 2 trigger = **future session judgement**
 - synthetic prototype 単独 release 可能性 = **明示維持** (= 越川氏聴感判断軸、 V1 を synthetic kit で成立させる選択肢)
+
+### 22nd session 冒頭壁打ちでの段階 1 sub-sprint α 5 軸方針確定
+
+21st session 末で ADR-0033 Draft update (= §決定 15-19 + §Annex A-5 / A-7 後埋め枠 update + sub-sprint α 詳細化、 commit 5a2549a) 完了後、 22nd session 冒頭で段階 1 sub-sprint α 実作業着手前の方針を 5 軸壁打ちで確定した (= 20th session 軸 1-4 + 21st session 軸 5-9 と並列構造、 軸 10-14 全部 user 推奨採用、 1 軸 = 1 §決定 mapping)。
+
+軸 5-9 (= 21st session) は「実施軸 (= どの深度 / 粒度 / 採用方針 / timing で)」 を policy として固定したが、 軸 10-14 (= 22nd session) は更にその下位の「実施順序 / 系統分離 / install 経路 / naming / aesthetic」 を実作業着手直前の literal 拘束として固定する。 段階 1 sub-sprint α の policy fixation 完了 milestone (= 軸 1-14 全 14 軸が ADR-0033 に literal 反映済) と見なせる。
+
+#### 軸 10: current temporary fixture forensic 実施順序 (= A 現存棚卸し先行採用)
+
+§決定 15 で「中程度 forensic + 3 段階分類 + engineering provenance note」 が確定済、 22nd session で実施 entry point を確定:
+
+- (a) (= **採用**、 現存棚卸し先行): `src/test-fixtures/` + `vendor/ngdevkit-examples/` 配下の rhythm 関連 wav 全列挙 + sha256 取得 → 4 分類別振り分け。 observed-facts-first / provenance-inference-second 規律。 中程度 forensic の最も自然な entry point、 §Annex A-5 後埋め基盤早期完成。
+- (b) (= 不採用、 4 分類順走破): §Annex A-1〜A-4 順 (= BambooTracker → community → PMD culture → RX-11) で各分類の参照 dataset を順次取得 + 機械照合。 4 分類完成度均等化、 棚卸し範囲が予め拘束されない。
+- (c) (= 不採用、 driver symbol 先行): `adpcma_sample_{bd,sd,cym,hh,tom,rim}` symbol → binary chain を ROM/.PNE/yaml 経路で追跡 + 起源逆引き。 driver-embedded 経路と forensic 対象の対応早期固定、 runtime 経路透明性確保。
+- (d) (= 不採用、 git history 先行): 各 rhythm wav blob 初出 commit を `git log` で追跡 + author / date / commit message から推定。 過去 sprint context 補強できるが engineering note 中核ではない。
+
+(a) 採用根拠:
+- forensic の最初の目的は「**何が存在しているか**」 を固定すること
+- current temporary fixture の実体を先に inventory 化した方が、 後の分類・比較・推定がやりやすい
+- §Annex A-5 の engineering provenance note を早く具体化できる
+- sha256 を先に固定しておくと、 後の比較結果が reproducible になる
+- scripts canonical 化 (= 軸 11) とも相性が良い
+- 「観測可能事実先固定 → provenance 推定後追い」 という ADR-0033 legality / reproducibility / engineering provenance 方針と一致
+
+推奨 8 段階 flow:
+1. **current wav inventory** (= `src/test-fixtures/` + `vendor/ngdevkit-examples/` 配下 rhythm 関連 wav 全列挙)
+2. **sha256** (= canonical identity 固定)
+3. **sample rate / length / channel count** (= wav metadata)
+4. **file header** (= RIFF WAVE PCM header parse)
+5. **current `samples.inc` 対応** (= `adpcma_sample_{bd,sd,cym,hh,tom,rim}` symbol と wav の対応)
+6. **vendor wav 対応** (= `vendor/PMDDotNET/` / `vendor/pmd48s/` / `vendor/ngdevkit-examples/` 配下 wav との関係)
+7. **4 分類推定** (= Yamaha mask ROM dump / community 配布物 / PMD culture / RX-11 sample pack のどれに likely / unknown するか)
+8. **git history / external comparison は必要時のみ追加** (= forensic 中程度 = 7 軸内で完結、 法的判断ではなく engineering note)
+
+ADR / handoff 記載要件:
+- forensic 実施順序 = **inventory first** (= §決定 20 literal 拘束)
+- sha256 = **canonical identity** (= 後の比較で reproducible、 §Annex A-5 表に sha256 列必須)
+- provenance inference = **inventory 完了後の後追い軸** (= 観測可能事実先固定)
+- forensic result = **engineering note** (= 法的 certification ではない、 §決定 15 連動)
+- §Annex A-5 update commit = 8 段階 flow 全完了後に表形式で literal 反映
+
+#### 軸 11: scripts canonical pipeline 粒度 (= A 4 系統分離採用)
+
+§決定 17 で「scripts canonical / WebApp future UI 役割分離 + scripts/wav_to_adpcma.sh + scripts/build_drum_samples.sh + scripts/verify-drum-samples.sh + Makefile target」 (= 3 系統) が確定済、 22nd session で forensic 系統独立化により 4 系統化を確定:
+
+- (a) (= **採用**、 4 系統分離): `forensic-drum-samples.sh` / `wav_to_adpcma.sh` / `build_drum_samples.sh` / `verify-drum-samples.sh` の 4 script + Makefile target 4 件。 forensic は forward build pipeline とは性格が違う (= 読み取り専用 inventory vs 変換 / orchestration / verify)。
+- (b) (= 不採用、 3 系統統合): forensic を `wav_to_adpcma.sh` の前段処理として統合 (= sha256 / meta 抽出は wav_to_adpcma 処理の一部として実行)、 §決定 17 の 3 系統 literal 保存、 forensic 単独実行は Makefile target で抽出。
+- (c) (= 不採用、 2 系統 build + verify): `build_drum_samples.sh` に forensic + wav_to_adpcma 統合、 `verify-drum-samples.sh` は独立。 粒度粗、 script 数最小、 forensic / encode / pack の責務境界混在。
+- (d) (= 不採用、 5+ 系統細分): `forensic-inventory` / `forensic-sha256` / `forensic-meta` / `wav_to_adpcma` / `build_drum_samples` / `verify-drum-samples` / `forensic-report` 等細粒度分離。 責務 1 軸 1 script、 8 段階 flow を script 単位で表現、 script 数 / Makefile target 数肥大。
+
+(a) 採用根拠:
+- forensic は forward build pipeline とは性格が違う
+- current temporary fixture の棚卸し / sha256 / metadata は変換前に単独完結できるべき
+- `wav_to_adpcma` は純粋な変換責務に集中できる (= 1 wav → 1 ADPCM-A binary)
+- `build_drum_samples` は 6 drum 統括 orchestration に集中できる
+- `verify-drum-samples` は生成物の検証に集中できる
+- future contributor が forensic だけ再実行しやすい
+- ADR-0033 「engineering provenance note」 と相性が良い
+
+推奨 script 構成:
+- `scripts/forensic-drum-samples.sh` (= **read-only inventory**): inventory / sha256 / file header / sample rate / bit depth / length / channel count / current `samples.inc` 対応候補 / report 出力
+- `scripts/wav_to_adpcma.sh` (= **one-file converter**): wav 1 file → ADPCM-A binary 1 file / 18.5 kHz / mono / 4-bit ADPCM-A / superctr/adpcm wrapper (= §決定 18 整合)
+- `scripts/build_drum_samples.sh` (= **orchestration**): 6 drum wav → 6 ADPCM-A binary → `samples.inc` / assets 出力 / 命名 `2608_{bd,sd,top,hh,tom,rim}` (= §決定 7 整合)
+- `scripts/verify-drum-samples.sh` (= **reproducibility gate**): sha256 / expected length / channel count / sample rate / output binary size / optional spectral fingerprint
+
+Makefile target 4 件分離:
+- `make forensic-drum-samples`
+- `make wav-to-adpcma`
+- `make build-drum-samples`
+- `make verify-drum-samples`
+
+ADR / handoff 記載要件:
+- scripts 粒度 = **4 系統分離** (= §決定 21 literal 拘束)
+- forensic = **read-only inventory** (= §Annex A-7 役割境界 literal)
+- wav_to_adpcma = **one-file converter** (= 同)
+- build_drum_samples = **orchestration** (= 同)
+- verify-drum-samples = **reproducibility gate** (= 同)
+- Makefile target = **4 件独立** (= 各 script を単独実行可能)
+
+#### 軸 12: Surge XT install 環境 (= A Homebrew cask canonical 採用)
+
+§決定 16 で Surge XT prototype = 設計明明 prototype (= 5 成果物) が確定済、 22nd session で install 経路 canonical を確定:
+
+- (a) (= **採用**、 Homebrew cask canonical): `brew install --cask surge-xt` で install、 version 管理 reproducible、 future contributor が同 version を 1 コマンドで install 可能。 scripts canonical 方針と整合、 reproducibility 重視。
+- (b) (= 不採用、 native .dmg installer): surge-synthesizer.github.io 公式 .dmg を download + GUI install、 version pin 自由、 brew タイムラグ遅れ回避、 ADR install 仕様 wording 拘束必須。
+- (c) (= 不採用、 system 既存 install 流用): 越川氏現環境に既に Surge XT install されているか調査先行、 あればそれを canonical として採用 + version 記録、 install 手間ゼロ、 future contributor への再現性 wording 補強要。
+- (d) (= 不採用、 standalone + plugin 両形式): `.app` standalone + `.vst3` / `.au` plugin 両方 install + DAW (= Reaper / Logic / GarageBand 等) で wav render、 automation (= CLI wav render) と GUI 試行両者対応、 DAW 依存 + install 複雑化。
+
+(a) 採用根拠:
+- ADR-0033 の中心は **reproducibility**
+- future contributor / fork 派生も同じ install 手順を再現しやすい
+- scripts canonical 方針と整合する
+- version 固定 / upgrade 管理がしやすい
+- 「**環境構築も provenance の一部**」 として扱える
+- 段階 1 β の目的は「まず 6 drum prototype を render できること」 なので DAW integration まで scope を広げない方が良い
+
+推奨 install 手順:
+- `brew install --cask surge-xt`
+- version を §Annex A-7 / design memo に記録
+- standalone app を canonical とする
+- plugin / DAW integration は future optional
+
+ADR / handoff 記載要件:
+- install 経路 = **Homebrew cask canonical** (= §決定 22 literal 拘束)
+- canonical form = **standalone-first** (= GUI standalone app で wav export、 DAW 不要)
+- plugin / DAW integration = **future optional** (= 必要なら別 ADR or 別 sub-sprint で扱う)
+- install version 記録 = **必須** (= §Annex A-7 install version 列追加、 段階 1 sub-sprint α で literal 反映)
+- future contributor reproducibility = **重視** (= 同 version を 1 command で install 可能)
+
+#### 軸 13: prototype render naming (= A directory 分離 synth/acoustic 採用)
+
+§決定 7 で source wav 公式命名 = `2608_{bd,sd,top,hh,tom,rim}.wav` 確定済 + §決定 10 で synth kit + acoustic kit 棲み分け確定済、 22nd session で synth/acoustic 命名衝突回避方針を確定:
+
+- (a) (= **採用**、 directory 分離 synth/acoustic): `assets/drum_samples/synth/2608_{bd,...}.wav` + `assets/drum_samples/acoustic/2608_{bd,...}.wav`。 §決定 7 公式命名不変 + directory で kit 識別、 ADR-0025 multi-table architecture と整合、 future kit 追加も同パターン (= `synth_v2/` 等)。
+- (b) (= 不採用、 suffix 分離 _synth/_acoustic): `2608_bd_synth.wav` / `2608_bd_acoustic.wav` 等 suffix で kit 識別、 flat directory で一覧性高、 公式命名との互換性低下、 PMD culture rhythm.wav 命名規約から離れる。
+- (c) (= 不採用、 version suffix _v0/_v1): `2608_bd_v0.wav` (= synthetic prototype) / `2608_bd_v1.wav` (= acoustic future) 等、 段階進捗 = version 映射、 chronological に明確、 synth/acoustic semantic が version 数値に隠れる。
+- (d) (= 不採用、 prototype suffix のみ): `2608_bd_prototype.wav` (= 段階 1) → `2608_bd.wav` (= 段階 3 公式 rename)、 acoustic が公式命名独占、 段階 3 で acoustic が canonical narrative、 synth kit 単独 release 可能性 (= §決定 19) と不整合。
+
+(a) 採用根拠:
+- §決定 7 公式命名 `2608_{bd,sd,top,hh,tom,rim}.wav` を維持できる
+- §決定 10 multi-table architecture と綺麗に整合する
+- synth kit 単独 release 可能性 (= §決定 19) と矛盾しない
+- acoustic を「最終版」 に固定しないので narrative が柔軟
+- future kit expansion に自然に伸ばせる
+- **filename = drum identity / directory = kit identity** の責務分離
+
+推奨 directory 構造:
+- `assets/drum_samples/synth/2608_bd.wav`
+- `assets/drum_samples/synth/2608_sd.wav`
+- `assets/drum_samples/synth/2608_top.wav`
+- `assets/drum_samples/synth/2608_hh.wav`
+- `assets/drum_samples/synth/2608_tom.wav`
+- `assets/drum_samples/synth/2608_rim.wav`
+
+future expansion:
+- `assets/drum_samples/acoustic/...` (= 段階 2)
+- `assets/drum_samples/synth_v2/...` (= future kit)
+- `assets/drum_samples/experimental/...` (= future kit)
+
+ADR / handoff 記載要件:
+- naming 戦略 = **directory 分離 synth/acoustic** (= §決定 23 literal 拘束)
+- filename = **drum identity** (= `2608_{bd,sd,top,hh,tom,rim}.wav` 不変)
+- directory = **kit identity** (= synth / acoustic / future kit)
+- PMD culture compatibility = **filename レベルで維持** (= §決定 7 整合)
+- kit provenance = **directory レベルで表現** (= synth / acoustic は parallel kit families)
+- acoustic = **非自動 canonical** (= synth kit 単独 release 維持、 §決定 19 整合)
+- synthetic-only release = **継続有効**
+
+#### 軸 14: synthetic drum identity aesthetic (= A OPNA / retro FM-ADPCM aesthetic 採用)
+
+§決定 14 sound-alike caution + §決定 16 推奨/禁止 wording 確定済、 22nd session で Surge XT prototype の音色キャラクター方針を確定:
+
+- (a) (= **採用**、 OPNA / retro FM-ADPCM aesthetic): 80s digital drum (= YM2608 + ADPCM-A 6ch 文化) 雰囲気追求、 RX-11 似や生 drum 再現ではない。 §決定 14 推奨 wording と整合、 PMDNEO target (= NEOGEO/OPNB 文化) と一致、 段階 1 synth kit narrative 明確。
+- (b) (= 不採用、 PMD culture rhythm 継承): PMD V4.8s 同梱 rhythm.wav (= §Annex A-3) 雰囲気継承、 sample 由来は完全自前合成。 PMD 文化依存 narrative 追加豊かさ、 sound-alike caution (= RX-11 と PMD culture の距離説明) が複雑化。
+- (c) (= 不採用、 acoustic-leaning realism): 段階 3 acoustic (= birch shell + Zildjian 系) への橋渡しとして synthetic で acoustic-like 設定。 段階連続性高、 §決定 19 「段階 1 完全集中 / synth 単独 release 可能」 narrative 不整合 risk。
+- (d) (= 不採用、 character-neutral / minimal): 個性最小の clinical synth drum、 future kit 入替前提の neutral baseline。 同梱 default としての中立性 + 後で上書き前提、 PMDNEO narrative (= NEOGEO/OPNB 文化) の表現力低下。
+
+(a) 採用根拠:
+- PMDNEO の identity と最も自然に一致する
+- 「RX-11 recreation」 ではなく「**80s digital drum culture**」 を参照できる
+- §決定 14 sound-alike caution と整合する
+- synthetic kit 単独 release (= §決定 19) narrative を作りやすい
+- acoustic realism を目指さないので段階 1 役割明確 (= legality / reproducibility / ownership / pipeline)
+
+aesthetic target 5 項目:
+- **short decay** (= ADPCM-A 圧縮 + retro digital drum 特性)
+- **bright transient** (= attack 強調 + 4-bit ADPCM-A 親和)
+- **compressed body** (= 全体音量 envelope short + retro digital character)
+- **retro digital texture** (= 80s YM2608 / OPNA 期 digital drum 質感)
+- **ADPCM-friendly frequency balance** (= 18.5 kHz sample rate / 4-bit ADPCM-A 圧縮で degrade しない周波数分布)
+
+中核 wording (= 22nd session narrative 核心):
+- 「**RX-11 を再現する**」 ではなく、 「**YM2608 / ADPCM-A 時代の aesthetic を継承する**」
+- 段階 1 synth kit は **「placeholder」 ではなく「正式な PMDNEO drum family」** として扱う
+- acoustic kit が future に来ても、 synth kit は **obsolete ではなく parallel family**
+- **synthetic-only release は valid な PMDNEO release form**
+
+22nd session 追加推奨 wording (= §決定 16 wording 規律拡張):
+- 「retro FM/ADPCM drum aesthetic」 (= 既存推奨 wording 強化)
+- 「OPNA-era digital drum identity」 (= 22nd session 新規追加)
+- 「PMD rhythm family compatible」 (= 既存 wording 表記揺れ統一)
+- 「synthetic drum prototype」 (= 既存 wording 継続)
+- 「ADPCM-A friendly drum design」 (= 22nd session 新規追加)
+- 「transient-focused drum design」 (= 22nd session 新規追加)
+- 「synth kit first-class identity」 (= 22nd session narrative 核心、 placeholder ではなく正式)
+- 「parallel kit families」 (= 22nd session 新規追加、 synth / acoustic 並存表現)
+
+22nd session 禁止 wording (= §決定 16 wording 規律 reaffirm):
+- 「RX-11 clone」
+- 「ROM recreation」
+- 「exact reproduction」
+- 「mimic」
+
+ADR / handoff 記載要件:
+- aesthetic 方針 = **OPNA / retro FM-ADPCM aesthetic** (= §決定 24 literal 拘束)
+- synth kit identity = **first-class** (= placeholder ではなく正式 PMDNEO drum family)
+- acoustic kit = **optional future expansion** (= §決定 19 整合、 自動 canonical 化しない)
+- design philosophy = **retro digital aesthetic over realism** (= acoustic realism は段階 2 役割)
+- ADPCM-A friendly = **transient-focused design** (= 5 aesthetic target 統合表現)
+- §migration roadmap 段階 1 で「retro FM/ADPCM drum aesthetic」 を target 言語として使用、 sound-alike caution 推奨 wording 強化
 
 ## §決定
 
@@ -477,6 +677,168 @@ literal 拘束:
 
 軸 9 (d) 採用の literal 拘束。 §決定 6 (= migration roadmap 3 段階) と整合、 §決定 6 は roadmap 軸 / §決定 19 は timing / 役割分離軸として並存。
 
+### §決定 20: current temporary fixture forensic 実施順序 = inventory first + sha256 canonical + observed-facts-first + 8 段階 flow
+
+§決定 15 (= 中程度 forensic + 3 段階分類 + engineering provenance note 性格) の実施 entry point を「現存棚卸し先行」 に確定し、 §Annex A-5 後埋め枠を以下の 8 段階 flow で literal 化する:
+
+1. **current wav inventory** (= `src/test-fixtures/` + `vendor/ngdevkit-examples/` 配下 rhythm 関連 wav 全列挙)
+2. **sha256** (= canonical identity 固定)
+3. **sample rate / length / channel count** (= wav metadata)
+4. **file header** (= RIFF WAVE PCM header parse)
+5. **current `samples.inc` 対応** (= `adpcma_sample_{bd,sd,cym,hh,tom,rim}` symbol と wav の対応)
+6. **vendor wav 対応** (= `vendor/PMDDotNET/` / `vendor/pmd48s/` / `vendor/ngdevkit-examples/` 配下 wav との関係)
+7. **4 分類推定** (= Yamaha mask ROM dump / community 配布物 / PMD culture / RX-11 sample pack のどれに likely / unknown するか)
+8. **git history / external comparison は必要時のみ追加** (= forensic 中程度 = 7 軸内で完結、 法的判断ではなく engineering note)
+
+literal 拘束:
+- forensic 実施順序 = **inventory first** (= 観測可能事実先固定 → provenance 推定後追い)
+- sha256 = **canonical identity** (= 後の比較で reproducible、 §Annex A-5 表に sha256 列必須)
+- provenance inference = **inventory 完了後の後追い軸** (= 観測可能事実先固定)
+- forensic result = **engineering note** (= 法的 certification ではない、 §決定 15 連動)
+- §Annex A-5 update commit = 8 段階 flow 全完了後に表形式で literal 反映
+
+軸 10 (a) 採用の literal 拘束。 §決定 15 (= forensic 深度軸) と整合、 §決定 15 は深度軸 / §決定 20 は実施順序軸として並存。
+
+### §決定 21: scripts canonical pipeline 粒度 = 4 系統分離 + 4 script + Makefile target 4 件 + 役割境界
+
+§決定 17 (= scripts canonical / WebApp future UI 役割分離 + 3 系統 scripts + Makefile target) を 22nd session で forensic 系統独立化により 4 系統化を確定する:
+
+scripts 構成 (= 4 系統分離):
+- `scripts/forensic-drum-samples.sh` (= **read-only inventory**):
+  - inventory / sha256 / file header / sample rate / bit depth / length / channel count / current `samples.inc` 対応候補 / report 出力
+  - §決定 20 8 段階 flow 1-7 を mechanical に実行する read-only script
+  - output = `forensic-report.md` / `forensic-inventory.yaml` 等 (= 実装時確定)
+- `scripts/wav_to_adpcma.sh` (= **one-file converter**):
+  - wav 1 file → ADPCM-A binary 1 file 変換
+  - default parameter = mono / 18.5 kHz / 4-bit ADPCM-A / `2608_{bd,sd,top,hh,tom,rim}.wav` naming (= §決定 7 / §決定 8 / §決定 18 整合)
+  - superctr/adpcm wrapper (= §決定 18 整合)
+- `scripts/build_drum_samples.sh` (= **orchestration**):
+  - 6 drum wav → 6 ADPCM-A binary → `samples.inc` / assets 出力
+  - 命名 `2608_{bd,sd,top,hh,tom,rim}` (= §決定 7 整合)
+  - 既存 PMDNEO build pipeline (= ADR-0019 sample addr build-time embed) 整合
+- `scripts/verify-drum-samples.sh` (= **reproducibility gate**):
+  - sha256 / expected length / channel count / sample rate / output binary size / optional spectral fingerprint
+  - 生成物 deterministic 検証 (= 同 source wav から同 ADPCM-A binary が出ること)
+
+Makefile target 4 件分離:
+- `make forensic-drum-samples`
+- `make wav-to-adpcma`
+- `make build-drum-samples`
+- `make verify-drum-samples`
+
+役割境界 (= 各 script 責務 literal):
+- `forensic-drum-samples.sh` = **read-only inventory** (= 既存資産の調査専用、 wav も binary も生成しない)
+- `wav_to_adpcma.sh` = **one-file converter** (= 1 wav 入力 1 ADPCM-A binary 出力、 batch ではない)
+- `build_drum_samples.sh` = **orchestration** (= 6 drum batch + samples.inc 統合)
+- `verify-drum-samples.sh` = **reproducibility gate** (= 生成物検証、 build pipeline 後段)
+
+literal 拘束:
+- scripts 粒度 = **4 系統分離** (= 1 script = 1 責務)
+- forensic 系統 = **forward build pipeline と独立**
+- 各 script は **単独実行可能** (= Makefile target 4 件で抽出)
+- future contributor が **forensic だけ再実行しやすい** (= 設計目的)
+- WebApp converter = **future UI** (= scripts と同仕様に追随、 §決定 17 整合)
+
+軸 11 (a) 採用の literal 拘束。 §決定 17 (= 3 系統 scripts canonical) を 22nd session で 4 系統化に拡張、 §決定 17 は role 分離軸 (= scripts canonical / WebApp future UI) / §決定 21 は系統粒度軸として並存。
+
+### §決定 22: Surge XT install 環境 = Homebrew cask canonical + standalone-first + plugin DAW optional + version 記録
+
+§決定 16 (= Surge XT prototype 設計明明 prototype + 5 成果物) の install 経路を「Homebrew cask canonical」 に確定する:
+
+install 手順:
+- **`brew install --cask surge-xt`** (= macOS canonical install 経路)
+- version を §Annex A-7 / design memo に literal 記録 (= future contributor reproducibility)
+- standalone app を canonical (= GUI standalone で wav export、 DAW 不要)
+- plugin / DAW integration は future optional (= 必要なら別 ADR or 別 sub-sprint)
+
+literal 拘束:
+- install 経路 = **Homebrew cask canonical** (= 1 command で同 version 再現可能)
+- canonical form = **standalone-first** (= DAW 依存回避、 段階 1 β scope 縮減)
+- plugin / DAW integration = **future optional** (= scope 拡大は別軸で判断)
+- install version 記録 = **必須** (= §Annex A-7 install version 列追加、 段階 1 sub-sprint α で literal 反映)
+- future contributor reproducibility = **重視** (= scripts canonical 方針と整合)
+- 「**環境構築も provenance の一部**」 という観点で扱う
+
+軸 12 (a) 採用の literal 拘束。 §決定 16 (= prototype 粒度軸) と整合、 §決定 16 は prototype 内容軸 / §決定 22 は install 経路軸として並存。
+
+### §決定 23: prototype render naming = directory 分離 synth/acoustic + filename = drum identity + directory = kit identity + parallel kit families
+
+§決定 7 (= source wav 公式命名 `2608_{bd,sd,top,hh,tom,rim}.wav`) + §決定 10 (= synth kit + acoustic kit 棲み分け / multi-table architecture 経由 kit 入替) を 22nd session で命名衝突回避方針として確定:
+
+推奨 directory 構造:
+- `assets/drum_samples/synth/2608_bd.wav`
+- `assets/drum_samples/synth/2608_sd.wav`
+- `assets/drum_samples/synth/2608_top.wav`
+- `assets/drum_samples/synth/2608_hh.wav`
+- `assets/drum_samples/synth/2608_tom.wav`
+- `assets/drum_samples/synth/2608_rim.wav`
+
+future expansion:
+- `assets/drum_samples/acoustic/...` (= 段階 2 acoustic kit)
+- `assets/drum_samples/synth_v2/...` (= future kit、 同 pattern で expand)
+- `assets/drum_samples/experimental/...` (= future kit)
+
+責務分離:
+- **filename = drum identity** (= `2608_{bd,sd,top,hh,tom,rim}.wav` 不変、 §決定 7 公式命名維持)
+- **directory = kit identity** (= synth / acoustic / future kit、 §決定 10 multi-table 入替 design 整合)
+
+literal 拘束:
+- naming 戦略 = **directory 分離 synth/acoustic** (= 1 filename = 1 drum identity / 1 directory = 1 kit identity)
+- PMD culture compatibility = **filename レベルで維持** (= §決定 7 整合、 PMD ecosystem 全体と命名互換)
+- kit provenance = **directory レベルで表現** (= synth / acoustic は **parallel kit families**)
+- acoustic = **非自動 canonical** (= synth kit 単独 release 可能性 §決定 19 整合、 acoustic を「最終版」 として固定しない)
+- synthetic-only release = **継続有効** (= V1 を synthetic kit で成立させる選択肢 §決定 19 整合)
+- future kit expansion = **同 pattern 採用** (= `synth_v2/` `experimental/` 等、 ADR-0025 multi-table architecture activate path)
+
+軸 13 (a) 採用の literal 拘束。 §決定 7 (= 公式命名軸) + §決定 10 (= multi-table kit 入替軸) と整合、 §決定 7 は filename 軸 / §決定 10 は architecture 軸 / §決定 23 は directory + kit identity 軸として並存。
+
+### §決定 24: synthetic drum identity aesthetic = OPNA / retro FM-ADPCM aesthetic + synth kit first-class identity + ADPCM-A friendly transient-focused + 5 aesthetic target
+
+§決定 14 (= sound-alike caution) + §決定 16 (= 推奨/禁止 wording 規律) を 22nd session で Surge XT prototype の音色キャラクター方針として確定:
+
+aesthetic 方針:
+- **OPNA / retro FM-ADPCM aesthetic** = 80s digital drum (= YM2608 + ADPCM-A 6ch 文化) 雰囲気追求
+- 「**RX-11 を再現する**」 ではなく、 「**YM2608 / ADPCM-A 時代の aesthetic を継承する**」
+- acoustic realism を目指さない (= 段階 2 役割と分離)
+
+aesthetic target 5 項目 (= Surge XT patch 設計 target):
+- **short decay** (= ADPCM-A 圧縮 + retro digital drum 特性)
+- **bright transient** (= attack 強調 + 4-bit ADPCM-A 親和)
+- **compressed body** (= 全体音量 envelope short + retro digital character)
+- **retro digital texture** (= 80s YM2608 / OPNA 期 digital drum 質感)
+- **ADPCM-friendly frequency balance** (= 18.5 kHz sample rate / 4-bit ADPCM-A 圧縮で degrade しない周波数分布)
+
+synth kit narrative 確立 (= 22nd session 中核 wording):
+- 段階 1 synth kit は **「placeholder」 ではなく「正式な PMDNEO drum family」** として扱う
+- acoustic kit が future に来ても、 synth kit は **obsolete ではなく parallel family**
+- **synthetic-only release は valid な PMDNEO release form** (= §決定 19 整合)
+
+22nd session 追加推奨 wording (= §決定 16 wording 規律拡張):
+- 「retro FM/ADPCM drum aesthetic」 (= 既存推奨 wording 強化)
+- 「OPNA-era digital drum identity」 (= 22nd session 新規追加)
+- 「PMD rhythm family compatible」 (= 既存 wording 表記揺れ統一)
+- 「synthetic drum prototype」 (= 既存 wording 継続)
+- 「ADPCM-A friendly drum design」 (= 22nd session 新規追加)
+- 「transient-focused drum design」 (= 22nd session 新規追加)
+- 「synth kit first-class identity」 (= 22nd session narrative 核心)
+- 「parallel kit families」 (= 22nd session 新規追加、 synth / acoustic 並存表現)
+
+22nd session 禁止 wording (= §決定 16 reaffirm):
+- 「RX-11 clone」
+- 「ROM recreation」
+- 「exact reproduction」
+- 「mimic」
+
+literal 拘束:
+- aesthetic 方針 = **OPNA / retro FM-ADPCM aesthetic** (= PMDNEO target NEOGEO/OPNB 文化と整合)
+- synth kit identity = **first-class** (= placeholder ではなく正式 PMDNEO drum family)
+- acoustic kit = **optional future expansion** (= §決定 19 整合、 自動 canonical 化しない)
+- design philosophy = **retro digital aesthetic over realism** (= acoustic realism は段階 2 役割)
+- ADPCM-A friendly = **transient-focused design** (= 5 aesthetic target 統合表現)
+- §migration roadmap 段階 1 で「retro FM/ADPCM drum aesthetic」 を target 言語として使用、 sound-alike caution 推奨 wording 強化
+
+軸 14 (a) 採用の literal 拘束。 §決定 14 (= sound-alike caution 軸) + §決定 16 (= prototype 粒度軸 + wording 規律) と整合、 §決定 14 は法的境界軸 / §決定 16 は prototype 内容軸 / §決定 24 は aesthetic 方針軸として並存。
+
 ## scope-in
 
 ADR-0033 が扱う範囲 (= 段階 1-3 sprint 全体で消化):
@@ -538,37 +900,68 @@ ADR-0033 が **触らない** 範囲 (= 32 項目以上、 ADR-0019 / ADR-0031 /
 
 ADR-0033 Draft 起票 (= 20th session 末 commit、 §決定 1-14 + scope + roadmap + §Annex A-1〜A-7 枠 + 完了判定 10 項目 + wording 規律)。
 
-**ADR-0033 Draft update (= 21st session 本 commit):**
+**ADR-0033 Draft update 21st session 完了 commit (= commit 5a2549a):**
 - §決定 15-19 追加 (= 5 軸壁打ち決定の literal 拘束、 軸 5 forensic 深度 / 軸 6 prototype 粒度 / 軸 7 pipeline scripts 化 / 軸 8 encoder 採用 / 軸 9 acoustic timing)
 - §Annex A-5 後埋め枠 update (= 3 段階分類 confirmed / likely / unknown + engineering provenance note 性格 + 中程度 forensic 7 調査軸 literal 化)
 - §Annex A-7 後埋め枠 update (= superctr/adpcm + wrapper script 採用方針確定、 sub-sprint γ で license + 動作確認 + 採用根拠 literal 反映)
 - ## 重要 wording 規律 拡充 (= 21st session 追加推奨 wording + 禁止 wording)
-- 本 sub-sprint α 内容詳細化 (= 本 update)
+- 本 sub-sprint α 内容詳細化 (= 21st session update)
 
-**current temporary fixture 中程度 forensic 起源調査 (= §決定 15 + §Annex A-5 literal 反映、 21st session 内または next session で実施):**
-- 7 調査軸 (= §決定 15 literal):
-  1. sha256 / git log (= 作成経緯) / filename pattern
-  2. file header / sample rate / bit depth / length
-  3. basic waveform / spectral fingerprint
-  4. current `samples.inc` 内 rhythm sample 開始 addr + binary 内容との対応 / vendor 内 wav 関係
-  5. BambooTracker `chip/mame/fmopn_2608rom.h` / ymfm extern reference / MAME 経路非一致確認
-  6. 既知 RX-11 sample pack 候補 (= SampleScience / AREX 2011 / PausePlayRepeat / freewavesamples 等) との top-level 照合
-  7. snesmusic.org/hoot/drum_samples.zip + PMD player 同梱 RSS wav set + ngdevkit-examples との top-level 照合
+**ADR-0033 Draft update 22nd session 本 commit:**
+- §決定 20-24 追加 (= 5 軸壁打ち決定の literal 拘束、 軸 10 forensic 実施順序 / 軸 11 scripts canonical pipeline 粒度 / 軸 12 Surge XT install 環境 / 軸 13 prototype render naming / 軸 14 synthetic drum identity aesthetic)
+- §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + 8 段階 flow literal 化 + §決定 21 連動 forensic-drum-samples.sh reference 追加
+- §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 + 役割境界 literal 化 + Surge XT install 環境 (= Homebrew cask canonical) 後埋め枠追加
+- ## migration roadmap 段階 1 sub-sprint α 22nd session 反映 (= 本 update)
+- ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity / parallel kit families 等)
+
+**段階 1 sub-sprint α 実作業 (= 22nd session update commit 後、 3 work 独立並走可能):**
+
+(1) **current temporary fixture forensic** (= §決定 15 + §決定 20 + §Annex A-5 literal 反映):
+- 実施 entry point = **inventory first** (= §決定 20 literal 拘束、 22nd session 中核規律)
+- 8 段階 flow (= §決定 20 literal):
+  1. current wav inventory (= `src/test-fixtures/` + `vendor/ngdevkit-examples/` 配下 rhythm 関連 wav 全列挙)
+  2. sha256 (= canonical identity)
+  3. sample rate / length / channel count
+  4. file header (= RIFF WAVE PCM header parse)
+  5. current `samples.inc` 対応 (= `adpcma_sample_{bd,sd,cym,hh,tom,rim}` symbol と wav の対応)
+  6. vendor wav 対応 (= `vendor/PMDDotNET/` / `vendor/pmd48s/` / `vendor/ngdevkit-examples/` 配下 wav との関係)
+  7. 4 分類推定 (= Yamaha mask ROM dump / community 配布物 / PMD culture / RX-11 sample pack のどれに likely / unknown するか)
+  8. git history / external comparison は必要時のみ追加
+- 実施 script = `scripts/forensic-drum-samples.sh` (= §決定 21 literal、 read-only inventory)
 - 結果を §Annex A-5 に 3 段階分類 (= confirmed / likely / unknown) + 起源 4 分類別判断 + engineering provenance note として表形式で literal 反映 (= update commit)
 
-**Surge XT install (= 越川氏 hand-on、 越川氏 macOS):**
-- 公式 https://surge-synthesizer.github.io/ から download (= 無料、 GPL-3.0)
-- VST3 / AU / standalone の 3 形式が同梱、 standalone で DAW なしで wav export 可能
+(2) **scripts canonical pipeline 雛形** (= §決定 17 + §決定 21 + §Annex A-7 literal 反映):
+- 4 系統 scripts 雛形作成:
+  - `scripts/forensic-drum-samples.sh` (= read-only inventory、 上記 8 段階 flow 実行)
+  - `scripts/wav_to_adpcma.sh` (= one-file converter、 superctr/adpcm wrapper、 §決定 18 整合)
+  - `scripts/build_drum_samples.sh` (= orchestration、 6 drum batch、 §決定 23 naming)
+  - `scripts/verify-drum-samples.sh` (= reproducibility gate)
+- Makefile target 4 件追加:
+  - `make forensic-drum-samples`
+  - `make wav-to-adpcma`
+  - `make build-drum-samples`
+  - `make verify-drum-samples`
+- 役割境界 (= §Annex A-7 表形式 literal): read-only inventory / one-file converter / orchestration / reproducibility gate
+- 段階 1 sub-sprint α 段階では forensic-drum-samples.sh のみ動作確認 (= (1) で使用)、 他 3 script は雛形のみで sub-sprint β-γ で本格稼働
+
+(3) **Surge XT install** (= §決定 22 + §Annex A-7 literal 反映、 越川氏 hand-on、 越川氏 macOS):
+- install 経路 = **Homebrew cask canonical** (= §決定 22 literal 拘束)
+- 手順 = `brew install --cask surge-xt`
+- canonical form = **standalone-first** (= GUI standalone で wav export、 DAW 不要)
+- plugin / DAW integration = **future optional**
+- version 記録 = §Annex A-7 install version 列に literal 反映 (= `brew list --versions surge-xt` 出力)
 - 確認: install 後 BD prototype patch 1 件で「合成 path が現実的か」 を hand-on 体感
 
 **reference 機材設置 (= 越川氏個人 license、 PMDNEO 同梱しない、 §決定 4 個人 reference 用途許可):**
 - AREX 2011 (= free VSTi、 Windows のみ、 越川氏判断で skip 可)
 - SampleScience RX-11 HD (= 無料 / 個人 reference、 越川氏判断軸)
 
-完了判定 (= 21st session 反映、 sub-sprint α 完了で sub-sprint β = Surge XT 6 patch 設計に進む):
-- ADR-0033 Draft update commit 完了 (= §決定 15-19 + Annex A-5 / A-7 update + wording 規律拡充 + sub-sprint α 詳細化)
-- §Annex A-5 起源調査結果 literal 記録済 (= 中程度 forensic 7 軸 + 3 段階分類 + 起源 4 分類別判断 + engineering provenance note 表形式)
-- Surge XT install 確認、 BD prototype 1 件 hand-on (= 越川氏 hand-on)
+完了判定 (= 22nd session 反映、 sub-sprint α 完了で sub-sprint β = Surge XT 6 patch 設計に進む):
+- ADR-0033 Draft update commit 完了 (= 22nd session 本 commit = §決定 20-24 + Annex A-5 / A-7 22nd session 反映 + migration roadmap 段階 1 sub-sprint α 22nd session 反映 + wording 規律 22nd session 反映 + sub-sprint α 詳細化)
+- §Annex A-5 起源調査結果 literal 記録済 (= 中程度 forensic 8 段階 flow + 3 段階分類 + 起源 4 分類別判断 + engineering provenance note 表形式、 §決定 20 inventory-first 反映)
+- §Annex A-7 install version 列 literal 反映済 (= Homebrew cask install 後の `brew list --versions surge-xt` 出力)
+- scripts 4 系統雛形作成済 (= `forensic-drum-samples.sh` + `wav_to_adpcma.sh` + `build_drum_samples.sh` + `verify-drum-samples.sh` + Makefile target 4 件)
+- Surge XT install 確認 (= Homebrew cask canonical)、 BD prototype 1 件 hand-on (= 越川氏 hand-on)
 - handoff doc + memory + commit + push 完了
 
 #### sub-sprint β: Surge XT で 6 種 patch 設計 + wav render
@@ -1004,6 +1397,28 @@ ADR-0033 起票時点で PMDNEO `samples.inc` に embed されている既存 rh
 - **3 段階分類 (= confirmed / likely / unknown)** で起源 likelihood を分類
 - **目的 = 起源を完全に暴くことではなく、 段階 3 で越川氏 100% 著作物に置換する判断を補強する**
 
+実施順序 (= §決定 20 literal、 22nd session 軸 10 反映):
+
+- **inventory first** (= 観測可能事実先固定 → provenance 推定後追い、 22nd session 中核規律)
+- **sha256 as canonical identity** (= 後の比較で reproducible、 本表に sha256 列必須)
+- **provenance inference happens after inventory** (= 「何が存在しているか」 を fix した後で「それが何由来か」 を推定する 2 段階構造)
+- **forensic result is engineering note, not legal certification** (= §決定 15 性格再強調、 PMDNEO 完全ホワイト化 narrative の証跡として残すが法的判断は段階 3 越川氏判断軸)
+
+8 段階 flow (= §決定 20 literal):
+
+1. **current wav inventory** (= `src/test-fixtures/` + `vendor/ngdevkit-examples/` 配下 rhythm 関連 wav 全列挙、 file path / file size を表化)
+2. **sha256** (= canonical identity 固定、 表 sha256 列の primary value)
+3. **sample rate / length / channel count** (= wav metadata、 表 metadata 列)
+4. **file header** (= RIFF WAVE PCM header parse、 §決定 8 仕様準拠確認も兼ねる)
+5. **current `samples.inc` 対応** (= `adpcma_sample_{bd,sd,cym,hh,tom,rim}` symbol と wav の対応関係表化、 driver-embedded 経路の透明性)
+6. **vendor wav 対応** (= `vendor/PMDDotNET/` / `vendor/pmd48s/` / `vendor/ngdevkit-examples/` 配下 wav との関係、 vendor 内資産の起源候補抽出)
+7. **4 分類推定** (= Yamaha mask ROM dump / community 配布物 / PMD culture / RX-11 sample pack のどれに likely / unknown するか、 起源 4 分類別判断連動)
+8. **git history / external comparison は必要時のみ追加** (= forensic 中程度 = 7 軸内で完結、 8 軸目は escape hatch、 法的判断ではなく engineering note)
+
+実施 scripts (= §決定 21 literal):
+- `scripts/forensic-drum-samples.sh` (= read-only inventory、 上記 8 段階 flow 1-7 を mechanical に実行)
+- `make forensic-drum-samples` で起動
+
 調査軸 (= 中程度 forensic、 §決定 15 連動 7 項目):
 1. sha256 / git log (= 作成経緯) / filename pattern
 2. file header / sample rate / bit depth / length
@@ -1074,7 +1489,37 @@ future contributor / fork 派生作品でも本 wording 規律を継承する義
 - **encoder 本体 = `github.com/superctr/adpcm` 採用** (= sound chip ADPCM codec library、 YM2610 ADPCM-A 対応、 既存 library)
 - **PMDNEO 側 wrapper = `scripts/wav_to_adpcma.sh`** (= PMDNEO project license = GPL-3.0、 default parameter mono / 18.5 kHz / 4-bit / `2608_{bd,sd,top,hh,tom,rim}.wav` naming)
 
-**(= 段階 1 sub-sprint γ で license 確認 + 動作確認 + 採用根拠 literal 反映後に本 §Annex A-7 を update commit で literal 記載)**
+**scripts canonical pipeline 構成 (= §決定 21 literal、 22nd session 軸 11 反映 = 4 系統分離):**
+
+| script | 役割境界 | 入力 | 出力 | Makefile target |
+|---|---|---|---|---|
+| `scripts/forensic-drum-samples.sh` | **read-only inventory** | 既存 wav 資産 | inventory report (= `forensic-report.md` / `forensic-inventory.yaml` 等、 実装時確定) | `make forensic-drum-samples` |
+| `scripts/wav_to_adpcma.sh` | **one-file converter** | wav 1 file (= 44100 Hz / 16 bit / mono、 §決定 8 仕様) | ADPCM-A binary 1 file (= 18.5 kHz / 4-bit) | `make wav-to-adpcma` |
+| `scripts/build_drum_samples.sh` | **orchestration** | 6 wav (= synth or acoustic kit、 §決定 23 naming) | 6 ADPCM-A binary + `samples.inc` (= ADR-0019 build-time embed 整合) | `make build-drum-samples` |
+| `scripts/verify-drum-samples.sh` | **reproducibility gate** | 生成済 6 ADPCM-A binary + `samples.inc` | sha256 / length / channel count / sample rate / output binary size / optional spectral fingerprint 検証 report | `make verify-drum-samples` |
+
+役割境界 literal:
+- forensic = **read-only inventory** (= 既存資産の調査専用、 wav も binary も生成しない、 forward build pipeline と独立)
+- wav_to_adpcma = **one-file converter** (= 1 wav 入力 1 ADPCM-A binary 出力、 batch ではない、 純粋な変換責務)
+- build_drum_samples = **orchestration** (= 6 drum batch + `samples.inc` 統合、 既存 PMDNEO build pipeline と整合)
+- verify-drum-samples = **reproducibility gate** (= 生成物 deterministic 検証、 build pipeline 後段)
+
+WebApp converter (= future UI、 §決定 17 連動): scripts 仕様に追随する future UI、 重複ロジック設定しない、 source of truth は scripts canonical。
+
+**Surge XT install 環境 (= §決定 22 literal、 22nd session 軸 12 反映 = Homebrew cask canonical):**
+
+| 項目 | 仕様 |
+|---|---|
+| install 経路 | `brew install --cask surge-xt` (= macOS canonical) |
+| canonical form | standalone app (= GUI standalone で wav export、 DAW 不要) |
+| plugin / DAW integration | future optional (= 必要なら別 ADR or 別 sub-sprint) |
+| install version 記録 | 段階 1 sub-sprint α update commit で本表に literal 反映予定 |
+| version 記録列 (= 後埋め枠) | (= 段階 1 sub-sprint α 実行時、 `brew list --versions surge-xt` 出力を literal 記載) |
+| reproducibility 評価 | 1 command で同 version install 可能 (= future contributor / fork 派生も同手順) |
+
+「環境構築も provenance の一部」 として扱う観点で、 install version を §Annex A-7 に literal 記録する。
+
+**(= 段階 1 sub-sprint γ で license 確認 + 動作確認 + 採用根拠 literal 反映後に本 §Annex A-7 を update commit で literal 記載 + 段階 1 sub-sprint α で install version 列を literal 反映)**
 
 検討候補 (= 21st session 時点):
 1. `github.com/superctr/adpcm` (= **採用**、 sound chip ADPCM codec library、 YM2610 ADPCM-A 対応、 既存 library)
@@ -1137,4 +1582,61 @@ ADR-0033 内 + future commit message + handoff doc + memory で統一する word
 - 「sample derivative」 (= §決定 2-5 永久排除契約適用対象の表現)
 - 「engineering provenance note」 (= §決定 15 Annex A-5 性格、 法的判断ではなく engineering 記録)
 
-ADR-0033 の literal narrative はこの wording 規律に貫徹する。 future commit / fork 派生作品でも継承義務。
+22nd session 追加推奨 wording (= §決定 20 forensic 実施順序 + §決定 21 scripts canonical 4 系統 + §決定 22 Surge XT install + §決定 23 render naming + §決定 24 aesthetic):
+
+forensic / inventory 軸 (= §決定 20 連動):
+- 「inventory first」 (= 22nd session 中核規律、 観測可能事実先固定)
+- 「sha256 as canonical identity」 (= forensic 比較の primary identity)
+- 「observed facts first, provenance inference second」 (= §決定 20 中核 wording、 2 段階構造)
+- 「engineering provenance note, not legal certification」 (= §決定 15 性格 reaffirm、 §決定 20 連動)
+
+scripts canonical pipeline 軸 (= §決定 21 連動):
+- 「read-only inventory」 (= forensic-drum-samples.sh 役割境界)
+- 「one-file converter」 (= wav_to_adpcma.sh 役割境界)
+- 「orchestration」 (= build_drum_samples.sh 役割境界)
+- 「reproducibility gate」 (= verify-drum-samples.sh 役割境界)
+- 「4 系統分離」 (= scripts 粒度方針 literal)
+
+Surge XT install 軸 (= §決定 22 連動):
+- 「Homebrew cask canonical」 (= macOS install 経路 literal)
+- 「standalone-first」 (= plugin / DAW 不要、 GUI standalone で wav export)
+- 「環境構築も provenance の一部」 (= reproducibility 拘張)
+
+prototype render naming 軸 (= §決定 23 連動):
+- 「filename = drum identity」 (= §決定 7 公式命名維持)
+- 「directory = kit identity」 (= synth / acoustic / future kit)
+- 「parallel kit families」 (= synth / acoustic 並存表現、 一方が他方を obsolete 化しない)
+- 「filename keeps PMD culture compatibility」 (= PMD ecosystem 全体と命名互換)
+- 「directory expresses kit provenance」 (= kit identity を directory レベルで表現)
+- 「synthetic-only release remains valid」 (= §決定 19 整合)
+- 「acoustic is not automatically canonical」 (= §決定 23 中核 wording)
+
+synthetic drum identity aesthetic 軸 (= §決定 24 連動):
+- 「synth kit first-class identity」 (= 22nd session narrative 核心、 placeholder ではなく正式 PMDNEO drum family)
+- 「OPNA-era digital drum identity」 (= 80s YM2608 / ADPCM-A 時代の aesthetic 継承表現)
+- 「ADPCM-A friendly drum design」 (= 18.5 kHz / 4-bit ADPCM-A 圧縮で degrade しない設計)
+- 「transient-focused drum design」 (= attack 強調 + 4-bit ADPCM-A 親和)
+- 「PMD rhythm family compatible」 (= 既存 wording 表記揺れ統一)
+- 「retro digital aesthetic over realism」 (= acoustic realism は段階 2 役割と分離)
+- 5 aesthetic target wording:
+  - 「short decay」
+  - 「bright transient」
+  - 「compressed body」
+  - 「retro digital texture」
+  - 「ADPCM-friendly frequency balance」
+
+22nd session 中核 narrative wording (= 段階 1 synth kit narrative literal 拘束):
+- 「RX-11 を再現する」 のではなく「YM2608 / ADPCM-A 時代の aesthetic を継承する」 (= sound-alike caution 中核表現、 §決定 24 連動)
+- 「段階 1 synth kit は placeholder ではなく正式な PMDNEO drum family」
+- 「acoustic kit が future に来ても、 synth kit は obsolete ではなく parallel family」
+- 「synthetic-only release は valid な PMDNEO release form」
+
+22nd session 禁止 wording (= §決定 16 reaffirm + 22nd session 強化):
+- 「RX-11 clone」
+- 「ROM recreation」
+- 「exact reproduction」
+- 「mimic」
+- 「acoustic-leaning synthetic」 (= 22nd session 新規禁止、 §決定 24 不採用案 (c) 文化、 段階 1 / 段階 2 役割分離 §決定 19 と不整合)
+- 「placeholder kit」 / 「temporary synth kit」 (= 22nd session 新規禁止、 §決定 24 「first-class identity」 narrative 破壊)
+
+ADR-0033 の literal narrative はこの wording 規律に貫徹する。 future commit / fork 派生作品でも継承義務 (= §決定 13 license 連鎖継承明示と整合)。
