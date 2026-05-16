@@ -24,17 +24,11 @@ driver をフルスクラッチで新規開発し、 NEOGEO homebrew 環境に P
 
 ## 状態
 
-設計書 3 種完成 + Phase 1 PoC ビルドフロー検証済 (2026-05 現在)。 Phase 2
-driver 実装着手準備完了。
+PMDNEO は、PMDDotNET を基にした MML コンパイル経路と、NEOGEO 向け Z80
+サウンドドライバの実装を進めています。
 
-- Phase 1 (α): NEOGEO ROM ビルドフロー検証完了 (= [docs/poc-build.md](docs/poc-build.md) 参照)
-- Phase 1 (δ): `.m` バイナリ format 解析 v3 完了 (= [docs/design/analysis_m_data_structure.md](docs/design/analysis_m_data_structure.md))
-- Phase 2 着手前 設計書 3 種完成 (= 計 2296 行):
-  - [docs/design/mn_binary_layout.md](docs/design/mn_binary_layout.md) (`.mn` binary layout 仕様)
-  - [docs/design/ppz_to_adpcma_mapping.md](docs/design/ppz_to_adpcma_mapping.md) (PPZ → ADPCM-A 翻訳 mapping)
-  - [docs/design/phase2_driver_plan.md](docs/design/phase2_driver_plan.md) (Phase 2 driver 実装計画)
-
-全体設計は [docs/design/PMDNEO_DESIGN.md](docs/design/PMDNEO_DESIGN.md) 参照。
+詳しい進捗、設計判断、検証記録は ADR と設計資料に残しています。初めて読む場合は、
+まず [ドキュメント入口](docs/README.md) から読んでください。
 
 ## ライセンス
 
@@ -42,7 +36,7 @@ driver 実装着手準備完了。
 - **IPL** (NEOGEO ハードウェア対応 binary blob): 別配布、 別ライセンス(逆ASM/改変禁止、 PMDNEO 構築用途のみ使用可)
 - **ユーザーが WebApp で生成した楽曲ROM**: 楽曲作成者(ユーザー)に著作権帰属。 PMDNEO 作成者は権利主張せず、 損害・賠償責任も負わない
 
-詳細は [LICENSE](LICENSE) およびドキュメント [docs/design/PMDNEO_DESIGN.md §1-9](docs/design/PMDNEO_DESIGN.md) 参照。
+詳細は [LICENSE](LICENSE) を参照してください。
 
 ## 著作権者
 
@@ -57,13 +51,9 @@ driver 実装着手準備完了。
 
 | ドキュメント | 用途 |
 |---|---|
-| [`docs/design/PMDNEO_DESIGN.md`](docs/design/PMDNEO_DESIGN.md) | 全体設計書(章1-2 完成、 章3 = 設計書 3 種 index 完成、 章4-6 は壁打ち継続) |
-| [`docs/design/analysis_m_data_structure.md`](docs/design/analysis_m_data_structure.md) | `.m` バイナリ format 解析 (Phase 1 (δ) v3 完了、 1377 行) |
-| [`docs/design/mn_binary_layout.md`](docs/design/mn_binary_layout.md) | `.mn` binary layout 仕様 (Phase 2 着手前 設計書 1) |
-| [`docs/design/ppz_to_adpcma_mapping.md`](docs/design/ppz_to_adpcma_mapping.md) | PPZ → ADPCM-A 翻訳 mapping (Phase 2 着手前 設計書 2) |
-| [`docs/design/phase2_driver_plan.md`](docs/design/phase2_driver_plan.md) | Phase 2 driver 実装計画 (Phase 2 着手前 設計書 3) |
-| [`docs/poc-build.md`](docs/poc-build.md) | Phase 1 PoC ビルド手順 |
-| [`docs/manual/PMDMML_MAN_V48s_utf8.txt`](docs/manual/PMDMML_MAN_V48s_utf8.txt) | PMD V4.8s 公式マニュアル(参照、 W コマンド等補完追記済) |
-| [`docs/adr/`](docs/adr/) | 設計判断記録(順次起票) |
-| [`vendor/pmd48s/`](vendor/pmd48s/) | PMD V4.8s 公式 source(GPL-3.0、 PMDDotNET 移植参照) |
-| [`vendor/ngdevkit-examples/`](vendor/ngdevkit-examples/) | ngdevkit-examples (GPL-3.0、 PoC ビルドベース、 [VENDOR_INFO.md](vendor/ngdevkit-examples/VENDOR_INFO.md) 参照) |
+| [ドキュメント入口](docs/README.md) | まず読む場所 |
+| [PMDNEO の概要](docs/guide/pmdneo-overview.md) | プロジェクトの全体像 |
+| [構成マップ](docs/guide/architecture-map.md) | MML、曲データ、ドライバ、検証環境の関係 |
+| [開発の進め方](docs/guide/development-workflow.md) | 設計、実装、検証の流れ |
+| [検証ガイド](docs/guide/verification-guide.md) | byte 比較、trace、MAME 録音、試聴の考え方 |
+| [ADR の読み方](docs/guide/adr-reading-guide.md) | 長い ADR を読むときの入口 |

@@ -38,6 +38,23 @@
 | `docs/guide/` | 開発者向けの読み方、書き方、作業方針 |
 | `docs/manual/` | 参照用の外部仕様や移植元資料 |
 
+## 詳細資料
+
+ここから先は、必要になったときに読む詳細資料です。初めて読む場合は、先に `docs/guide/` の文書を読んでください。
+
+| 文書 | 用途 |
+|---|---|
+| [全体設計書](design/PMDNEO_DESIGN.md) | PMDNEO 全体の設計方針 |
+| [`.M` 形式仕様](spec/m_format.md) | 既存 PMD 系の曲データ形式 |
+| [`.MN` 形式仕様](design/mn_binary_layout.md) | PMDNEO 用の曲データ形式 |
+| [`.PNE` 形式仕様](design/pne_binary_layout.md) | ADPCM-A サンプルパック形式 |
+| [`.M` 解析記録](design/analysis_m_data_structure.md) | `.M` 形式を調べた詳細記録 |
+| [PPZ から ADPCM-A への対応](design/ppz_to_adpcma_mapping.md) | PPZ 系の考え方を ADPCM-A へ移すための設計 |
+| [Phase 2 ドライバ計画](design/phase2_driver_plan.md) | 初期ドライバ実装計画 |
+| [PoC ビルド手順](poc-build.md) | 初期 PoC のビルド記録 |
+| [ADR](adr/) | AI協働用の判断記録と作業ログ |
+| [PMD V4.8s 公式マニュアル](manual/PMDMML_MAN_V48s_utf8.txt) | PMD 文法を確認するための参照資料 |
+
 ## 内部資料との分離
 
 AI協働用ADRとして必要な作業ログや検証証跡は、これまで通り `docs/adr/` に残してよいです。
