@@ -1,43 +1,48 @@
-# Parameter allowlist for template `.fxp` patching (= ADR-0033 §決定 27 (9) ξ artifact)
+# Parameter allowlist for template `.fxp` patching (= ADR-0033 §決定 27 (9) ξ/π artifact)
 # ============================================================================
 #
 # 本 file は AI bridge が `2608_template.fxp` 内で touch 可能な parameter を
 # literal に enumerate する allowlist。 「parameter allowlist patching」 軸の
-# literal 制約 (= ξ 中核 wording 連動)。
+# literal 制約 (= ξ/π 中核 wording 連動)。
 #
-# allowlist 外の byte は **change_protected** = AI bridge が触らない。
-# conservative default = 「明示的に許可された byte offset のみ書換可能」。
+# 23rd session π 軸転換 (= 2026-05-16):
+#   旧 (ξ): byte offset patching (= template binary diff で offset 同定 → byte overwrite)
+#   新 (π): XML element name patching (= Surge XT chunk 内 XML body の element value 修正)
+#   根拠: template (= Init Sine.fxp) chunk 内部 = sub3 magic + binary header + XML + trailing binary
+#         確認、 XML element name + value attribute 経由で安全 patching 可能、 byte offset 不要
+#
+# allowlist 外の XML element は **change_protected** = AI bridge が触らない。
+# conservative default = 「明示的に許可された XML element name のみ value 書換可能」。
 #
 # 関連 ADR / §決定:
 #   - ADR-0033 §決定 26  (= .fxp authoring spec 7 軸)
-#   - ADR-0033 §決定 27 (1)  (= AI 役割 2 軸 = template-based bridge)
-#   - ADR-0033 §決定 27 (9)  (= ξ artifact path canonical)
-#   - ADR-0033 §決定 27 (11) (= ξ scope-in literal「patching 対象 parameter の allowlist」)
+#   - ADR-0033 §決定 27 (1)  (= AI 役割 5 軸、 π で template acquisition + XML-based bridge)
+#   - ADR-0033 §決定 27 (9)  (= ξ/π artifact path canonical)
+#   - ADR-0033 §決定 27 (11) (= ξ/π scope-in literal「patching 対象 parameter の allowlist」)
 #
 # ============================================================================
 
-allowlist_version: "0.1.0"        # 本 allowlist schema 自体の version
-status: pending-template-creation  # pending-template-creation | active | superseded
+allowlist_version: "0.2.0"           # π 改訂 = XML element name 軸対応
+status: pending-xml-parameter-survey  # pending-xml-parameter-survey | active | superseded
 template_ref: ./template.fxp.provenance.yaml
+patching_model: xml-element-name      # byte-offset (旧 ξ) | xml-element-name (新 π)
 
 # ---------------------------------------------------------------------------
-# 許可 parameter list (= AI bridge が touch 可能)
+# 許可 parameter list (= AI bridge が touch 可能、 XML element name 軸)
 # ---------------------------------------------------------------------------
-# 実 byte offset は越川氏 hand-on で template 作成後の binary diff で確定。
-# binary diff 方法 (= ο3 commit 候補):
-#   (a) 越川氏 Surge XT で template `.fxp` を base parameter 値で保存
-#   (b) 越川氏 1 parameter (= 例 amp_decay) を変更して別 `.fxp` として保存
-#   (c) Claude 側で 2 file の binary diff を取得、 変化した byte offset = その parameter の格納位置
-#   (d) (b)(c) を allowlist 候補 parameter 全部に対して実施、 allowlist literal を fill
+# π2 commit (= XML parameter survey) で fill 予定:
+#   (a) template chunk 内 XML を extract
+#   (b) <parameters> 要素配下の element 一覧 dump
+#   (c) candidate 6 category に該当する element name を allowlist に列挙
+#   (d) 各 element の type + valid_range + default_value を XML から確定
 allowed_parameters: []
-  # 例 (= ο3 commit で fill 想定):
-  # - name: amp_envelope_decay
-  #   surge_xt_param_id: "a_amp_env_decay"
-  #   byte_offset: 0x1234           # template `.fxp` 内の specific offset
-  #   byte_size: 4                  # parameter byte size (= float32 想定)
-  #   encoding: float32_be          # encoding (= VST2 規約準拠 想定)
-  #   valid_range: [0.0, 1.0]       # Surge XT normalized parameter range
-  #   default_value: 0.5            # template の base value
+  # 例 (= π2 commit で fill 想定、 XML element name 軸):
+  # - xml_element_name: a_amp_env_decay     # XML 内 element tag (= Surge XT canonical param ID)
+  #   xml_value_attribute: value             # 修正対象 attribute
+  #   xml_type_attribute: type               # validation 用 type attribute
+  #   xml_type_value: "2"                    # type=2 → float、 他 type は別解釈
+  #   valid_range: [0.0, 1.0]                # Surge XT normalized parameter range
+  #   default_value: 0.5                     # template の base value
   #   patch_spec_field: amplitude_envelope.decay_ms  # 対応する patch-spec.yaml field
   #   notes: "AHDSR decay segment、 0.0 = 0ms / 1.0 = ~10 sec"
 
@@ -79,28 +84,48 @@ candidate_parameters_for_allowlist:
       - master_gain             # patch level (= -6 〜 -3 dBFS peak 整合)
 
 # ---------------------------------------------------------------------------
-# 禁止 byte range (= 永久 change_protected、 §決定 27 ξ scope-out 連動)
+# 禁止領域 (= 永久 change_protected、 §決定 27 ξ/π scope-out 連動)
 # ---------------------------------------------------------------------------
 prohibited_byte_ranges:
   - range: [0, 28]
     description: "VST2 container header (= CcnK + byteSize + fxMagic + version + idUint + fxVersion + count)"
     reason: "§決定 27 ξ scope-out: full binary RE 最小限維持、 container 軸は touch 不可"
-  - range: [28, 56]
-    description: "programName field (= FPCh body 先頭 28 byte)"
-    reason: "drum name は別軸 (= string replace) で AI bridge が処理、 byte 範囲不変"
   - range: [56, 60]
     description: "FPCh chunkByteSize (= patch chunk size header)"
-    reason: "parameter patching が同一 byte size 維持なら chunk size 不変、 byteSize 再計算不要"
+    reason: "XML patching で byte size 変動時は再計算、 それ以外は不変"
+  - range: [60, 92]
+    description: "FPCh chunk sub3 magic + 28 byte binary header"
+    reason: "Surge XT 内部 chunk format marker、 AI bridge は touch しない (= 「bridge, not full synthesizer patch compiler」 軸)"
+  - range: [31530, 31538]
+    description: "FPCh chunk trailing binary (= chunk 末尾 8 byte)"
+    reason: "XML body の後ろの binary 領域、 Surge XT 内部用途、 AI bridge は touch しない"
+
+prohibited_xml_elements:
+  - xml_path: "/patch/meta/license"
+    description: "license element、 CC0 narrative 維持 = bridge で書換禁止"
+  - xml_path: "/patch/meta/author"
+    description: "author element、 Surge Synth Team 由来表記維持"
+  - xml_path: "/patch[@revision]"
+    description: "patch revision attribute、 Surge XT 内部 schema version 識別子、 触らない"
+
+allowed_xml_modifications:
+  - xml_path: "/patch/meta/name"
+    description: "drum-specific name で書換可 (= 例 'Init Sine' → 'PMDNEO 2608 BD candidate')"
+    note: "string replace、 byte size 不変なら chunkByteSize 再計算不要"
+  - xml_path: "/patch/meta/category"
+    description: "category 書換可 (= 例 'Templates' → 'PMDNEO Drum')"
 
 # ---------------------------------------------------------------------------
-# patching 規律 (= AI bridge が遵守する rule)
+# patching 規律 (= AI bridge が遵守する rule、 XML 軸 + binary 軸)
 # ---------------------------------------------------------------------------
 patching_discipline:
-  - "allowlist 外の byte は **完全に touch しない** (= byte-identical 維持)"
-  - "allowlist 内の byte は **byte_size 一致で overwrite** (= chunk size 不変)"
+  - "XML allowlist 外の element は **完全に touch しない** (= XML serialize で byte-identical 維持)"
+  - "XML allowlist 内の element の value attribute のみ修正 (= 他 attribute 不変)"
   - "valid_range 外の値は **reject** (= patch-spec の value validation in bridge layer)"
-  - "patching 前後の `.fxp` で **template_hash 差分は allowlist byte のみ** であることを verify"
+  - "XML 修正後 byte size 変動なら chunkByteSize + VST2 byteSize の 2 か所再計算 (= chunkByteSize + 8 = byteSize 維持)"
   - "patching 失敗時は `.fxp` を作らず error exit (= 「engineering candidate before aesthetic judgement」 整合)"
+  - "patching 前後で prohibited_xml_elements + prohibited_byte_ranges が byte-identical であることを verify"
+  - "trailing binary (= chunk 末尾 8 byte) は **完全に保存** (= XML 後の Surge XT 内部 binary 領域、 corruption 回避)"
 
 # ---------------------------------------------------------------------------
 # 関連 artifact
@@ -118,6 +143,11 @@ related_artifacts:
 version_history:
   - version: "0.1.0"
     date: "2026-05-16"
-    status: schema-placeholder (= ο commit、 越川氏 hand-on + binary diff 待ち)
+    status: schema-placeholder (= ο1 commit、 byte offset patching 想定)
     author: "Claude Opus 4.7 (1M context)"
-    note: "schema + candidate parameter list のみ作成。 actual byte offsets は ο3 commit (= template 作成後 binary diff) で fill。"
+    note: "schema + candidate parameter list のみ、 ξ で byte offset 軸想定、 π で XML element name 軸に置換。"
+  - version: "0.2.0"
+    date: "2026-05-16"
+    status: pending-xml-parameter-survey (= π commit、 XML element name 軸対応)
+    author: "Claude Opus 4.7 (1M context)"
+    note: "patching_model: byte-offset → xml-element-name 軸転換、 prohibited_xml_elements + allowed_xml_modifications 追加、 prohibited_byte_ranges を chunk 構造に合わせて refine、 actual allowed_parameters list は π2 commit (= XML parameter survey) で fill。"

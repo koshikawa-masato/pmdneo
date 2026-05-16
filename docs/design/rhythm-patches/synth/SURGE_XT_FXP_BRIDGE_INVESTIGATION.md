@@ -1,9 +1,9 @@
-# Surge XT `.fxp` bridge investigation (= ADR-0033 §決定 27 ξ ο 調査報告)
+# Surge XT `.fxp` bridge investigation (= ADR-0033 §決定 27 ξ/π ο/π 調査報告)
 
-- 状態: **investigation findings** (= 23rd session ο1)
-- 関連 ADR: ADR-0033 §決定 25 / §決定 26 / §決定 27 (= λ/μ/ν/ξ)
-- 関連 commit: f6f8c9f (= ξ commit、 §決定 27 ν step 2 役割再配置)
-- scope: §決定 27 (1) AI 役割 2 軸 (= patch-spec → `.fxp` template-based bridge) の feasibility 確認 + spike 設計
+- 状態: **investigation findings + factory acquisition validated** (= 23rd session ο1 + π)
+- 関連 ADR: ADR-0033 §決定 25 / §決定 26 / §決定 27 (= λ/μ/ν/ξ/π)
+- 関連 commit: f6f8c9f (= ξ) / 1b5f20c (= ο1) / 本 commit (= π)
+- scope: §決定 27 (1) AI 役割 (= ξ で 4 軸 / π で 5 軸 = template acquisition 追加) の feasibility 確認 + spike 設計 + factory template 実 acquisition
 
 ---
 
@@ -220,6 +220,159 @@ fxp2wav-surge CLI 仕様は §決定 25 spike 成立後確定。 §決定 27 (6)
 - **ο9** (= 必要時): patch-spec / .fxp 再調整 → step ο4 へ loop
 - **ο10** (= 越川氏): rendered audio audition / aesthetic accept
 - **ι commit** (= 越川氏 accept 後): `2608_bd_self.adpcma` encode + 並行配置 + ι commit
+
+## 11. π findings (= 2026-05-16 23rd session π、 factory acquisition + XML body confirmed)
+
+ο1 から π への軸転換 (= 越川氏 hand-on engineering 接点ゼロ化) の根拠を実測 evidence で literal 化:
+
+### 11.1 Surge XT factory `.fxp` 取得経路確定
+
+Surge XT 1.3.4 install (= Homebrew cask) は system-wide data を以下 path に配置:
+
+```text
+/Library/Application Support/Surge XT/
+├── patches_factory/        ← factory presets (= 637 件、 17 category)
+│   ├── Basses/
+│   ├── ...
+│   ├── Templates/          ← Init patches 11 件
+│   │   ├── Init Sine.fxp        ← 31538 byte、 sha256 0366cc1057...
+│   │   ├── Init Saw.fxp         ← 31343 byte
+│   │   ├── Init Modern.fxp      ← 31442 byte
+│   │   ├── Init Square.fxp      ← 31424 byte
+│   │   ├── Init FM2.fxp         ← 31451 byte
+│   │   ├── Init Sine.fxp        ← ★ 採用: 全 6 drum 共通 neutral carrier
+│   │   ├── Init Wavetable.fxp   ← 425435 byte (= wavetable 入り、 過剰)
+│   │   ├── Init Experimental.fxp ← 163246 byte (= 過剰)
+│   │   └── ... (= 他)
+│   └── ...
+├── fx_presets/
+├── modulator_presets/
+├── patches_3rdparty/
+├── wavetables/
+└── ...
+
+~/Documents/Surge XT/         ← user data area
+├── Patches/                  ← user patches (= 空)
+├── SurgePatches.db           ← patch index database
+└── SurgeXTUserDefaults.xml   ← user defaults
+```
+
+**「Templates」 directory が公式 init patch 集** = Surge Synth Team が neutral 開始 state として
+提供する 11 件 Init patch。 越川氏 hand-on で「neutral template を最初から作る」 必要なし =
+**factory CC0 acquisition で代替可能**。
+
+### 11.2 license 確定 = CC0
+
+Surge XT factory Templates/Init Sine.fxp の内部 XML `<meta>` element:
+
+```xml
+<meta name="Init Sine" category="Templates" comment=""
+      author="Surge Synth Team"
+      license="Licensed under the maximally permissive CC0 license">
+  <tags />
+</meta>
+```
+
+CC0 = public domain dedication、 attribution 不要、 改変 + 再配布 + 商用利用 全自由。
+PMDNEO GPL-3.0 narrative と完全整合、 §決定 1 (= 越川氏 100% 著作物方針) とも矛盾なし
+(= template は sound design asset ではなく neutral carrier、 「越川氏 著作物」 主張対象ではない)。
+
+### 11.3 chunk 内部構造確定 = sub3 magic + binary header + XML + trailing binary
+
+Init Sine.fxp の FPCh chunk (= 31478 byte) 内部 layout:
+
+```text
+chunk offset  size       content
+------------  ---------  ---------------------------------------------------------
+[0, 4)        4 byte     "sub3" magic (= Surge XT internal chunk format marker)
+[4, 32)       28 byte    binary header (= version + padding + 内部 metadata)
+[32, 31470)   31438 byte XML body (= <?xml ?> <patch revision="22"> ... </patch>)
+[31470, 31478) 8 byte    trailing binary (= 用途未確定、 推定 checksum or padding)
+```
+
+XML body 構造 (= 越川氏 hand-on engineering を完全に冷凍する key finding):
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<patch revision="22">
+  <meta name="..." category="..." comment="..." author="..." license="...">
+    <tags />
+  </meta>
+  <parameters>
+    <volume_FX1 type="2" value="1.00000000000000" />
+    <volume_FX2 type="2" value="1.00000000000000" />
+    <volume_FX3 type="2" value="1.00000000000000" />
+    <volume_FX4 type="2" value="1.00000000000000" />
+    <volume type="2" value="-9.68199920654297" />
+    <scene_active type="0" value="0" />
+    <scenemode type="0" value="0" />
+    <splitkey type="0" value="60" />
+    ...
+    <a_pitch type="2" value="0.00000000000000" extend_range="0" />
+    <a_portamento type="2" value="..." />
+    ... (= 数百 parameter element)
+  </parameters>
+  ...
+  <customcontroller>...</customcontroller>
+  <lfobanklabels />
+  <modwheel s0="0" s1="0" />
+  <compatability>
+    <correctlyTunedCombFilter v="1" />
+  </compatability>
+  <dawExtraState populated="0" />
+</patch>
+```
+
+### 11.4 bridge approach 軸転換 = byte offset → XML element name
+
+ο1 設計では「template binary diff で byte offset 同定 → byte overwrite」 を提案。
+π findings で **XML body 確認** したため、 **XML element name 軸 patching** に置換可能:
+
+| approach | ο1 提案 (byte offset) | π refinement (XML element name) |
+|----------|----------------------|--------------------------------|
+| target identification | binary diff で byte offset 同定 | XML element tag name |
+| patching method | byte overwrite at specific offset | XML element value attribute 修正 |
+| safety check | byte size 一致確認 | XML parse 成功 + schema validation |
+| allowlist representation | byte_offset + byte_size | xml_element_name + xml_type |
+| 越川氏 hand-on 必要性 | あり (= 2 fixture 保存で binary diff) | **なし** (= XML element 一覧 dump で自動同定可能) |
+| chunk size 変動対応 | byte size 不変前提 | byte size 変動時 chunkByteSize + byteSize 再計算 |
+| failure mode | byte corruption (= silent) | XML parse error (= 検出容易) |
+
+**π refinement で XML 軸採用** = 越川氏 hand-on を完全削除可能 + safer + cleaner。
+
+### 11.5 越川氏 hand-on engineering 接点ゼロ化
+
+ξ で残っていた「越川氏 template 作成 1 度」 work も π で **AI/toolchain acquisition** に置換:
+
+```text
+旧 (ξ): 越川氏 Surge XT GUI → template `.fxp` 保存 → provenance fill
+新 (π): AI/toolchain → factory Init Sine.fxp copy → provenance auto-fill from CC0 metadata
+```
+
+越川氏 engineering 接点 = **完全にゼロ**、 越川氏 work は **rendered audio aesthetic
+audition / accept のみ**。 ν 本質 (= 越川氏 認知負荷を engineering correctness から解放) を
+完全貫徹。
+
+### 11.6 π1 commit deliverables (= 本 commit)
+
+- [x] template acquisition 実行 (= `assets/drum_samples/synth/templates/2608_template.fxp`、 31538 byte、 sha256 0366cc10...)
+- [x] template.fxp.provenance.yaml 全 fields fill + license narrative + chunk 内部構造 literal
+- [x] parameter-allowlist.yaml = XML element name 軸 update + prohibited / allowed XML elements literal
+- [x] 本 investigation doc § 11 = π findings literal 化
+- [x] ADR-0033 §決定 27 = π refinement (= AI 役割 4 → 5 軸、 越川氏 hand-on engineering ゼロ化)
+
+### 11.7 π2 以降の chain (= ο workflow 11 step 内、 越川氏 hand-on ゼロ前提)
+
+- **π2** (= Claude 主体): scripts/fxp_template_patch.py extract-xml subcommand 実装 (= chunk から XML body 抽出 + pretty print)
+- **π3** (= Claude 主体): XML parameter element 一覧 dump + candidate 6 category と照合 → parameter-allowlist.yaml の `allowed_parameters[]` literal 値 fill
+- **π4** (= Claude 主体): scripts/fxp_template_patch.py patch subcommand 実装 (= patch-spec + allowlist → XML element value 修正 + chunk 再 pack)
+- **π5** (= Claude 主体): `2608_bd.patch-spec.yaml` + `2608_template.fxp` + `parameter-allowlist.yaml` → `2608_bd.fxp` bridge 実行
+- **π6** (= 別 track / §決定 25 spike): fxp2wav-surge CLI 確立
+- **π7** (= Claude 主体): `2608_bd.fxp` → fxp2wav-surge render → `2608_bd.wav` candidate
+- **π8** (= Claude 主体): AI self-analysis 10 項目 + `analysis-report.yaml` 生成
+- **π9** (= 必要時): patch-spec / .fxp 再調整 → step π5 へ loop
+- **π10** (= **越川氏唯一の hand-on 接点**): rendered audio audition / aesthetic accept
+- **ι commit** (= accept 後): `2608_bd_self.adpcma` encode + 並行配置 + commit
 
 ## 10. 関連外部資料
 

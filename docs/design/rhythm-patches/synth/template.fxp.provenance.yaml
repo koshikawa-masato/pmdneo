@@ -1,17 +1,21 @@
-# Template `.fxp` provenance record (= ADR-0033 §決定 27 (9) ξ artifact)
+# Template `.fxp` provenance record (= ADR-0033 §決定 27 (9) ξ/π artifact)
 # ============================================================================
 #
-# 本 file は `2608_template.fxp` の由来 / hash / 変更禁止領域 / patching 範囲を記録する。
-# 越川氏 hand-on で template `.fxp` 作成後に values fill、 全 6 drum 種 (= BD/SD/TOP/HH/TOM/RIM)
-# 共通 base として扱う。
+# 本 file は `2608_template.fxp` の由来 / hash / license / 変更禁止領域 / patching 範囲
+# を記録する。 全 6 drum 種 (= BD/SD/TOP/HH/TOM/RIM) 共通 neutral carrier として扱う。
+#
+# 23rd session π 軸転換 (= 2026-05-16):
+#   旧 (ξ): template = 越川氏 Surge XT GUI hand-on 成果物 (= 1 度のみ作成)
+#   新 (π): template = AI/toolchain 側で Surge XT factory CC0 patch から acquisition
+#           越川氏 hand-on engineering 接点 = ゼロ化、 aesthetic audition のみに純化
 #
 # 関連 ADR / §決定:
 #   - ADR-0033 §決定 22  (= Surge XT install = Homebrew cask 1.3.4)
 #   - ADR-0033 §決定 25  (= fxp2wav-surge external producer)
 #   - ADR-0033 §決定 26  (= .fxp authoring spec 7 軸)
-#   - ADR-0033 §決定 27 (1)  (= AI 役割 2 軸 = template-based bridge)
-#   - ADR-0033 §決定 27 (9)  (= ξ artifact path canonical)
-#   - ADR-0033 §決定 27 (11) (= ξ scope-in literal 5 件)
+#   - ADR-0033 §決定 27 (1)  (= AI 役割 5 軸、 π で template acquisition 追加)
+#   - ADR-0033 §決定 27 (9)  (= ξ/π artifact path canonical)
+#   - ADR-0033 §決定 27 (11) (= ξ/π scope-in literal)
 #
 # ============================================================================
 
@@ -20,24 +24,32 @@
 # ---------------------------------------------------------------------------
 template_filename: 2608_template.fxp
 template_path: assets/drum_samples/synth/templates/2608_template.fxp
-status: pending-hand-on          # pending-hand-on | created | superseded
-provenance_version: "0.1.0"      # 本 provenance schema 自体の version
+status: created-from-factory-cc0  # pending-hand-on | created-from-factory-cc0 | superseded
+provenance_version: "0.2.0"        # π 改訂 = factory acquisition pattern 反映
 
 # ---------------------------------------------------------------------------
-# 越川氏 hand-on 記録 (= §決定 27 ξ template 作成は越川氏唯一の engineering 接点)
+# AI/toolchain acquisition record (= §決定 27 π template 取得は AI/toolchain 軸)
 # ---------------------------------------------------------------------------
 provenance:
-  source: pending                # hand-on 完了時 fill: "越川氏 Surge XT GUI hand-on"
-  base_design_intent: pending    # hand-on 完了時 fill: 「全 6 drum 共通 neutral base + AHDSR + 1 osc + 1 filter + 1 drive」 等
-  template_hash_sha256: null     # hand-on 完了後計算: sha256 of 2608_template.fxp
-  surge_xt_version: null         # hand-on 環境: e.g. "1.3.4"
+  acquisition_method: "factory patch copy (= Surge XT CC0 distribution、 byte-identical 複製)"
+  source_file: "/Library/Application Support/Surge XT/patches_factory/Templates/Init Sine.fxp"
+  source_origin: "Surge Synthesizer Team factory patches、 Surge XT 1.3.4 distribution"
+  source_license: "CC0 (= public domain dedication、 maximally permissive)"
+  source_license_evidence: "Embedded in patch XML: <meta ... license=\"Licensed under the maximally permissive CC0 license\" ...>"
+  source_author: "Surge Synth Team"
+  base_design_intent: "neutral parameter carrier (= sine oscillator + default AHDSR + default filter)、 not sound design asset、 全 6 drum 種 (= BD/SD/TOP/HH/TOM/RIM) 共通 base"
+  template_hash_sha256: "0366cc1057a4286e243ff44c128a4a27a17476a92c72fcdbd3c5d6d105082839"
+  template_byte_size: 31538
+  surge_xt_version: "1.3.4"
   surge_xt_install_path: /opt/homebrew/Caskroom/surge-xt/1.3.4  # §Annex A-7 η literal
-  author: 越川将人 / M.Koshikawa.
-  created_at: null               # ISO 8601 date、 hand-on 完了時 fill (例: "2026-05-16")
-  patch_display_name: pending    # 例: "PMDNEO 2608 Template v0"
+  acquired_by: "Claude Opus 4.7 (1M context)"
+  acquired_at: "2026-05-16"
+  patch_display_name: "Init Sine"  # source maintained、 drum-specific name は bridge で patching
+  patch_revision: 22                # XML <patch revision="22"> 内記録
+  internal_format: "VST2 FXP container (28 byte BE header) + FPCh custom chunk (28 byte programName + 4 byte chunkByteSize + sub3 magic + 28 byte binary header + XML body + 8 byte trailing binary)"
 
 # ---------------------------------------------------------------------------
-# 変更禁止領域 (= AI bridge が touch 不可、 §決定 27 ξ scope-out 連動)
+# 変更禁止領域 (= AI bridge が touch 不可、 §決定 27 ξ/π scope-out 連動)
 # ---------------------------------------------------------------------------
 change_protected_zones:
   - description: VST2 header (= chunkMagic / byteSize / fxMagic / version / idUint / fxVersion / count)
@@ -45,32 +57,56 @@ change_protected_zones:
     reason: "VST2 spec compliant container header、 AI bridge は touch しない (= §決定 27 ξ scope-out: full binary RE 最小限維持)"
   - description: programName field (= FPCh body 先頭)
     byte_range: [28, 56]
-    reason: "drum-specific name は AI bridge が string replace するが、 template 自体の programName は越川氏 hand-on で固定、 byte 範囲不変"
+    reason: "drum-specific name は AI bridge が string replace 可能 (= 例 'Init Sine' → 'PMDNEO 2608 BD'、 但し 28 byte 内に収める)、 byte 範囲不変"
   - description: FPCh chunkByteSize (= patch chunk size header)
     byte_range: [56, 60]
-    reason: "chunk size、 parameter patching が同一 byte size 維持なら不変 (= §決定 27 ξ bridge wording 整合)"
-  - description: FPCh patchChunk header 部 (= XML root element / patch metadata 等の structural region)
-    byte_range: pending           # hand-on 後の binary inspection で確定
-    reason: "Surge XT 内部仕様の structural region、 AI bridge は touch しない (= 「bridge, not full synthesizer patch compiler」 軸)"
+    reason: "chunk size、 parameter patching が XML byte size 維持なら不変、 size 変動時は byteSize 再計算 (= chunkByteSize + 8 が VST2 header byteSize)"
+  - description: FPCh chunk sub3 magic + 28 byte binary header
+    byte_range: [60, 92]
+    reason: "Surge XT 内部 chunk format marker、 AI bridge は touch しない (= 「bridge, not full synthesizer patch compiler」 軸)"
+  - description: FPCh chunk trailing binary (= chunk 末尾 8 byte)
+    byte_range: [31530, 31538]    # = template byte_size 末尾 8 byte
+    reason: "XML body の後ろの binary 領域、 Surge XT 内部用途 (= checksum or padding 想定)、 AI bridge は touch しない"
 
 # ---------------------------------------------------------------------------
-# patching allowlist 参照 (= ξ artifact 別 file)
+# XML 内 patching 可能領域 (= π refinement = byte offset ではなく XML element name)
+# ---------------------------------------------------------------------------
+xml_patching_zone:
+  byte_range: [92, 31530]          # = sub3 header 後 〜 trailing binary 前
+  xml_offset_in_chunk: 32          # = chunk[32:chunk_size-8] が XML body
+  xml_root_element: patch
+  xml_root_attributes:
+    revision: "22"
+  xml_meta_section_path: "/patch/meta"
+  xml_parameters_section_path: "/patch/parameters"
+  patching_method: "XML element value attribute 修正 (= 例 <volume_FX1 value=\"X\" /> の X 修正)"
+  patching_safety: "XML parse でき + allowlist 内 element のみ修正 + serialize 後 byte size 一致なら trailing binary 不変、 一致しなければ chunkByteSize + byteSize 再計算"
+
+# ---------------------------------------------------------------------------
+# patching allowlist 参照 (= ξ/π artifact 別 file)
 # ---------------------------------------------------------------------------
 patching_allowlist_ref: ./parameter-allowlist.yaml
-# 実 byte offset / parameter name は parameter-allowlist.yaml に literal 記録
-# AI bridge が touch する parameter は allowlist で明示的に enumerate
-# allowlist 外の byte は全部 change_protected (= conservative default)
+# π refinement = parameter は XML element name (= 例 a_amp_env_decay) で識別
+# AI bridge が touch する XML element は allowlist で明示的に enumerate
+# allowlist 外の XML element + 全 byte は change_protected (= conservative default)
 
 # ---------------------------------------------------------------------------
-# template scope (= 越川氏 hand-on 時の判断指針)
+# license narrative (= π factory CC0 acquisition pattern)
 # ---------------------------------------------------------------------------
-template_scope_recommendation:
-  - "全 6 drum 種 (= BD/SD/TOP/HH/TOM/RIM) 共通 base + drum-specific は parameter patching で表現"
-  - "必要最小限 parameter set (= OSC + AHDSR + filter + drive) で base 構成"
-  - "§決定 26 (5) Surge XT 内蔵 only 整合 (= external sample / VST 3rd party 不使用)"
-  - "§決定 26 (5) deterministic 整合 (= random / drift / unseeded modulation 全排除)"
-  - "§決定 24 aesthetic 整合 (= OPNA / retro FM-ADPCM、 short decay、 bright transient)"
-  - "patching allowlist 範囲で全 drum 表現可能な最小 parameter set を目指す"
+license_narrative:
+  template_license: "CC0 (= maximally permissive、 Surge XT factory patch 由来)"
+  pmdneo_overall_license: "GPL-3.0 (= ADR-0033 §決定 1 整合、 CC0 → GPL-3.0 license compatibility ✓)"
+  attribution_required: false      # CC0 dedicates to public domain、 attribution は不要 (但し本 file で literal narrative 維持)
+  redistribution: "allowed without restriction (= CC0)"
+  rationale: |
+    Surge XT factory Templates/Init Sine.fxp は CC0 dedication (= Surge Synth Team による
+    public domain release)。 PMDNEO の GPL-3.0 narrative と矛盾せず、 越川氏 100% 著作物
+    方針 (= §決定 1) とも矛盾しない:
+      - template = neutral parameter carrier (= sound design asset ではない、 patching 基盤)
+      - drum-specific sound design 自体は AI/toolchain bridge による parameter patching で表現
+      - rendered audio (= .wav) が AI self-analysis pass + 越川氏 aesthetic accept で
+        PMDNEO asset 化、 そこで初めて「越川氏 acceptance signature 経由の 100% 著作物」 化
+    template それ自体は「最小限 neutral carrier」 であり、 「越川氏 著作物」 主張対象ではない。
 
 # ---------------------------------------------------------------------------
 # 関連 artifact
@@ -88,6 +124,11 @@ related_artifacts:
 version_history:
   - version: "0.1.0"
     date: "2026-05-16"
-    status: schema-placeholder (= ο commit、 越川氏 hand-on 待ち)
+    status: schema-placeholder (= ο1 commit、 越川氏 hand-on 待ち想定)
     author: "Claude Opus 4.7 (1M context)"
-    note: "schema 雛形のみ作成、 actual values は越川氏 hand-on で fill (= §決定 27 ξ template 作成 1 度のみ)。"
+    note: "schema 雛形のみ、 ξ で越川氏 hand-on 想定だったが、 π で AI/toolchain acquisition に置換。"
+  - version: "0.2.0"
+    date: "2026-05-16"
+    status: created-from-factory-cc0 (= π commit、 AI/toolchain acquisition pattern 反映)
+    author: "Claude Opus 4.7 (1M context)"
+    note: "Surge XT factory Templates/Init Sine.fxp を byte-identical 複製で acquisition、 CC0 license、 全 fields fill、 XML patching zone literal 化、 越川氏 hand-on 完全削除 = aesthetic audition のみに純化 (= §決定 27 π 軸転換整合)。"
