@@ -73,6 +73,10 @@ dev-diary/
 # work memo (個人作業メモ、 git 管理外)
 docs/work/
 
+# internal documents for AI-assisted work logs / dense verification notes
+internal-docs/*
+!internal-docs/README.md
+
 # MAME / gngeo 起動の副作用 (= cfg / nvram / snap directory)
 cfg/
 nvram/
@@ -142,4 +146,3 @@ vendor/pmdmini-patched/
 
 # 音色検証 local DB (= ADR-0005)
 /data/
-
