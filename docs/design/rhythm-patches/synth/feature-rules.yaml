@@ -1,0 +1,255 @@
+# Feature rules for engineering-pass validation (= ADR-0033 §決定 27 (5) + (12) π11 calibration)
+# ============================================================================
+#
+# 本 file は `scripts/feature_search.py validate` subcommand から load され、
+# rendered WAV が 「BD として engineering pass する」 ための threshold + failure 分類を literal 化する。
+#
+# 役割:
+#   - per-drum threshold (= BD/SD/CYM/HH/TOM/RIM ごと、 まず BD のみ literal、 残 5 音は将来横展開)
+#   - failure category 分類 (= engineering_pass vs engineering_fail の判定 + 原因軸)
+#   - distance metric weight 調整 (= π10 universal weight → BD 特化 weight)
+#   - analysis-report.yaml の field 名 stable 化 source (= ν step 4 deliverable と field 共有)
+#
+# 関連 ADR / §決定:
+#   - ADR-0033 §決定 27 (5)  AI self-analysis 10 項目 = 本 rule の base feature
+#   - ADR-0033 §決定 27 (12) target-feature matching optimization axis (= weight が search loop の loss 加重)
+#   - ADR-0033 §決定 26 (4)  output constraint (= peak target -6 〜 -3 dBFS / clipping 禁止 整合)
+#   - ADR-0033 §決定 24      aesthetic = OPNA / retro FM-ADPCM aesthetic、 BD-specific 値の根拠
+#   - SURGE_XT_FXP_BRIDGE_INVESTIGATION.md § 15.4 = Kick 909ish.fxp reference 値
+#   - FEATURE_GUIDED_SYNTHESIS_INVESTIGATION.md § 6 = π10 feature distance evidence
+#
+# severity levels:
+#   - critical = engineering_pass blocker (= 1 件でも fail なら overall engineering_fail)
+#   - warning  = soft concern (= 多数 fail で aesthetic 軸要注意、 但し overall pass 可)
+#   - info     = informational (= 数値記録のみ、 pass/fail 判定対象外)
+#
+# ============================================================================
+
+rules_version: "0.1.0"
+status: initial-calibration   # initial-calibration | tuned | stable
+
+# ===========================================================================
+# Drum-type specific rules
+# ===========================================================================
+drum_rules:
+
+  # ---------------------------------------------------------------------------
+  # BD = Bass Drum / Kick (= 越川氏 2026-05-17 directive ベース)
+  # ---------------------------------------------------------------------------
+  BD:
+    description: "Bass Drum / Kick = low-frequency dominant + fast attack + fast decay + short tail"
+    reference_wav: "~/Projects/surge-spike/test-assets/kick_909ish.wav"  # = π10 baseline reference
+
+    # 越川氏 directive π11 初期 7 rule + π11 calibration findings 反映で 8 rule
+    # = decay_1e_ms range 緩和 + low_band upper bound + trailing_silence 追加 + transient downgrade
+    thresholds:
+      - feature: attack_ms
+        criterion: "value < 20"
+        severity: critical
+        failure_category: envelope_broken_attack
+        rationale: "BD の attack は非常に短い (= 1-15 ms 想定)、 20 ms 超過は envelope broken = π11 strong discriminator"
+        kick_909ish_actual: 5.782
+        bd_2608_ng_actual: 781.088   # = π11 calibration evidence
+
+      - feature: peak_amplitude_dbfs
+        criterion: "-6 <= value <= -3"
+        severity: warning
+        failure_category: volume_mismatch_peak
+        rationale: "§決定 26 (4) peak target -6 〜 -3 dBFS、 外れは patch envelope / drive 設定の indicator"
+        kick_909ish_actual: -4.495
+        bd_2608_ng_actual: -25.093
+
+      - feature: low_band_ratio
+        criterion: "0.5 <= value <= 0.95"
+        severity: critical
+        failure_category: spectral_imbalance_low
+        rationale: "BD は低域 (<500 Hz) 主体だが、 0.95 超過は pure sine (= 高調波 / transient 不在) で BD らしさ不足 = π11 upper bound 追加で 2608_bd 0.987 pure sine を detect"
+        kick_909ish_actual: 0.7978
+        bd_2608_ng_actual: 0.987   # = π11 upper bound 追加根拠
+
+      - feature: decay_1e_ms
+        criterion: "0.5 <= value <= 500"
+        severity: warning   # = π11 calibration downgrade (= critical → warning)
+        failure_category: envelope_broken_decay
+        rationale: "BD の decay 1/e (= peak から 1/e まで) は drum type で大幅変動 (= Kick 909ish transient-heavy 1.07 ms / typical body-heavy 280 ms)、 range 0.5-500 ms に緩和 + severity 下げ = π11 calibration、 真の sustain 化 detect は trailing_silence_ms rule で担保"
+        kick_909ish_actual: 1.066
+        bd_2608_ng_actual: 2.993
+        calibration_note: "★ π11 calibration: 初期 150-400 ms range は Kick 909ish.wav (= transient-heavy) も両方 fail で discriminator 機能せず。 1/e measure は percussive 音で body decay 反映できないため range 緩和 + severity warning 化。 真の sustain 化 detect は trailing_silence_ms rule で代替。"
+
+      - feature: clipping_count
+        criterion: "value == 0"
+        severity: critical
+        failure_category: clipping
+        rationale: "§決定 26 (4) clipping 禁止 literal"
+        kick_909ish_actual: 0
+        bd_2608_ng_actual: 0
+
+      - feature: spectral_centroid_hz
+        criterion: "value < 500"
+        severity: warning
+        failure_category: spectral_imbalance_centroid
+        rationale: "BD の spectral centroid は低い (= Kick 909ish: 159 Hz)、 500 Hz 超過は BD らしさ不足"
+        kick_909ish_actual: 158.84
+        bd_2608_ng_actual: 261.99
+
+      - feature: transient_strength
+        criterion: "value > 2.0"
+        severity: warning
+        failure_category: transient_weak
+        rationale: "BD は明瞭な transient (= peak/RMS > 2)、 弱いと punch 感不足"
+        kick_909ish_actual: 2.799
+        bd_2608_ng_actual: 1.997   # = borderline FAIL
+
+      # ---- π11 calibration 追加 = sustain 化 detect の最強 discriminator ----
+      - feature: trailing_silence_ms
+        criterion: "value > 300"
+        severity: critical
+        failure_category: sustain_化   # = engineering_fail 軸明示
+        rationale: "BD は短い (= 800 ms note + 200 ms tail) 想定、 trailing silence 300 ms 以上必須 = 音が早く decay 終了している = BD らしさ。 0 ms 近辺は sustain 化 (= decay 効かず 1 sec 鳴り続け) = engineering FAIL の root cause、 π7 越川氏 audition で実証"
+        kick_909ish_actual: 766.236
+        bd_2608_ng_actual: 0.0   # = strong discriminator
+
+    # ---------------------------------------------------------------------------
+    # Distance metric weights (= BD 特化、 π10 universal weight 上書き)
+    # = π12 optimize subcommand で feature_distance 計算時に使う重み
+    # ---------------------------------------------------------------------------
+    distance_weights:
+      # critical features (= BD identity を強く決める)
+      attack_ms:              2.5
+      decay_1e_ms:            2.0
+      low_band_ratio:         2.5
+      peak_amplitude_dbfs:    1.5
+      spectral_centroid_hz:   1.5
+
+      # secondary features
+      transient_strength:     1.0
+      rough_frequency_hz:     1.0
+      rms_amplitude_dbfs:     0.7
+      spectral_flux_mean:     0.5
+      mid_band_ratio:         0.5
+
+      # minor features
+      high_band_ratio:        0.3
+      leading_silence_ms:     0.3
+      trailing_silence_ms:    0.3
+      tail_length_ms:         0.3
+      clipping_count:         0.5  # binary、 weight 軽め
+
+  # ---------------------------------------------------------------------------
+  # SD / CYM / HH / TOM / RIM = 残 5 音 (= 将来 horizontal expansion 候補)
+  # ---------------------------------------------------------------------------
+  # 残 5 音は π11 範囲外。 BD chain (= π12-15) 完成後、 同 schema で per-drum 追加。
+  # 各 drum reference candidate (= future):
+  #   SD  = Surge XT factory percussion から snare-like
+  #   CYM = Surge XT factory から cymbal-like
+  #   HH  = Surge XT factory から hi-hat-like
+  #   TOM = Surge XT factory から tom-like
+  #   RIM = Surge XT factory から rim-like
+  # 各 drum 固有 thresholds:
+  #   SD:  attack < 10 ms / decay 100-200 ms / mid_band > 30% / transient > 2.5
+  #   CYM: attack < 30 ms / decay > 500 ms / high_band > 40% / spectral_centroid > 2000 Hz
+  #   HH:  attack < 5 ms  / decay 50-150 ms / high_band > 50% / spectral_centroid > 3000 Hz
+  #   TOM: attack < 20 ms / decay 200-400 ms / mid_band > 40% / spectral_centroid 200-800 Hz
+  #   RIM: attack < 5 ms  / decay 30-80 ms   / mid_band > 50% / transient > 3.0
+  # 上記 candidate は将来検討用 hint、 actual threshold は各 drum chain 着手時に確定。
+
+# ===========================================================================
+# Failure category 分類 (= analysis-report.yaml summary.failure_categories で参照)
+# ===========================================================================
+failure_categories:
+  envelope_broken_attack:
+    description: "attack 時間が想定範囲外 (= 短すぎる or 長すぎる)"
+    likely_root_cause: "patch-spec attack_ms passthrough 未変換 / template AEG attack value 不適切"
+    fix_axis: "unit conversion = patch-spec ms → Surge XT log2(sec)、 例 0 ms → log2(0.001) = -10"
+
+  envelope_broken_decay:
+    description: "decay 1/e measure 範囲外 (= warning level、 真の sustain 化 detect は sustain_化 category 経由)"
+    likely_root_cause: "patch-spec decay_ms passthrough 未変換 / a_env1_decay value 不適切"
+    fix_axis: "unit conversion = patch-spec ms → Surge XT log2(sec)、 例 280 ms → log2(0.28) = -1.84"
+
+  sustain_化:
+    description: "trailing_silence < 300 ms = 音が decay 終了せず 1 sec 鳴り続ける = decay envelope 完全 broken"
+    likely_root_cause: "patch-spec decay_ms passthrough 未変換で a_env1_decay = 280 → 2^280 sec の天文学的 decay 化、 = sustain 化"
+    fix_axis: "unit conversion = patch-spec ms → Surge XT log2(sec)、 + a_env1_release も短く (= 例 0 ms → log2(0.001) = -10)、 = π7 越川氏 audition「ものすごい低音だけ」 root cause"
+
+  volume_mismatch_peak:
+    description: "peak amplitude が §決定 26 (4) target -6 〜 -3 dBFS 外"
+    likely_root_cause: "amp envelope / drive / OSC level の累積 gain 不適切"
+    fix_axis: "a_env1 + a_level_o1 + a_volume + a_ws_drive の組合せ調整"
+
+  spectral_imbalance_low:
+    description: "低域 (<500 Hz) energy 比率が BD 想定範囲未満"
+    likely_root_cause: "OSC pitch / filter cutoff / osc type 不適切"
+    fix_axis: "a_osc1_octave 下方 / a_filter1_cutoff 下方 / a_osc1_type = Classic"
+
+  spectral_imbalance_centroid:
+    description: "spectral centroid が想定範囲超過"
+    likely_root_cause: "OSC harmonic content / filter cutoff 高すぎ"
+    fix_axis: "a_filter1_cutoff 下方 / a_osc1_type 変更"
+
+  transient_weak:
+    description: "transient strength が低い (= peak/RMS ratio < 2.0)"
+    likely_root_cause: "attack 緩やか / amp envelope 設定 / drive 不足"
+    fix_axis: "a_env1_attack 短く / a_ws_drive 上げ"
+
+  clipping:
+    description: "clipping 発生 (= |sample| reaches ±1.0)"
+    likely_root_cause: "amp envelope / drive / volume 累積 over"
+    fix_axis: "volume / a_volume / a_ws_drive 下げ"
+
+# ===========================================================================
+# analysis-report.yaml field 命名 contract (= ν step 4 deliverable と stable 共有)
+# ===========================================================================
+analysis_report_schema:
+  field_names_stable: true
+  schema_version: "0.1.0"
+  top_level_keys:
+    - metadata
+    - features
+    - rule_evaluation
+    - summary
+  metadata_fields:
+    - generated_at      # ISO 8601 datetime
+    - generator         # = scripts/feature_search.py validate
+    - input_wav         # = path to evaluated WAV
+    - drum_type         # = BD / SD / CYM / HH / TOM / RIM
+    - rules_file        # = path to feature-rules.yaml
+    - rules_version     # = 0.1.0 等
+  features_fields:       # = scripts/feature_search.py extract と同 schema
+    - waveform_sanity   # = sub-dict
+    - peak_amplitude_linear / peak_amplitude_dbfs
+    - rms_amplitude_linear / rms_amplitude_dbfs
+    - clipping_count
+    - leading_silence_ms / trailing_silence_ms / tail_length_ms
+    - attack_ms
+    - decay_1e_ms
+    - transient_strength
+    - spectral_centroid_hz
+    - spectral_flux_mean
+    - low_band_ratio / mid_band_ratio / high_band_ratio
+    - rough_frequency_hz
+  rule_evaluation_fields:   # = per-rule entry の field
+    - feature           # = which feature
+    - criterion         # = expression string (= 例 "value < 20")
+    - actual            # = measured value
+    - passed            # = bool
+    - severity          # = critical | warning | info
+    - failure_category  # = key from failure_categories (= passed=true なら null)
+    - rationale         # = 説明 string
+  summary_fields:
+    - total_rules
+    - passed
+    - critical_fails
+    - warning_fails
+    - overall_status    # = engineering_pass | engineering_fail
+    - failure_categories  # = unique category list
+
+# ===========================================================================
+# version history
+# ===========================================================================
+version_history:
+  - version: "0.1.0"
+    date: "2026-05-17"
+    status: initial-calibration (= π11 commit、 BD 初期 7 threshold + weight + failure category 分類)
+    author: "Claude Opus 4.7 (1M context) + 越川氏 directive"
+    note: "BD 初期 calibration = 越川氏 directive 5 rule (= attack < 20 ms / peak -6〜-3 dBFS / low_band > 50% / decay 150-400 ms / clipping = 0) + 補助 2 rule (= spectral centroid < 500 Hz / transient > 2.0)、 weight は BD 特化 (= attack / decay / low_band 高 weight)、 failure_categories 7 件 literal、 analysis-report.yaml schema 固定。 残 5 音 (SD/CYM/HH/TOM/RIM) は BD chain 完成後横展開。"

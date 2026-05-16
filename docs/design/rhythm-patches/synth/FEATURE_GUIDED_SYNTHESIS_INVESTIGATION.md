@@ -427,7 +427,125 @@ deliverable:
 - **π14**: AI self-analysis report literal (= 16 feature を analysis-report.yaml に format 化)
 - **π15**: 越川氏 audition (= aesthetic final gate)
 
-## 7. scope-out 維持 (= 本 investigation の意図)
+## 7. π11 metric calibration + validate subcommand + analysis-report.yaml schema (= 2026-05-17 23rd session π11)
+
+### 7.1 deliverables
+
+3 件:
+- 新規 file: `docs/design/rhythm-patches/synth/feature-rules.yaml` (= 230+ 行、 BD threshold + weight + failure category + analysis-report schema 固定)
+- 新規 subcommand: `scripts/feature_search.py validate <wav> [--rules ... ] [--drum-type ... ] [--format yaml|json]` (= per-drum rule 評価 + analysis-report.yaml format 出力)
+- helper functions = `_evaluate_criterion` (= rule DSL safe parser、 `value < N` / `A <= value <= B` 等) + `_get_feature_value` (= flat dict + sub-dict 経由 access)
+
+### 7.2 越川氏 directive 初期 5 rule + 補助 2 + π11 追加 1 = 8 rule
+
+越川氏 directive 通り BD-specific threshold + π11 calibration findings 反映の 8 rule:
+
+| # | feature | criterion | severity | discriminator? |
+|---|---------|-----------|----------|----------------|
+| 1 | attack_ms | `value < 20` | critical | ✓ 強 (K:5.78 / N:781) |
+| 2 | peak_amplitude_dbfs | `-6 <= value <= -3` | warning | ✓ (K:-4.5 / N:-25.1) |
+| 3 | low_band_ratio | `0.5 <= value <= 0.95` | critical | ✓ (= π11 upper bound 追加で pure sine N:0.987 を catch) |
+| 4 | decay_1e_ms | `0.5 <= value <= 500` | warning | × 両方 pass (= range 緩和 + severity 下げ) |
+| 5 | clipping_count | `value == 0` | critical | (両方 pass) |
+| 6 | spectral_centroid_hz | `value < 500` | warning | (両方 pass) |
+| 7 | transient_strength | `value > 2.0` | warning | ✓ borderline (K:2.80 / N:1.997) |
+| 8 | **trailing_silence_ms** | `value > 300` | critical | ✓ **最強 (K:766 / N:0)** = π11 新規追加、 sustain 化 detect 軸 |
+
+### 7.3 π11 calibration findings (= rule 初期版から refine の根拠)
+
+**finding 1: `decay_1e_ms` 初期 strict range (= 150-400 ms) が Kick 909ish baseline を fail させた**:
+- Kick 909ish.wav decay_1e_ms = 1.066 ms (= transient-heavy 形状、 peak は sharp)
+- 1/e measure (= peak から 1/e 振幅まで) は **percussive 音で body decay を反映できず** = transient-only の measure に dominant
+- 修正 = range 0.5-500 ms へ緩和 + severity critical → warning へ降下
+- 真の sustain 化 detect は別 rule (= trailing_silence_ms) で代替
+
+**finding 2: `low_band_ratio` 初期 lower bound only (= value > 0.5) では pure sine 99% も pass**:
+- 2608_bd.wav low_band_ratio = 0.987 = filter / harmonic / transient 不在の pure sine
+- 真の BD は OSC harmonic / filter sweep / drive で mid-high にも energy 持つ (= Kick 909ish: low 80% / mid 17% / high 3%)
+- 修正 = upper bound 追加 = `0.5 <= value <= 0.95` で pure sine を catch
+
+**finding 3: sustain 化 detect の最強 discriminator = `trailing_silence_ms`**:
+- Kick 909ish: trailing 766 ms (= 234 ms sound / 766 ms silence、 BD らしい short tail)
+- 2608_bd: trailing 0 ms (= 1 sec 鳴り続け、 sustain 化、 decay envelope 完全 broken)
+- 新規 rule = `value > 300` (= 1 sec render で 300 ms 以上 silence あり)
+- severity critical、 failure_category = `sustain_化` (= patch-spec passthrough の root cause を直接 categorize)
+
+### 7.4 validate subcommand 動作確認
+
+```bash
+$ python3 scripts/feature_search.py validate kick_909ish.wav --drum-type BD
+... (= 8 rule 全 PASS)
+summary:
+  total_rules: 8
+  passed: 8
+  critical_fails: 0
+  warning_fails: 0
+  overall_status: engineering_pass
+exit code: 0
+
+$ python3 scripts/feature_search.py validate 2608_bd.wav --drum-type BD
+... (= 3 critical + 2 warning FAIL)
+summary:
+  total_rules: 8
+  passed: 3
+  critical_fails: 3
+  warning_fails: 2
+  overall_status: engineering_fail
+  failure_categories:
+    - envelope_broken_attack
+    - spectral_imbalance_low
+    - sustain_化
+    - transient_weak
+    - volume_mismatch_peak
+exit code: 67
+```
+
+→ **Kick 909ish.wav が engineering_pass、 2608_bd.wav が engineering_fail with 5 failure_categories** で **完全 discriminate** 達成、 越川氏 audition と 100% 方向一致。
+
+### 7.5 analysis-report.yaml schema 固定
+
+`feature-rules.yaml` 末尾の `analysis_report_schema` section で literal 固定 (= ν step 4 deliverable と field 共有):
+
+```text
+top_level_keys: [metadata, features, rule_evaluation, summary]
+metadata_fields: generated_at / generator / input_wav / drum_type / rules_file / rules_version
+features_fields: 16 feature (= scripts/feature_search.py extract と同 schema)
+rule_evaluation_fields: feature / criterion / actual / passed / severity / failure_category / rationale
+summary_fields: total_rules / passed / critical_fails / warning_fails / overall_status / failure_categories
+```
+
+これで π14 = AI self-analysis report deliverable が **本 validate subcommand 出力 そのまま** で literal 化可能 = ν step 4 implementation = `feature_search.py validate` invoke + output redirect で 完成。
+
+### 7.6 failure_categories 8 件 + likely_root_cause + fix_axis 分類 literal
+
+`feature-rules.yaml` の `failure_categories` section に 8 category 全部 = description + likely_root_cause + fix_axis literal 化:
+
+| category | likely root cause | fix axis |
+|----------|-------------------|----------|
+| envelope_broken_attack | attack_ms passthrough 未変換 | unit conversion = log2(sec) |
+| envelope_broken_decay | decay_ms passthrough 未変換 (warning) | 同上 |
+| **sustain_化** | decay_ms passthrough で天文学的 decay = 1 sec 鳴り続け (= critical、 π11 新規) | unit conversion + a_env1_release も短く |
+| volume_mismatch_peak | amp env / drive / OSC level 累積 gain | a_env1 + a_level_o1 + a_volume + a_ws_drive 調整 |
+| spectral_imbalance_low | OSC pitch / filter cutoff / osc type 不適切 | a_osc1_octave 下 / cutoff 下 / type = Classic |
+| spectral_imbalance_centroid | filter cutoff 高 / OSC harmonic 不適切 | a_filter1_cutoff 下方 |
+| transient_weak | attack 緩い / drive 不足 | a_env1_attack 短く / drive 上げ |
+| clipping | volume / drive 累積 over | volume 下げ |
+
+→ 各 failure_categories が **具体的 fix axis に対応** = π12 search loop の **per-failure-category guided update** に転用可能。
+
+### 7.7 π12 以降 chain (= search loop 実装着手準備完了)
+
+- **π12**: `optimize` subcommand 実装
+  - input = target wav + initial params (= Kick 909ish baseline) + drum rules YAML
+  - process = CMA-ES (= `pip install cma`) or scipy.optimize.minimize (= Nelder-Mead) で 6-10 continuous parameter search
+  - per iteration = propose params → bridge invoke (= `fxp_template_patch.py patch`) → fxp2wav-surge render → feature distance score → optimizer update
+  - max iter ≈ 100、 各 iter ≈ 1-3 sec、 全体 ≈ 5-10 分想定
+- **π13**: converged params で 2608_bd.fxp 再生成 + verify-pass via validate subcommand
+- **π14**: validate output redirect → `docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml` 配置 (= ν step 4 deliverable)
+- **π15**: 越川氏 aesthetic audition (= final gate)
+- **ι commit**: 越川氏 accept 後、 2608_bd_self.adpcma 並行配置 + commit
+
+## 8. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
 - **external spike repo** = 参照のみ、 PMDNEO repo に取り込まない (= §決定 25 ι'' 維持)

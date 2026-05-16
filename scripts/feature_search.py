@@ -303,6 +303,182 @@ def extract_command(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _evaluate_criterion(criterion: str, value: float) -> bool:
+    """
+    Safely evaluate threshold criterion against value (= rule file DSL parser).
+
+    Supported forms:
+      "value < N"     "value > N"
+      "value <= N"    "value >= N"
+      "value == N"    "value != N"
+      "A <= value <= B"  (= range check)
+    """
+    import re
+    s = criterion.strip()
+
+    # Range form: "A <= value <= B"
+    m = re.fullmatch(
+        r"(-?\d+\.?\d*)\s*<=\s*value\s*<=\s*(-?\d+\.?\d*)",
+        s,
+    )
+    if m:
+        lo = float(m.group(1))
+        hi = float(m.group(2))
+        return lo <= value <= hi
+
+    # Simple binary form: "value OP N"
+    m = re.fullmatch(
+        r"value\s*(<=|>=|==|!=|<|>)\s*(-?\d+\.?\d*)",
+        s,
+    )
+    if m:
+        op = m.group(1)
+        threshold = float(m.group(2))
+        if op == "<":
+            return value < threshold
+        if op == ">":
+            return value > threshold
+        if op == "<=":
+            return value <= threshold
+        if op == ">=":
+            return value >= threshold
+        if op == "==":
+            return value == threshold
+        if op == "!=":
+            return value != threshold
+
+    raise ValueError(f"unsupported criterion form: {criterion!r}")
+
+
+def _get_feature_value(features: dict, feature_name: str):
+    """Get feature value (= flat dict + waveform_sanity dict 経由両方対応)."""
+    if feature_name in features:
+        return features[feature_name]
+    # waveform_sanity 内も check
+    if "waveform_sanity" in features and feature_name in features["waveform_sanity"]:
+        return features["waveform_sanity"][feature_name]
+    return None
+
+
+def validate_command(args: argparse.Namespace) -> int:
+    """Validate WAV against per-drum threshold rules + emit analysis-report.yaml format."""
+    import datetime
+    import yaml
+
+    if not args.input.exists():
+        print(f"error: input file not found: {args.input}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if not args.rules.exists():
+        print(f"error: rules file not found: {args.rules}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    try:
+        rules = yaml.safe_load(args.rules.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        print(f"error: rules YAML parse failed: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    drum_rules = (rules.get("drum_rules") or {}).get(args.drum_type)
+    if drum_rules is None:
+        print(
+            f"error: drum_type {args.drum_type!r} not found in rules "
+            f"(= 利用可能: {list((rules.get('drum_rules') or {}).keys())})",
+            file=sys.stderr,
+        )
+        return EXIT_ARG_ERROR
+
+    try:
+        features = extract_features(args.input)
+    except Exception as exc:
+        print(f"error: feature extraction failed: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    # rule evaluation
+    evaluation = []
+    for rule in drum_rules.get("thresholds", []):
+        feature_name = rule["feature"]
+        actual = _get_feature_value(features, feature_name)
+        if actual is None:
+            evaluation.append({
+                "feature": feature_name,
+                "criterion": rule["criterion"],
+                "actual": None,
+                "passed": False,
+                "severity": rule.get("severity", "warning"),
+                "failure_category": "feature_missing",
+                "rationale": f"feature {feature_name!r} not produced by extractor",
+            })
+            continue
+        try:
+            passed = _evaluate_criterion(rule["criterion"], float(actual))
+        except (ValueError, TypeError) as exc:
+            evaluation.append({
+                "feature": feature_name,
+                "criterion": rule["criterion"],
+                "actual": actual,
+                "passed": False,
+                "severity": rule.get("severity", "warning"),
+                "failure_category": "criterion_parse_error",
+                "rationale": f"criterion evaluation failed: {exc}",
+            })
+            continue
+        evaluation.append({
+            "feature": feature_name,
+            "criterion": rule["criterion"],
+            "actual": actual,
+            "passed": passed,
+            "severity": rule.get("severity", "warning"),
+            "failure_category": None if passed else rule.get("failure_category", "unspecified"),
+            "rationale": rule.get("rationale", ""),
+        })
+
+    # summary
+    total_rules = len(evaluation)
+    passed = sum(1 for e in evaluation if e["passed"])
+    critical_fails = sum(
+        1 for e in evaluation
+        if not e["passed"] and e["severity"] == "critical"
+    )
+    warning_fails = sum(
+        1 for e in evaluation
+        if not e["passed"] and e["severity"] == "warning"
+    )
+    overall_status = "engineering_pass" if critical_fails == 0 else "engineering_fail"
+    failure_categories = sorted(
+        {e["failure_category"] for e in evaluation if e["failure_category"]}
+    )
+
+    output = {
+        "metadata": {
+            "generated_at": datetime.datetime.now().isoformat(),
+            "generator": "scripts/feature_search.py validate",
+            "input_wav": str(args.input),
+            "drum_type": args.drum_type,
+            "rules_file": str(args.rules),
+            "rules_version": rules.get("rules_version", "?"),
+        },
+        "features": features,
+        "rule_evaluation": evaluation,
+        "summary": {
+            "total_rules": total_rules,
+            "passed": passed,
+            "critical_fails": critical_fails,
+            "warning_fails": warning_fails,
+            "overall_status": overall_status,
+            "failure_categories": failure_categories,
+        },
+    }
+
+    if args.format == "json":
+        print(json.dumps(output, indent=2 if args.pretty else None, ensure_ascii=False))
+    else:
+        # default = YAML (= analysis-report.yaml 用)
+        print(yaml.safe_dump(output, allow_unicode=True, sort_keys=False, default_flow_style=False))
+
+    # exit code reflect engineering_pass
+    return EXIT_OK if overall_status == "engineering_pass" else 67  # = 67 = engineering_fail
+
+
 def compare_command(args: argparse.Namespace) -> int:
     """Compare 2 WAVs + dump distance + per-feature diff."""
     for p in (args.reference, args.target):
@@ -359,12 +535,39 @@ def main() -> int:
         help="pretty-print JSON",
     )
 
+    p_validate = subparsers.add_parser(
+        "validate",
+        help="Validate WAV against per-drum rule thresholds + emit analysis-report.yaml (= π11 新規)",
+    )
+    p_validate.add_argument("input", type=Path, help="input WAV file path")
+    p_validate.add_argument(
+        "--rules", type=Path,
+        default=Path("docs/design/rhythm-patches/synth/feature-rules.yaml"),
+        help="rules YAML path (= default: docs/design/rhythm-patches/synth/feature-rules.yaml)",
+    )
+    p_validate.add_argument(
+        "--drum-type",
+        choices=["BD", "SD", "CYM", "HH", "TOM", "RIM"],
+        default="BD",
+        help="drum type for rule lookup (= default: BD)",
+    )
+    p_validate.add_argument(
+        "--format", choices=["yaml", "json"], default="yaml",
+        help="output format (= default: yaml for analysis-report.yaml 用)",
+    )
+    p_validate.add_argument(
+        "--pretty", action="store_true",
+        help="pretty-print (= JSON 出力時のみ effect)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "extract":
         return extract_command(args)
     if args.command == "compare":
         return compare_command(args)
+    if args.command == "validate":
+        return validate_command(args)
 
     parser.print_help()
     return EXIT_ARG_ERROR
