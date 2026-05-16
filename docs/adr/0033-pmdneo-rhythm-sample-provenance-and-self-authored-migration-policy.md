@@ -1,6 +1,6 @@
 # ADR-0033: リズム音源 sample の由来管理と完全自作化 migration policy (= asset provenance / licensing / redistribution 軸独立起票 / runtime semantics 軸 ADR-0026-0032 と完全分離 / Yamaha mask ROM dump 永久排除 / 越川将人 100% 著作物のみ同梱 / Surge XT 完全合成 prototype → プロ session acoustic drum 録音 → library 同梱 3 段階 migration / current temporary fixture 段階 3 完了まで暫定許容 / sound-alike caution = RX-11 似は OK / ROM sample derivative 不可 / PMD culture rhythm.wav 仕様互換 (= 2608_*.wav / 44100 Hz / 16 bit / mono) / 完全ホワイト化 milestone 確立 / runtime dispatch invariant 完全不変 / multi-table architecture (= ADR-0025) 経由 kit 入替 design)
 
-- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映) + 23rd session 第 2 commit = `scripts/wav_to_adpcma.sh` + `scripts/build_drum_samples.sh` + `scripts/verify-drum-samples.sh` 3 件 interface fixation stub 新規作成 (= §決定 21 4 系統 2-4 件目、 9 項目 header / usage / not-implemented exit 2 sentinel / source wav 完成前は middle 実装しない literal 規律) + §決定 21 scripts 構成 4 件 status marker 反映 + sub-sprint α 進捗 23rd session 反映 section 追加 + 23rd session 第 3 commit ζ = top-level `Makefile` 新規作成 (= drum-sources / drum-build / drum-verify / drum-clean 4 target 軽量 stub、 「Makefile = 作業者向け入口、 script 名の写像ではない」 軸転換 literal、 wav_to_adpcma.sh は Makefile 直下に露出させない = drum-build 内部 invoke 扱い、 drum-clean は 23rd session ζ 新規 = rebuild path 確立後に有効化) + §決定 21 Makefile target 命名 update (= 旧 4 件 forensic-drum-samples / wav-to-adpcma / build-drum-samples / verify-drum-samples → 新 4 件 drum-sources / drum-build / drum-verify / drum-clean) + reasoning 「Makefile = 作業者向け入口」 literal 追加 + migration roadmap sub-sprint α + §Annex A-5 reference 同 target 命名 update、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
+- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映) + 23rd session 第 2 commit = `scripts/wav_to_adpcma.sh` + `scripts/build_drum_samples.sh` + `scripts/verify-drum-samples.sh` 3 件 interface fixation stub 新規作成 (= §決定 21 4 系統 2-4 件目、 9 項目 header / usage / not-implemented exit 2 sentinel / source wav 完成前は middle 実装しない literal 規律) + §決定 21 scripts 構成 4 件 status marker 反映 + sub-sprint α 進捗 23rd session 反映 section 追加 + 23rd session 第 3 commit ζ = top-level `Makefile` 新規作成 (= drum-sources / drum-build / drum-verify / drum-clean 4 target 軽量 stub、 「Makefile = 作業者向け入口、 script 名の写像ではない」 軸転換 literal、 wav_to_adpcma.sh は Makefile 直下に露出させない = drum-build 内部 invoke 扱い、 drum-clean は 23rd session ζ 新規 = rebuild path 確立後に有効化) + §決定 21 Makefile target 命名 update (= 旧 4 件 forensic-drum-samples / wav-to-adpcma / build-drum-samples / verify-drum-samples → 新 4 件 drum-sources / drum-build / drum-verify / drum-clean) + reasoning 「Makefile = 作業者向け入口」 literal 追加 + migration roadmap sub-sprint α + §Annex A-5 reference 同 target 命名 update + 23rd session 第 4 commit ζ' = §Annex A-7 superctr/adpcm evidence collection literal 反映 (= encoder repo `e431c94` HEAD / Public Domain Unlicense / build 成功 Apple clang 17.0.0 arm64 / ADPCM-A `ae` command 存在 / `-a` anti-overflow / signed 16-bit PCM little-endian input / stdlib 依存 / 2025-12-15 ValleyBell yma-overflow-fix maintenance / 7 ADPCM variant 対応 8 finding + §決定 18 採用条件 4 件クリア = encoder 採用 finalize ✓、 Surge XT install version 列は η commit で後追い後埋め)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
 - 起票日: 2026-05-15
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR: ADR-0032 (= step 18 simultaneous trigger semantics proof、 **runtime semantics 軸**で本 ADR と完全分離、 driver dispatch invariant の semantics 拡張軸初段)、 ADR-0031 (= step 17 K/R drum kind expansion proof — i = RIM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + drum 種拡張軸 sprint chain 完成 milestone、 本 ADR は runtime invariant 完全保持を前提)、 ADR-0030 / ADR-0029 / ADR-0028 / ADR-0027 / ADR-0026 (= step 12-16 drum 種拡張 sprint chain、 「rim」 「tom」 「top」 wording 規律確立)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 本 ADR §決定 10 「multi-table architecture 経由 kit 入替」 の前提)、 ADR-0023 / ADR-0024 (= step 9 / step 10 sample_table_id resolver + selection consumption、 同前提)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 本 ADR §決定 8 chip 化 pipeline の前提)、 ADR-0021 (= step 7 `.PNE` asset pipeline、 本 ADR §決定 10 multi-table 入替の物理経路前提)
@@ -988,10 +988,12 @@ ADR-0033 Draft 起票 (= 20th session 末 commit、 §決定 1-14 + scope + road
 |---|---|---|
 | ADR-0033 Draft update commit 完了 (= 22nd session) | ✓ 完了 | commit 617a139 (= 22nd session γ) |
 | §Annex A-5 起源調査結果 literal 記録済 | ✓ 完了 | commit 326c88b (= 23rd session δ) |
-| §Annex A-7 install version 列 literal 反映済 | ☐ pending | Surge XT install 後 (= 越川氏 hand-on 待ち) |
+| §Annex A-7 superctr/adpcm evidence 反映済 | ✓ 完了 (= encoder 採用 finalize、 8 finding + 4 採用条件クリア literal) | 23rd session ζ' (= 本 commit) |
+| §Annex A-7 Surge XT install version 列 反映済 | ☐ pending | 23rd session η commit (= user hand-on `brew list --versions surge-xt` 出力待ち) |
 | scripts 4 系統雛形作成済 | ✓ 完了 (= 4 件、 forensic は完成 / 他 3 件は interface fixation stub) | commit 326c88b (= forensic) + 23rd session ε (= wav_to_adpcma + build_drum_samples + verify-drum-samples) |
-| Makefile target 4 件追加 | ✓ 完了 (= drum-sources / drum-build / drum-verify / drum-clean、 軸転換命名後) | 23rd session ζ (= 本 commit) |
-| Surge XT install 確認 + BD prototype 1 件 hand-on | ☐ pending | 越川氏 hand-on (= 23rd session 並走 work) |
+| Makefile target 4 件追加 | ✓ 完了 (= drum-sources / drum-build / drum-verify / drum-clean、 軸転換命名後) | 23rd session ζ |
+| Surge XT install 確認 (= Homebrew cask canonical) | ✓ 完了 (= user step 1 完了報告、 23rd session 並走 work) | user hand-on (= 23rd session 中盤) |
+| BD prototype 1 件 hand-on (= 「合成 path が現実的か」 体感) | ☐ pending (= sub-sprint β 着手時に実施) | sub-sprint β 着手時 user hand-on |
 | handoff doc + memory + commit + push 完了 | 進行中 | session 末で実施予定 |
 
 **23rd session 規律 (= interface fixation stub の意義):**
@@ -1640,20 +1642,64 @@ WebApp converter (= future UI、 §決定 17 連動): scripts 仕様に追随す
 
 「環境構築も provenance の一部」 として扱う観点で、 install version を §Annex A-7 に literal 記録する。
 
-**(= 段階 1 sub-sprint γ で license 確認 + 動作確認 + 採用根拠 literal 反映後に本 §Annex A-7 を update commit で literal 記載 + 段階 1 sub-sprint α で install version 列を literal 反映)**
+**superctr/adpcm 23rd session ζ' evidence collection (= 段階 1 sub-sprint α 着手時 hand-on 取得、 §決定 18 採用候補確認):**
 
-検討候補 (= 21st session 時点):
-1. `github.com/superctr/adpcm` (= **採用**、 sound chip ADPCM codec library、 YM2610 ADPCM-A 対応、 既存 library)
-2. `github.com/freem/adpcma` (= 不採用、 Neo-Geo ADPCM-A sample encoder、 ただし作者推奨は superctr/adpcm)
+| 項目 | 値 |
+|---|---|
+| repository URL | `https://github.com/superctr/adpcm` |
+| clone path (= 23rd session ζ' local) | `~/src/superctr-adpcm/` |
+| git rev-parse HEAD | `e431c94bd7ee88287b0629cd9f1d0a0d163c3642` |
+| latest commit date | 2025-12-15 |
+| latest commit subject | Merge pull request #7 from ValleyBell/yma-overflow-fix |
+| git tag | (= 不在、 latest HEAD が canonical) |
+| **license** | **Public Domain (= Unlicense literal、 LICENSE file 1 行目「This is free and unencumbered software released into the public domain.」)** |
+| copyright | Ian Karlsson 2019 (= readme.md 末尾) / "ctr" 2018-2022 (= adpcm 起動時 usage literal) |
+| build 確認 | ✓ Apple clang 17.0.0 arm64-apple-darwin25.3.0 / `make` 1 発 / binary 35176 bytes / warning 2 件 (= 非 critical format specifier、 program 動作影響なし) |
+| binary path | `~/src/superctr-adpcm/adpcm` |
+| dependencies | stdlib のみ (= 6 .c file + Makefile 1 行、 vendor 同梱容易) |
+
+ADPCM-A 関連 command (= readme.md literal、 PMDNEO 使用予定):
+- `adpcm ae <input.pcm> <output.adpcma>` = Yamaha ADPCM-A (YM2610) Encode (= sub-sprint γ wav_to_adpcma.sh 内部 invoke)
+- `adpcm ad <input.adpcma> <output.pcm>` = Yamaha ADPCM-A (YM2610) Decode (= verify roundtrip 用途)
+- `-a` option = anti-overflow mode (= Yamaha ADPCM-A encoding 専用、 sub-sprint γ wrapper で default ON 候補)
+
+input format 仕様 (= adpcm 起動時 usage literal):
+- "Input format: signed 16 bit PCM little endian"
+- §決定 8 source wav (= RIFF WAVE PCM / 1 ch / 44100 Hz / 16 bit) との整合 = **RIFF WAVE header strip 必要** = `scripts/wav_to_adpcma.sh` wrapper で sox / ffmpeg / python wave + struct 等で WAV → raw 16-bit PCM little-endian 経路追加 (= sub-sprint γ wrapper 実装時に経路選定壁打ち軸)
+- 補足: §決定 9 chip 化 pipeline は 18.5 kHz decimate 経路を含むので、 wrapper 内部 stage は「44100 Hz wav → decimate → 18500 Hz raw PCM → adpcm ae → adpcma」
+
+23rd session ζ' 観察 8 finding (= engineering note literal):
+1. **YM2610 ADPCM-A 専用 encode `ae` command 存在** = §決定 18 採用候補の決定的根拠 (= 自前実装回避の明示的代替)
+2. **`-a` anti-overflow option** = ADPCM-A encoding 専用、 sub-sprint γ wrapper で default ON 推奨候補 (= ValleyBell yma-overflow-fix 連動)
+3. **input format = signed 16-bit PCM little-endian** = §決定 8 整合、 ただし WAV header strip 経路を wrapper に追加必要
+4. **build = `make` 1 発で binary 生成** = reproducibility 容易 (= Apple clang 17.0.0 arm64 = Apple Silicon macOS literal、 future contributor 環境差で gcc / clang 違いの吸収余地あり)
+5. **license = Public Domain (= Unlicense literal)** = encoder provenance 完全 clean、 §決定 18 整合 + §決定 12 「越川氏自前以外排除契約」 と矛盾なし (= sample provenance ≠ encoder provenance literal 区別、 §決定 12 排除契約は同梱 sample 軸限定)
+6. **dependencies = stdlib のみ** = vendor 同梱 / 外部依存どちらでも整合容易、 §決定 18 wrapper の薄さを保つ
+7. **recent maintenance** = 2025-12-15 ValleyBell PR merge = community 信頼性 signal (= ValleyBell = 著名 emulator 開発者、 yma-overflow-fix の追加で ADPCM-A 精度補強)
+8. **7 種 ADPCM variant 対応** (= ADPCM-A / ADPCM-B / AICA / OKI VOX / BSMT2000/QSound / X68000 / YMZ280B) = 将来 ADPCM-B (= `.PPC` / `.P86`) sub-system 拡張時に同 binary 流用可能 (= ADR-0033 ADPCM-A scope 軸外だが reference 価値、 PMDNEO ADPCM-B subsystem future 着手時の再利用候補)
+
+**採用判定:** §決定 18 採用条件 (= license 整合 / 動作確認 / maintenance / build 容易) **全 4 件クリア = 23rd session ζ' で encoder 採用 finalize ✓**
+
+**(= 段階 1 sub-sprint γ で詳細 wrapper 実装 + vendor 同梱 vs 外部依存判断 + ADPCM-A bit-accuracy 検証 + Surge XT source wav からの round-trip 検証で本 §Annex A-7 を再度 update commit で literal 反映、 Surge XT install version 列 (= 上記 1638 行 後埋め枠) は 23rd session η commit (= 別軸、 user hand-on 完了後) で後埋め)**
+
+検討候補 (= 21st session 時点提示、 23rd session ζ' で採用 finalize):
+1. `github.com/superctr/adpcm` (= **採用 finalize、 23rd session ζ' evidence collection 完了 ✓、 上記表 + 8 finding literal 反映済**)
+2. `github.com/freem/adpcma` (= 不採用、 Neo-Geo ADPCM-A sample encoder、 ただし作者推奨は superctr/adpcm、 23rd session ζ' で再評価 skip)
 3. 自前実装 (= 不採用、 §決定 18 literal scope-out、 CLAUDE.md §スコープ外 規律 + 3 行重複より早すぎる抽象化を避ける)
 
-段階 1 sub-sprint γ で確認する項目 (= sub-sprint γ 着手時に literal 反映):
-- license 整合 (= GPL-3.0 / MIT / Apache 等の PMDNEO 整合 license、 vendor / 外部依存どちらか確定)
-- 動作確認 (= 任意 wav から samples.inc 形式出力が成立)
-- maintenance 状況 (= active commit 状況)
+23rd session ζ' で確認済 (= ✓ 採用条件クリア、 8 finding literal 整合):
+- license 整合 = **Public Domain (= Unlicense)、 PMDNEO GPL-3.0 narrative と完全独立、 §決定 18 整合** ✓
+- 動作確認 = `make` build 成功 + usage 確認 + ADPCM-A encode `ae` command 存在 ✓
+- maintenance 状況 = 2025-12-15 ValleyBell yma-overflow-fix PR merge active ✓
+- ADPCM-A 精度 = readme.md "Yamaha ADPCM-A (YM2610)" 明示 + ValleyBell yma-overflow-fix で精度補強 ✓
+
+段階 1 sub-sprint γ で確認する項目 (= 23rd session ζ' では確認できない / 詳細 wrapper 実装時の継続項目):
+- 任意 wav → samples.inc 形式 end-to-end 動作 (= wrapper 実装 + WAV header strip 経路 + 結果 binary 検証)
 - PMDNEO build pipeline 統合容易性 (= 既存 vromtool.py / ADR-0019 sample addr build-time embed 経路との整合)
-- ADPCM-A 精度 (= 4-bit Yamaha 系 ADPCM の bit-accuracy)
-- vendor 同梱 vs 外部依存判断 (= 外部依存の場合 README にインストール手順記載、 vendor 同梱の場合 license 整合確認 + `vendor/superctr-adpcm/` 配置)
+- vendor 同梱 vs 外部依存判断 (= 3 案壁打ち = (a) 外部依存 default / (b) vendor 同梱 / (c) 折衷、 §決定 18 wrapper 流儀整合)
+- ADPCM-A bit-accuracy 検証 (= 既存 6 adpcma との比較は scope-out = unknown 起源、 sub-sprint β で生成する Surge XT source wav から chain encode + decode で round-trip 検証)
+- `-a` anti-overflow option default 判断 (= ADPCM-A encoding 時 ON / OFF 判断、 wrapper の default literal 化)
+- WAV header strip 経路選定 (= sox / ffmpeg / python wave + struct 等の選定軸、 §決定 9 decimate と組み合わせ)
 
 `scripts/wav_to_adpcma.sh` wrapper 仕様 (= §決定 18 literal):
 - 入力: 44100 Hz / 16 bit / mono wav (= §決定 8 仕様)
@@ -1662,7 +1708,10 @@ WebApp converter (= future UI、 §決定 17 連動): scripts 仕様に追随す
 - 処理 3: `samples.inc` 形式 Z80 assembly 出力 (= ADR-0019 §決定 3 build-time embed 流儀踏襲、 既存 PMDNEO build pipeline 整合)
 - default parameter: mono / 18.5 kHz / 4-bit ADPCM-A / `2608_{bd,sd,top,hh,tom,rim}.wav` naming convention
 
-採用結果 + 根拠は段階 1 sub-sprint γ 完了時に本 §Annex A-7 を update commit で literal 反映 (= 採用 encoder の repository URL + commit hash + license 表記 + vendor 同梱 or 外部依存判断 + 動作確認 log を表形式で記述)。
+採用結果 + 根拠の literal 反映状況:
+- **23rd session ζ' = encoder evidence collection 完了 ✓** (= 上記 superctr/adpcm 表 + 8 finding + 4 採用条件クリア literal 反映済)
+- **sub-sprint γ で継続項目 = 詳細 wrapper 実装 + vendor 同梱 vs 外部依存判断 + ADPCM-A bit-accuracy 検証 + Surge XT source wav からの round-trip 検証** (= sub-sprint γ 完了時に再度 update commit で literal 反映)
+- **Surge XT install version 列 (= 1638 行 後埋め枠) = 23rd session η commit で後埋め** (= 別軸、 user hand-on Surge XT install 完了報告後)
 
 ## Annex 規律 (= future update 経路)
 
