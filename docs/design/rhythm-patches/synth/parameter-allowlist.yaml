@@ -1,0 +1,123 @@
+# Parameter allowlist for template `.fxp` patching (= ADR-0033 §決定 27 (9) ξ artifact)
+# ============================================================================
+#
+# 本 file は AI bridge が `2608_template.fxp` 内で touch 可能な parameter を
+# literal に enumerate する allowlist。 「parameter allowlist patching」 軸の
+# literal 制約 (= ξ 中核 wording 連動)。
+#
+# allowlist 外の byte は **change_protected** = AI bridge が触らない。
+# conservative default = 「明示的に許可された byte offset のみ書換可能」。
+#
+# 関連 ADR / §決定:
+#   - ADR-0033 §決定 26  (= .fxp authoring spec 7 軸)
+#   - ADR-0033 §決定 27 (1)  (= AI 役割 2 軸 = template-based bridge)
+#   - ADR-0033 §決定 27 (9)  (= ξ artifact path canonical)
+#   - ADR-0033 §決定 27 (11) (= ξ scope-in literal「patching 対象 parameter の allowlist」)
+#
+# ============================================================================
+
+allowlist_version: "0.1.0"        # 本 allowlist schema 自体の version
+status: pending-template-creation  # pending-template-creation | active | superseded
+template_ref: ./template.fxp.provenance.yaml
+
+# ---------------------------------------------------------------------------
+# 許可 parameter list (= AI bridge が touch 可能)
+# ---------------------------------------------------------------------------
+# 実 byte offset は越川氏 hand-on で template 作成後の binary diff で確定。
+# binary diff 方法 (= ο3 commit 候補):
+#   (a) 越川氏 Surge XT で template `.fxp` を base parameter 値で保存
+#   (b) 越川氏 1 parameter (= 例 amp_decay) を変更して別 `.fxp` として保存
+#   (c) Claude 側で 2 file の binary diff を取得、 変化した byte offset = その parameter の格納位置
+#   (d) (b)(c) を allowlist 候補 parameter 全部に対して実施、 allowlist literal を fill
+allowed_parameters: []
+  # 例 (= ο3 commit で fill 想定):
+  # - name: amp_envelope_decay
+  #   surge_xt_param_id: "a_amp_env_decay"
+  #   byte_offset: 0x1234           # template `.fxp` 内の specific offset
+  #   byte_size: 4                  # parameter byte size (= float32 想定)
+  #   encoding: float32_be          # encoding (= VST2 規約準拠 想定)
+  #   valid_range: [0.0, 1.0]       # Surge XT normalized parameter range
+  #   default_value: 0.5            # template の base value
+  #   patch_spec_field: amplitude_envelope.decay_ms  # 対応する patch-spec.yaml field
+  #   notes: "AHDSR decay segment、 0.0 = 0ms / 1.0 = ~10 sec"
+
+# ---------------------------------------------------------------------------
+# 候補 parameter (= 越川氏 audition で確定、 §決定 26 (5) + §決定 27 推奨 baseline)
+# ---------------------------------------------------------------------------
+# template + parameter patching で全 6 drum 種 (= BD/SD/TOP/HH/TOM/RIM) を表現するための
+# 最小 parameter set 候補。 越川氏 hand-on 時にこの中から「実 patching 対象」 を選別。
+candidate_parameters_for_allowlist:
+  - category: oscillator
+    parameters:
+      - osc1_waveform           # OSC type (= Classic / Sine / FM2 等の選択)
+      - osc1_pitch_offset       # pitch base shift
+      - osc1_amplitude          # OSC 1 gain
+      - osc2_waveform
+      - osc2_pitch_offset
+      - osc2_amplitude
+  - category: amp_envelope
+    parameters:
+      - amp_envelope_attack     # AHDSR A
+      - amp_envelope_hold       # AHDSR H
+      - amp_envelope_decay      # AHDSR D
+      - amp_envelope_sustain    # AHDSR S
+      - amp_envelope_release    # AHDSR R
+  - category: pitch_envelope
+    parameters:
+      - pitch_envelope_amount   # pitch env modulation depth
+      - pitch_envelope_decay    # pitch env decay ms
+  - category: filter
+    parameters:
+      - filter1_cutoff_hz       # LP cutoff
+      - filter1_resonance       # filter Q
+      - filter1_envelope_amount
+  - category: waveshaper_drive
+    parameters:
+      - waveshaper_drive_db     # saturation amount
+  - category: master
+    parameters:
+      - master_gain             # patch level (= -6 〜 -3 dBFS peak 整合)
+
+# ---------------------------------------------------------------------------
+# 禁止 byte range (= 永久 change_protected、 §決定 27 ξ scope-out 連動)
+# ---------------------------------------------------------------------------
+prohibited_byte_ranges:
+  - range: [0, 28]
+    description: "VST2 container header (= CcnK + byteSize + fxMagic + version + idUint + fxVersion + count)"
+    reason: "§決定 27 ξ scope-out: full binary RE 最小限維持、 container 軸は touch 不可"
+  - range: [28, 56]
+    description: "programName field (= FPCh body 先頭 28 byte)"
+    reason: "drum name は別軸 (= string replace) で AI bridge が処理、 byte 範囲不変"
+  - range: [56, 60]
+    description: "FPCh chunkByteSize (= patch chunk size header)"
+    reason: "parameter patching が同一 byte size 維持なら chunk size 不変、 byteSize 再計算不要"
+
+# ---------------------------------------------------------------------------
+# patching 規律 (= AI bridge が遵守する rule)
+# ---------------------------------------------------------------------------
+patching_discipline:
+  - "allowlist 外の byte は **完全に touch しない** (= byte-identical 維持)"
+  - "allowlist 内の byte は **byte_size 一致で overwrite** (= chunk size 不変)"
+  - "valid_range 外の値は **reject** (= patch-spec の value validation in bridge layer)"
+  - "patching 前後の `.fxp` で **template_hash 差分は allowlist byte のみ** であることを verify"
+  - "patching 失敗時は `.fxp` を作らず error exit (= 「engineering candidate before aesthetic judgement」 整合)"
+
+# ---------------------------------------------------------------------------
+# 関連 artifact
+# ---------------------------------------------------------------------------
+related_artifacts:
+  template_fxp: assets/drum_samples/synth/templates/2608_template.fxp
+  template_provenance: docs/design/rhythm-patches/synth/template.fxp.provenance.yaml
+  investigation_doc: docs/design/rhythm-patches/synth/SURGE_XT_FXP_BRIDGE_INVESTIGATION.md
+  bridge_spike: scripts/fxp_template_patch.py
+  example_consumer_patch_spec: docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml
+
+# ---------------------------------------------------------------------------
+# version history
+# ---------------------------------------------------------------------------
+version_history:
+  - version: "0.1.0"
+    date: "2026-05-16"
+    status: schema-placeholder (= ο commit、 越川氏 hand-on + binary diff 待ち)
+    author: "Claude Opus 4.7 (1M context)"
+    note: "schema + candidate parameter list のみ作成。 actual byte offsets は ο3 commit (= template 作成後 binary diff) で fill。"
