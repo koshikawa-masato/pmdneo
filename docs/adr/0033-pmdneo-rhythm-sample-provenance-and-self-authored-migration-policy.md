@@ -1,6 +1,6 @@
 # ADR-0033: リズム音源 sample の由来管理と完全自作化 migration policy (= asset provenance / licensing / redistribution 軸独立起票 / runtime semantics 軸 ADR-0026-0032 と完全分離 / Yamaha mask ROM dump 永久排除 / 越川将人 100% 著作物のみ同梱 / Surge XT 完全合成 prototype → プロ session acoustic drum 録音 → library 同梱 3 段階 migration / current temporary fixture 段階 3 完了まで暫定許容 / sound-alike caution = RX-11 似は OK / ROM sample derivative 不可 / PMD culture rhythm.wav 仕様互換 (= 2608_*.wav / 44100 Hz / 16 bit / mono) / 完全ホワイト化 milestone 確立 / runtime dispatch invariant 完全不変 / multi-table architecture (= ADR-0025) 経由 kit 入替 design)
 
-- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映) + 23rd session 第 2 commit = `scripts/wav_to_adpcma.sh` + `scripts/build_drum_samples.sh` + `scripts/verify-drum-samples.sh` 3 件 interface fixation stub 新規作成 (= §決定 21 4 系統 2-4 件目、 9 項目 header / usage / not-implemented exit 2 sentinel / source wav 完成前は middle 実装しない literal 規律) + §決定 21 scripts 構成 4 件 status marker 反映 + sub-sprint α 進捗 23rd session 反映 section 追加 + 23rd session 第 3 commit ζ = top-level `Makefile` 新規作成 (= drum-sources / drum-build / drum-verify / drum-clean 4 target 軽量 stub、 「Makefile = 作業者向け入口、 script 名の写像ではない」 軸転換 literal、 wav_to_adpcma.sh は Makefile 直下に露出させない = drum-build 内部 invoke 扱い、 drum-clean は 23rd session ζ 新規 = rebuild path 確立後に有効化) + §決定 21 Makefile target 命名 update (= 旧 4 件 forensic-drum-samples / wav-to-adpcma / build-drum-samples / verify-drum-samples → 新 4 件 drum-sources / drum-build / drum-verify / drum-clean) + reasoning 「Makefile = 作業者向け入口」 literal 追加 + migration roadmap sub-sprint α + §Annex A-5 reference 同 target 命名 update + 23rd session 第 4 commit ζ' = §Annex A-7 superctr/adpcm evidence collection literal 反映 (= encoder repo `e431c94` HEAD / Public Domain Unlicense / build 成功 Apple clang 17.0.0 arm64 / ADPCM-A `ae` command 存在 / `-a` anti-overflow / signed 16-bit PCM little-endian input / stdlib 依存 / 2025-12-15 ValleyBell yma-overflow-fix maintenance / 7 ADPCM variant 対応 8 finding + §決定 18 採用条件 4 件クリア = encoder 採用 finalize ✓、 Surge XT install version 列は η commit で後追い後埋め) + 23rd session 第 5 commit η = §Annex A-7 Surge XT install version 列 後埋め完了 (= surge-xt 1.3.4 / install 2026-05-16 13:01:59 JST / path /opt/homebrew/Caskroom/surge-xt/1.3.4 / 419.8 MB / Apple Silicon arm64 / official upstream + cask source URL literal + brew lookup quirk reference 追加 = `brew list --versions <name>` formula default の cask 不在 quirk + `--cask` flag 明示で取得可能 future contributor 向け notation)、 23rd session 5 段階構成 (δ/ε/ζ/ζ'/η) で sub-sprint α 完了 milestone 達成 → sub-sprint β = BD 1 音先行 provenance chain 縦通し着手可能 + 23rd session 第 6 commit θ = sub-sprint β scaffolding 全面置換 (= 旧「6 種一括 patch 設計」 → 新「BD 1 音先行 chain → 残 5 音横展開」、 depth-first scaling 流儀 ADR レベル固定、 reproducible workflow first / aesthetic refinement second 軸、 BD chain 6 step literal 化 = patch / .fxp / wav / audition / adpcma / verify + 残 5 音 commit 粒度 3 候補 + 各 drum starting hint 維持 doc only commit、 sub-sprint β BD hand-on 着手準備完了 milestone) + 23rd session 第 7 commit θ' = sub-sprint β BD chain 着手前確定 parameters 8 軸 literal 固定 (= .fxp path / WAV no-normalize parameter / trim 規約 leading 0 + trailing +50-100 ms / WAV path / direct invoke encode 経路 -a anti-overflow ON / ADPCM-A 並行配置 path / 既存 fixture 隔離維持 / WAV → raw PCM 経路、 重要 wording 規律 = no normalize + 並行配置 + ι commit scope canonical の 3 件 literal、 ι commit (= 越川氏 hand-on 完成時) 安全 boundary 確立 milestone) + 23rd session 第 8 commit ι' = §決定 25 追加 = Surge XT fxp2wav CLI 化を future から self-authored source-of-truth pipeline 必須調査として scope-in 昇格 (= spike track 1 並走、 別 branch / 別 commit 系列 / 別 session 着手、 7 step work + 3 制約 + branch 名候補 3 件 + 成立/不成立時の反映先 literal、 β-main BD chain は止めない並走規律、 23rd session ζ' §Annex A-7「公式 distribution CLI render 不在」 literal 観察を踏まえた軸転換、 spike 性格 = .fxp source-of-truth ⇄ WAV 再生成可能経路の必須化、 audio capture 経路は段階 3 完全ホワイト化 milestone に持ち込めない reproducibility 規律根拠) + 23rd session 第 9 commit ι'' = §決定 25 repo boundary 規律補強 = 「scope-in だが repo-in ではない」 中核 wording literal 追加 (= fxp2wav-surge = PMDNEO 外部 spike + required external producer 扱い、 superctr/adpcm と同 pattern、 PMDNEO source tree に Surge fork / JUCE / build artifacts を入れない 4 件目制約追加、 役割境界 literal = PMDNEO consumer / fxp2wav-surge producer、 branch 名候補 → external repo location 候補に置換 = github.com/koshikawa-masato/fxp2wav-surge 推奨、 spike 成立時の tools/ 取り込み禁止 literal、 PMDNEO license narrative 独立性確保 repo hygiene 規律) + 23rd session 第 10 commit κ = §決定 26 追加 = Surge XT `.fxp` authoring spec literal 固定 (= 7 軸 = patch naming / synthesis goal / note convention / output constraint / patch design constraint / metadata-provenance / acceptance gate + 非目標 4 件 = YM2608 BD 模倣 / 完成音追い込み / 6 音同時設計 / GUI 依存暗黙手順 + spec 適用順序 + spec 範囲外、 BD hand-on 着手前の `.fxp` source-of-truth 仕様規律確立、 patch naming = `2608_bd.fxp` / Surge XT display `PMDNEO 2608 BD Self v0`、 note = MIDI 36 / vel 127 / 800 ms、 output = mono / no normalize / -6〜-3 dBFS peak / clipping 禁止、 design = Surge XT 内蔵 only / external sample 禁止 / random+drift+unseeded modulation 禁止 or seed 固定 / long tail 回避 / 低域+attack 明確化、 provenance = version + author + date + render command + `SURGE_RNG_SEED` + sha256 `.fxp` / `.wav` / `.adpcma`、 acceptance gate 5 件 = fxp2wav-surge render 可 + bit-identical WAV + 44100 mono 16-bit + BD 聴感成立 + 既存 fixture 別物並行配置、 残 5 音横展開時の canonical template として BD spec 再利用可能化、 §決定 14 sound-alike caution / §決定 16 prototype 粒度 / §決定 24 aesthetic / §決定 25 fxp2wav-surge external producer 整合、 `.fxp` = 単なる hand-on 成果物 → 再現可能 source-of-truth へ昇格、 BD hand-on artifact 受領前の安全 boundary 確立 + 残 5 音 template 確立 milestone、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変) + 23rd session 第 11 commit λ = §決定 27 追加 = AI-assisted patch generation workflow literal 固定 (= 8 軸 = AI 役割境界 / source-of-truth 階層 / patch spec 形式 / patch spec 最低必須 12 項目 / provenance chain 4 段階 / acceptance workflow / 越川氏 100% 著作整合 narrative / 成果物 path canonical 5 件 + spec 適用順序 8 step + scope-out 7 件、 AI 設計補助 + 越川氏 acceptance 軸独立確立、 AI = candidate 提示 / 越川氏 = audition + edit + accept 権限保持 / 最終 asset = 越川氏 100% 著作物方針不変、 source-of-truth = `patch-spec.yaml` / Markdown table (= `.fxp` binary より上位の human-readable layer)、 `.fxp` binary 直生成 / reverse engineering 永久 scope-out、 provenance chain = `patch-spec.yaml` → `.fxp` → `.wav` → `.adpcma` 4 段階、 §決定 26 (6) の 3 段階 sha256 を 4 段階に格上げ、 §決定 1 100% 著作物 / §決定 14 sound-alike caution / §決定 16 prototype 粒度 / §決定 19 段階 1 集中 / §決定 24 aesthetic / §決定 25 fxp2wav-surge external producer / §決定 26 `.fxp` authoring spec 整合、 越川氏 100% 著作と AI 利用の境界を ADR レベル literal で確立 milestone、 RX-11 clone / mimic / ROM recreation 方向 AI candidate は越川氏 reject 必須 wording 連動、 新規 directory `docs/design/rhythm-patches/synth/` patch spec source-of-truth canonical path 確立、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
+- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映) + 23rd session 第 2 commit = `scripts/wav_to_adpcma.sh` + `scripts/build_drum_samples.sh` + `scripts/verify-drum-samples.sh` 3 件 interface fixation stub 新規作成 (= §決定 21 4 系統 2-4 件目、 9 項目 header / usage / not-implemented exit 2 sentinel / source wav 完成前は middle 実装しない literal 規律) + §決定 21 scripts 構成 4 件 status marker 反映 + sub-sprint α 進捗 23rd session 反映 section 追加 + 23rd session 第 3 commit ζ = top-level `Makefile` 新規作成 (= drum-sources / drum-build / drum-verify / drum-clean 4 target 軽量 stub、 「Makefile = 作業者向け入口、 script 名の写像ではない」 軸転換 literal、 wav_to_adpcma.sh は Makefile 直下に露出させない = drum-build 内部 invoke 扱い、 drum-clean は 23rd session ζ 新規 = rebuild path 確立後に有効化) + §決定 21 Makefile target 命名 update (= 旧 4 件 forensic-drum-samples / wav-to-adpcma / build-drum-samples / verify-drum-samples → 新 4 件 drum-sources / drum-build / drum-verify / drum-clean) + reasoning 「Makefile = 作業者向け入口」 literal 追加 + migration roadmap sub-sprint α + §Annex A-5 reference 同 target 命名 update + 23rd session 第 4 commit ζ' = §Annex A-7 superctr/adpcm evidence collection literal 反映 (= encoder repo `e431c94` HEAD / Public Domain Unlicense / build 成功 Apple clang 17.0.0 arm64 / ADPCM-A `ae` command 存在 / `-a` anti-overflow / signed 16-bit PCM little-endian input / stdlib 依存 / 2025-12-15 ValleyBell yma-overflow-fix maintenance / 7 ADPCM variant 対応 8 finding + §決定 18 採用条件 4 件クリア = encoder 採用 finalize ✓、 Surge XT install version 列は η commit で後追い後埋め) + 23rd session 第 5 commit η = §Annex A-7 Surge XT install version 列 後埋め完了 (= surge-xt 1.3.4 / install 2026-05-16 13:01:59 JST / path /opt/homebrew/Caskroom/surge-xt/1.3.4 / 419.8 MB / Apple Silicon arm64 / official upstream + cask source URL literal + brew lookup quirk reference 追加 = `brew list --versions <name>` formula default の cask 不在 quirk + `--cask` flag 明示で取得可能 future contributor 向け notation)、 23rd session 5 段階構成 (δ/ε/ζ/ζ'/η) で sub-sprint α 完了 milestone 達成 → sub-sprint β = BD 1 音先行 provenance chain 縦通し着手可能 + 23rd session 第 6 commit θ = sub-sprint β scaffolding 全面置換 (= 旧「6 種一括 patch 設計」 → 新「BD 1 音先行 chain → 残 5 音横展開」、 depth-first scaling 流儀 ADR レベル固定、 reproducible workflow first / aesthetic refinement second 軸、 BD chain 6 step literal 化 = patch / .fxp / wav / audition / adpcma / verify + 残 5 音 commit 粒度 3 候補 + 各 drum starting hint 維持 doc only commit、 sub-sprint β BD hand-on 着手準備完了 milestone) + 23rd session 第 7 commit θ' = sub-sprint β BD chain 着手前確定 parameters 8 軸 literal 固定 (= .fxp path / WAV no-normalize parameter / trim 規約 leading 0 + trailing +50-100 ms / WAV path / direct invoke encode 経路 -a anti-overflow ON / ADPCM-A 並行配置 path / 既存 fixture 隔離維持 / WAV → raw PCM 経路、 重要 wording 規律 = no normalize + 並行配置 + ι commit scope canonical の 3 件 literal、 ι commit (= 越川氏 hand-on 完成時) 安全 boundary 確立 milestone) + 23rd session 第 8 commit ι' = §決定 25 追加 = Surge XT fxp2wav CLI 化を future から self-authored source-of-truth pipeline 必須調査として scope-in 昇格 (= spike track 1 並走、 別 branch / 別 commit 系列 / 別 session 着手、 7 step work + 3 制約 + branch 名候補 3 件 + 成立/不成立時の反映先 literal、 β-main BD chain は止めない並走規律、 23rd session ζ' §Annex A-7「公式 distribution CLI render 不在」 literal 観察を踏まえた軸転換、 spike 性格 = .fxp source-of-truth ⇄ WAV 再生成可能経路の必須化、 audio capture 経路は段階 3 完全ホワイト化 milestone に持ち込めない reproducibility 規律根拠) + 23rd session 第 9 commit ι'' = §決定 25 repo boundary 規律補強 = 「scope-in だが repo-in ではない」 中核 wording literal 追加 (= fxp2wav-surge = PMDNEO 外部 spike + required external producer 扱い、 superctr/adpcm と同 pattern、 PMDNEO source tree に Surge fork / JUCE / build artifacts を入れない 4 件目制約追加、 役割境界 literal = PMDNEO consumer / fxp2wav-surge producer、 branch 名候補 → external repo location 候補に置換 = github.com/koshikawa-masato/fxp2wav-surge 推奨、 spike 成立時の tools/ 取り込み禁止 literal、 PMDNEO license narrative 独立性確保 repo hygiene 規律) + 23rd session 第 10 commit κ = §決定 26 追加 = Surge XT `.fxp` authoring spec literal 固定 (= 7 軸 = patch naming / synthesis goal / note convention / output constraint / patch design constraint / metadata-provenance / acceptance gate + 非目標 4 件 = YM2608 BD 模倣 / 完成音追い込み / 6 音同時設計 / GUI 依存暗黙手順 + spec 適用順序 + spec 範囲外、 BD hand-on 着手前の `.fxp` source-of-truth 仕様規律確立、 patch naming = `2608_bd.fxp` / Surge XT display `PMDNEO 2608 BD Self v0`、 note = MIDI 36 / vel 127 / 800 ms、 output = mono / no normalize / -6〜-3 dBFS peak / clipping 禁止、 design = Surge XT 内蔵 only / external sample 禁止 / random+drift+unseeded modulation 禁止 or seed 固定 / long tail 回避 / 低域+attack 明確化、 provenance = version + author + date + render command + `SURGE_RNG_SEED` + sha256 `.fxp` / `.wav` / `.adpcma`、 acceptance gate 5 件 = fxp2wav-surge render 可 + bit-identical WAV + 44100 mono 16-bit + BD 聴感成立 + 既存 fixture 別物並行配置、 残 5 音横展開時の canonical template として BD spec 再利用可能化、 §決定 14 sound-alike caution / §決定 16 prototype 粒度 / §決定 24 aesthetic / §決定 25 fxp2wav-surge external producer 整合、 `.fxp` = 単なる hand-on 成果物 → 再現可能 source-of-truth へ昇格、 BD hand-on artifact 受領前の安全 boundary 確立 + 残 5 音 template 確立 milestone、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変) + 23rd session 第 11 commit λ = §決定 27 追加 = AI-assisted patch generation workflow literal 固定 (= 8 軸 = AI 役割境界 / source-of-truth 階層 / patch spec 形式 / patch spec 最低必須 12 項目 / provenance chain 4 段階 / acceptance workflow / 越川氏 100% 著作整合 narrative / 成果物 path canonical 5 件 + spec 適用順序 8 step + scope-out 7 件、 AI 設計補助 + 越川氏 acceptance 軸独立確立、 AI = candidate 提示 / 越川氏 = audition + edit + accept 権限保持 / 最終 asset = 越川氏 100% 著作物方針不変、 source-of-truth = `patch-spec.yaml` / Markdown table (= `.fxp` binary より上位の human-readable layer)、 `.fxp` binary 直生成 / reverse engineering 永久 scope-out、 provenance chain = `patch-spec.yaml` → `.fxp` → `.wav` → `.adpcma` 4 段階、 §決定 26 (6) の 3 段階 sha256 を 4 段階に格上げ、 §決定 1 100% 著作物 / §決定 14 sound-alike caution / §決定 16 prototype 粒度 / §決定 19 段階 1 集中 / §決定 24 aesthetic / §決定 25 fxp2wav-surge external producer / §決定 26 `.fxp` authoring spec 整合、 越川氏 100% 著作と AI 利用の境界を ADR レベル literal で確立 milestone、 RX-11 clone / mimic / ROM recreation 方向 AI candidate は越川氏 reject 必須 wording 連動、 新規 directory `docs/design/rhythm-patches/synth/` patch spec source-of-truth canonical path 確立、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変) + 23rd session 第 12 commit μ = §決定 27 (6) acceptance workflow step 1 初回適用 = `docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml` AI candidate 生成 (= 303 行 / 22 top-level keys、 path B AI-assisted workflow 初回実 file 化、 BD = 残 5 音 template 候補確立、 §決定 26 7 軸 + §決定 27 12 必須項目 + §決定 24 aesthetic 5 target 整合、 OSC1 Sine pitched body + OSC2 S&H Noise click + LP24 800Hz + Soft Clip +3dB + AHDSR D=280ms + pitch sweep 130Hz→65Hz / 50ms、 provenance chain step 1 literal 記録 + step 2-4 pending state、 越川氏 audition / edit / accept 待ち、 driver / fixture / verify script / runtime semantics 完全不変) + 23rd session 第 13 commit ν = §決定 27 全面再定義 = AI-assisted patch generation + **rendered-audio self-analysis workflow** へ拡張 (= λ 8 軸 → ν 10 軸、 acceptance workflow 5 step → 11 step、 4 段 → 5 段 provenance chain、 user acceptance **upstream → downstream 再配置**、 engineering pass / aesthetic accept **軸独立分離**、 AI 役割 1 軸 (= spec 設計補助) → 2 軸 (= spec 設計補助 + rendered audio self-analysis 10 項目) 拡張、 AI self-analysis 10 項目 = waveform sanity / peak / RMS / clipping / silence / attack / decay / transient strength / spectral balance / tail length、 ν 中核 wording = 「acceptance は downstream、 upstream ではない」 / 「machine-checkable quality gate + human aesthetic final gate 2 layer」、 成果物 5 → 6 件に拡張 = `analysis-report.yaml` 新規追加 (= `docs/design/rhythm-patches/synth/2608_<drum>.analysis-report.yaml`)、 scope-out 7 → 9 件に拡張 = AI による aesthetic judgement / 越川氏 acceptance signature 代理生成 永久 scope-out 2 件追加、 23rd session ν 末 user finding = AI 機械検査を user audition 前に済ませる方が user の aesthetic judgement 軸 clean / 認知負荷低減、 §決定 1 100% 著作物 / §決定 14 sound-alike caution / §決定 24 aesthetic / §決定 26 spec 整合維持、 23rd session μ で生成済 `2608_bd.patch-spec.yaml` は ν workflow stage 軸に対応する形で同 commit 内で更新 (= `acceptance` → `workflow_stage: candidate-pending-render-analysis` + `engineering_pass: pending` + `aesthetic_acceptance: pending` 3 field 軸分離、 provenance chain 4 段 → 5 段拡張 = step 4 AI self-analysis 新規挿入 + step_4 → step_5 adpcma renumber、 acceptance_criteria 2 階層化 = engineering_pass_ai_self_analysis_10_items + aesthetic_acceptance_user_final_gate)、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
 - 起票日: 2026-05-15
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR: ADR-0032 (= step 18 simultaneous trigger semantics proof、 **runtime semantics 軸**で本 ADR と完全分離、 driver dispatch invariant の semantics 拡張軸初段)、 ADR-0031 (= step 17 K/R drum kind expansion proof — i = RIM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + drum 種拡張軸 sprint chain 完成 milestone、 本 ADR は runtime invariant 完全保持を前提)、 ADR-0030 / ADR-0029 / ADR-0028 / ADR-0027 / ADR-0026 (= step 12-16 drum 種拡張 sprint chain、 「rim」 「tom」 「top」 wording 規律確立)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 本 ADR §決定 10 「multi-table architecture 経由 kit 入替」 の前提)、 ADR-0023 / ADR-0024 (= step 9 / step 10 sample_table_id resolver + selection consumption、 同前提)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 本 ADR §決定 8 chip 化 pipeline の前提)、 ADR-0021 (= step 7 `.PNE` asset pipeline、 本 ADR §決定 10 multi-table 入替の物理経路前提)
@@ -992,42 +992,47 @@ literal 拘束:
 
 §決定 7 (= 命名規則) / §決定 8 (= source wav format) / §決定 9 (= chip 化 pipeline) / §決定 14 (= sound-alike caution) / §決定 16 (= prototype 粒度軸 + wording 規律) / §決定 19 (= 段階 1 集中) / §決定 22 (= Surge XT install) / §決定 23 (= naming + directory) / §決定 24 (= aesthetic) / §決定 25 (= fxp2wav-surge external producer) と整合、 §決定 26 は **`.fxp` authoring spec 軸** として独立追加、 既存 §決定 1-25 と直交、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変。
 
-### §決定 27: AI-assisted patch generation workflow = AI 設計補助 + 越川氏 acceptance 軸独立 (= source-of-truth = `patch-spec.yaml` / Markdown table、 `.fxp` binary 直生成 scope-out、 23rd session λ 軸転換)
+### §決定 27: AI-assisted patch generation + rendered-audio self-analysis workflow = AI 設計補助 + AI engineering 検査 + 越川氏 aesthetic final acceptance 軸独立 (= source-of-truth = `patch-spec.yaml` / Markdown table、 `.fxp` binary 直生成 scope-out、 23rd session λ 起票 / μ 初回適用 / ν 全面再定義)
 
-§決定 1 (= 100% 著作物のみ採用) / §決定 14 (= sound-alike caution) / §決定 16 (= prototype 粒度 + wording 規律) / §決定 19 (= 段階 1 集中) / §決定 24 (= aesthetic) / §決定 25 (= fxp2wav-surge external producer) / §決定 26 (= `.fxp` authoring spec) で patch source-of-truth の中身規約まで確定したが、 23rd session λ 末 user 軸転換で **AI-assisted patch generation を `.fxp` 制作の workflow 規律として ADR レベル literal で固定** = AI は patch parameter 設計補助、 越川氏が aesthetic judgement / acceptance を握る、 source-of-truth は `.fxp` binary より上位の **human-readable patch spec** (= YAML / Markdown table):
+§決定 1 (= 100% 著作物のみ採用) / §決定 14 (= sound-alike caution) / §決定 16 (= prototype 粒度 + wording 規律) / §決定 19 (= 段階 1 集中) / §決定 24 (= aesthetic) / §決定 25 (= fxp2wav-surge external producer) / §決定 26 (= `.fxp` authoring spec) で patch source-of-truth の中身規約まで確定、 23rd session λ で AI-assisted patch generation workflow を起票、 μ で BD candidate を 1 件生成。 その結果 23rd session ν で **「user acceptance を upstream に置きすぎた」 finding** 確認 = AI が機械的に判定可能な engineering 品質検査を user audition 前に済ませる方が user の aesthetic judgement 軸が clean になる。 23rd session ν で `.fxp` 制作 workflow を **AI engineering 検査を含む形に拡張** + **越川氏 acceptance を最終 gate に再配置** で全面再定義:
 
-**軸転換 (= 旧 → 新):**
+**軸転換 (= λ/μ 旧 → ν 新):**
 - **旧 (= 23rd session κ まで):** `.fxp` 制作は越川氏 hand-on のみ前提 = §決定 26 spec を Surge XT GUI 上で人間が直接構築
-- **新 (= 23rd session λ 採用):** `.fxp` 制作の **上位 source-of-truth** として human-readable patch spec を確立 = AI が patch parameter を spec として設計補助、 越川氏が audition / edit / accept 経由で `.fxp` 化 / asset 化
+- **中間 (= 23rd session λ/μ):** AI candidate spec → 越川氏 audition / edit / accept → `.fxp` hand-on → wav render → ADPCM-A encode (= **user acceptance が upstream**、 spec accept 後に hand-on)
+- **新 (= 23rd session ν 採用):** AI candidate spec → `.fxp` hand-on → wav render → **AI self-analysis (= engineering 検査 10 項目)** → AI revision proposal → 必要なら patch-spec / `.fxp` 再調整 → wav re-render → ADPCM-A encode → MAME / audio gate → **越川氏 audition / edit / accept (= 最終 gate)** (= **user acceptance が downstream**、 engineering 検査全通過後)
 
-**根拠 (= 23rd session λ 末 user 明示):**
-- 「越川氏 100% 著作」 方針 (= §決定 1) と AI 利用の境界を ADR レベル literal で確立しないと future 由来 narrative が曖昧化 risk
-- AI が直接「完成音」 を作る pattern は越川氏 aesthetic judgement 軸 (= §決定 24) を奪う = scope-out 必須
-- `.fxp` binary は Surge XT 内部表現で human-readable ではない = reproducibility / version control / review に不向き = 上位 human-readable layer 必須
-- patch spec が human-readable なら AI / 越川氏 / future contributor 全員が同 source-of-truth を読める = §決定 25 reproducibility 規律拡張
-- κ commit で §決定 26 spec 7 軸を確定したが、 spec を「人間が GUI で実装する」 のと「AI が parameter として設計する」 のは process 軸が違う = §決定 27 で独立規律
+**根拠 (= 23rd session ν 末 user 明示):**
+- AI が機械的に判定可能なもの (= waveform sanity / peak / RMS / clipping / silence / attack / decay / transient strength / spectral balance / tail length / ADPCM-A friendly frequency balance) を **user audition 前に全部落とす** 方が越川氏の認知負荷が下がる
+- user audition で「engineering 検査 fail の candidate」 を聴かせるのは時間 + aesthetic judgement 軸の浪費
+- AI engineering 検査と人間 aesthetic judgement は **別軸** = 軸独立で順序関係 (= engineering 先 / aesthetic 後) を ADR レベル literal で確立
+- 既存 §決定 27 (λ/μ 時点) は AI 役割を「patch spec 設計補助」 のみに限定していたが、 「rendered wav self-analysis」 まで含めれば AI の貢献が signal analysis 軸でも明確化
+- 越川氏 acceptance は **aesthetic / musical judgement** に絞られる = 「engineering 検査の代行」 から解放される
+- ν 中核 wording = **「acceptance は downstream、 upstream ではない」** (= 23rd session ν 末 user 明示 literal)
 
-**8 軸 literal 拘束:**
+**10 軸 literal 拘束 (= λ 8 軸 → ν 10 軸に拡張):**
 
-(1) **AI 役割境界 = parameter / patch spec 設計補助に限定:**
-- AI は `.fxp` binary を直接生成しない (= scope-out、 binary format reverse engineering 含む)
-- AI は patch spec (= YAML / Markdown table) として **設計案** を提示する
-- AI が生成するのは **candidate** = 採用候補、 越川氏 acceptance 経由で初めて PMDNEO asset 化
-- 最終判断は越川氏 = aesthetic judgement / spec edit / accept-or-reject 権限保持 (= §決定 24 aesthetic 軸 + §決定 1 100% 著作物方針整合)
+(1) **AI 役割境界 = 2 軸に拡張 (= 設計補助 + engineering 検査):**
+- AI 役割 1 = patch spec 設計補助 (= λ 起票分、 維持)
+- AI 役割 2 = **rendered audio self-analysis** (= ν 追加、 engineering / signal analysis 軸)
+- AI は `.fxp` binary を直接生成しない (= scope-out 維持、 binary format reverse engineering 含む)
+- AI は **aesthetic / musical judgement を行わない** (= 永久 scope-out、 越川氏専管)
+- AI は **越川氏 acceptance signature の代理生成をしない** (= 永久 scope-out、 §決定 1 100% 著作物方針整合)
+- AI が生成するのは **candidate** = 採用候補、 越川氏 final gate 経由で初めて PMDNEO asset 化
 
-(2) **source-of-truth 階層 = patch spec が `.fxp` より上位:**
-- 最上位 = `patch-spec.yaml` (= human-readable、 AI / 越川氏 / future contributor 共通 source-of-truth)
-- 次位 = `.fxp` (= Surge XT binary、 patch spec から越川氏 Surge XT GUI で生成、 §決定 26 spec 整合)
-- 派生 = `.wav` (= fxp2wav-surge render、 §決定 25 reproducibility 整合)
-- 派生 = `.adpcma` (= superctr/adpcm encode、 §Annex A-7 ζ' literal 整合)
-- chain 全体 = `patch-spec.yaml` → `.fxp` → `.wav` → `.adpcma` の **4 段階 provenance chain** (= §決定 26 (6) の 3 段階 sha256 を 4 段階に格上げ)
+(2) **source-of-truth 階層 (= 4 段 → 5 段 chain に拡張、 ν analysis report 追加):**
+- 最上位 = `patch-spec.yaml` (= human-readable、 AI / 越川氏 / future contributor 共通 source-of-truth、 §決定 27 (4) 12 項目)
+- 次位 = `.fxp` (= Surge XT binary、 越川氏 hand-on 生成、 §決定 26 spec 整合)
+- 派生 1 = `.wav` (= fxp2wav-surge render、 **AI self-analysis 通過までは「candidate wav」**、 §決定 25 reproducibility 整合)
+- 派生 1 検査 = `analysis-report.yaml` (= **ν 新規 artifact**、 AI self-analysis 10 項目結果、 patch-spec 同 directory)
+- 派生 2 = `.adpcma` (= superctr/adpcm encode、 self-analysis 通過後、 §Annex A-7 ζ' literal 整合)
+- chain 全体 = `patch-spec.yaml` → `.fxp` → `.wav (candidate)` → `analysis-report.yaml` → (必要なら revision loop) → `.wav (analysis-passed)` → `.adpcma` → MAME / audio gate → 越川氏 acceptance
 
-(3) **patch spec 形式 = YAML / Markdown table 推奨:**
+(3) **patch spec 形式 (= 維持、 λ 起票分):**
 - 推奨形式 = **YAML** (= machine-readable + human-readable + version control friendly)
 - 代替 = **Markdown table** (= 人間 review friendly、 narrative 補強)
 - formal schema は本 §決定 27 では未確定 (= sub-sprint β BD chain 1 巡完成後の別軸 = patch spec schema 確定 commit 候補)
 
-(4) **patch spec 最低必須 12 項目 (= drum role 共通):**
+(4) **patch spec 最低必須 12 項目 (= 維持、 λ 起票分):**
 - `drum role` (= BD / SD / TOP / HH / TOM / RIM のいずれか、 §決定 7 命名軸整合)
 - `design intent` (= 設計意図、 §決定 24 aesthetic target 5 項目との関係 narrative)
 - `oscillator plan` (= Surge XT 内蔵 osc 構成案、 §決定 26 (5) 内蔵 only 整合)
@@ -1039,57 +1044,85 @@ literal 拘束:
 - `expected decay` (= 期待 sample duration、 §決定 26 (3) 800 ms 規約整合)
 - `ADPCM-A friendly notes` (= 4-bit 圧縮 / 18.5 kHz decimate 親和の design hint、 §決定 9 + §決定 24 整合)
 - `prohibited references` (= RX-11 clone / ROM recreation / mimic 禁止 wording 明記、 §決定 14 + §決定 24 整合)
-- `acceptance criteria` (= 越川氏 acceptance gate 個別条件、 §決定 26 (7) base + drum 種固有追加)
+- `acceptance criteria` (= engineering pass + aesthetic accept 個別条件、 §決定 27 ν 分離後は 2 階層、 §決定 26 (7) base + drum 種固有追加)
 
-(5) **provenance chain 4 段階記録:**
-- step 1: `patch-spec.yaml` 確定 (= AI candidate → 越川氏 edit → accept、 sha256 記録)
-- step 2: `.fxp` 保存 (= 越川氏 Surge XT GUI で patch spec を実装、 sha256 + Surge XT version 記録)
-- step 3: `.wav` render (= fxp2wav-surge による deterministic render、 sha256 + seed + render command 記録)
-- step 4: `.adpcma` encode (= superctr/adpcm `ae -a` direct invoke、 sha256 + encoder version 記録)
-- metadata = AI agent identifier (= 例 `Claude Opus 4.7` / `GPT-5.4` 等、 越川氏 100% 著作整合 narrative literal) + 越川氏 acceptance signature (= 採用判断記録)
+(5) **AI self-analysis 必須検査 10 項目 (= ν 新規):**
+- `waveform sanity` (= WAV file 構造 valid、 RIFF header 正常、 sample data 読込可、 spec parameter integrity)
+- `peak amplitude` (= 全 sample 中の max abs value、 dBFS 換算、 §決定 26 (4) -6〜-3 dBFS 範囲 verify)
+- `RMS amplitude` (= root-mean-square energy、 dBFS 換算、 drum 種別の expected RMS 範囲との対比)
+- `clipping detection` (= 0 dBFS reach sample count、 §決定 26 (4) clipping 禁止 literal verify、 期待値 0)
+- `silence detection` (= leading silence ms + trailing silence ms、 23rd session θ' trim 規約整合確認)
+- `attack characteristics` (= attack ms、 transient peak position、 §決定 24 bright transient + patch spec amp envelope 整合)
+- `decay characteristics` (= decay ms、 decay curve shape、 §決定 24 short decay + patch spec amp envelope `decay_ms` 整合確認)
+- `transient strength` (= attack peak / sustained body ratio、 §決定 24 transient-focused 整合確認)
+- `spectral balance` (= FFT 帯域別 energy distribution、 §決定 24 ADPCM-friendly frequency balance + patch spec `adpcm_a_friendly_notes` 整合確認)
+- `tail length / ADPCM-A friendly` (= silence threshold 以下 trailing energy 持続 ms、 §決定 24 short decay + sustain 0 整合確認)
 
-(6) **acceptance workflow (= AI candidate → 越川氏 acceptance):**
-- AI が patch spec candidate を生成 (= 例 PR / commit draft / 別 file 提示)
-- 越川氏 audition (= patch spec を読んで設計意図を理解、 必要なら Surge XT GUI で試作)
-- 越川氏 edit (= spec 修正、 AI candidate の parameter 値を越川氏判断で書換可能)
-- 越川氏 accept (= spec 確定、 PMDNEO asset candidate へ昇格)
-- accept 後 = `.fxp` 化 (= §決定 26 spec 整合 verify) → `.wav` render → `.adpcma` encode → ι commit
+(6) **acceptance workflow (= ν 全面再定義、 11 step):**
+1. AI が drum role + design intent (= 越川氏指定) を受け取り、 `patch-spec.yaml` candidate 生成
+2. 越川氏 hand-on (= Surge XT GUI で patch spec を `.fxp` として実装、 §決定 26 spec 整合)
+3. fxp2wav-surge render (= §決定 25 spike track 1 経路、 deterministic `.wav (candidate)` 生成)
+4. **AI self-analysis (= 上記 (5) 10 項目検査、 `analysis-report.yaml` 生成)**
+5. AI revision proposal (= 検査結果に基づく patch-spec / `.fxp` 調整案、 engineering FAIL 時のみ)
+6. 必要なら patch-spec / `.fxp` 再調整 → step 3 へ loop (= engineering 検査全通過まで iterate)
+7. AI self-analysis 全項目 PASS = `.wav (analysis-passed)` 認定 = `engineering_pass: passed`
+8. superctr/adpcm encode (= §Annex A-7 ζ' literal、 `ae -a` direct invoke、 `.adpcma` 生成)
+9. MAME / audio gate (= 必要に応じて driver fixture 差替で trigger 確認、 runtime regression 防衛)
+10. **越川氏 audition / edit / accept (= 最終 gate、 aesthetic / musical judgement)**
+11. accept 後 = `aesthetic_acceptance: accepted` + signature + ι commit (= 並行配置、 既存 fixture 非破壊)
 
-(7) **越川氏 100% 著作方針との整合 (= §決定 1 反映 narrative):**
-- AI-assisted patch generation を採用しても、 **最終 asset = 越川氏 100% 著作物** という ADR-0033 中核方針は不変
-- 根拠 = AI は設計補助 / candidate 提示のみ、 越川氏 acceptance 経由で初めて asset 化 = 著作意思決定は越川氏
-- provenance metadata に「AI-assisted (= agent name) + 越川氏 acceptance」 を **literal 明記** (= future contributor / 第三者から判別可能)
-- RX-11 clone / mimic / ROM recreation 方向の AI candidate は越川氏 reject 必須 (= §決定 14 + §決定 24 sound-alike caution literal、 AI が aesthetic 判断を歪める risk への gatekeeping)
+(7) **provenance chain 5 段階記録 (= ν 拡張、 AI self-analysis report 追加):**
+- step 1: `patch-spec.yaml` (= sha256 + AI agent identifier + 生成日)
+- step 2: `.fxp` (= sha256 + Surge XT version + 越川氏 hand-on signature)
+- step 3: `.wav` (= sha256 + seed + render command + render-passed flag)
+- step 4: **`analysis-report.yaml`** (= sha256 + 10 項目 PASS/FAIL + revision iteration count)
+- step 5: `.adpcma` (= sha256 + encoder version)
+- + MAME audio gate log (= optional、 trace 結果 ref)
+- + 越川氏 acceptance signature (= 最終 gate、 aesthetic judgement 記録)
 
-(8) **成果物 path canonical (= 5 件、 sub-sprint β BD chain 適用):**
-- `docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml` (= 新規軸、 `docs/design/` 配下 patch spec source-of-truth、 残 5 音横展開時に同 directory 配下に並ぶ命名)
-- `assets/drum_samples/synth/patches/2608_bd.fxp` (= §決定 26 + 23rd session θ' literal 整合)
-- `assets/drum_samples/synth/2608_bd.wav` (= §決定 26 + 23rd session θ' literal 整合)
-- `assets/sounds/adpcma/2608_bd_self.adpcma` (= 23rd session θ' 並行配置 literal 整合、 既存 `2608_BD.adpcma` 非破壊)
-- `metadata/provenance entry` (= 形式 + path は sub-sprint β BD chain 内で確定、 `manifest.sha256` 拡張 or 別 file 候補)
+(8) **越川氏 100% 著作方針との整合 (= ν 拡張 narrative):**
+- AI-assisted patch generation + AI engineering 検査を採用しても、 **最終 asset = 越川氏 100% 著作物** という ADR-0033 中核方針は不変
+- 根拠 = AI は (a) 設計補助 (= candidate 提示) + (b) 機械検査 (= engineering signal analysis) のみ、 aesthetic judgement / 採用判断は越川氏専管
+- AI engineering 検査 = 信号解析 (= 客観的、 数値判定)
+- 越川氏 aesthetic judgement = 音楽的 / 文化的判断 (= 主観的、 ear judgement)
+- 軸独立 = engineering pass = 「asset として使える」 (= 客観品質)、 aesthetic accept = 「asset として採用する」 (= 主観品質 + 文化的整合)
+- provenance metadata に「AI-assisted spec + AI self-analysis + 越川氏 aesthetic acceptance」 を **literal 明記** (= future contributor / 第三者から判別可能)
+- RX-11 clone / mimic / ROM recreation 方向の AI candidate は越川氏 reject 必須 + AI self-analysis でも `prohibited_references` 違反 flag を出す (= §決定 14 + §決定 24 sound-alike caution gatekeeping 二重化)
 
-注意: `docs/design/rhythm-patches/` は新規 directory、 既存 `docs/design/PMDNEO_DESIGN.md` / `docs/design/handoff/` と並列。 残 5 音 (= SD/CYM/HH/TOM/RIM) 横展開時に `2608_<drum>.patch-spec.yaml` 命名で同 directory 配下に並ぶ。
+(9) **成果物 path canonical (= 5 → 6 件に拡張、 ν analysis report 追加):**
+- `docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml` (= λ μ 起票分、 維持)
+- `assets/drum_samples/synth/patches/2608_bd.fxp` (= 維持、 §決定 26 + 23rd session θ' literal 整合)
+- `assets/drum_samples/synth/2608_bd.wav` (= 維持、 §決定 26 + 23rd session θ' literal 整合)
+- `docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml` (= **ν 新規**、 AI self-analysis 10 項目結果記録、 patch-spec 同 directory)
+- `assets/sounds/adpcma/2608_bd_self.adpcma` (= 維持、 23rd session θ' 並行配置 literal 整合、 既存 `2608_BD.adpcma` 非破壊)
+- `metadata/provenance entry` (= 維持、 5 段階 sha256 + analysis report ref 拡張)
 
-**spec 適用順序 (= AI-assisted patch generation 着手 → 完了 までの literal 規律 8 step):**
-1. AI agent が drum role + design intent (= 越川氏指定) を受け取り、 `patch-spec.yaml` candidate 生成
-2. 越川氏 audition (= candidate spec 読解、 必要なら Surge XT GUI 試作)
-3. 越川氏 edit (= spec 修正、 AI candidate 内 parameter を越川氏判断で書換)
-4. 越川氏 accept (= spec 確定、 PMDNEO asset candidate へ昇格)
-5. 越川氏 hand-on (= Surge XT GUI で確定 spec を `.fxp` として実装、 §決定 26 spec 整合 verify)
-6. fxp2wav-surge render (= §決定 25 spike track 1 経路、 deterministic WAV)
-7. superctr/adpcm encode (= §Annex A-7 ζ' literal、 `ae -a` direct invoke)
-8. provenance metadata 記録 + ι commit (= 4 段階 sha256 + AI agent identifier + 越川氏 acceptance signature literal)
+注意: `docs/design/rhythm-patches/synth/` は λ/μ 起票分の新規 directory、 ν では同 directory 配下に `analysis-report.yaml` を並列追加。 残 5 音 (= SD/CYM/HH/TOM/RIM) 横展開時に `2608_<drum>.patch-spec.yaml` + `2608_<drum>.analysis-report.yaml` ペア命名で同 directory 配下に並ぶ。
 
-**scope-out (= §決定 27 で confirm しない、 future 軸 7 件):**
-- AI による `.fxp` binary 直生成 (= Surge XT binary format reverse engineering 含む、 §決定 27 永久 scope-out)
-- `patch-spec.yaml` → `.fxp` converter (= 将来 option として検討余地、 本 sprint scope-out)
-- AI による final asset 直生成 (= 越川氏 acceptance gate を bypass する pattern 永久 scope-out)
-- patch spec schema formal 確定 (= sub-sprint β BD chain 1 巡完成後の別軸 commit 候補)
-- AI candidate quality 自動 verify (= 例「自動 listen test」「自動 aesthetic score」 = 越川氏 hand-on judgement を奪うので永久 scope-out)
-- AI agent identity の version pinning 規約 (= 例「Claude Opus 4.7 only」 等の AI 縛り、 越川氏 judgement 軸独立で AI 軸は free choice、 metadata 記録のみ義務)
-- RX-11 clone / mimic / ROM recreation 方向の AI candidate (= §決定 14 + §決定 24 sound-alike caution literal 拡張、 AI 経由でも禁止維持)
+(10) **engineering pass と aesthetic accept の分離 (= ν 中核 wording):**
+- **engineering pass** = AI self-analysis 10 項目全 PASS = `.wav (analysis-passed)` 認定 = 越川氏 audition 前段資格
+- **aesthetic accept** = 越川氏 audition / edit / accept = asset 化 final gate
+- **engineering pass ≠ aesthetic accept** (= 別軸、 順序関係 = engineering 先 / aesthetic 後 literal)
+- **engineering FAIL** なら越川氏 audition なし (= AI revision loop 経由で先に engineering 修正)
+- **engineering PASS かつ aesthetic REJECT** は valid = 越川氏は signal が綺麗でも musical に reject 可能 (= aesthetic 最終 gate 権限)
+- **acceptance は downstream、 upstream ではない** (= ν 中核 wording literal)
+- **machine-checkable quality gate** + **human aesthetic final gate** の 2 layer 構成
 
-§決定 1 (= 100% 著作物のみ採用) / §決定 14 (= sound-alike caution) / §決定 16 (= prototype 粒度 + wording 規律) / §決定 19 (= 段階 1 集中) / §決定 24 (= aesthetic) / §決定 25 (= fxp2wav-surge external producer) / §決定 26 (= `.fxp` authoring spec) と整合、 §決定 27 は **AI-assisted patch generation workflow 軸** として独立追加、 既存 §決定 1-26 と直交、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変。
+**spec 適用順序 (= AI-assisted patch generation + self-analysis workflow 11 step):**
+上記 (6) acceptance workflow 11 step と同一、 ν 軸の中核 process literal。
+
+**scope-out (= §決定 27 で confirm しない、 future 軸 9 件、 ν 拡張):**
+- AI による `.fxp` binary 直生成 (= 維持、 永久 scope-out、 binary format reverse engineering 含む)
+- `patch-spec.yaml` → `.fxp` converter (= 維持、 本 sprint scope-out)
+- AI による final asset 直生成 (= 維持、 永久 scope-out)
+- patch spec schema formal 確定 (= 維持、 sub-sprint β BD chain 1 巡完成後の別軸 commit 候補)
+- 「自動 listen test / 自動 aesthetic score」 (= ν 整理、 永久 scope-out 維持、 但し AI self-analysis = engineering 検査は scope-in 化、 軸境界明確化)
+- AI agent identity の version pinning 規約 (= 維持、 free choice、 metadata 記録のみ義務)
+- RX-11 clone / mimic / ROM recreation 方向の AI candidate (= 維持、 §決定 14 + §決定 24 sound-alike caution literal、 AI 経由でも禁止維持 + AI self-analysis でも flag 立て)
+- **AI による aesthetic judgement (= ν 新規 scope-out、 永久)** = 越川氏 final gate を bypass する pattern 禁止、 「acceptance は downstream」 literal 連動
+- **AI による 越川氏 acceptance signature の代理生成 (= ν 新規 scope-out、 永久)** = §決定 1 100% 著作物方針 literal 違反
+
+§決定 1 (= 100% 著作物のみ採用) / §決定 14 (= sound-alike caution) / §決定 16 (= prototype 粒度 + wording 規律) / §決定 19 (= 段階 1 集中) / §決定 24 (= aesthetic) / §決定 25 (= fxp2wav-surge external producer) / §決定 26 (= `.fxp` authoring spec) と整合、 §決定 27 は **AI-assisted patch generation + rendered-audio self-analysis workflow 軸** として独立追加 + ν 全面再定義 (= λ 8 軸 → ν 10 軸、 4 段 → 5 段 chain、 user acceptance upstream → downstream、 engineering 検査軸新規追加)、 既存 §決定 1-26 と直交、 driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 完全不変。
 
 ## scope-in
 

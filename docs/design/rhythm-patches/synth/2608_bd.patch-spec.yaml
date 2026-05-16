@@ -1,9 +1,13 @@
-# PMDNEO 2608 BD patch spec (= §決定 27 (6) acceptance workflow step 1 = AI candidate)
+# PMDNEO 2608 BD patch spec (= §決定 27 ν 11 step workflow step 1 = AI candidate)
 # ============================================================================
 #
-# 本 file は ADR-0033 §決定 27 に基づく AI-assisted patch generation の
-# candidate spec です。 越川氏 audition / edit / accept 経由で初めて
-# PMDNEO asset candidate へ昇格します。
+# 本 file は ADR-0033 §決定 27 に基づく AI-assisted patch generation +
+# rendered-audio self-analysis workflow の candidate spec です。
+# 越川氏 final aesthetic acceptance 経由で初めて PMDNEO asset へ昇格します。
+#
+# ν 中核 wording = 「acceptance は downstream、 upstream ではない」
+#   = AI engineering 検査 (= step 4 self-analysis 10 項目) を済ませた後で
+#     越川氏 aesthetic final gate (= step 10) で採用判断
 #
 # 関連 ADR / §決定:
 #   - ADR-0033 §決定 1   (= 100% 著作物のみ採用)
@@ -18,12 +22,13 @@
 #   - ADR-0033 §決定 24  (= aesthetic = OPNA / retro FM-ADPCM)
 #   - ADR-0033 §決定 25  (= fxp2wav-surge external producer)
 #   - ADR-0033 §決定 26  (= .fxp authoring spec 7 軸 + 非目標 4 件)
-#   - ADR-0033 §決定 27  (= AI-assisted patch generation workflow 8 軸)
+#   - ADR-0033 §決定 27  (= AI-assisted patch generation + rendered-audio
+#                          self-analysis workflow 10 軸、 ν 全面再定義版)
 #
 # ============================================================================
 
-patch_spec_version: "0.1.0"
-status: candidate              # candidate | accepted | rejected
+patch_spec_version: "0.2.0"      # ν spec structure update、 patch parameter 不変
+status: candidate                # candidate | accepted | rejected (= 越川氏 final gate)
 drum_role: BD
 filename: 2608_bd.patch-spec.yaml
 
@@ -33,9 +38,12 @@ filename: 2608_bd.patch-spec.yaml
 ai_assisted:
   agent: "Claude Opus 4.7 (1M context)"
   generated_at: "2026-05-16"
-  acceptance: pending           # pending | accepted | rejected
-  acceptance_by: null           # 越川将人 / M.Koshikawa. (= accept 時 fill)
-  accepted_at: null             # ISO 8601 date (= accept 時 fill)
+  # §決定 27 ν 再定義 = engineering pass / aesthetic accept 軸独立分離
+  workflow_stage: candidate-pending-render-analysis  # = §決定 27 (6) 11 step chain の step 1 complete、 step 2-10 pending
+  engineering_pass: pending     # pending | passed | failed (= AI self-analysis 10 項目 § 決定 27 (5))
+  aesthetic_acceptance: pending # pending | accepted | rejected (= 越川氏 final gate § 決定 27 (10))
+  aesthetic_acceptance_by: null # 越川将人 / M.Koshikawa. (= accept 時 fill)
+  aesthetic_accepted_at: null   # ISO 8601 date (= accept 時 fill)
   edit_history: []              # 越川氏 edit pass の履歴
 
 # ---------------------------------------------------------------------------
@@ -233,64 +241,99 @@ prohibited_references:
   - "any 'exact reproduction' wording in design (= §決定 24 禁止 wording 違反)"
   - "external sample import (= §決定 26 (5) Surge XT 内蔵 only 整合)"
 
-# (12) acceptance criteria
+# (12) acceptance criteria (= §決定 27 ν 再定義 = engineering pass + aesthetic accept 2 階層分離)
 acceptance_criteria:
-  inherited_from_decision_26_section_7:
-    - "fxp2wav-surge で render 可能 (= §決定 25 spike track 1 経路成立前提)"
-    - "同 seed で bit-identical WAV"
-    - "WAV format = 44100 Hz / mono / 16-bit"
-    - "聴感上 BD として成立 (= 越川氏 hand-on judgement)"
-    - "既存 fixture (= assets/sounds/adpcma/2608_BD.adpcma) と別物として並行配置"
-  bd_specific:
-    - "fundamental energy = 50-100 Hz range (= BD として認識可能な thump frequency band)"
-    - "transient audible (= attack click が明瞭、 mud 化していない)"
-    - "decay clean (= 280 ms 後の silence が natural、 truncation artifact 不在)"
-    - "ADPCM-A encode 後も BD として識別可能 (= 越川氏 audition gate)"
-    - "OPNA / retro FM-ADPCM aesthetic 整合 (= §決定 24 narrative judgement)"
+
+  # §決定 27 (5) AI self-analysis 10 項目 = engineering pass gate
+  # 全 10 項目 PASS で `.wav (analysis-passed)` 認定、 越川氏 audition 前段資格成立
+  engineering_pass_ai_self_analysis_10_items:
+    - "waveform sanity (= WAV RIFF header valid + sample data 読込可 + spec parameter integrity)"
+    - "peak amplitude in [-6, -3] dBFS (= §決定 26 (4) verify)"
+    - "RMS amplitude in BD expected range (= analysis-report で確定値記録)"
+    - "clipping count = 0 (= §決定 26 (4) clipping 禁止 literal verify)"
+    - "leading silence < 100 ms (= 23rd session θ' trim 規約整合)"
+    - "trailing silence = 50-100 ms (= 23rd session θ' trim 規約整合)"
+    - "attack characteristics matches patch spec (= §決定 24 bright transient + amp envelope attack=0)"
+    - "decay characteristics matches amplitude_envelope.decay_ms (= 280 ms ±15%)"
+    - "transient strength = peak/RMS ratio threshold (= §決定 24 transient-focused)"
+    - "spectral balance: <2 kHz energy concentration (= §決定 24 ADPCM-friendly + adpcm_a_friendly_notes)"
+    - "tail length matches expected_decay.silence_after_decay_ms (= 470 ms ±20%)"
+
+  # 越川氏 final gate = aesthetic / musical judgement
+  aesthetic_acceptance_user_final_gate:
+    inherited_from_decision_26_section_7:
+      - "fxp2wav-surge で render 可能 (= §決定 25 spike track 1 経路成立前提)"
+      - "同 seed で bit-identical WAV"
+      - "WAV format = 44100 Hz / mono / 16-bit"
+      - "聴感上 BD として成立 (= 越川氏 hand-on judgement)"
+      - "既存 fixture (= assets/sounds/adpcma/2608_BD.adpcma) と別物として並行配置"
+    bd_specific:
+      - "fundamental energy = 50-100 Hz range (= BD として認識可能な thump frequency band)"
+      - "transient audible (= attack click が明瞭、 mud 化していない)"
+      - "decay clean (= 280 ms 後の silence が natural、 truncation artifact 不在)"
+      - "ADPCM-A encode 後も BD として識別可能 (= 越川氏 audition gate)"
+      - "OPNA / retro FM-ADPCM aesthetic 整合 (= §決定 24 narrative judgement)"
 
 # ===========================================================================
-# §決定 27 (5) provenance chain (= 4 段階記録、 本 file は step 1)
+# §決定 27 (7) provenance chain (= ν 5 段階記録、 本 file は step 1)
 # ===========================================================================
 provenance_chain:
   step_1_patch_spec:
     artifact: docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml
-    sha256: "pending"             # 越川氏 accept 後に確定値記録
+    sha256: "pending"             # 越川氏 final accept 後に確定値記録
     ai_agent: "Claude Opus 4.7 (1M context)"
     generated_at: "2026-05-16"
-    acceptance_by: null
-    accepted_at: null
-    note: "本 file (= §決定 27 (6) acceptance workflow step 1 candidate)。 越川氏 audition / edit / accept 経由で確定。"
+    status: candidate-pending-render-analysis
+    note: "本 file (= §決定 27 (6) ν workflow step 1 candidate)。 step 2-10 pending、 越川氏 final aesthetic acceptance 経由で確定。"
   step_2_fxp:
     artifact: assets/drum_samples/synth/patches/2608_bd.fxp
     status: pending hand-on
-    note: "step_1 accept 後、 越川氏 Surge XT GUI で patch spec を実装、 .fxp 保存。 sha256 + Surge XT version 記録。"
+    note: "越川氏 Surge XT GUI で patch spec を `.fxp` として実装。 sha256 + Surge XT version 記録。"
   step_3_wav:
     artifact: assets/drum_samples/synth/2608_bd.wav
     status: pending render
-    note: "step_2 完了後、 fxp2wav-surge external producer で deterministic render。 sha256 + seed + render command 記録。"
-  step_4_adpcma:
+    sub_status: candidate-until-analysis-passed  # = AI self-analysis 通過まで「candidate wav」 扱い
+    note: "step_2 完了後、 fxp2wav-surge external producer で deterministic render。 AI self-analysis 通過までは「candidate wav」 扱い、 全 10 項目 PASS で `analysis-passed` 認定。 sha256 + seed + render command 記録。"
+  step_4_ai_self_analysis:        # ν 新規 (= §決定 27 (5) + (7))
+    artifact: docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml
+    status: pending render
+    note: "step_3 完了後、 AI が `.wav (candidate)` を §決定 27 (5) 10 項目検査、 `analysis-report.yaml` 生成。 全項目 PASS で `engineering_pass: passed` 認定、 1 件でも FAIL なら AI revision proposal → patch-spec / `.fxp` 再調整 → step_3 再 render の loop。 sha256 + 10 項目 PASS/FAIL + revision iteration count 記録。"
+  step_5_adpcma:                  # ν renumbered from step_4 (= §決定 27 (7))
     artifact: assets/sounds/adpcma/2608_bd_self.adpcma
     status: pending encode
-    note: "step_3 完了後、 superctr/adpcm ae -a direct invoke で encode。 sha256 + encoder version 記録。"
+    note: "step_4 analysis-passed 認定後、 superctr/adpcm `ae -a` direct invoke で encode。 sha256 + encoder version 記録。"
 
 # ===========================================================================
-# §決定 27 (8) 関連 artifact path canonical
+# §決定 27 (9) 関連 artifact path canonical (= ν 6 件に拡張、 analysis_report 新規)
 # ===========================================================================
 related_artifacts:
   fxp: assets/drum_samples/synth/patches/2608_bd.fxp
   wav: assets/drum_samples/synth/2608_bd.wav
+  analysis_report: docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml  # ν 新規
   adpcma: assets/sounds/adpcma/2608_bd_self.adpcma
   provenance_manifest: TBD (= sub-sprint β BD chain 内で確定)
 
 # ===========================================================================
-# 越川氏 acceptance workflow (= §決定 27 (6))
+# acceptance workflow (= §決定 27 (6) ν 再定義 11 step chain)
 # ===========================================================================
-# 1. 本 candidate を audition (= 読解、 必要なら Surge XT GUI で試作)
-# 2. 必要なら edit (= 上記 parameter を越川氏判断で書換、 ai_assisted.edit_history 追記)
-# 3. accept (= ai_assisted.acceptance: accepted、 acceptance_by + accepted_at fill、
-#    status: accepted へ移行)
-# 4. accept 後、 越川氏 hand-on で Surge XT GUI 実装 → .fxp 保存 → fxp2wav-surge render
-#    → Claude 側 encode chain (= step 4-8) へ移行
+# ν 中核 wording = 「acceptance は downstream、 upstream ではない」
+# = machine-checkable quality gate (= AI self-analysis 10 項目) + human aesthetic final gate (= 越川氏)
+#
+#  1. AI candidate 提示 (= 本 file が candidate-pending-render-analysis stage)
+#  2. 越川氏 hand-on (= Surge XT GUI で patch spec を `.fxp` として実装、 §決定 26 spec 整合)
+#  3. fxp2wav-surge render (= deterministic `.wav (candidate)` 生成)
+#  4. AI self-analysis (= §決定 27 (5) 10 項目検査、 `analysis-report.yaml` 生成)
+#  5. AI revision proposal (= engineering FAIL 時のみ、 検査結果に基づく調整案)
+#  6. 必要なら patch-spec / `.fxp` 再調整 → step 3 へ loop (= engineering 全通過まで iterate)
+#  7. AI self-analysis 全項目 PASS = `engineering_pass: passed` = `.wav (analysis-passed)` 認定
+#  8. superctr/adpcm encode (= `.adpcma` 生成、 superctr/adpcm `ae -a` direct invoke)
+#  9. MAME / audio gate (= 必要に応じて driver fixture 差替で trigger 確認、 runtime regression 防衛)
+# 10. 越川氏 audition / edit / accept (= aesthetic / musical judgement、 final gate)
+# 11. accept 後 = `aesthetic_acceptance: accepted` + signature + ι commit (= 並行配置、 既存 fixture 非破壊)
+#
+# engineering pass ≠ aesthetic accept (= 別軸、 順序関係 = engineering 先 / aesthetic 後 literal)
+# engineering FAIL なら越川氏 audition なし (= revision loop で先に engineering 修正)
+# engineering PASS かつ aesthetic REJECT は valid (= 越川氏は signal が綺麗でも musical に reject 可能)
 
 # ===========================================================================
 # version history
@@ -298,6 +341,11 @@ related_artifacts:
 version_history:
   - version: "0.1.0"
     date: "2026-05-16"
-    status: candidate
+    status: candidate (= μ commit)
     author: "Claude Opus 4.7 (1M context) + 越川将人 review pending"
-    note: "AI-assisted candidate generation (= §決定 27 (6) step 1)。 越川氏 audition / edit / accept 待ち。"
+    note: "AI-assisted candidate generation (= §決定 27 λ 起票 / μ 初回適用)。 当初 spec では「越川氏 audition / edit / accept 待ち」 だったが、 ν 再定義で upstream → downstream に再配置。"
+  - version: "0.2.0"
+    date: "2026-05-16"
+    status: candidate-pending-render-analysis (= ν commit、 spec 構造のみ update、 patch parameter 不変)
+    author: "Claude Opus 4.7 (1M context) + 越川将人 final gate pending"
+    note: "§決定 27 ν 再定義反映 = engineering pass / aesthetic accept 軸分離 + workflow_stage field 新規 + provenance chain 5 段拡張 (= step_4 AI self-analysis 追加) + acceptance_criteria 2 階層化 + related_artifacts に analysis_report 追加。 patch parameter (= oscillator / envelope / filter / modulation 値) は v0.1.0 から不変、 spec structure のみ ν 軸対応。"
