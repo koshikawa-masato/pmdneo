@@ -22,10 +22,12 @@
 #
 # ============================================================================
 
-allowlist_version: "0.2.0"           # π 改訂 = XML element name 軸対応
-status: pending-xml-parameter-survey  # pending-xml-parameter-survey | active | superseded
+allowlist_version: "0.3.0"           # π2 改訂 = XML element name 実測値 partial fill
+status: partial-fill-core-elements    # pending-xml-parameter-survey | partial-fill-core-elements | active | superseded
 template_ref: ./template.fxp.provenance.yaml
 patching_model: xml-element-name      # byte-offset (旧 ξ) | xml-element-name (新 π)
+template_total_param_count: 558       # π2 survey-params 実測値
+allowlist_coverage_target: "patch-spec.yaml 主要 field 対応の核心 30-50 element (= π3 で full enumeration 検討)"
 
 # ---------------------------------------------------------------------------
 # 許可 parameter list (= AI bridge が touch 可能、 XML element name 軸)
@@ -35,16 +37,131 @@ patching_model: xml-element-name      # byte-offset (旧 ξ) | xml-element-name 
 #   (b) <parameters> 要素配下の element 一覧 dump
 #   (c) candidate 6 category に該当する element name を allowlist に列挙
 #   (d) 各 element の type + valid_range + default_value を XML から確定
-allowed_parameters: []
-  # 例 (= π2 commit で fill 想定、 XML element name 軸):
-  # - xml_element_name: a_amp_env_decay     # XML 内 element tag (= Surge XT canonical param ID)
-  #   xml_value_attribute: value             # 修正対象 attribute
-  #   xml_type_attribute: type               # validation 用 type attribute
-  #   xml_type_value: "2"                    # type=2 → float、 他 type は別解釈
-  #   valid_range: [0.0, 1.0]                # Surge XT normalized parameter range
-  #   default_value: 0.5                     # template の base value
-  #   patch_spec_field: amplitude_envelope.decay_ms  # 対応する patch-spec.yaml field
-  #   notes: "AHDSR decay segment、 0.0 = 0ms / 1.0 = ~10 sec"
+allowed_parameters:
+  # ★ π2 partial fill = 主要 patch-spec field 対応の核心 element のみ enumerate。
+  # 実 valid_range は Surge XT documentation 別途調査必要 (= XML 内 type/value のみ confirm 可)。
+  # template (= Init Sine.fxp) からの実測 default_value を記録、 各 element は π2 survey-params で literal 確認済。
+  # 主要 7 group = (a) amp envelope (b) filter env (c) osc1 (d) filter1 (e) master volume (f) scene volume (g) overall volume
+
+  # (a) Amplitude Envelope (= AEG) = a_env1_* (template 実測 8 element)
+  - xml_element_name: a_env1_attack
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-8.00000000000000"
+    patch_spec_field: amplitude_envelope.attack_ms
+    notes: "AEG attack segment、 Surge XT 内部単位 (= 多分 log-time scale)、 valid_range は Surge XT 仕様要調査"
+
+  - xml_element_name: a_env1_decay
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-2.00000000000000"
+    patch_spec_field: amplitude_envelope.decay_ms
+    notes: "AEG decay segment"
+
+  - xml_element_name: a_env1_sustain
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "1.00000000000000"
+    patch_spec_field: amplitude_envelope.sustain_level
+    notes: "AEG sustain level (= 0.0-1.0 normalized)"
+
+  - xml_element_name: a_env1_release
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-5.00000000000000"
+    patch_spec_field: amplitude_envelope.release_ms
+    notes: "AEG release segment"
+
+  # (b) Filter Envelope (= FEG) = a_env2_* (template 実測 8 element、 用途次第で pitch envelope 代用)
+  - xml_element_name: a_env2_attack
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-8.00000000000000"
+    patch_spec_field: pitch_envelope.duration_ms (= optional via FEG)
+    notes: "FEG attack、 patch-spec pitch_envelope へ modulation 経路で接続"
+
+  - xml_element_name: a_env2_decay
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-2.00000000000000"
+    patch_spec_field: pitch_envelope.duration_ms (= optional via FEG)
+    notes: "FEG decay"
+
+  # (c) Oscillator 1 = a_osc1_* (template 実測 12 element、 主要 6 element のみ enumerate)
+  - xml_element_name: a_osc1_type
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "0"
+    template_default_value: "1"
+    patch_spec_field: oscillator_plan.oscillators[0].type
+    notes: "Surge XT osc type enum (= 0:Classic / 1:Sine / 2:Wavetable / ...)、 type=0 で integer enum"
+
+  - xml_element_name: a_osc1_octave
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "0"
+    template_default_value: "0"
+    patch_spec_field: oscillator_plan.oscillators[0].pitch_offset_octaves
+    notes: "OSC1 octave shift、 integer"
+
+  - xml_element_name: a_osc1_pitch
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "0.00000000000000"
+    patch_spec_field: oscillator_plan.oscillators[0].base_pitch_offset_semitones
+    notes: "OSC1 pitch (= semitone fractional)、 extend_range attribute あり"
+
+  # (d) Filter 1 = a_filter1_* (template 実測 6 element)
+  - xml_element_name: a_filter1_type
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "0"
+    template_default_value: "0"
+    patch_spec_field: filter_waveshaper_drive.filter_block.type
+    notes: "Surge XT filter type enum"
+
+  - xml_element_name: a_filter1_cutoff
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "3.00000000000000"
+    patch_spec_field: filter_waveshaper_drive.filter_block.cutoff_hz
+    notes: "filter cutoff、 Surge XT 内部単位 (= log-frequency scale 想定)、 仕様要確認"
+
+  - xml_element_name: a_filter1_resonance
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "0.00000000000000"
+    patch_spec_field: filter_waveshaper_drive.filter_block.resonance
+    notes: "filter resonance (= 0.0-1.0 normalized)"
+
+  # (e) Master / scene volume = volume / a_volume / b_volume (template 実測 3 element)
+  - xml_element_name: volume
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "-9.68199920654297"
+    patch_spec_field: output_constraint.peak_target_dbfs (= 整合 必要時)
+    notes: "master output volume (= dB?)、 §決定 26 (4) peak target 整合は patch-spec 側で別途検証"
+
+  - xml_element_name: a_volume
+    xml_value_attribute: value
+    xml_type_attribute: type
+    xml_type_value: "2"
+    template_default_value: "0.89089900255203"
+    patch_spec_field: oscillator_plan.scene_a_master (= optional)
+    notes: "scene A master volume、 deactivated attribute あり"
+
+  # ★ 残り未 enumerate element (= 558 - 14 = 544 件) は default で change_protected。
+  # π3 commit で full enumeration + patch-spec 全 field との 1:1 mapping 完成予定。
 
 # ---------------------------------------------------------------------------
 # 候補 parameter (= 越川氏 audition で確定、 §決定 26 (5) + §決定 27 推奨 baseline)
@@ -96,9 +213,8 @@ prohibited_byte_ranges:
   - range: [60, 92]
     description: "FPCh chunk sub3 magic + 28 byte binary header"
     reason: "Surge XT 内部 chunk format marker、 AI bridge は touch しない (= 「bridge, not full synthesizer patch compiler」 軸)"
-  - range: [31530, 31538]
-    description: "FPCh chunk trailing binary (= chunk 末尾 8 byte)"
-    reason: "XML body の後ろの binary 領域、 Surge XT 内部用途、 AI bridge は touch しない"
+  # ★ ο1 「chunk 末尾 8 byte trailing」 entry を π2 で削除:
+  # verify-repack 実測で trailing = 0 byte 確認、 protected zone 不要。
 
 prohibited_xml_elements:
   - xml_path: "/patch/meta/license"
@@ -151,3 +267,8 @@ version_history:
     status: pending-xml-parameter-survey (= π commit、 XML element name 軸対応)
     author: "Claude Opus 4.7 (1M context)"
     note: "patching_model: byte-offset → xml-element-name 軸転換、 prohibited_xml_elements + allowed_xml_modifications 追加、 prohibited_byte_ranges を chunk 構造に合わせて refine、 actual allowed_parameters list は π2 commit (= XML parameter survey) で fill。"
+  - version: "0.3.0"
+    date: "2026-05-16"
+    status: partial-fill-core-elements (= π2 commit、 core 14 element 実測 fill + chunk 構造訂正)
+    author: "Claude Opus 4.7 (1M context)"
+    note: "π2 survey-params 実測値 reflect = allowed_parameters[] に 14 件 (= a_env1 AEG 4 + a_env2 FEG 2 + a_osc1 OSC1 3 + a_filter1 FILTER1 3 + volume 系 2) 初回 enumerate。 残り 544 件は default change_protected、 π3 で full enumeration 検討。 ο1 「8 byte trailing」 entry を prohibited_byte_ranges から削除 (= π2 verify-repack 実測 0 byte 反映)。 patching_method literal で regex-based bit-exact 確認、 chunkByteSize recalc + sub3 header / trailing 不変保持で repack feasibility 充足。"

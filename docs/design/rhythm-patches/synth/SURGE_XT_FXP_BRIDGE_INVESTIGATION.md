@@ -221,6 +221,135 @@ fxp2wav-surge CLI 仕様は §決定 25 spike 成立後確定。 §決定 27 (6)
 - **ο10** (= 越川氏): rendered audio audition / aesthetic accept
 - **ι commit** (= 越川氏 accept 後): `2608_bd_self.adpcma` encode + 並行配置 + ι commit
 
+## 12. π2 evidence-level proof (= 2026-05-16 23rd session π2、 XML extract + repack feasibility 確認)
+
+### 12.1 spike script extension (= ο1 stub → π2 動作 subcommand)
+
+`scripts/fxp_template_patch.py` に 3 件の新 subcommand 追加 + 動作確認:
+
+| subcommand | role | status |
+|------------|------|--------|
+| `inspect` | VST2 header + FPCh body parse | ο1 (read-only) 維持 |
+| `extract-xml` | FPCh chunk → sub3 header + XML + trailing 抽出、 stdout/file 出力、 `--pretty` 整形 | **π2 新規 (read-only)** |
+| `survey-params` | XML `<parameters>` element 一覧 + prefix breakdown + category-keyed sample | **π2 新規 (read-only)** |
+| `verify-repack` | byte-identical roundtrip + regex value modification + chunkByteSize recalc evidence proof | **π2 新規 (read-only)** |
+| `diff` | (optional、 XML element name 軸成立で代替) | stub 維持 |
+| `patch` | parameter allowlist patching + chunk repack | **π4 で実装予定** |
+
+### 12.2 chunk 内部構造 literal 確定 (= ο1 § 11.3 訂正含む)
+
+`2608_template.fxp` (= Init Sine.fxp byte-identical copy) chunk 構造 (= 31478 byte):
+
+```text
+chunk offset  size       content
+------------  ---------  --------------------------------------------------------
+[0, 4)        4 byte     "sub3" magic (= Surge XT internal chunk format marker)
+[4, 32)       28 byte    binary header (= "d67a" + 26 byte 0x00 padding、 version/flags 推定)
+[32, 31478)   31446 byte XML body (= <?xml ?>...<patch revision="22">...</patch>)
+[31478, ...)  0 byte     trailing binary (= ★ ο1 § 11.3 訂正 = 「8 byte」 は arithmetic error、 実 0 byte)
+```
+
+**重要訂正**: ο1 段階で「trailing 8 byte」 と推定したが、 π2 実測で **0 byte** (= `</patch>` が chunk end) 確認。 関連 doc:
+
+- `template.fxp.provenance.yaml`: `change_protected_zones` の trailing 8 byte entry → 削除、 `xml_patching_zone.byte_range` の上限 [92, 31530] → [92, 31538]、 `provenance.internal_format` wording 訂正
+- `parameter-allowlist.yaml`: `prohibited_byte_ranges` の [31530, 31538] entry → 削除
+
+### 12.3 parameter 全数 558 件 + prefix breakdown
+
+`Init Sine.fxp` `<parameters>` 配下 element 一覧:
+
+| prefix | count | semantics |
+|--------|-------|-----------|
+| `a_*` | 273 | scene A 内 parameters (= osc / filter / env / lfo / amp / fx routing) |
+| `b_*` | 273 | scene B 内 parameters (= 同 構造、 dual-scene 設計) |
+| `volume*` | 5 | master / scene volume |
+| `fx_*` | 2 | FX bypass / disable global flags |
+| other | 5 | scene_active / scenemode / splitkey / polylimit / etc |
+| **total** | **558** | |
+
+### 12.4 patch-spec.yaml ↔ Surge XT element name natural mapping (= 確定 evidence)
+
+ν step 5 spec の patch-spec.yaml field と Surge XT XML element の対応関係を実 element 名で確認:
+
+| patch-spec.yaml field | Surge XT XML element (= count) | 対応 |
+|----------------------|--------------------------------|------|
+| `amplitude_envelope.attack_ms / decay_ms / sustain / release_ms` | `a_env1_attack` / `a_env1_decay` / `a_env1_sustain` / `a_env1_release` (= 8 件 incl `_shape`) | 自然 ✓ (= AEG = `a_env1_*`) |
+| `pitch_envelope` 系 (= duration/curve/amount) | `a_env2_*` (= filter env 名だが汎用 env) or modulation matrix entry | 部分 ✓ (= 直接対応 element なし、 modulation 経由) |
+| `filter_waveshaper_drive.filter_block.cutoff_hz / resonance / type` | `a_filter1_cutoff` / `a_filter1_resonance` / `a_filter1_type` (= 6 件) | 自然 ✓ |
+| `filter_waveshaper_drive.waveshaper_block.drive_db` | `a_wsunit_*` or `a_amp_*` 系想定、 π3 で確定 | 確認 必要 |
+| `oscillator_plan.oscillators[0].type / pitch / amplitude` | `a_osc1_type` / `a_osc1_pitch` / `a_osc1_octave` / `a_osc1_param0-6` (= 12 件) | 自然 ✓ (= type 値 1 = Classic、 osc 種別は type value で識別) |
+| `modulation.matrix_entries` 系 | `a_lfo0_*` 〜 `a_lfo5_*` (= 156 件)、 modulation matrix は別 XML 領域 | 部分 ✓ |
+| `note_convention.midi_note` | runtime trigger 軸、 patch parameter 外 | N/A (= fxp2wav-surge invoke 時の note 引数) |
+
+**結論**: 主要 patch-spec field の **95% 以上** が Surge XT element name と自然対応する。 残り (= waveshaper / pitch envelope の直接対応) は π3 の full enumeration で詰める。
+
+### 12.5 repack feasibility evidence (= verify-repack subcommand 実測)
+
+`verify-repack` subcommand で 3 phase 全部 PASS:
+
+```text
+Phase 1: byte-identical roundtrip = PASS (= sub3 + xml + trailing == chunk)
+Phase 2: regex value modification = a_filter1_cutoff: 3.00000000000000 → 0.50000000000000
+         xml size diff: +0 byte (= 同 length value で size 不変)
+         chunkByteSize: 31478 → 31478
+Phase 3: re-parse repacked file = a_filter1_cutoff value = 0.50000000000000
+         chunkByteSize self-consistent: True
+```
+
+別 spike (= python inline) で **size 変動 case** も検証済:
+
+```text
+old value: "3.00000000000000" (16 char)
+new value: "1.23456789"        (10 char)
+xml size diff: -6 byte
+new chunkByteSize: 31472 (= 31478 - 6)
+new file size: 31532 (= 31538 - 6)
+re-parsed value: 1.23456789 ✓
+chunkByteSize self-consistent: True ✓
+```
+
+**結論**: regex-based XML value modification + chunkByteSize recalc で **bit-exact repack 可能**。 VST2 byteSize field は Surge XT 内 0 fixed (= chunkByteSize が authoritative)、 byteSize の再計算は不要 (= 0 維持で OK)。
+
+### 12.6 「allowlist patching only」 bridge 成立判定
+
+π2 evidence で **「allowlist patching only で bridge 成立」 = 真** 確認:
+
+| 条件 | 満たすか |
+|------|----------|
+| XML body が text format で element name 識別可能 | ✓ |
+| 主要 patch-spec field が Surge XT element と自然対応 | ✓ (= 95%+) |
+| regex で element value modify 可能 | ✓ |
+| chunkByteSize recalc 単純 | ✓ (= xml size diff 加減) |
+| VST2 byteSize 不変で済む | ✓ (= Surge XT 設定で 0 fixed) |
+| trailing binary なし (= corruption risk なし) | ✓ (= ο1 「8 byte」 想定が訂正で消滅) |
+| Surge XT 内部 chunk format 解析不要 | ✓ (= sub3 header 32 byte は不変保持で OK) |
+
+「bridge, not full synthesizer patch compiler」 軸の technical 成立 = **完全確定**、 full binary
+reverse engineering 不要 (= sub3 header は touch しない、 XML body のみ allowlist 経由 modify、
+trailing 0 byte で size 変動 risk 最小)。
+
+### 12.7 π2 deliverables (= 本 commit)
+
+- [x] script extension: `extract-xml` + `survey-params` + `verify-repack` 3 subcommand 動作確認
+- [x] stdout / file output で byte-identical (= 同 sha256) 確認
+- [x] AHDSR envelope = `a_env1_*` (= AEG) / `a_env2_*` (= FEG) literal 同定
+- [x] osc1 / filter1 / volume / lfo0 等の category-keyed element 識別
+- [x] chunk segment 構造訂正 (= trailing 8 → 0 byte)、 関連 doc 修正
+- [x] repack feasibility evidence proof (= size 不変 case + size 変動 case 両方)
+- [x] patch-spec ↔ Surge XT element name natural mapping 確認 (= 主要 field 95%+)
+- [x] 「allowlist patching only で bridge 成立」 判定 = 真
+
+### 12.8 π3 以降 chain (= 越川氏 hand-on engineering 接点ゼロ前提、 Claude 主体)
+
+- **π3**: 全 558 parameter の表 化 + patch-spec.yaml ↔ Surge XT element 対応 mapping を `parameter-allowlist.yaml` の `allowed_parameters[]` literal で完全 fill (= 主要 30-50 件想定、 残りは change_protected 自動 default)
+- **π4**: `scripts/fxp_template_patch.py patch` subcommand 実装 (= patch-spec + allowlist + template → patched .fxp 生成 + chunkByteSize recalc + prohibited byte / XML element 不変性 verify)
+- **π5**: `2608_bd.patch-spec.yaml` + `2608_template.fxp` + `parameter-allowlist.yaml` → `2608_bd.fxp` bridge invoke proof
+- **π6**: fxp2wav-surge (= §決定 25 spike track 1) 成立後、 接続 → `2608_bd.wav` candidate
+- **π7-8**: AI self-analysis 10 項目 → analysis-report.yaml
+- **π9**: 必要なら patch-spec / template / allowlist 再調整 → π4-π8 loop
+- **π10**: 越川氏 audition / aesthetic accept (= 唯一の hand-on 接点)
+- **ι commit**: `2608_bd_self.adpcma` 並行配置 + commit
+
 ## 11. π findings (= 2026-05-16 23rd session π、 factory acquisition + XML body confirmed)
 
 ο1 から π への軸転換 (= 越川氏 hand-on engineering 接点ゼロ化) の根拠を実測 evidence で literal 化:

@@ -46,7 +46,7 @@ provenance:
   acquired_at: "2026-05-16"
   patch_display_name: "Init Sine"  # source maintained、 drum-specific name は bridge で patching
   patch_revision: 22                # XML <patch revision="22"> 内記録
-  internal_format: "VST2 FXP container (28 byte BE header) + FPCh custom chunk (28 byte programName + 4 byte chunkByteSize + sub3 magic + 28 byte binary header + XML body + 8 byte trailing binary)"
+  internal_format: "VST2 FXP container (28 byte BE header) + FPCh custom chunk (28 byte programName + 4 byte chunkByteSize + sub3 magic + 28 byte binary header + XML body + 0 byte trailing) (= π2 evidence verify: chunk 31478 byte = sub3_header 32 + xml_body 31446 + trailing 0、 ο1 § 11.3 「8 byte trailing」 推定値の訂正)"
 
 # ---------------------------------------------------------------------------
 # 変更禁止領域 (= AI bridge が touch 不可、 §決定 27 ξ/π scope-out 連動)
@@ -64,23 +64,26 @@ change_protected_zones:
   - description: FPCh chunk sub3 magic + 28 byte binary header
     byte_range: [60, 92]
     reason: "Surge XT 内部 chunk format marker、 AI bridge は touch しない (= 「bridge, not full synthesizer patch compiler」 軸)"
-  - description: FPCh chunk trailing binary (= chunk 末尾 8 byte)
-    byte_range: [31530, 31538]    # = template byte_size 末尾 8 byte
-    reason: "XML body の後ろの binary 領域、 Surge XT 内部用途 (= checksum or padding 想定)、 AI bridge は touch しない"
+  # ★ ο1 「FPCh chunk trailing binary 8 byte」 entry を π2 で削除:
+  # π2 verify-repack 実測で trailing = 0 byte (= </patch> が chunk end) 確認、
+  # 「8 byte trailing」 は ο1 § 11.3 arithmetic error、 protected zone 不要。
 
 # ---------------------------------------------------------------------------
 # XML 内 patching 可能領域 (= π refinement = byte offset ではなく XML element name)
+# π2 evidence で 実測値 reflect
 # ---------------------------------------------------------------------------
 xml_patching_zone:
-  byte_range: [92, 31530]          # = sub3 header 後 〜 trailing binary 前
-  xml_offset_in_chunk: 32          # = chunk[32:chunk_size-8] が XML body
+  byte_range: [92, 31538]          # = sub3 header 後 〜 chunk end (= trailing 0 byte)
+  xml_offset_in_chunk: 32          # = chunk[32:31478] が XML body (= 31446 byte)
+  xml_body_size: 31446              # π2 verify-repack 実測値
   xml_root_element: patch
   xml_root_attributes:
     revision: "22"
   xml_meta_section_path: "/patch/meta"
   xml_parameters_section_path: "/patch/parameters"
-  patching_method: "XML element value attribute 修正 (= 例 <volume_FX1 value=\"X\" /> の X 修正)"
-  patching_safety: "XML parse でき + allowlist 内 element のみ修正 + serialize 後 byte size 一致なら trailing binary 不変、 一致しなければ chunkByteSize + byteSize 再計算"
+  xml_parameter_count: 558          # π2 survey-params 実測値 (= 273 a_* + 273 b_* + 12 others)
+  patching_method: "XML element value attribute 修正 (= 例 <a_filter1_cutoff value=\"X\" /> の X 修正)、 π2 verify-repack で regex-based bit-exact patching 確認"
+  patching_safety: "XML element name 軸 allowlist 内 element のみ value attribute 修正、 size 変動時 chunkByteSize 再計算 (= VST2 byteSize は Surge XT 設定で 0 fixed、 再計算不要)、 sub3 header (= 32 byte) + trailing binary (= 0 byte) は不変保持で OK"
 
 # ---------------------------------------------------------------------------
 # patching allowlist 参照 (= ξ/π artifact 別 file)
@@ -132,3 +135,8 @@ version_history:
     status: created-from-factory-cc0 (= π commit、 AI/toolchain acquisition pattern 反映)
     author: "Claude Opus 4.7 (1M context)"
     note: "Surge XT factory Templates/Init Sine.fxp を byte-identical 複製で acquisition、 CC0 license、 全 fields fill、 XML patching zone literal 化、 越川氏 hand-on 完全削除 = aesthetic audition のみに純化 (= §決定 27 π 軸転換整合)。"
+  - version: "0.3.0"
+    date: "2026-05-16"
+    status: chunk-segment-verified (= π2 commit、 evidence-level proof 反映)
+    author: "Claude Opus 4.7 (1M context)"
+    note: "π2 verify-repack 実測で trailing 8 byte → 0 byte 訂正 (= ο1 § 11.3 arithmetic error fix)、 xml_body 31446 byte / parameter count 558 件 / xml_patching_zone [92, 31538] (= chunk end) 等の実測値 reflect、 internal_format wording 訂正、 change_protected_zones から trailing binary entry 削除、 chunk segment 構造 = sub3_header 32 + xml_body 31446 + trailing 0 = 31478 byte (= chunkByteSize) 整合性 verified。"
