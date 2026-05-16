@@ -1,0 +1,303 @@
+# PMDNEO 2608 BD patch spec (= §決定 27 (6) acceptance workflow step 1 = AI candidate)
+# ============================================================================
+#
+# 本 file は ADR-0033 §決定 27 に基づく AI-assisted patch generation の
+# candidate spec です。 越川氏 audition / edit / accept 経由で初めて
+# PMDNEO asset candidate へ昇格します。
+#
+# 関連 ADR / §決定:
+#   - ADR-0033 §決定 1   (= 100% 著作物のみ採用)
+#   - ADR-0033 §決定 7   (= 命名規則 PMD culture 互換)
+#   - ADR-0033 §決定 8   (= source wav format = 44100/mono/16-bit/RIFF WAVE PCM)
+#   - ADR-0033 §決定 9   (= chip 化 pipeline = 18.5 kHz decimate + 4-bit ADPCM-A)
+#   - ADR-0033 §決定 14  (= sound-alike caution)
+#   - ADR-0033 §決定 16  (= prototype 粒度 + wording 規律)
+#   - ADR-0033 §決定 19  (= 段階 1 完全集中 + acoustic 後回し)
+#   - ADR-0033 §決定 22  (= Surge XT install = Homebrew cask 1.3.4)
+#   - ADR-0033 §決定 23  (= directory = kit identity / synth/)
+#   - ADR-0033 §決定 24  (= aesthetic = OPNA / retro FM-ADPCM)
+#   - ADR-0033 §決定 25  (= fxp2wav-surge external producer)
+#   - ADR-0033 §決定 26  (= .fxp authoring spec 7 軸 + 非目標 4 件)
+#   - ADR-0033 §決定 27  (= AI-assisted patch generation workflow 8 軸)
+#
+# ============================================================================
+
+patch_spec_version: "0.1.0"
+status: candidate              # candidate | accepted | rejected
+drum_role: BD
+filename: 2608_bd.patch-spec.yaml
+
+# ---------------------------------------------------------------------------
+# AI-assisted authorship (= §決定 27 (1) + (5) + (7))
+# ---------------------------------------------------------------------------
+ai_assisted:
+  agent: "Claude Opus 4.7 (1M context)"
+  generated_at: "2026-05-16"
+  acceptance: pending           # pending | accepted | rejected
+  acceptance_by: null           # 越川将人 / M.Koshikawa. (= accept 時 fill)
+  accepted_at: null             # ISO 8601 date (= accept 時 fill)
+  edit_history: []              # 越川氏 edit pass の履歴
+
+# ---------------------------------------------------------------------------
+# §決定 26 (1) patch naming
+# ---------------------------------------------------------------------------
+patch_naming:
+  fxp_filename: 2608_bd.fxp
+  surge_display_name: "PMDNEO 2608 BD Self v0"
+
+# ---------------------------------------------------------------------------
+# §決定 26 (3) note convention
+# ---------------------------------------------------------------------------
+note_convention:
+  midi_note: 36
+  midi_note_name: C1
+  velocity: 127
+  duration_ms: 800
+
+# ---------------------------------------------------------------------------
+# §決定 26 (4) output constraint
+# ---------------------------------------------------------------------------
+output_constraint:
+  channels: 1
+  sample_rate_hz: 44100
+  bit_depth: 16
+  normalize: false
+  peak_target_dbfs:
+    min: -6
+    max: -3
+  clipping_allowed: false
+
+# ===========================================================================
+# §決定 27 (4) patch spec 最低必須 12 項目
+# ===========================================================================
+
+# (1) drum role -- 上記 drum_role: BD で satisfy
+
+# (2) design intent
+design_intent: |
+  OPNA-era digital drum identity の BD candidate。
+  modern reusable BD = NEOGEO/OPNB 環境で broad 用途に再利用可能な汎用 kick。
+  ADPCM-A 4-bit / 18.5 kHz decimate 後も BD として成立する短い kick。
+  §決定 24 aesthetic target 5 項目 = short decay / bright transient /
+  compressed body / retro digital texture / ADPCM-A friendly frequency balance
+  との整合を目指す。
+  「YM2608 RX-11 BD の音色を再現する」 ではなく「YM2608 / ADPCM-A 時代の
+  aesthetic を継承する synth kit first-class identity の BD」 として設計。
+
+# (3) oscillator plan
+oscillator_plan:
+  scene: A
+  oscillators:
+    - slot: 1
+      type: Sine                # Surge XT 内蔵 dedicated Sine osc
+      role: pitched body
+      base_pitch_offset_semitones: 0   # MIDI 36 base = ~65 Hz fundamental
+      amplitude: 0.85
+      notes: |
+        BD の「thump / body」 部分。 sine wave 単独で 50-150 Hz 帯の
+        fundamental energy を生成。 pitch envelope (= 下記) で
+        130 Hz → 65 Hz の sweep をかけて kick character を作る。
+    - slot: 2
+      type: "S&H Noise"         # Surge XT 内蔵 noise osc
+      role: attack click / transient
+      amplitude: 0.30
+      notes: |
+        BD の「snap / click」 attack 部分。 short noise burst で
+        transient brightness を確保 (= §決定 24 bright transient 整合)。
+        amplitude は body より低め (= mud 化回避)。
+    - slot: 3
+      type: "Off"
+      role: reserved (= v0 では不使用、 future iteration 余地保持)
+
+# (4) noise / transient plan
+noise_transient_plan:
+  source_oscillator: OSC 2 (= S&H Noise)
+  envelope_target: dedicated noise envelope (= AEG 2 or modulation matrix entry)
+  attack_ms: 0
+  decay_ms: 8
+  sustain: 0
+  release_ms: 0
+  filter_routing: |
+    Noise pre-filter LP ~3 kHz で transient brightness 残しつつ harshness 抑制。
+    18.5 kHz Nyquist 範囲内に energy 収束 = ADPCM-A friendly。
+  notes: |
+    Short (= 5-15 ms) click burst で「snap / thump」 attack character を作る。
+    ADPCM-A 4-bit 圧縮 + 18.5 kHz decimate で quantization noise が
+    sustained 時に audible 化しやすいため、 transient は短く tight に。
+    long noise tail は §決定 24 short decay 違反、 永久排除。
+
+# (5) pitch envelope
+pitch_envelope:
+  target: OSC 1 pitch
+  start_offset_semitones: 12          # MIDI 48 (~130 Hz) → MIDI 36 (~65 Hz)
+  end_offset_semitones: 0
+  duration_ms: 50
+  curve: exponential                  # Surge XT digital env exponential
+  routing: modulation matrix entry (= dedicated pitch env → OSC1 pitch)
+  notes: |
+    Classic「kick pitch sweep」 pattern: 130 Hz → 65 Hz over 50 ms。
+    Exponential curve は analog kick envelope を mimic するが、
+    持続時間は短く (= ADPCM-A friendly + §決定 24 short decay)。
+    pitch movement が BD としての「thump」 character を作る、 sustained
+    body にはしない。
+
+# (6) amplitude envelope
+amplitude_envelope:
+  type: AHDSR (Surge XT 内蔵 amp envelope)
+  attack_ms: 0
+  hold_ms: 0
+  decay_ms: 280
+  sustain_level: 0
+  release_ms: 0
+  curve_attack: linear
+  curve_decay: exponential
+  notes: |
+    Total audible body ~280 ms = 800 ms render duration の中で
+    leading 0 + trailing +50-100 ms trim 規約 (= 23rd session θ')
+    適用後の実 sample ~300-350 ms 想定。
+    Sustain 0 で indefinite hold 不在 = §決定 24 short decay 整合。
+    Decay exponential で natural kick decay。
+
+# (7) filter / waveshaper / drive
+filter_waveshaper_drive:
+  filter_block:
+    slot: F1
+    type: LP24                      # 24 dB/oct Lowpass (= Surge XT 内蔵)
+    cutoff_hz: 800
+    resonance: 0.10                 # very low、 whistle 回避
+    envelope_mod_amount: 0          # static cutoff (= deterministic render)
+    keytrack_amount: 0              # static (= note 36 固定で keytrack 不要)
+    notes: |
+      Cutoff 800 Hz で 18.5 kHz decimate Nyquist (~9.25 kHz) 範囲内 +
+      高域 quantization noise 抑制。 low resonance で transient 残し
+      muddiness 回避。
+  waveshaper_block:
+    type: Soft Clip                 # Surge XT 内蔵 Saturator
+    drive_db: 3
+    notes: |
+      Gentle saturation で「compressed body」 character を作る
+      (= §決定 24 compressed body target 整合)。
+      Hard clip / heavy distortion は scope-out (= §決定 26 (4)
+      clipping 禁止連動)。
+
+# (8) modulation
+modulation:
+  matrix_entries:
+    - source: pitch envelope (= dedicated env on OSC1 pitch)
+      target: OSC 1 pitch
+      amount_semitones: 12          # = pitch_envelope.start_offset_semitones
+      seed_locked: true             # §決定 26 (5) deterministic 整合
+    - source: amp envelope (= AHDSR)
+      target: master amplitude
+      amount: 1.0
+      seed_locked: true
+    - source: noise envelope (= dedicated env on OSC2 amplitude)
+      target: OSC 2 amplitude
+      amount: 1.0
+      seed_locked: true
+  no_lfo: true                       # §決定 26 (5) random/drift/unseeded 禁止
+  no_random_mod: true
+  no_drift: true
+  surge_rng_seed: 0                  # fixed RNG seed (= deterministic render)
+  notes: |
+    LFO / random modulation 全排除 = §決定 26 (5) deterministic render 必須。
+    全 modulation source = envelope の固定 trigger 駆動のみ。
+    Surge XT 内部 RNG が「random source」 として参照される箇所 (= S&H Noise osc
+    の seed 系) は patch 内で固定 = bit-identical render 保証。
+
+# (9) expected decay
+expected_decay:
+  total_audible_ms: 280
+  silence_after_decay_ms: 470
+  rationale: |
+    BD「audible body」 = 280 ms、 続いて silence 470 ms。
+    fxp2wav-surge render duration = 800 ms (= §決定 26 (3))。
+    leading 0 + trailing +50-100 ms trim (= 23rd session θ') 適用後の
+    実 sample = ~330-380 ms 範囲想定。
+
+# (10) ADPCM-A friendly notes
+adpcm_a_friendly_notes:
+  - "energy concentrated below 2 kHz (= 18.5 kHz Nyquist ~9.25 kHz 余裕、 4-bit quantization noise 影響軽減)"
+  - "no long sustained tone (= 280 ms decay + silence、 quantization breathing が sustained 時に目立つ pattern 回避)"
+  - "transient ~8 ms (= short enough to survive 18.5 kHz / 4-bit 量子化、 §決定 24 bright transient 整合)"
+  - "no high-frequency oscillation (= LP24 cutoff 800 Hz で aliasing risk 抑制)"
+  - "no soft sustain (= sustain 0、 ADPCM-A 4-bit が sustained tone で artifact 化する pattern 回避)"
+  - "deterministic render (= LFO/random 全排除、 §決定 25 reproducibility 規律整合)"
+
+# (11) prohibited references (= §決定 14 + §決定 24 sound-alike caution)
+prohibited_references:
+  - "RX-11 clone (= §決定 14 / §決定 24 sound-alike caution literal 違反)"
+  - "ROM recreation (= §決定 2 / §決定 14 違反、 Yamaha mask ROM dump 系譜模倣禁止)"
+  - "TR-808 / TR-909 / Linn LM-1 mimic (= §決定 14 第三者著作物 sound-alike 禁止)"
+  - "acoustic kick recreation (= §決定 19 段階 1 集中、 acoustic realism は段階 2 役割)"
+  - "any 'exact reproduction' wording in design (= §決定 24 禁止 wording 違反)"
+  - "external sample import (= §決定 26 (5) Surge XT 内蔵 only 整合)"
+
+# (12) acceptance criteria
+acceptance_criteria:
+  inherited_from_decision_26_section_7:
+    - "fxp2wav-surge で render 可能 (= §決定 25 spike track 1 経路成立前提)"
+    - "同 seed で bit-identical WAV"
+    - "WAV format = 44100 Hz / mono / 16-bit"
+    - "聴感上 BD として成立 (= 越川氏 hand-on judgement)"
+    - "既存 fixture (= assets/sounds/adpcma/2608_BD.adpcma) と別物として並行配置"
+  bd_specific:
+    - "fundamental energy = 50-100 Hz range (= BD として認識可能な thump frequency band)"
+    - "transient audible (= attack click が明瞭、 mud 化していない)"
+    - "decay clean (= 280 ms 後の silence が natural、 truncation artifact 不在)"
+    - "ADPCM-A encode 後も BD として識別可能 (= 越川氏 audition gate)"
+    - "OPNA / retro FM-ADPCM aesthetic 整合 (= §決定 24 narrative judgement)"
+
+# ===========================================================================
+# §決定 27 (5) provenance chain (= 4 段階記録、 本 file は step 1)
+# ===========================================================================
+provenance_chain:
+  step_1_patch_spec:
+    artifact: docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml
+    sha256: "pending"             # 越川氏 accept 後に確定値記録
+    ai_agent: "Claude Opus 4.7 (1M context)"
+    generated_at: "2026-05-16"
+    acceptance_by: null
+    accepted_at: null
+    note: "本 file (= §決定 27 (6) acceptance workflow step 1 candidate)。 越川氏 audition / edit / accept 経由で確定。"
+  step_2_fxp:
+    artifact: assets/drum_samples/synth/patches/2608_bd.fxp
+    status: pending hand-on
+    note: "step_1 accept 後、 越川氏 Surge XT GUI で patch spec を実装、 .fxp 保存。 sha256 + Surge XT version 記録。"
+  step_3_wav:
+    artifact: assets/drum_samples/synth/2608_bd.wav
+    status: pending render
+    note: "step_2 完了後、 fxp2wav-surge external producer で deterministic render。 sha256 + seed + render command 記録。"
+  step_4_adpcma:
+    artifact: assets/sounds/adpcma/2608_bd_self.adpcma
+    status: pending encode
+    note: "step_3 完了後、 superctr/adpcm ae -a direct invoke で encode。 sha256 + encoder version 記録。"
+
+# ===========================================================================
+# §決定 27 (8) 関連 artifact path canonical
+# ===========================================================================
+related_artifacts:
+  fxp: assets/drum_samples/synth/patches/2608_bd.fxp
+  wav: assets/drum_samples/synth/2608_bd.wav
+  adpcma: assets/sounds/adpcma/2608_bd_self.adpcma
+  provenance_manifest: TBD (= sub-sprint β BD chain 内で確定)
+
+# ===========================================================================
+# 越川氏 acceptance workflow (= §決定 27 (6))
+# ===========================================================================
+# 1. 本 candidate を audition (= 読解、 必要なら Surge XT GUI で試作)
+# 2. 必要なら edit (= 上記 parameter を越川氏判断で書換、 ai_assisted.edit_history 追記)
+# 3. accept (= ai_assisted.acceptance: accepted、 acceptance_by + accepted_at fill、
+#    status: accepted へ移行)
+# 4. accept 後、 越川氏 hand-on で Surge XT GUI 実装 → .fxp 保存 → fxp2wav-surge render
+#    → Claude 側 encode chain (= step 4-8) へ移行
+
+# ===========================================================================
+# version history
+# ===========================================================================
+version_history:
+  - version: "0.1.0"
+    date: "2026-05-16"
+    status: candidate
+    author: "Claude Opus 4.7 (1M context) + 越川将人 review pending"
+    note: "AI-assisted candidate generation (= §決定 27 (6) step 1)。 越川氏 audition / edit / accept 待ち。"
