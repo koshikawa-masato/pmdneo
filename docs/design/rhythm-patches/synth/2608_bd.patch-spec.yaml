@@ -287,8 +287,30 @@ provenance_chain:
     note: "本 file (= §決定 27 (6) ν workflow step 1 candidate)。 step 2-10 pending、 越川氏 final aesthetic acceptance 経由で確定。"
   step_2_fxp:
     artifact: assets/drum_samples/synth/patches/2608_bd.fxp
-    status: pending hand-on
-    note: "越川氏 Surge XT GUI で patch spec を `.fxp` として実装。 sha256 + Surge XT version 記録。"
+    status: created-via-bridge       # π5 commit (= 2026-05-17) で AI/toolchain bridge 経由生成完了
+    sha256: "15161403b643223fcd94180cbad6da4fe959b466bb696d9198c2ed8397a9c713"
+    byte_size: 31351
+    created_at: "2026-05-17"
+    bridge_invoke:
+      tool: scripts/fxp_template_patch.py
+      subcommand: patch
+      args:
+        - --template assets/drum_samples/synth/templates/2608_template.fxp
+        - --allowlist docs/design/rhythm-patches/synth/parameter-allowlist.yaml
+        - --patch-spec docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml
+        - --output assets/drum_samples/synth/patches/2608_bd.fxp
+      patch_spec_navigation_result: "13 numeric / 6 string skip"
+      modifications_applied: 13
+      chunkByteSize_delta: -187     # 31478 → 31291
+      invariant_verify: PASS
+    note: |
+      ξ では「越川氏 Surge XT GUI hand-on」 想定だったが、 π で「AI/toolchain template-based bridge」 へ
+      役割再配置 (= 越川氏 hand-on engineering 完全ゼロ化)。
+      π5 commit で実際に bridge invoke = 2608_bd.fxp 生成完了、 sha256 + byte_size 記録、
+      invariant verify (= sub3 / trailing / allowlist 外 element / XML well-formed) 4 軸全 PASS。
+      ★ mechanical proof PASS、 但し semantic correctness (= Surge XT 内部 scale 整合) は π5 範囲外:
+      patch-spec 値 (= 例 decay_ms: 280) を passthrough 注入なので Surge XT log-time scale 不整合の見込み、
+      sound correctness は π10 越川氏 aesthetic accept で判断、 必要なら patch-spec 再調整 + bridge 再 invoke loop。
   step_3_wav:
     artifact: assets/drum_samples/synth/2608_bd.wav
     status: pending render
@@ -349,3 +371,8 @@ version_history:
     status: candidate-pending-render-analysis (= ν commit、 spec 構造のみ update、 patch parameter 不変)
     author: "Claude Opus 4.7 (1M context) + 越川将人 final gate pending"
     note: "§決定 27 ν 再定義反映 = engineering pass / aesthetic accept 軸分離 + workflow_stage field 新規 + provenance chain 5 段拡張 (= step_4 AI self-analysis 追加) + acceptance_criteria 2 階層化 + related_artifacts に analysis_report 追加。 patch parameter (= oscillator / envelope / filter / modulation 値) は v0.1.0 から不変、 spec structure のみ ν 軸対応。"
+  - version: "0.3.0"
+    date: "2026-05-17"
+    status: candidate-pending-render-analysis (= π5 commit、 provenance_chain step_2_fxp = bridge invoke 完了反映)
+    author: "Claude Opus 4.7 (1M context) + 越川将人 final gate pending"
+    note: "π5 で bridge invoke = AI/toolchain による 2608_bd.fxp 生成完了。 provenance_chain step_2_fxp status: pending hand-on → created-via-bridge、 sha256 = 15161403b643223fcd94180cbad6da4fe959b466bb696d9198c2ed8397a9c713 + byte_size 31351 + bridge_invoke 詳細 (= tool / args / modifications 13 件 / invariant PASS) 記録。 patch parameter 自体は不変、 spec structure に step_2_fxp の bridge 結果 metadata 追加。 mechanical proof PASS、 semantic correctness (= Surge XT 内部 scale 整合) は π5 範囲外、 π10 越川氏 aesthetic accept で判断。"

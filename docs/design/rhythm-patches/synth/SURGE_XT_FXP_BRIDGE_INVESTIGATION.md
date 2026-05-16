@@ -573,6 +573,91 @@ test 3 では patch-spec.yaml の値 (= 例 `decay_ms: 280`、 `cutoff_hz: 800`)
 - **π10**: 越川氏 audition / aesthetic accept (= 唯一の hand-on 接点)
 - **ι commit**: 2608_bd_self.adpcma 並行配置 + commit
 
+## 14. π5 canonical BD candidate 生成 (= 2026-05-17 23rd session π5)
+
+### 14.1 bridge invoke = canonical BD candidate 生成
+
+π4 で実装した patch subcommand を実 patch-spec で invoke、 canonical BD candidate 生成:
+
+```bash
+python3 scripts/fxp_template_patch.py patch \
+    --template assets/drum_samples/synth/templates/2608_template.fxp \
+    --allowlist docs/design/rhythm-patches/synth/parameter-allowlist.yaml \
+    --patch-spec docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml \
+    --output assets/drum_samples/synth/patches/2608_bd.fxp
+```
+
+### 14.2 結果
+
+```text
+output:          assets/drum_samples/synth/patches/2608_bd.fxp
+byte_size:       31351 byte (= template 31538 - 187)
+sha256:          15161403b643223fcd94180cbad6da4fe959b466bb696d9198c2ed8397a9c713
+chunkByteSize:   31478 → 31291 (= diff -187)
+modifications:   13 element 修正 (= patch-spec 13 numeric 値 passthrough)
+patch-spec navigation: 13 numeric / 6 string skip (= XML 安全側 filter)
+invariant verify: PASS
+inspect re-parse: PASS (= VST2 header / FPCh body 整合)
+```
+
+### 14.3 13 修正 element literal
+
+patch-spec.yaml の値が allowlist 経由で template に注入された 13 element:
+
+| element | template default | patch-spec passthrough |
+|---------|------------------|------------------------|
+| a_osc1_pitch | 0.00000000000000 | 0 |
+| a_level_o1 | 1.00000000000000 | 0.85 |
+| a_level_o2 | 1.00000000000000 | 0.3 |
+| a_filter1_cutoff | 3.00000000000000 | 800 |
+| a_filter1_resonance | 0.00000000000000 | 0.1 |
+| a_filter1_envmod | 0.00000000000000 | 0 |
+| a_filter1_keytrack | 0.00000000000000 | 0 |
+| a_ws_drive | 0.00000000000000 | 3 |
+| a_env1_attack | -8.00000000000000 | 0 |
+| a_env1_decay | -2.00000000000000 | 280 |
+| a_env1_sustain | 1.00000000000000 | 0 |
+| a_env1_release | -5.00000000000000 | 0 |
+| a_env2_decay | -2.00000000000000 | 50 |
+
+### 14.4 mechanical proof PASS / semantic proof は π10 以降
+
+**mechanical proof (= π5 範囲) PASS:**
+- bridge tool が actual canonical asset を吐けた
+- invariant verify 4 軸全 PASS
+- inspect + verify-repack で再 parse 確認 OK
+- patch-spec navigation 動作、 数値 filter + override 軸両方使える
+
+**semantic proof は π5 範囲外:**
+- 注入された値 (= 例 `a_filter1_cutoff: 800`、 `a_env1_decay: 280`) は patch-spec 単位 (= Hz、 ms 等) で、 Surge XT 内部 scale (= log-freq、 log-time) と **不一致** の見込み
+- 生成 .fxp を Surge XT で load + 再生すると **異常な音** で動作する可能性高い (= ParseError ではなく semantic mismatch)
+- sound correctness は π6+ render → π7-8 AI self-analysis → π10 越川氏 aesthetic audition で判断
+- 必要なら unit 変換 layer (= ms ↔ log-time, Hz ↔ log-freq) 実装 → patch-spec 再調整 → bridge 再 invoke loop
+
+### 14.5 patch-spec.yaml provenance_chain 反映
+
+`2608_bd.patch-spec.yaml` の `provenance_chain.step_2_fxp` を update:
+- status: `pending hand-on` → `created-via-bridge`
+- sha256 = `15161403b6...8397a9c713` 記録
+- byte_size 31351 記録
+- bridge_invoke metadata (= tool / args / modifications 13 件 / chunkByteSize_delta -187 / invariant PASS) 記録
+- note literal で「π で AI/toolchain bridge 軸へ役割再配置」 + 「mechanical proof PASS、 semantic は π10 以降」 narrative
+
+version_history に v0.3.0 entry 追加 (= 2026-05-17 π5、 spec structure 更新 + patch parameter 不変)。
+
+### 14.6 π6 以降 chain (= 越川氏 hand-on engineering ゼロ前提、 Claude 主体)
+
+- **π6** (= 別 track / §決定 25 spike): fxp2wav-surge CLI 確立 (= 外部 spike track 1)
+- **π7**: 2608_bd.fxp + fxp2wav-surge → 2608_bd.wav render
+- **π8**: AI self-analysis 10 項目 (= §決定 27 (5)) → analysis-report.yaml 生成
+- **π9** (= 条件付き): engineering FAIL なら unit 変換 / patch-spec 再調整 → π5 bridge 再 invoke loop
+- **π10**: 越川氏 audition / aesthetic accept (= 唯一の hand-on 接点)
+- **ι commit**: 2608_bd_self.adpcma 並行配置 + ι commit (= §決定 1 100% 著作物 narrative final)
+
+### 14.7 BD canonical asset 配置確定 (= 23rd session 重要 milestone)
+
+`assets/drum_samples/synth/patches/2608_bd.fxp` が **PMDNEO 内 実 asset candidate として配置完了**。 越川氏 100% engineering ゼロ + AI/toolchain bridge 経由生成という **PMDNEO 23rd session で確立した新 workflow の初回成果物**。 残 5 音 (= SD/CYM/HH/TOM/RIM) も同 workflow で生成可能 = 1 patch-spec.yaml + 同 template + 同 allowlist + bridge invoke 1 command で template から派生。
+
 ## 10. 関連外部資料
 
 - [vst2-preset-parser (CharlesHolbrow)](https://github.com/CharlesHolbrow/vst2-preset-parser) — VST2 binary parser (= MIT、 byte layout literal)
