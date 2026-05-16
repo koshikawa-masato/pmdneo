@@ -328,6 +328,105 @@ engineering_pass (= 全 10 項目 PASS)
 - [Surge XT wt-tool.py Wiki](https://github.com/surge-synthesizer/surge-synthesizer.github.io/wiki/Creating-Wavetables-For-Surge) — wavetable CLI (= 二次候補 route)
 - [Surge XT wavetable creation with WaveEdit Wiki](https://github.com/surge-synthesizer/surge-synthesizer.github.io/wiki/Creating-Wavetables-With-WaveEdit) — workflow reference
 
+## 6. π10 feature extraction spike + Kick 909ish baseline (= 2026-05-17 23rd session π10)
+
+### 6.1 spike script 投入
+
+`scripts/feature_search.py` 新規作成 (= ~340 行、 librosa + scipy + numpy + soundfile 経由):
+
+| subcommand | role | status |
+|------------|------|--------|
+| `extract <wav>` | 16 feature 抽出 + JSON dump (= --pretty 整形) | **π10 新規動作** |
+| `compare <ref> <tgt>` | 2 WAV 比較 + weighted L2 distance + per-feature diff | **π10 新規動作** |
+| (future π12) `optimize` | search loop (= CMA-ES / scipy.optimize) | stub なし、 π12 で実装予定 |
+
+16 feature breakdown (= AI self-analysis 10 項目 + 6 補助):
+- waveform_sanity (= samples / sample_rate / duration / channels)
+- peak_amplitude (linear + dBFS)
+- rms_amplitude (linear + dBFS)
+- clipping_count
+- leading_silence_ms / trailing_silence_ms / tail_length_ms (= 同 semantic redundant)
+- attack_ms (= onset → peak)
+- decay_1e_ms (= peak → 1/e 減衰までの ms)
+- transient_strength (= peak/RMS ratio in first 50ms)
+- spectral_centroid_hz
+- spectral_flux_mean (= onset_strength avg)
+- low_band_ratio (= <500 Hz)
+- mid_band_ratio (= 500-2000 Hz)
+- high_band_ratio (= >2000 Hz)
+- rough_frequency_hz (= librosa.pyin fundamental)
+
+distance metric = weighted L2 (= per-feature relative diff × weight、 weight は preliminary、 π11 で tune)。
+
+### 6.2 Kick 909ish.wav baseline (= BD reference) feature extraction
+
+`python3 scripts/feature_search.py extract ~/Projects/surge-spike/test-assets/kick_909ish.wav --pretty`:
+
+| feature | value | semantic interpretation |
+|---------|-------|------------------------|
+| peak_amplitude_dbfs | **-4.495** | punchy、 0 dBFS 近接 |
+| rms_amplitude_dbfs | -25.879 | moderate energy |
+| attack_ms | **5.782** | fast attack = classic BD transient |
+| decay_1e_ms | **1.066** | 超絶速 1/e (= snappy transient のみ) |
+| transient_strength | 2.799 | clear peak/RMS ratio |
+| spectral_centroid_hz | **158.84** | 低域 dominant (= BD characteristic) |
+| low_band_ratio | **79.78%** | <500 Hz energy 主体 (= BD fundamental 領域) |
+| mid_band_ratio | 17.26% | small mid |
+| high_band_ratio | 2.96% | minimal high |
+| trailing_silence_ms | **766.236** | sound decays fast、 大部分 silent (= BD らしい short tail) |
+| leading_silence_ms | 0.068 | virtually no onset delay |
+| rough_frequency_hz | 0.0 | (= pyin pitched 不可、 percussive signal 期待通り) |
+
+**Kick 909ish の BD feature profile 確定** = 低域 dominant + fast attack + fast decay + 高い transient_strength + 短い tail。 残 5 音 (= SD/CYM/HH/TOM/RIM) も将来 reference として同 extraction 経路で baseline 確立可能。
+
+### 6.3 2608_bd.wav (= π5 bridge 生成 NG) 比較 distance metric
+
+`python3 scripts/feature_search.py compare kick_909ish.wav 2608_bd.wav --pretty`:
+
+**distance_score = 39.83** (= weighted L2 normalized、 大差)
+
+per-feature diff (= 主要 abs_diff):
+
+| feature | reference (Kick) | target (2608_bd NG) | abs_diff | engineering 解釈 |
+|---------|------------------|---------------------|----------|------------------|
+| **attack_ms** | 5.782 | **781.088** | **775.3** | 絶望的差 = envelope 完全 broken (= patch-spec attack_ms=0 passthrough で 1 sec attack 化) |
+| **trailing_silence_ms** | 766.236 | **0.0** | **766.2** | **decay 効かず sustain 化** (= patch-spec decay_ms=280 passthrough で 2^280 秒 decay) |
+| peak_amplitude_dbfs | -4.495 | **-25.093** | 20.6 dB | **音量不足 20 dB** (= 越川氏 「低音量」 audition と完全一致) |
+| rms_amplitude_dbfs | -25.879 | -32.275 | 6.4 dB | overall energy 不足 |
+| spectral_centroid_hz | 158.84 | 261.99 | 103.2 Hz | 我々の方が高 (= BD らしくない) |
+| spectral_flux_mean | 0.088 | 0.024 | 0.064 | 我々の方が「動き」 少ない (= static sine tone 確認) |
+| low_band_ratio | 79.78% | **98.7%** | 18.92% | 我々は 99% 低域 (= filter かかっていない pure sine) |
+| mid_band_ratio | 17.26% | 0.27% | 16.99% | mid 領域ほぼ 0 (= filter sweep / drive 不在) |
+| high_band_ratio | 2.96% | 1.03% | 1.93% | high 領域も低い |
+
+### 6.4 π10 finding = aesthetic gate と feature distance の方向一致
+
+越川氏 2026-05-17 audition = 「ものすごい低音だけで BD ではない」 と feature distance metric = 主要 5 feature で大差 が **完全方向一致**:
+
+| 越川氏 audition wording | feature evidence |
+|-------------------------|------------------|
+| 「低音だけ」 | low_band_ratio 99% (= filter 効かず) + spectral_centroid 262 Hz (= 我々は high シフト) |
+| 「BD ではない」 | attack 781 ms (= envelope broken) + trailing 0 ms (= decay 効かず 1 sec 鳴り続け) |
+| 「音量低い」 | peak -25 dBFS (= 越川氏感覚通り) |
+
+→ **feature extraction layer が aesthetic gate NG を engineering 軸で literal 数値化できることが実証された** = π11+ search loop が aesthetic gate 通過率を高める道筋 (= score 39.83 を 5 以下に下げる方向に parameter search)。
+
+### 6.5 π10 deliverable + π11 以降 chain
+
+deliverable:
+- [x] `scripts/feature_search.py` extract + compare 2 subcommand 動作確認
+- [x] Kick 909ish.wav baseline feature 確立 (= BD reference profile)
+- [x] 2608_bd.wav vs Kick 909ish 比較 = distance score 39.83 + 主要 differ 5 feature
+- [x] aesthetic gate ↔ feature distance 方向一致確認
+- [x] librosa + scipy install + 単独動作確認
+
+π11 以降 chain:
+- **π11**: distance metric tune (= weight 調整 + 各 feature の reasonable threshold 設計)
+- **π12**: `optimize` subcommand 実装 = CMA-ES / scipy.optimize で 6-10 continuous parameter search + bridge invoke + render の closed loop
+- **π13**: converged params で 2608_bd.fxp 再生成
+- **π14**: AI self-analysis report literal (= 16 feature を analysis-report.yaml に format 化)
+- **π15**: 越川氏 audition (= aesthetic final gate)
+
 ## 7. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
