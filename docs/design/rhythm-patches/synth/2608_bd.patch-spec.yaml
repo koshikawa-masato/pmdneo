@@ -320,8 +320,8 @@ related_artifacts:
 # = machine-checkable quality gate (= AI self-analysis 10 項目) + human aesthetic final gate (= 越川氏)
 #
 #  1. AI candidate 提示 (= 本 file が candidate-pending-render-analysis stage)
-#  2. 越川氏 hand-on (= Surge XT GUI で patch spec を `.fxp` として実装、 §決定 26 spec 整合)
-#  3. fxp2wav-surge render (= deterministic `.wav (candidate)` 生成)
+#  2. AI/toolchain bridge (= patch-spec → template `.fxp` parameter allowlist patching、 §決定 27 (1) AI 役割 2 軸、 §決定 26 spec 整合 verify、 「bridge, not full synthesizer patch compiler」)
+#  3. AI/toolchain orchestrated wav render (= fxp2wav-surge external producer invoke、 §決定 27 (1) AI 役割 3 軸、 deterministic `.wav (candidate)` 生成)
 #  4. AI self-analysis (= §決定 27 (5) 10 項目検査、 `analysis-report.yaml` 生成)
 #  5. AI revision proposal (= engineering FAIL 時のみ、 検査結果に基づく調整案)
 #  6. 必要なら patch-spec / `.fxp` 再調整 → step 3 へ loop (= engineering 全通過まで iterate)
