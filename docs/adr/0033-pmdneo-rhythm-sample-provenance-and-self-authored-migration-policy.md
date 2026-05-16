@@ -1,6 +1,6 @@
 # ADR-0033: リズム音源 sample の由来管理と完全自作化 migration policy (= asset provenance / licensing / redistribution 軸独立起票 / runtime semantics 軸 ADR-0026-0032 と完全分離 / Yamaha mask ROM dump 永久排除 / 越川将人 100% 著作物のみ同梱 / Surge XT 完全合成 prototype → プロ session acoustic drum 録音 → library 同梱 3 段階 migration / current temporary fixture 段階 3 完了まで暫定許容 / sound-alike caution = RX-11 似は OK / ROM sample derivative 不可 / PMD culture rhythm.wav 仕様互換 (= 2608_*.wav / 44100 Hz / 16 bit / mono) / 完全ホワイト化 milestone 確立 / runtime dispatch invariant 完全不変 / multi-table architecture (= ADR-0025) 経由 kit 入替 design)
 
-- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
+- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
 - 起票日: 2026-05-15
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR: ADR-0032 (= step 18 simultaneous trigger semantics proof、 **runtime semantics 軸**で本 ADR と完全分離、 driver dispatch invariant の semantics 拡張軸初段)、 ADR-0031 (= step 17 K/R drum kind expansion proof — i = RIM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + drum 種拡張軸 sprint chain 完成 milestone、 本 ADR は runtime invariant 完全保持を前提)、 ADR-0030 / ADR-0029 / ADR-0028 / ADR-0027 / ADR-0026 (= step 12-16 drum 種拡張 sprint chain、 「rim」 「tom」 「top」 wording 規律確立)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 本 ADR §決定 10 「multi-table architecture 経由 kit 入替」 の前提)、 ADR-0023 / ADR-0024 (= step 9 / step 10 sample_table_id resolver + selection consumption、 同前提)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 本 ADR §決定 8 chip 化 pipeline の前提)、 ADR-0021 (= step 7 `.PNE` asset pipeline、 本 ADR §決定 10 multi-table 入替の物理経路前提)
@@ -1416,8 +1416,8 @@ ADR-0033 起票時点で PMDNEO `samples.inc` に embed されている既存 rh
 8. **git history / external comparison は必要時のみ追加** (= forensic 中程度 = 7 軸内で完結、 8 軸目は escape hatch、 法的判断ではなく engineering note)
 
 実施 scripts (= §決定 21 literal):
-- `scripts/forensic-drum-samples.sh` (= read-only inventory、 上記 8 段階 flow 1-7 を mechanical に実行)
-- `make forensic-drum-samples` で起動
+- `scripts/forensic-drum-samples.sh` (= read-only inventory、 上記 8 段階 flow 1-7 を mechanical に実行、 **23rd session 新規作成 ✓**)
+- `make forensic-drum-samples` で起動 (= Makefile target 整備は sub-sprint α 後半 = scripts canonical pipeline 4 系統雛形 commit で実施、 現状は direct invocation `./scripts/forensic-drum-samples.sh`)
 
 調査軸 (= 中程度 forensic、 §決定 15 連動 7 項目):
 1. sha256 / git log (= 作成経緯) / filename pattern
@@ -1439,7 +1439,90 @@ ADR-0033 起票時点で PMDNEO `samples.inc` に embed されている既存 rh
 - 分類 3: 出所不明 community 配布物 → 段階 3 完了同時即時差替え必須
 - 分類 4: license clean 第三者著作物 (= ngdevkit-examples 等) → 越川氏判断軸
 
-調査結果は段階 1 sub-sprint α 完了時に本 §Annex A-5 を update commit で literal 反映 (= 各 file ごとに sha256 + 起源 likely 候補 + 3 段階分類 + 4 分類別判断 + engineering note を表形式で記述)。
+**調査結果** (= 23rd session 反映、 段階 1 sub-sprint α 進行中、 `scripts/forensic-drum-samples.sh` 経由 mechanical 収集、 observed-facts-first / provenance inference second 規律):
+
+#### A-5-1. inventory 表 (= 段階 1-4 = sha256 + size + wav meta + magic、 observed facts literal)
+
+| drum | file | size (B) | sha256 (head 16) | wav meta / adpcma meta |
+|---|---|---|---|---|
+| BD  | `assets/sounds/adpcma/2608_BD-roundtrip.wav`   |  3144 | `e83798365d20da71` | wav: 18500 Hz mono 16 bit / 1550 frames / 83.8 ms (magic `52494646` = RIFF) |
+| BD  | `assets/sounds/adpcma/2608_BD.adpcma`          |  1024 | `0dd42be876987e22` | adpcma: 2048 nibble / 110.7 ms @ 18500 Hz (magic `08080880`) |
+| SD  | `assets/sounds/adpcma/2608_SD-roundtrip.wav`   |  2762 | `19758f0fcbd9cf79` | wav: 18500 Hz mono 16 bit / 1359 frames / 73.5 ms (magic `52494646`) |
+| SD  | `assets/sounds/adpcma/2608_SD.adpcma`          |   768 | `d517d7083d404578` | adpcma: 1536 nibble / 83.0 ms @ 18500 Hz (magic `08080808`) |
+| HH  | `assets/sounds/adpcma/2608_HH-roundtrip.wav`   |  2642 | `d2e8e603c75d4bf2` | wav: 18500 Hz mono 16 bit / 1299 frames / 70.2 ms (magic `52494646`) |
+| HH  | `assets/sounds/adpcma/2608_HH.adpcma`          |   768 | `6f6353b918027614` | adpcma: 1536 nibble / 83.0 ms @ 18500 Hz (magic `6b02c4f3` = 他 5 件と異なる nibble pattern) |
+| RIM | `assets/sounds/adpcma/2608_RIM-roundtrip.wav`  |  1202 | `f4653d8b70411768` | wav: 18500 Hz mono 16 bit / 579 frames / 31.3 ms (magic `52494646`) |
+| RIM | `assets/sounds/adpcma/2608_RIM.adpcma`         |   512 | `952c9200c2c2f08f` | adpcma: 1024 nibble / 55.4 ms @ 18500 Hz (magic `08080808`) |
+| TOM | `assets/sounds/adpcma/2608_TOM-roundtrip.wav`  |  5844 | `be9fad13e54eedbd` | wav: 18500 Hz mono 16 bit / 2900 frames / 156.8 ms (magic `52494646`) |
+| TOM | `assets/sounds/adpcma/2608_TOM.adpcma`         |  1536 | `388f7b49435f6a53` | adpcma: 3072 nibble / 166.1 ms @ 18500 Hz (magic `08080808`) |
+| TOP | `assets/sounds/adpcma/2608_TOP-roundtrip.wav`  | 24074 | `90a3e3afbedc88a9` | wav: 18500 Hz mono 16 bit / 12015 frames / 649.5 ms (magic `52494646`、 size 比 4-8x = cymbal sustain 長 literal) |
+| TOP | `assets/sounds/adpcma/2608_TOP.adpcma`         |  6144 | `f1eb2b35b7f8b848` | adpcma: 12288 nibble / 664.2 ms @ 18500 Hz (magic `08080880`) |
+
+12 file の sha256 = 全部 literal 異なる canonical identity (= 後続 verify で reproducible)。
+
+#### A-5-2. driver source 対応 (= 段階 5、 `samples.inc` vs driver-embedded symbol)
+
+`assets/samples.inc` は build-time generated (= `vromtool.py` 経由) で source-of-truth ではない。 driver source `src/driver/standalone_test.s` 内に `adpcma_sample_{bd,sd,hh,rim,tom,top}` label が literal 直接 embed されており、 ADR-0026〜0031 §決定 3 と整合する driver-embedded fixture 経路:
+
+| PMD semantics | driver embed symbol | 対応 ADR | 該当 wav |
+|---|---|---|---|
+| BD  | `adpcma_sample_bd`  | ADR-0026 Step 12 | `2608_BD.adpcma`  |
+| SD  | `adpcma_sample_sd`  | ADR-0027 Step 13 | `2608_SD.adpcma`  |
+| HH  | `adpcma_sample_hh`  | ADR-0028 Step 14 | `2608_HH.adpcma`  |
+| CYM | `adpcma_sample_top` | ADR-0029 Step 15 | `2608_TOP.adpcma` (= symbol reuse、 ADR-0029 「top」 = sample provenance 名 / 「CYM」 = PMD semantics 名 wording 分離) |
+| TOM | `adpcma_sample_tom` | ADR-0030 Step 16 | `2608_TOM.adpcma` |
+| RIM | `adpcma_sample_rim` | ADR-0031 Step 17 | `2608_RIM.adpcma` |
+
+#### A-5-3. vendor wav 対応 (= 段階 6)
+
+drum 軸に該当する vendor wav は **不在**。 `assets/sounds/adpcma/` 配下 12 file (= 6 wav + 6 adpcma) が唯一の現存 drum sample 集合:
+
+- `vendor/PMDDotNET/*.wav` = PMDDotNET 動作確認 wav (= voice 検証等、 drum 軸 ✗)
+- `vendor/PMDDotNET/voice-*/*.wav` = voice 検証 dataset (= TL/AR/DR/ML/ALG/FBL、 drum 軸 ✗)
+- `vendor/ngdevkit-examples/06-sound-adpcma/assets/*.wav` = ngdevkit example sample (= lefthook / lightbulbbreaking / woosh、 drum 軸 ✗、 license clean 第三者著作物だが本 ADR 対象外)
+- `data/blob/voice-*.wav` = Phase 0 voice 検証 wav (= drum 軸 ✗)
+
+#### A-5-4. 3 段階分類 + 起源 4 分類別 assessment (= 段階 7、 engineering provenance note)
+
+23rd session 時点での observed facts based assessment = **全 12 file 起源 unknown**:
+
+| file | 3 段階分類 | 起源 4 分類 | engineering note (= 観察事実 literal) |
+|---|---|---|---|
+| `2608_BD-roundtrip.wav`  | unknown | unknown | 命名 `-roundtrip.wav` suffix = ADPCM-A → decode 経由の roundtrip output literal。 sample rate 18500 Hz = chip canonical rate であり §決定 8 source wav format (= 44100 Hz) **ではない** literal 観察。 source wav (= encoder input、 44100 Hz 想定) は project 内 **不在**。 |
+| `2608_BD.adpcma`         | unknown | unknown | encoder 不明 / source wav 不明 / git 起源不明。 magic `08080880` |
+| `2608_SD-roundtrip.wav`  | unknown | unknown | 同上 (= BD-roundtrip.wav と同 finding) |
+| `2608_SD.adpcma`         | unknown | unknown | 同上、 magic `08080808` |
+| `2608_HH-roundtrip.wav`  | unknown | unknown | 同上 |
+| `2608_HH.adpcma`         | unknown | unknown | 同上、 magic `6b02c4f3` (= 他 5 件と異なる nibble pattern、 sample 起源差 likely literal) |
+| `2608_RIM-roundtrip.wav` | unknown | unknown | 同上 |
+| `2608_RIM.adpcma`        | unknown | unknown | 同上、 magic `08080808` |
+| `2608_TOM-roundtrip.wav` | unknown | unknown | 同上 |
+| `2608_TOM.adpcma`        | unknown | unknown | 同上、 magic `08080808` |
+| `2608_TOP-roundtrip.wav` | unknown | unknown | 同上、 wav size 24074 B = 他 5 件比較 4-8x (= cymbal sustain 長 literal) |
+| `2608_TOP.adpcma`        | unknown | unknown | 同上、 magic `08080880`、 6144 B = 他 5 件比較 4-8x |
+
+12 file 全部 **unknown 起源** = 「現状の rhythm sample は engineering forensic 中程度では出所が特定不能、 段階 3 完了同時に越川氏 100% 著作物に置換必須」 と engineering note literal 記録。 §決定 11 (= 段階 3 完了まで暫定許容) + §決定 12 (= 段階 3 完了後越川氏自前以外排除契約) + 起源 4 分類別判断 分類 3「出所不明 community 配布物 → 段階 3 完了同時即時差替え必須」 と整合。
+
+#### A-5-5. 重要 finding 5 件 (= 23rd session 観察事実、 engineering note literal)
+
+1. **6 wav 全部が 18500 Hz mono 16-bit** = ADPCM-A chip canonical rate と一致、 §決定 8 source wav format (= 44100 Hz) **ではない**。 つまり「source wav (= 44100 Hz) → encoder → adpcma → decode → roundtrip.wav (= 18500 Hz)」 経路の最終段の roundtrip output。 命名 `-roundtrip.wav` suffix が示す通り。
+2. **source wav (= 44100 Hz encoder input) は project 内不在**。 段階 1 sub-sprint β = Surge XT prototype で 6 種「越川氏自前合成 source wav」 を新規 create することが、 まさに段階 3 完全ホワイト化 milestone への entry point。
+3. **adpcma 6 件は全部別 sha256 + 別 size** = 別 drum literal 識別可能 (= ADR-0026〜0031 dispatch path proof と整合、 runtime semantics 軸 invariant と provenance 軸 unknown が独立して並存)。 HH の magic `6b02c4f3` が他 5 件 (= `0808xxxx`) と異なる = HH 単独で nibble pattern 起源差 likely literal observed。
+4. **driver source 内 `adpcma_sample_*` symbol 6 件** が `src/driver/standalone_test.s` 内に literal 直接 embed (= ADR-0026〜0031 §決定 3 整合、 driver-embedded fixture 経路)。 `samples.inc` は build-time generated で source-of-truth ではなく派生物。
+5. **drum 軸 vendor wav 不在** = `assets/sounds/adpcma/` 配下 12 file のみが現存 drum sample 集合。 `vendor/PMDDotNET/` / `vendor/ngdevkit-examples/` / `data/blob/` 配下 wav は voice 検証 / ngdevkit example で drum 軸対象外 (= not-applicable 分類)。 つまり段階 3 完全ホワイト化 milestone で置換対象は本 12 file 限定。
+
+#### A-5-6. 結論 + 段階 3 移行判断
+
+23rd session forensic 結果 = **12 file 全部 unknown 起源 + source wav 不在 (= 18500 Hz roundtrip wav のみ存在) + driver-embedded symbol 6 件**。
+
+判断:
+
+- §決定 11「段階 3 完了まで暫定許容」 維持 (= driver / fixture / verify script / runtime semantics 軸 ADR-0026-0032 への影響なし)
+- 段階 1 sub-sprint β = Surge XT prototype で 6 種「越川氏自前合成 source wav (= 44100 Hz)」 を新規 create + sub-sprint γ で OPNA pipeline (= 18.5 kHz decimate + 4-bit ADPCM-A 圧縮) 経由 adpcma 化 + samples.inc 反映、 段階 3 完了時に literal 置換
+- 起源 4 分類別判断 = 全 12 file 「分類 3: 出所不明 community 配布物」 相当扱い (= 段階 3 完了同時即時差替え必須、 §決定 11 連動)
+- forensic は engineering provenance note としてここで一旦完了 (= sub-sprint α 後埋め完了)、 段階 8 git history / external comparison は **escape hatch** = 必要時別途実行 (= 中程度 forensic 7 軸内で完結、 §決定 15 性格再強調)
+
+`scripts/forensic-drum-samples.sh` は reproducibility gate (= future contributor が同 inventory 結果を再現可能) として canonical 維持、 §決定 21 4 系統 1 件目 = read-only inventory 役割 fix。
 
 ### A-6: sound-alike caution の法的境界 + 判断 decision tree
 
