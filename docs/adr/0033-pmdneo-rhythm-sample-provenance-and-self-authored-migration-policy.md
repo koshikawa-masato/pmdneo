@@ -1,6 +1,6 @@
 # ADR-0033: リズム音源 sample の由来管理と完全自作化 migration policy (= asset provenance / licensing / redistribution 軸独立起票 / runtime semantics 軸 ADR-0026-0032 と完全分離 / Yamaha mask ROM dump 永久排除 / 越川将人 100% 著作物のみ同梱 / Surge XT 完全合成 prototype → プロ session acoustic drum 録音 → library 同梱 3 段階 migration / current temporary fixture 段階 3 完了まで暫定許容 / sound-alike caution = RX-11 似は OK / ROM sample derivative 不可 / PMD culture rhythm.wav 仕様互換 (= 2608_*.wav / 44100 Hz / 16 bit / mono) / 完全ホワイト化 milestone 確立 / runtime dispatch invariant 完全不変 / multi-table architecture (= ADR-0025) 経由 kit 入替 design)
 
-- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映)、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
+- 状態: **Draft** (= 2026-05-15 20th session 中盤起票 + 2026-05-15 21st session 冒頭 sub-sprint α 5 軸壁打ち決定 + §決定 15-19 追加 + §Annex A-5 / A-7 後埋め枠の調査軸 literal 化 + migration roadmap 段階 1 sub-sprint α 内容詳細化 + 2026-05-16 22nd session 冒頭 sub-sprint α 5 軸壁打ち決定 (= forensic 実施順序 / scripts canonical pipeline 粒度 / Surge XT install 環境 / prototype render naming / synthetic drum identity aesthetic) + §決定 20-24 追加 + §Annex A-5 inventory-first / sha256 canonical / observed-facts-first wording 補強 + §Annex A-7 4 系統 scripts 化 (= forensic-drum-samples.sh + wav_to_adpcma.sh + build_drum_samples.sh + verify-drum-samples.sh) + Makefile target 4 件 補足 + ## 重要 wording 規律 22nd session 追加 wording 反映 (= synth kit first-class identity / OPNA-era digital drum identity / ADPCM-A friendly drum design / Homebrew cask canonical / filename = drum identity / directory = kit identity 等) + 2026-05-16 23rd session 段階 1 sub-sprint α 実作業着手 = `scripts/forensic-drum-samples.sh` 新規作成 (= §決定 21 4 系統 1 件目 read-only inventory) + §決定 20 8 段階 flow mechanical 実行 + §Annex A-5 後埋め (= 12 file inventory 表 sha256 / size / meta / magic + 4 分類 all unknown + 重要 finding 5 件 = 18500 Hz roundtrip wav / source wav 不在 / 6 adpcma 別 sha256 / driver embed symbol / drum 軸 vendor wav 不在 literal 反映) + 23rd session 第 2 commit = `scripts/wav_to_adpcma.sh` + `scripts/build_drum_samples.sh` + `scripts/verify-drum-samples.sh` 3 件 interface fixation stub 新規作成 (= §決定 21 4 系統 2-4 件目、 9 項目 header / usage / not-implemented exit 2 sentinel / source wav 完成前は middle 実装しない literal 規律) + §決定 21 scripts 構成 4 件 status marker 反映 + sub-sprint α 進捗 23rd session 反映 section 追加、 段階 1-3 完了後に Accepted 移行予定、 注: step 18 = ADR-0032 simultaneous trigger semantics proof と並走、 step 番号は段階 1 着手時に再採番予定、 ADR-0033 自体は policy fixation で step 軸とは独立)
 - 起票日: 2026-05-15
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR: ADR-0032 (= step 18 simultaneous trigger semantics proof、 **runtime semantics 軸**で本 ADR と完全分離、 driver dispatch invariant の semantics 拡張軸初段)、 ADR-0031 (= step 17 K/R drum kind expansion proof — i = RIM、 §決定 8 「dispatch path は drum 種拡張で増やさない」 + drum 種拡張軸 sprint chain 完成 milestone、 本 ADR は runtime invariant 完全保持を前提)、 ADR-0030 / ADR-0029 / ADR-0028 / ADR-0027 / ADR-0026 (= step 12-16 drum 種拡張 sprint chain、 「rim」 「tom」 「top」 wording 規律確立)、 ADR-0025 (= step 11 multi-table id=0x01 proof、 本 ADR §決定 10 「multi-table architecture 経由 kit 入替」 の前提)、 ADR-0023 / ADR-0024 (= step 9 / step 10 sample_table_id resolver + selection consumption、 同前提)、 ADR-0019 (= step 5 §決定 3 sample addr build-time embed、 本 ADR §決定 8 chip 化 pipeline の前提)、 ADR-0021 (= step 7 `.PNE` asset pipeline、 本 ADR §決定 10 multi-table 入替の物理経路前提)
@@ -704,21 +704,22 @@ literal 拘束:
 §決定 17 (= scripts canonical / WebApp future UI 役割分離 + 3 系統 scripts + Makefile target) を 22nd session で forensic 系統独立化により 4 系統化を確定する:
 
 scripts 構成 (= 4 系統分離):
-- `scripts/forensic-drum-samples.sh` (= **read-only inventory**):
+- `scripts/forensic-drum-samples.sh` (= **read-only inventory**) — **23rd session δ 新規作成 + 動作確認済 ✓** (= commit 326c88b、 8 段階 flow 1-7 mechanical 実行、 §Annex A-5 後埋め反映):
   - inventory / sha256 / file header / sample rate / bit depth / length / channel count / current `samples.inc` 対応候補 / report 出力
   - §決定 20 8 段階 flow 1-7 を mechanical に実行する read-only script
-  - output = `forensic-report.md` / `forensic-inventory.yaml` 等 (= 実装時確定)
-- `scripts/wav_to_adpcma.sh` (= **one-file converter**):
+  - output = stdout 構造化 text (= 段階 8 git history は escape hatch、 必要時別途)
+- `scripts/wav_to_adpcma.sh` (= **one-file converter**) — **23rd session ε interface fixation stub 新規作成 ✓** (= 9 項目 header + usage + not-implemented exit 2 sentinel、 中身実装は sub-sprint γ):
   - wav 1 file → ADPCM-A binary 1 file 変換
   - default parameter = mono / 18.5 kHz / 4-bit ADPCM-A / `2608_{bd,sd,top,hh,tom,rim}.wav` naming (= §決定 7 / §決定 8 / §決定 18 整合)
   - superctr/adpcm wrapper (= §決定 18 整合)
-- `scripts/build_drum_samples.sh` (= **orchestration**):
+- `scripts/build_drum_samples.sh` (= **orchestration**) — **23rd session ε interface fixation stub 新規作成 ✓** (= 9 項目 header + usage + not-implemented exit 2 sentinel、 中身実装は sub-sprint γ):
   - 6 drum wav → 6 ADPCM-A binary → `samples.inc` / assets 出力
   - 命名 `2608_{bd,sd,top,hh,tom,rim}` (= §決定 7 整合)
   - 既存 PMDNEO build pipeline (= ADR-0019 sample addr build-time embed) 整合
-- `scripts/verify-drum-samples.sh` (= **reproducibility gate**):
+- `scripts/verify-drum-samples.sh` (= **reproducibility gate**) — **23rd session ε interface fixation stub 新規作成 ✓** (= 9 項目 header + usage + not-implemented exit 2 sentinel、 中身実装は sub-sprint γ build_drum_samples 完成同時 + sub-sprint δ 段階 1 完了統合):
   - sha256 / expected length / channel count / sample rate / output binary size / optional spectral fingerprint
   - 生成物 deterministic 検証 (= 同 source wav から同 ADPCM-A binary が出ること)
+  - 検証粒度 = byte-identical (= sha256 一致、 §決定 20 canonical identity 規律、 sample-level similarity は scope-out)
 
 Makefile target 4 件分離:
 - `make forensic-drum-samples`
@@ -963,6 +964,26 @@ ADR-0033 Draft 起票 (= 20th session 末 commit、 §決定 1-14 + scope + road
 - scripts 4 系統雛形作成済 (= `forensic-drum-samples.sh` + `wav_to_adpcma.sh` + `build_drum_samples.sh` + `verify-drum-samples.sh` + Makefile target 4 件)
 - Surge XT install 確認 (= Homebrew cask canonical)、 BD prototype 1 件 hand-on (= 越川氏 hand-on)
 - handoff doc + memory + commit + push 完了
+
+**23rd session 進捗 (= sub-sprint α 進行中、 段階 1 sub-sprint α 完了は本進捗 + Surge XT install 確認 + Makefile target 4 件追加で達成):**
+
+| 完了判定項目 | 状況 | reference commit |
+|---|---|---|
+| ADR-0033 Draft update commit 完了 (= 22nd session) | ✓ 完了 | commit 617a139 (= 22nd session γ) |
+| §Annex A-5 起源調査結果 literal 記録済 | ✓ 完了 | commit 326c88b (= 23rd session δ) |
+| §Annex A-7 install version 列 literal 反映済 | ☐ pending | Surge XT install 後 (= 越川氏 hand-on 待ち) |
+| scripts 4 系統雛形作成済 | ✓ 完了 (= 4 件、 forensic は完成 / 他 3 件は interface fixation stub) | commit 326c88b (= forensic) + 23rd session ε (= wav_to_adpcma + build_drum_samples + verify-drum-samples) |
+| Makefile target 4 件追加 | ☐ pending | sub-sprint α 後半 commit (= 4 系統雛形 fixation 後の最小 Makefile 整備) |
+| Surge XT install 確認 + BD prototype 1 件 hand-on | ☐ pending | 越川氏 hand-on (= 23rd session 並走 work) |
+| handoff doc + memory + commit + push 完了 | 進行中 | session 末で実施予定 |
+
+**23rd session 規律 (= interface fixation stub の意義):**
+
+- source wav が project 内に **不在** (= §Annex A-5-5 finding 2 literal observed) な現実下で、 wav_to_adpcma / build_drum_samples / verify-drum-samples の中身実装を進めても dry-run できない (= input が仮なら設計が歪む)
+- そのため 23rd session ε commit は **「4 系統 canonical pipeline の interface fixation」** のみを scope とし、 中身実装は **sub-sprint γ** (= source wav 完成 = sub-sprint β 完了後の OPNA pipeline 構築) に分離
+- 4 系統境界 (= read-only inventory / one-file converter / orchestration / reproducibility gate) を script header の 9 項目 (= purpose / §決定 21 対応 / input / output / format / future phase / exit code / examples / TODO) で literal 化することで、 §決定 21 4 系統分離を **1 stub = 1 責務** で固定
+- exit code 2 = not-implemented sentinel = source wav 完成前は middle 実装しない literal 規律 (= shell convention 整合、 CI 統合時に「pending」 として識別可能)
+- forensic は read-only inventory なので 23rd session δ で **動作完成**、 残 3 件 (= wav_to_adpcma + build_drum_samples + verify-drum-samples) は **interface のみ完成 = source wav 完成後に本実装**
 
 #### sub-sprint β: Surge XT で 6 種 patch 設計 + wav render
 
