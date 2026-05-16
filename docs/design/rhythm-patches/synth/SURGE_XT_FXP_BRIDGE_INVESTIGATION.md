@@ -503,6 +503,76 @@ audition / accept のみ**。 ν 本質 (= 越川氏 認知負荷を engineering
 - **π10** (= **越川氏唯一の hand-on 接点**): rendered audio audition / aesthetic accept
 - **ι commit** (= accept 後): `2608_bd_self.adpcma` encode + 並行配置 + commit
 
+## 13. π4 patch subcommand 実装 + 5 test scenario 全 PASS (= 2026-05-16 23rd session π4)
+
+### 13.1 deliverables
+
+`scripts/fxp_template_patch.py` に `patch` subcommand 実装 = 8 段階 process:
+
+```text
+1. allowlist load + 56 element 集合化
+2. template load + FPCh chunk extract (= sub3 + xml + trailing)
+3a. patch-spec passthrough navigation (= optional、 数値型のみ filter)
+3b. --override KEY=VALUE 適用 (= allowlist 外は exit 64 reject)
+4. XML element value regex modify (= 56 element 範囲のみ)
+5. chunk repack + chunkByteSize recalc
+6. invariant verify (= sub3 / trailing 不変 + allowlist 外 element 不変 + XML well-formed)
+7. output write + sha256 record
+8. report (= modifications + size diff + sha256)
+```
+
+支援 helper functions:
+- `_navigate_dotted_path(data, path)` = dotted path 経路探索 (= `oscillator_plan.oscillators[0].type` 等)
+- `_modify_xml_element_value(xml_body, element_name, new_value)` = regex-based value replace
+- `_verify_patch_invariants(orig, new, allowed_set, modified_set)` = 4 軸不変性 verify
+
+### 13.2 5 test scenario 全 PASS
+
+| test | scope | result |
+|------|-------|--------|
+| test 1 | `--override` 軸 (= a_filter1_cutoff + a_env1_decay + a_osc1_type + a_ws_drive 4 件) | PASS = chunkByteSize -39 byte recalc + invariant verify PASS |
+| test 2 | allowlist 外 reject (= `--override b_filter1_cutoff=1.5` = scene B) | PASS = exit 64 + clear error message |
+| test 3 | patch-spec passthrough (= 2608_bd.patch-spec.yaml) | PASS = **13 numeric 抽出 + 6 string skip** (= XML safety) |
+| test 4 | `--patch-spec` + `--override` 併用 (= override が patch-spec を上書き) | PASS = sha256 differs from test 3 |
+| test 5 | no patch values (= byte-identical copy) | PASS = template と output が **同 sha256 (= 0366cc10...082839)** |
+
+### 13.3 重要 finding = XML 破壊 safety (= 数値型 passthrough 規律)
+
+test 3 初回試行で patch-spec 経由 string 値 (= `mode: "AHDSR (Surge XT 内蔵...)"`、 `type: "Sine"` 等) を XML 注入したところ **`xml.etree.ElementTree.ParseError: not well-formed`** で invariant verify が detect。 出力前に exit 65 で阻止された。
+
+対策 = `_navigate_dotted_path` 結果を **数値型 (= int / float / bool) のみ** passthrough に絞る filter 追加。 string / dict / list は skip + count 記録:
+
+```text
+patch-spec navigation: 13 value 抽出 (= passthrough、 unit 変換は π5 以降の別軸)、 6 件 skip (= 数値型以外、 XML 安全側)
+```
+
+この finding は **invariant verify の価値が実証された** literal event = pre-write safety gate が XML 破壊を確実 detect、 「bridge, not full synthesizer patch compiler」 軸の safety net 機能発揮。
+
+### 13.4 patch-spec values の Surge XT scale 注入問題 (= π5 以降の別軸)
+
+test 3 では patch-spec.yaml の値 (= 例 `decay_ms: 280`、 `cutoff_hz: 800`) がそのまま Surge XT element value に注入されたが、 Surge XT 内部 scale (= log-time / log-freq 等) と不一致 = **生成 .fxp は再生時に異常値で動作する見込み**。
+
+これは **mechanical proof は成功** だが **semantic proof は π5 以降** = unit 変換 layer の実装が別軸。 π4 の goal は「bridge mechanism 動作」 までで、 sound correctness は越川氏 aesthetic accept (= step 10) で判断される。
+
+### 13.5 invariant verify 4 軸 = bridge safety net
+
+`_verify_patch_invariants` が verify する 4 invariant:
+1. `sub3_header` (= 32 byte) 完全不変
+2. `trailing_binary` (= 0 byte、 = chunk end) 完全不変
+3. allowlist 外 element value 完全不変 (= conservative change_protected)
+4. patched XML well-formed (= ET.fromstring parse 成功)
+
+違反時は exit 65 で出力前阻止、 patched file は作られない。 「engineering candidate before aesthetic judgement」 軸の literal safety 実装。
+
+### 13.6 π5 以降 chain (= 越川氏 hand-on engineering ゼロ前提)
+
+- **π5**: 2608_bd.patch-spec.yaml + 2608_template.fxp + 56 element allowlist → 2608_bd.fxp canonical bridge invoke proof (= 13 numeric 値 + 必要なら override 追加で完成、 assets/drum_samples/synth/patches/2608_bd.fxp 配置)
+- **π6**: fxp2wav-surge (= §決定 25 spike track 1) 成立後、 接続 → 2608_bd.wav candidate
+- **π7-8**: AI self-analysis 10 項目 → analysis-report.yaml
+- **π9**: 必要なら patch-spec / .fxp 再調整 → π5-π8 loop (= unit 変換 layer 含む iteration)
+- **π10**: 越川氏 audition / aesthetic accept (= 唯一の hand-on 接点)
+- **ι commit**: 2608_bd_self.adpcma 並行配置 + commit
+
 ## 10. 関連外部資料
 
 - [vst2-preset-parser (CharlesHolbrow)](https://github.com/CharlesHolbrow/vst2-preset-parser) — VST2 binary parser (= MIT、 byte layout literal)

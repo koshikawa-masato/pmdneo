@@ -39,17 +39,21 @@ PMDNEO ADR-0033 §決定 27 ξ ο spike = Surge XT `.fxp` template bridge (read-
 #     [56:60] chunkByteSize  = uint32 BE
 #     [60:..] patchChunk     = raw bytes (= Surge XT internal serialization、 XML or binary)
 #
-# future phase (= π3 以降):
-#   - π2 (= 本 commit): extract-xml + survey-params + verify-repack 動作確認、 evidence proof
-#   - π3: XML <parameters> 一覧 → parameter-allowlist.yaml の allowed_parameters[] 完全 fill
-#   - π4: subcommand `patch` 実装 (= allowlist + patch-spec → XML element value 修正 + chunk repack)
-#   - π5: 2608_bd.patch-spec.yaml + 2608_template.fxp → 2608_bd.fxp candidate 生成 proof
+# commit history:
+#   - ο1 (= 1b5f20c): inspect (read-only header + body parse)
+#   - π2 (= 64f6f55): extract-xml + survey-params + verify-repack 動作確認、 evidence proof
+#   - π3 (= 8aa97a5): parameter-allowlist.yaml comprehensive 56 element fill
+#   - π4 (= 本 commit): patch subcommand 実装 (= allowlist + patch-spec → XML value 修正 + chunk repack + invariant verify)
+#
+# future phase:
+#   - π5: 2608_bd.patch-spec.yaml + 2608_template.fxp → 2608_bd.fxp canonical bridge invoke proof
+#   - π6+: fxp2wav-surge connect + AI self-analysis + 越川氏 audition
 #
 # exit codes:
-#   0  = parse 成功
-#   2  = not-implemented (= diff/patch、 π4 以降で fill)
-#   64 = arg validation error (= input file path 不正 / nonexistent file)
-#   65 = data validation error (= chunkMagic ≠ "CcnK" or unknown fxMagic、 XML parse error)
+#   0  = success
+#   2  = not-implemented (= diff、 optional 経路)
+#   64 = arg validation error (= input file path 不正 / nonexistent file / --override 形式不正 / allowlist 外 reject)
+#   65 = data validation error (= chunkMagic ≠ "CcnK" / unknown fxMagic / XML parse error / invariant violation)
 #   66 = runtime error (= 読込時 IO error)
 #
 # examples:
@@ -59,9 +63,20 @@ PMDNEO ADR-0033 §決定 27 ξ ο spike = Surge XT `.fxp` template bridge (read-
 #   $ python3 scripts/fxp_template_patch.py extract-xml <input.fxp> --output out.xml   # → file
 #   $ python3 scripts/fxp_template_patch.py survey-params <input.fxp>                  # 一覧
 #   $ python3 scripts/fxp_template_patch.py verify-repack <input.fxp>                  # evidence
+#   $ python3 scripts/fxp_template_patch.py patch --template T.fxp --allowlist A.yaml \
+#         --override a_filter1_cutoff=1.5 --override a_env1_decay=-1.0 \
+#         --output OUT.fxp                                                              # π4: 個別 override 軸
+#   $ python3 scripts/fxp_template_patch.py patch --template T.fxp --allowlist A.yaml \
+#         --patch-spec PS.yaml --output OUT.fxp                                         # π4: patch-spec passthrough
 #
-# TODO (= π4 以降):
-#   [ ] subcommand `patch` 実装 (= parameter-allowlist + patch-spec → patched .fxp 生成)
+# safety:
+#   - allowlist 外 element の --override は exit 64 で reject
+#   - patch-spec 値は **数値型 (= int/float/bool) のみ** passthrough、 string は skip (= XML 破壊回避)
+#   - 出力前に invariant verify (= sub3 / trailing / allowlist 外 element / XML well-formedness)
+#   - verify FAIL なら出力せず exit 65
+#
+# TODO (= π5 以降):
+#   [ ] patch-spec unit 変換 layer (= ms ↔ log-time / Hz ↔ log-freq 等)
 #   [ ] subcommand `diff` 実装 (= optional、 π2 XML element name 軸で代替済)
 #
 # ============================================================================
@@ -474,15 +489,270 @@ def diff_command(_args: argparse.Namespace) -> int:
     return EXIT_NOT_IMPLEMENTED
 
 
-def patch_command(_args: argparse.Namespace) -> int:
-    """Patch parameter values via allowlist (= future π4 use)."""
-    print(
-        "[not-implemented] patch subcommand は π4 (= parameter-allowlist + patch-spec → "
-        "drum-specific .fxp XML element value 修正 + chunk repack) で実装予定。 π2 の "
-        "verify-repack で実装可能性は evidence-level で確認済。",
-        file=sys.stderr,
+def _navigate_dotted_path(data, path: str):
+    """Navigate dotted path in dict (e.g., 'foo.bar[0].baz'). Returns None if any segment missing."""
+    if not isinstance(path, str):
+        return None
+    # strip parenthetical 注釈 (= '... (= optional ...)' 等)
+    path = path.split(" (")[0].strip()
+    if not path:
+        return None
+    current = data
+    for part in path.split("."):
+        if not part:
+            return None
+        if "[" in part and "]" in part:
+            key, idx_str = part.split("[", 1)
+            idx_str = idx_str.rstrip("]")
+            try:
+                idx = int(idx_str)
+            except ValueError:
+                return None
+            if key:
+                if not isinstance(current, dict):
+                    return None
+                current = current.get(key)
+                if current is None:
+                    return None
+            if not isinstance(current, list) or idx >= len(current):
+                return None
+            current = current[idx]
+        else:
+            if not isinstance(current, dict):
+                return None
+            current = current.get(part)
+            if current is None:
+                return None
+    return current
+
+
+def _modify_xml_element_value(xml_body: bytes, element_name: str, new_value: str) -> tuple[bytes, str | None]:
+    """
+    Regex-modify <element_name ... value="X" ... /> setting value=new_value.
+
+    Returns (new_xml_body, old_value_str)。 element not found なら (xml_body, None)。
+    """
+    import re
+    pattern = (
+        rb'(<' + re.escape(element_name.encode()) + rb'\b[^>]*?\bvalue=")'
+        rb'([^"]+)'
+        rb'(")'
     )
-    return EXIT_NOT_IMPLEMENTED
+    match = re.search(pattern, xml_body)
+    if match is None:
+        return xml_body, None
+    old_value = match.group(2).decode("ascii", errors="replace")
+    new_value_bytes = str(new_value).encode("ascii", errors="replace")
+    new_xml = (
+        xml_body[:match.start()]
+        + match.group(1)
+        + new_value_bytes
+        + match.group(3)
+        + xml_body[match.end():]
+    )
+    return new_xml, old_value
+
+
+def _verify_patch_invariants(
+    orig_data: bytes,
+    new_data: bytes,
+    allowed_element_set: set,
+    modified_element_set: set,
+) -> None:
+    """Raise RuntimeError if patched file violates invariants."""
+    import xml.etree.ElementTree as ET
+
+    def _extract_xml(data: bytes) -> tuple[bytes, bytes, bytes]:
+        chunk = data[60 : 60 + struct.unpack(">I", data[56:60])[0]]
+        return extract_chunk_segments(chunk)
+
+    orig_sub3, orig_xml, orig_trailing = _extract_xml(orig_data)
+    new_sub3, new_xml, new_trailing = _extract_xml(new_data)
+
+    if orig_sub3 != new_sub3:
+        raise RuntimeError("invariant violation: sub3_header changed (= 32 byte 不変必須)")
+    if orig_trailing != new_trailing:
+        raise RuntimeError("invariant violation: trailing binary changed (= 不変必須)")
+
+    orig_root = ET.fromstring(orig_xml)
+    try:
+        new_root = ET.fromstring(new_xml)
+    except ET.ParseError as exc:
+        raise RuntimeError(
+            f"invariant violation: patched XML not well-formed: {exc} "
+            f"(= 注入 value に XML 破壊 char が含まれる可能性、 数値型 passthrough 規律違反)"
+        )
+    orig_params = {p.tag: p.get("value") for p in orig_root.find("parameters")}
+    new_params = {p.tag: p.get("value") for p in new_root.find("parameters")}
+
+    for name in orig_params:
+        old_v = orig_params[name]
+        new_v = new_params.get(name)
+        if old_v == new_v:
+            continue
+        # value 変化 = allowlist 内 + 実際 modify 対象 を verify
+        if name not in allowed_element_set:
+            raise RuntimeError(
+                f"invariant violation: {name!r} value changed but not in allowlist "
+                f"(= conservative change_protected default 違反)"
+            )
+        if name not in modified_element_set:
+            raise RuntimeError(
+                f"invariant violation: {name!r} value changed unexpectedly "
+                f"(= modification list 外)"
+            )
+
+
+def patch_command(args: argparse.Namespace) -> int:
+    """Patch template `.fxp` parameter values via allowlist + override / patch-spec (= π4)."""
+    import yaml
+    import hashlib
+
+    # 1. Load allowlist + 56 element 集合化
+    try:
+        allowlist_text = args.allowlist.read_text(encoding="utf-8")
+        allowlist_data = yaml.safe_load(allowlist_text)
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: cannot read allowlist {args.allowlist}: {exc}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if allowlist_data.get("patching_model") != "xml-element-name":
+        print(
+            f"error: allowlist.patching_model != 'xml-element-name' (= got "
+            f"{allowlist_data.get('patching_model')!r})",
+            file=sys.stderr,
+        )
+        return EXIT_DATA_ERROR
+    allowed_params = allowlist_data.get("allowed_parameters", []) or []
+    allowed_by_name = {p["xml_element_name"]: p for p in allowed_params}
+    print(f"# loaded allowlist: {len(allowed_by_name)} allowed element", file=sys.stderr)
+
+    # 2. Load template + chunk extract
+    try:
+        template_data = args.template.read_bytes()
+    except (FileNotFoundError, OSError) as exc:
+        print(f"error: cannot read template {args.template}: {exc}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    try:
+        body = parse_fpch_body(template_data)
+    except ValueError as exc:
+        print(f"error: template parse: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+    chunk = template_data[body["chunkStartOffset"] : body["chunkEndOffset"]]
+    sub3_header, xml_body, trailing = extract_chunk_segments(chunk)
+
+    # 3. Resolve target values
+    target_values: dict[str, str] = {}
+
+    # 3a. patch-spec passthrough navigation (= optional、 unit 変換なし、 数値型のみ)
+    if args.patch_spec:
+        try:
+            patch_spec_data = yaml.safe_load(args.patch_spec.read_text(encoding="utf-8"))
+        except (FileNotFoundError, OSError) as exc:
+            print(f"error: cannot read patch-spec {args.patch_spec}: {exc}", file=sys.stderr)
+            return EXIT_ARG_ERROR
+        ps_extracted = 0
+        ps_skipped_non_numeric = 0
+        for name, elem_def in allowed_by_name.items():
+            field_path = elem_def.get("patch_spec_field", "")
+            value = _navigate_dotted_path(patch_spec_data, field_path)
+            if value is None:
+                continue
+            # 数値型のみ passthrough (= int / float / bool)、 string / dict / list は skip
+            # = XML well-formed 安全側、 string 注入による XML 破壊回避
+            if isinstance(value, bool):
+                target_values[name] = "1" if value else "0"
+                ps_extracted += 1
+            elif isinstance(value, (int, float)):
+                target_values[name] = str(value)
+                ps_extracted += 1
+            else:
+                ps_skipped_non_numeric += 1
+        print(
+            f"# patch-spec navigation: {ps_extracted} value 抽出 (= passthrough、 unit 変換は π5 以降の別軸)、"
+            f" {ps_skipped_non_numeric} 件 skip (= 数値型以外、 XML 安全側)",
+            file=sys.stderr,
+        )
+
+    # 3b. --override = patch-spec を上書き
+    for ov in args.overrides or []:
+        if "=" not in ov:
+            print(f"error: --override 形式不正 (= NAME=VALUE 必要): {ov!r}", file=sys.stderr)
+            return EXIT_ARG_ERROR
+        name, value = ov.split("=", 1)
+        if name not in allowed_by_name:
+            print(
+                f"error: --override {name!r} は allowlist 外 (= conservative reject)",
+                file=sys.stderr,
+            )
+            return EXIT_ARG_ERROR
+        target_values[name] = value
+
+    if not target_values:
+        print(
+            "warning: patch values 未指定 (= --patch-spec / --override 両方なし)、 "
+            "byte-identical copy 出力",
+            file=sys.stderr,
+        )
+
+    # 4. Apply modifications via regex
+    new_xml = xml_body
+    actual_modifications: list[tuple[str, str, str]] = []
+    for name, new_value in target_values.items():
+        modified_xml, old_value = _modify_xml_element_value(new_xml, name, new_value)
+        if old_value is None:
+            print(
+                f"warning: element {name!r} not found in XML body (= skip)",
+                file=sys.stderr,
+            )
+            continue
+        if old_value == new_value:
+            continue
+        new_xml = modified_xml
+        actual_modifications.append((name, old_value, new_value))
+
+    # 5. Repack + chunkByteSize recalc
+    new_chunk = sub3_header + new_xml + trailing
+    new_chunk_size = len(new_chunk)
+    new_data = (
+        template_data[:56]
+        + struct.pack(">I", new_chunk_size)
+        + new_chunk
+    )
+
+    # 6. Verify invariants (= allowlist 外 element / sub3 / trailing 不変)
+    try:
+        _verify_patch_invariants(
+            template_data,
+            new_data,
+            allowed_element_set=set(allowed_by_name.keys()),
+            modified_element_set={m[0] for m in actual_modifications},
+        )
+    except RuntimeError as exc:
+        print(f"error: invariant verify FAILED: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    # 7. Write output + sha256 report
+    try:
+        args.output.write_bytes(new_data)
+    except OSError as exc:
+        print(f"error: cannot write output {args.output}: {exc}", file=sys.stderr)
+        return EXIT_RUNTIME_ERROR
+
+    # 8. Report
+    print(f"# template:  {args.template} ({len(template_data)} byte)")
+    print(f"# allowlist: {args.allowlist} ({len(allowed_by_name)} allowed element)")
+    if args.patch_spec:
+        print(f"# patch-spec: {args.patch_spec}")
+    print(f"# modifications: {len(actual_modifications)} element")
+    for name, old, new in actual_modifications:
+        print(f"#   {name}: {old!r} → {new!r}")
+    size_diff = len(new_data) - len(template_data)
+    print(f"# chunkByteSize: {body['chunkByteSize']} → {new_chunk_size} (= diff {size_diff:+d})")
+    print(f"# output: {args.output} ({len(new_data)} byte)")
+    print(f"# output sha256: {hashlib.sha256(new_data).hexdigest()}")
+    print(f"# invariant verify: PASS (= allowlist 外 element / sub3 / trailing 不変)")
+
+    return EXIT_OK
 
 
 def main() -> int:
@@ -530,12 +800,25 @@ def main() -> int:
 
     p_patch = subparsers.add_parser(
         "patch",
-        help="Patch parameter values via allowlist (= future π4)",
+        help="Patch parameter values via allowlist (= π4 新規、 patch-spec passthrough + --override 軸)",
     )
-    p_patch.add_argument("--template", type=Path, required=True)
-    p_patch.add_argument("--patch-spec", type=Path, required=True)
-    p_patch.add_argument("--allowlist", type=Path, required=True)
-    p_patch.add_argument("--output", type=Path, required=True)
+    p_patch.add_argument("--template", type=Path, required=True, help="input template .fxp")
+    p_patch.add_argument("--allowlist", type=Path, required=True, help="parameter-allowlist.yaml")
+    p_patch.add_argument("--output", type=Path, required=True, help="output patched .fxp")
+    p_patch.add_argument(
+        "--patch-spec",
+        type=Path,
+        default=None,
+        help="patch-spec.yaml (= optional、 passthrough navigation でデフォルト値 fill)",
+    )
+    p_patch.add_argument(
+        "--override",
+        action="append",
+        dest="overrides",
+        default=None,
+        metavar="NAME=VALUE",
+        help="個別 element override (= 反復可、 patch-spec を上書き)",
+    )
 
     args = parser.parse_args()
 
