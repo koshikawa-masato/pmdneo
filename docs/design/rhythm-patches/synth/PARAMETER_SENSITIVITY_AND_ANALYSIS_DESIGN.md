@@ -627,3 +627,140 @@ predicted_kind: BD
 selected_profile: BD
 repeatability: analysis-scalar.yaml / analysis-timeseries.json / analysis-summary.yaml all SHA256 identical across two output directories
 ```
+
+## 19. 6 軸 horizontal sweep finding (= π15.7 diagnostic record)
+
+π15.6 で vertical slice (= a_osc1_pitch 1 軸縦通し) が成立した後、 残り 6 軸を horizontal
+sweep として diagnostic 実行した結果を本節に固定する。 これは generated artifact ではなく
+**finding 記録** = 「今の baseline (= 2608_bd.fxp) は sensitivity を測るには一部壊れている」
+という事実を repo レベルで literal 化する。
+
+baseline = `assets/drum_samples/synth/patches/2608_bd.fxp` (= diagnostic-baseline /
+aesthetic-rejected label、 π5 NG patch、 patch-spec passthrough 未変換 state)。
+
+### 19.1 共通 deterministic 保証
+
+全 6 軸の `delta=0` row の `wav_sha256` が完全一致:
+
+```text
+e46960ae934370b9ab2656217d7ddeaa7fa7e0a9b01b22b4d5ec68f77a3f1969
+```
+
+deterministic sweep chain は成立 = same baseline + same patched .fxp (= same XML value
+text) + same producer + same SURGE_RNG_SEED で bit-identical render。
+
+### 19.2 軸別分類
+
+| classification | axes | 観察 |
+|---|---|---|
+| **silent axis** | `a_env1_decay`, `a_env2_decay` | delta ±3 で全 feature delta = 0 |
+| **isolated axis** | `a_env1_attack` | attack 軸のみ動く、 band / body / tail 不変 |
+| **multi-axis lever** | `a_osc1_octave` | attack + body_freq + band balance 同時 |
+| **unexpected interaction** | `a_lowcut`, `a_env1_release` | 副次 effect or sign asymmetry |
+
+### 19.3 silent axes (= a_env1_decay / a_env2_decay)
+
+baseline `a_env1_decay = 280` および `a_env2_decay = 50` は Surge XT 内部 log-time scale
+で `2^280 sec` / `2^50 sec` という完全非物理値。 Surge XT 内部 clamp で delta ±3 程度では
+output 不変 = sensitivity を測れない。
+
+これは π5 patch-spec passthrough mismatch の **literal evidence**:
+
+- patch-spec.yaml 側 `a_env1_decay: 280` は「280 ms」 を意図した human-readable value
+- Surge XT XML 側 `<a_env1_decay value="280"/>` は log-time scale (= seconds の log2) として解釈
+- mismatch = `2^280 sec` という非物理値、 internal clamp で effect 不能
+
+これら 2 軸は **「現 baseline では sensitivity を測れない parameter」** として記録され、
+unit conversion 適用後の別 baseline で再評価すべき (= 後段判断、 本 commit では実装しない)。
+
+### 19.4 isolated axis (= a_env1_attack)
+
+`a_env1_attack baseline 0`、 deltas -3, -1, 0, 1, 3 で attack_ms のみ動く (= band / body /
+tail 全 0 delta)。 但し sign 非線形 = baseline 0 が log-time 極大点 (= 2^0 = 1 sec):
+
+| delta | attack delta | 観察 |
+|---|---|---|
+| -3 | -650 ms | 最強 attack 短縮 |
+| -1 | -283 ms | |
+| 0 | 0 | reference |
+| +1 | -15 ms | 正方向でも短縮 |
+| +3 | -100 ms | |
+
+clean な single-axis lever、 BD attack 短縮には `-3` が最強。
+
+### 19.5 multi-axis lever (= a_osc1_octave)
+
+`a_osc1_octave` 1 軸で attack / body_freq / band balance が同時に動く:
+
+| delta | new | attack | body_freq | sub | low | low_mid |
+|---|---|---|---|---|---|---|
+| -2 | -2 | -11.5 ms | -21.5 Hz | +0.186 | -0.186 | 0 |
+| -1 | -1 | +0.5 ms | -21.5 Hz | +0.186 | -0.186 | 0 |
+| 0 | 0 | 0 | 0 | 0 | 0 | 0 |
+| +1 | +1 | +3.2 ms | +64.6 Hz | -0.814 | +0.814 | 0 |
+| +2 | +2 | +4.6 ms | +193.8 Hz | -0.814 | -0.084 | +0.898 |
+
++1 で sub→low に完全 band shift、 +2 で low_mid dominant = BD identity から離れる方向。
+-1 と -2 で sub band shift saturate (= +0.186 で同値) = band cap or pitch quantize 仮説。
+
+### 19.6 unexpected interaction
+
+#### 19.6.1 a_lowcut → attack 副次 effect
+
+`a_lowcut baseline -72` (= minimum)、 deltas 0,10,20,30,40 (= -72 → -32 まで lowcut 引き上げ):
+
+| delta | new | attack delta |
+|---|---|---|
+| 0 | -72 | 0 |
+| +10 | -62 | -0.3 ms |
+| +20 | -52 | **-7.4 ms** |
+| +30 | -42 | -1.3 ms |
+| +40 | -32 | **-16.8 ms** |
+
+attack 軸のみ動く (= body / band / tail 不変)、 但し **non-monotonic** = +20 と +40 が
++30 より effect 強い。 filter envelope or waveshaper feedback path 経由仮説。
+
+#### 19.6.2 a_env1_release sign asymmetry
+
+`a_env1_release baseline 0`、 deltas -3,-1,0,1,3:
+
+| delta | new | tail delta | attack delta |
+|---|---|---|---|
+| -3 | -3 | **+108.6 ms** | 0 |
+| -1 | -1 | 0 | 0 |
+| 0 | 0 | 0 | 0 |
+| +1 | +1 | 0 | 0 |
+| +3 | +3 | 0 | +7.7 ms |
+
+負方向のみ tail 大増加、 正方向は dead zone + delta=+3 で attack 微小 effect (= unexpected
+attack 干渉)。
+
+### 19.7 重要 finding (= 固定)
+
+- delta=0 row は全 6 軸で baseline render SHA 一致 → deterministic sweep chain 成立
+- `a_env1_attack` は isolated attack axis (= 唯一の clean single-axis lever)
+- `a_osc1_octave` は body_freq / band / attack を同時に動かす strong lever (= BD identity 大変動)
+- `a_env1_decay` / `a_env2_decay` は silent axis (= 現 baseline では sensitivity 測れず)
+- silent axis は π5 patch-spec passthrough mismatch の **literal evidence**
+  - patch-spec ms 値が Surge XT log-time field に直接注入された structural defect
+  - `2^280 sec` / `2^50 sec` という非物理値で internal clamp 化、 effect 不能
+- `a_lowcut` と `a_env1_release` は unexpected interaction あり
+  - lowcut: non-monotonic attack 副次 effect
+  - release: sign asymmetric、 -3 で tail +108 ms、 +3 で attack 微小干渉
+
+### 19.8 結論 (= 次判断候補、 本 commit では実装しない)
+
+現 baseline (= 2608_bd.fxp、 π5 patch-spec passthrough 未変換) は sensitivity を測るには
+一部壊れている (= 6 軸中 2 軸が silent axis)。 unit-converted baseline (= patch-spec の
+human-readable ms / Hz 値を Surge XT 内部 log-time / log-freq scale に変換した別 baseline)
+を作るかどうかが次判断軸。
+
+**本 π15.7 commit ではこの structural defect を finding として固定するのみ**、 unit
+conversion layer の実装には進まない。 越川氏 directive 維持:
+
+- optimizer 再開禁止
+- preference-learning 再開禁止
+- unit conversion layer 実装は次 commit の判断軸 (= ここでは記録のみ)
+- best candidate selection 禁止
+- accept / reject 判定禁止
+- generated artifact (= /private/tmp 配下) は repo 未投入

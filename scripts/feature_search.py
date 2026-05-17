@@ -2107,14 +2107,13 @@ def _fxp_patch_single_parameter(
 
     new_chunk = segments["sub3"] + new_xml + segments["trailing"]
     new_chunk_byte_size = len(new_chunk)
-    delta_bytes = new_chunk_byte_size - old_chunk_byte_size
 
-    # Reconstruct file = header[0:56] + new chunk_byte_size + new_chunk
+    # Reconstruct file = header[0:56] + new chunk_byte_size + new_chunk。
+    # outer byteSize field (= [4:8]) は fxp_template_patch.py の流儀通り維持
+    # (= Surge XT factory .fxp が literal 0 で出荷されており、 Surge XT 自体は
+    # 値を読まないため spec 違反のまま維持して bit-comparable に保つ)。
     head_prefix = bytearray(data[:60])
     head_prefix[56:60] = new_chunk_byte_size.to_bytes(4, "big")
-    # outer byteSize (= field 4-8) も update (= remaining bytes from offset 8 onwards)
-    old_total = int.from_bytes(head_prefix[4:8], "big")
-    head_prefix[4:8] = (old_total + delta_bytes).to_bytes(4, "big")
     new_data_bytes = bytes(head_prefix) + new_chunk
 
     # invariant verify (= sub3 header / trailing 不変、 XML well-formed)
