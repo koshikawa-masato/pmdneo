@@ -198,3 +198,87 @@ Do not aggregate multiple parameters into a single sweep. Do not combine
 sensitivity output with optimizer or preference-learning logic. The table is
 diagnostic only; human audition remains the final gate.
 
+## Unit-converted diagnostic baseline (= π15.8)
+
+`make-diagnostic-baseline` builds a `.fxp` whose parameter values are
+**explicitly unit-converted** so that the sensitivity sweep can exercise
+axes that the π5 NG passthrough baseline left as silent
+(= `a_env1_decay` / `a_env2_decay` were silent under π5 baseline).
+
+This is **not** an aesthetic patch. It is `aesthetic-rejected` by design.
+It exists only to widen `parameter -> feature` measurability.
+
+### Command
+
+```bash
+python3 scripts/feature_search.py make-diagnostic-baseline \
+  --spec docs/design/rhythm-patches/synth/2608_bd-diagnostic.patch-spec.yaml \
+  --template-fxp assets/drum_samples/synth/patches/2608_bd.fxp \
+  --output-fxp assets/drum_samples/synth/patches/2608_bd-diagnostic.fxp \
+  --output-report /private/tmp/pmdneo-make-baseline-report.yaml
+```
+
+The subcommand refuses to write if `spec.acceptance.aesthetic_acceptance`
+is anything other than `"rejected"`, so the artifact cannot accidentally be
+treated as an accepted candidate.
+
+### Inputs
+
+- `spec` = `docs/design/rhythm-patches/synth/2608_bd-diagnostic.patch-spec.yaml`
+  - records `human_intent` and `converted_internal_value` per parameter
+  - label = "unit-converted diagnostic baseline / aesthetic-rejected /
+    for sensitivity measurement only"
+- `template-fxp` = existing `2608_bd.fxp` (= π5 NG baseline, retained as
+  structural-defect evidence; this command does NOT modify it)
+- conversion table = `docs/design/rhythm-patches/synth/parameter-unit-conversion.yaml`
+  - `status: hypothesis` / `verify_required: true` per parameter
+  - conversion is applied inside the spec yaml, the subcommand only injects
+    the precomputed `converted_internal_value`
+
+### Output
+
+- `2608_bd-diagnostic.fxp` = chained one-parameter patches applied per
+  injection target, with the existing `_fxp_patch_single_parameter` invariant
+  verifier running before each write
+- `make-baseline-report.yaml` (= optional, `--output-report`) = per-step log
+  with `old_value` / `new_value` / `human_intent` / `conversion_status`
+  / per-step .fxp sha256
+
+### Verify by sensitivity sweep
+
+Re-run the same 6-axis sweep against the diagnostic baseline to check which
+axes become active. Example:
+
+```bash
+python3 scripts/feature_search.py sensitivity-sweep \
+  --baseline-fxp assets/drum_samples/synth/patches/2608_bd-diagnostic.fxp \
+  --baseline-label "unit-converted diagnostic baseline / aesthetic-rejected" \
+  --parameter a_env1_decay \
+  --deltas=-3,-1,0,1,3 \
+  --output-dir /private/tmp/pmdneo-diag-env1-decay \
+  --producer-cmd ~/Projects/surge-spike/surge/build/src/fxp2wav-surge/fxp2wav-surge
+```
+
+### 1st round result (= π15.8)
+
+- generated `.fxp` sha256:
+  `c132faee4b7e74a2f6af9f6c522956a489cf62b52280bc3d7c8ae5d78607d256`
+- diagnostic baseline `delta=0` render sha256:
+  `9f7f7e23c9181effb11d8aa248d73b3d059c93b5a519f5071b113a871a71fa7c`
+- `a_env1_decay` = silent under π5 → **ACTIVE** under diagnostic baseline ✓
+- `a_env2_decay` = silent under π5 → **silent** under diagnostic baseline ✗
+- `a_env1_release` = partially active under π5 → **silent** under diagnostic
+  baseline ✗ (= unexpected, see § 20 of
+  `PARAMETER_SENSITIVITY_AND_ANALYSIS_DESIGN.md`)
+- active axes: 4/6 ; silent axes: 2/6
+- `parameter-unit-conversion.yaml` is `v0.1.0` and is **hypothesis**; 2nd
+  round refinement is a separate commit / separate decision
+
+### Constraints
+
+- `make-diagnostic-baseline` is not an optimizer
+- it does not pick an aesthetic candidate
+- it does not accept or reject any sound
+- it refuses to run if `spec.acceptance.aesthetic_acceptance != "rejected"`
+- the output artifact is always labeled `aesthetic-rejected`
+

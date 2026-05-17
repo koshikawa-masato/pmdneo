@@ -764,3 +764,133 @@ conversion layer の実装には進まない。 越川氏 directive 維持:
 - best candidate selection 禁止
 - accept / reject 判定禁止
 - generated artifact (= /private/tmp 配下) は repo 未投入
+
+## 20. unit-converted diagnostic baseline 1st round finding (= π15.8)
+
+§ 19 で確定した「現 baseline (= 2608_bd.fxp、 π5 NG) では 6 軸中 2 軸 (= a_env1_decay /
+a_env2_decay) が silent」 という structural defect 状態を補正する **1st round** として、
+unit-converted diagnostic baseline を生成 + 同 6 軸 sweep を再実行した。
+
+本 commit の意味は **「成功した baseline」 ではなく「診断可能性を広げた first diagnostic
+baseline」** = partial success + failure evidence を literal 固定する。
+
+### 20.1 artifact identity
+
+- generated diagnostic .fxp:
+  `assets/drum_samples/synth/patches/2608_bd-diagnostic.fxp`
+- sha256:
+  `c132faee4b7e74a2f6af9f6c522956a489cf62b52280bc3d7c8ae5d78607d256`
+- label (= spec / artifact 共通):
+  `unit-converted diagnostic baseline / aesthetic-rejected / for sensitivity measurement only`
+- diagnostic baseline `delta=0` render sha256 (= 全 6 sweep 共通):
+  `9f7f7e23c9181effb11d8aa248d73b3d059c93b5a519f5071b113a871a71fa7c`
+
+aesthetic-rejected literal、 越川氏 audition 対象外、 BD として良いかは判定しない。
+既存 `2608_bd.fxp` / `2608_bd.patch-spec.yaml` は **完全不変** (= π5 mismatch state retain
+= structural defect evidence として保持)。
+
+### 20.2 1st round conversion result
+
+5 parameter に conversion 適用 (= `parameter-unit-conversion.yaml` v0.1.0 formula 経由):
+
+| parameter | human_intent | converted_internal_value | conversion_formula |
+|---|---|---|---|
+| `a_env1_attack` | 5.0 ms | -7.643856 | `log2(ms / 1000.0)` |
+| `a_env1_decay` | 280.0 ms | -1.836501 | `log2(ms / 1000.0)` |
+| `a_env1_release` | 50.0 ms | -4.321928 | `log2(ms / 1000.0)` |
+| `a_env2_decay` | 50.0 ms | -4.321928 | `log2(ms / 1000.0)` |
+| `a_filter1_cutoff` | 800.0 Hz | 10.349958 | `12 * log2(Hz / 440.0)` |
+
+残り axes (= `a_osc1_pitch` / `a_osc1_octave` / `a_lowcut` 等) は identity (= conversion
+不要) で既存値 retain。
+
+### 20.3 6 軸 sweep gate 結果
+
+| gate | 内容 | 結果 |
+|---|---|---|
+| gate 1a | `a_env1_decay` silent 解消 | **✓ ACTIVE** (= tail +213.9〜-582.1 ms) |
+| gate 1b | `a_env2_decay` silent 解消 | **✗ silent 持続** |
+| gate 2 | `delta=0` baseline SHA self-consistent | **✓** (= 全 6 sweep 同一 sha256) |
+| gate 3 | 全 6 軸 render 成功 | **✓** (= producer error 0) |
+| gate 4 | optimizer / accept 判定なし | **✓** |
+
+### 20.4 軸別 active / silent 判定
+
+| axis | π15.7 (= π5 baseline) | π15.8 (= diagnostic baseline) |
+|---|---|---|
+| `a_osc1_octave` | active (multi-axis lever) | **ACTIVE** (= 同 trend retain) |
+| `a_env1_attack` | isolated active | **ACTIVE** (= sign 線形化、 +29.9 ms 等) |
+| `a_env1_decay` | **silent** ✗ | **ACTIVE** ✓ (= tail dramatic) |
+| `a_env1_release` | partial active (-3 で +108 ms) | **silent** ✗ (= 想定外 silent 化) |
+| `a_env2_decay` | **silent** ✗ | **silent** ✗ (= 持続失敗) |
+| `a_lowcut` | non-monotonic active | **ACTIVE** (= attack 副次 effect 残存) |
+
+active axes: 4/6 (= osc1_octave / env1_attack / env1_decay / lowcut)
+silent axes: 2/6 (= env1_release / env2_decay)
+
+### 20.5 重要 finding (= 固定)
+
+1. **unit conversion の有効性は実証** (= `a_env1_decay` が silent から ACTIVE 化、 tail
+   delta が delta±3 で +213.9 / -582.1 ms の dramatic effect)
+2. **`a_env2_decay` は silent 持続** (= 同 formula で `a_env1_decay` は成功、 `a_env2_decay`
+   は失敗、 別 scale or 別 dependency 仮説)
+3. **`a_env1_release` が想定外 silent 化** (= π5 では partial active だった軸が diagnostic
+   で完全 silent 化、 `a_env1_sustain=0` との依存仮説)
+4. **active 軸 4/6 / silent 軸 2/6** で 1st round 完了、 **完全成功ではない**
+5. **`parameter-unit-conversion.yaml` は v0.1.0 hypothesis** であり、 1 round では完全では
+   ない、 反復 refine が必要 (= conversion table は iterative refine を前提とする規律)
+6. **2nd round は別 commit / 別判断** (= 本 π15.8 commit には混ぜない、 「partial success
+   + failure evidence の literal 固定」 が commit の意味)
+
+### 20.6 失敗 conversion (= literal 記録)
+
+#### Failure A: a_env2_decay = 完全 silent 持続
+- π5 baseline 50 (= 2^50 sec) → diagnostic -4.32 (= log2(0.05) = 50 ms 相当)
+- 同 formula `log2(ms/1000)` が `a_env1_decay` では成功、 `a_env2_decay` では失敗
+- 仮説候補:
+  - `a_env2` (= pitch / filter modulation envelope second) は別 scale
+  - modulation routing が active でないと effect 出ない可能性 (= envelope は assign 対象が必要)
+  - `a_env2_decay` は別 unit (= sec ではなく別 normalize scale) の可能性
+
+#### Failure B: a_env1_release = 想定外 silent 化
+- π5 baseline 0 (= 2^0 = 1 sec) では delta=-3 で tail +108 ms だった軸
+- diagnostic baseline -4.32 (= 50 ms) では全 delta dead zone
+- 仮説候補:
+  - `a_env1_sustain=0` (= 既存 baseline retain) のため release phase に到達しない
+  - sustain > 0 で active 化する可能性 (= 別 sweep verify 候補、 別 commit)
+  - release は sustain phase 通過後にしか効かない signal dependency
+
+### 20.7 conversion table iterative refine 規律
+
+`parameter-unit-conversion.yaml` の `status: hypothesis` + `verify_required: true` は
+**1 round では完全解消しない** 前提の literal label。 reasonable verification protocol:
+
+```text
+1st round: 初期 hypothesis formula 適用 → sweep verify
+            → success axes と failure axes を分離記録
+2nd round (= future): failure axes の formula を別 hypothesis で試す
+                       → 同 sweep verify
+                       → conversion-table を v0.2.0 等で更新
+3rd round 以降: 全 axes active 化までの iterative refine
+```
+
+本 π15.8 commit は **1st round の literal evidence**、 2nd round 以降は別 commit / 別判断。
+
+### 20.8 scope 制約遵守
+
+- optimizer 再開なし
+- preference-learning 再開なし
+- accept / reject 判定なし
+- best 選別なし
+- 既存 `2608_bd.fxp` / `2608_bd.patch-spec.yaml` 不変
+- 既存 `2608_BD.adpcma` 非破壊
+- driver / fixture / verify script / runtime semantics 完全不変
+- 越川氏 audition gate 軸不変
+
+### 20.9 commit value (= 越川氏 wording literal)
+
+> 「成功した baseline」 ではなく「診断可能性を広げた first diagnostic baseline」
+
+この commit で `a_env1_decay` の silent axis が解消され、 sensitivity table で
+`parameter -> feature delta` の measurable 軸が 1 つ増えた。 同時に 2 件の failure を
+literal 記録することで「conversion table is iterative」 規律を repo に固定した。

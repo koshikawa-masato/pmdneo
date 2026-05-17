@@ -1,0 +1,250 @@
+# Parameter unit conversion table (= π15.8 diagnostic baseline data source)
+# ============================================================================
+#
+# π15.7 で「a_env1_decay / a_env2_decay は silent axis (= π5 mismatch literal
+# evidence)」 を確定。 本 file はそれを補正するための conversion table。
+#
+# 重要規律:
+# - 本 file は **diagnostic baseline 用** の conversion table、 aesthetic 軸ではない
+# - formula は Surge XT 内部 scale **仮説**、 verify は sensitivity sweep 経由で
+#   逆方向確認 (= conversion 適用後 6 軸 sweep で全 axis effect 観測なら formula 妥当)
+# - 不確実なものは `status: hypothesis` + `verify_required: true` 明記
+# - 既存 `2608_bd.patch-spec.yaml` は不変 = π5 NG state retain (= mismatch evidence)
+#
+# next step (= 本 file のみでは diagnostic baseline 生成しない):
+#   scripts/feature_search.py make-diagnostic-baseline subcommand が
+#   2608_bd-diagnostic.patch-spec.yaml の `converted_internal_value` を直接 .fxp に
+#   注入する (= conversion formula 計算は spec yaml 作成時に literal、 script 側は
+#   value passthrough のみで責務分離)。
+# ============================================================================
+
+schema_version: "0.1.0"
+artifact_kind: parameter-unit-conversion-table
+purpose: "Surge XT internal scale ↔ human-readable unit conversion reference"
+scope:
+  for_aesthetic_patch: false
+  for_diagnostic_baseline: true
+  for_optimizer: false
+  for_preference_learning: false
+  status: data-only-reference
+  note: |
+    本 table は data として独立、 conversion formula 適用は spec yaml 作成時の
+    literal value 計算で実施 (= script 側は value passthrough 担当)。
+    sensitivity sweep 経由で formula を verify、 失敗時は status / formula を
+    反復更新。
+
+# ============================================================================
+# Conversions
+# ============================================================================
+
+conversions:
+
+  # ---- envelope time (= log-time scale = log2 seconds) -----------------------
+
+  a_env1_attack:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    clamp_min_human_ms: 0.5
+    clamp_min_internal: -10.965784
+    notes:
+    - "Surge XT envelope attack field is log-time = log2(seconds)。 0 ms は -inf 化"
+    - "実用最小 0.5 ms (= log2(0.0005) = -10.97) で clamp 想定"
+    status: hypothesis
+    verify_required: true
+    evidence_of_mismatch:
+    - "π5 baseline value=0 → Surge XT 内部解釈 2^0 = 1 sec attack (= 非物理的 BD attack)"
+    - "π15.7 sensitivity sweep 結果 = isolated axis (= effect 出るが baseline 0 が極大点)"
+
+  a_env1_decay:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    clamp_min_human_ms: 0.5
+    clamp_min_internal: -10.965784
+    status: hypothesis
+    verify_required: true
+    evidence_of_mismatch:
+    - "π5 baseline value=280 → Surge XT 内部解釈 2^280 sec = 完全非物理値"
+    - "π15.7 sensitivity sweep 結果 = silent axis (= internal clamp で effect 不能)"
+    primary_silent_axis: true
+
+  a_env1_release:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    clamp_min_human_ms: 0.5
+    clamp_min_internal: -10.965784
+    status: hypothesis
+    verify_required: true
+    evidence_of_mismatch:
+    - "π5 baseline value=0 → 2^0 = 1 sec release"
+    - "π15.7 sensitivity sweep 結果 = partial active (= -3 で tail +108 ms / 他 dead zone)"
+
+  a_env2_decay:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    clamp_min_human_ms: 0.5
+    clamp_min_internal: -10.965784
+    status: hypothesis
+    verify_required: true
+    evidence_of_mismatch:
+    - "π5 baseline value=50 → 2^50 sec = 非物理値"
+    - "π15.7 sensitivity sweep 結果 = silent axis"
+    primary_silent_axis: true
+
+  # ---- filter cutoff (= log-freq scale = semitones from A4 = 440 Hz) --------
+
+  a_filter1_cutoff:
+    surge_xt_scale: log-freq-semitones-from-A4
+    human_readable_unit: Hz
+    formula: "12 * log2(Hz / 440.0)"
+    formula_inverse: "440.0 * (2 ** (value / 12.0))"
+    notes:
+    - "Surge XT filter cutoff field は semitone offset from A4 = 440 Hz 想定"
+    - "他 reference (= MIDI note 69 = A4) も candidate、 verify_required"
+    status: hypothesis
+    verify_required: true
+    evidence_of_mismatch:
+    - "π5 baseline value=800 → 想定 800 Hz だが Surge XT field では 800 semitone (= 極端高域)"
+
+  # ---- identity (= scale 整合済、 conversion 不要) --------------------------
+
+  a_osc1_pitch:
+    surge_xt_scale: semitone-offset
+    human_readable_unit: semitone
+    formula: "identity"
+    status: verified
+    verify_required: false
+    notes:
+    - "Surge XT OSC pitch field は既に semitone offset、 patch-spec も semitone なので identity"
+
+  a_osc1_octave:
+    surge_xt_scale: integer-octave
+    human_readable_unit: integer
+    formula: "identity"
+    status: verified
+    verify_required: false
+
+  a_pitch:
+    surge_xt_scale: semitone-offset
+    human_readable_unit: semitone
+    formula: "identity"
+    status: verified
+    verify_required: false
+
+  a_lowcut:
+    surge_xt_scale: log-freq-semitones-from-A4
+    human_readable_unit: semitone-offset
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+    notes:
+    - "baseline value -72 は Surge XT minimum lowcut、 既に log-freq scale 内"
+    - "Hz 単位への conversion は a_filter1_cutoff と同 formula 候補だが、 baseline 値が"
+    - "scale 内整合のため identity で対応"
+
+  a_volume:
+    surge_xt_scale: normalized-linear-0-1
+    human_readable_unit: linear-0-1
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+    notes:
+    - "Surge XT volume field は dB or linear 0-1 か仕様要確認、 暫定 identity"
+
+  a_level_noise:
+    surge_xt_scale: normalized-linear-0-1
+    human_readable_unit: linear-0-1
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+
+  a_ws_drive:
+    surge_xt_scale: dB
+    human_readable_unit: dB
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+
+  a_filter1_resonance:
+    surge_xt_scale: normalized-linear-0-1
+    human_readable_unit: linear-0-1
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+
+  a_env1_sustain:
+    surge_xt_scale: normalized-linear-0-1
+    human_readable_unit: linear-0-1
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+
+  a_env2_attack:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    status: verified
+    verify_required: false
+    notes:
+    - "baseline value=-8 → 2^-8 ≈ 3.9 ms attack (= 物理的妥当値) = scale 内整合済"
+
+  a_env2_sustain:
+    surge_xt_scale: normalized-linear-0-1
+    human_readable_unit: linear-0-1
+    formula: "identity"
+    status: hypothesis
+    verify_required: true
+
+  a_env2_release:
+    surge_xt_scale: log-time-seconds
+    human_readable_unit: ms
+    formula: "log2(ms / 1000.0)"
+    formula_inverse: "1000.0 * (2 ** value)"
+    status: verified
+    verify_required: false
+    notes:
+    - "baseline value=-5 → 2^-5 ≈ 31 ms release = scale 内整合済"
+
+# ============================================================================
+# Verification protocol
+# ============================================================================
+verification:
+  method: "sensitivity sweep 逆方向 verify"
+  steps:
+  - "make-diagnostic-baseline で converted value を baseline に注入"
+  - "同 6 軸 sweep を diagnostic baseline で再実行"
+  - "gate 1 = silent axis 解消 (= a_env1_decay / a_env2_decay が effect 観測可能)"
+  - "gate 2 = delta=0 row baseline SHA self-consistent (= deterministic round-trip)"
+  - "gate 3 = 全 6 軸 render 成功 (= producer error 0)"
+  - "gate 4 = optimizer / accept 判定なし"
+  failure_action: "失敗 parameter の status / formula を hypothesis 反復更新"
+
+# ============================================================================
+# Out-of-scope
+# ============================================================================
+scope_out:
+- "aesthetic acceptance gate"
+- "patch-spec.yaml aesthetic review"
+- "optimizer / preference-learning 再開"
+- "best candidate selection"
+- "accept / reject 判定"
+- "BD として良いかどうかの判定"
+- "complete Surge XT spec coverage (= 全 parameter conversion ではない、 主要のみ)"
+
+# ============================================================================
+# Version history
+# ============================================================================
+version_history:
+- version: "0.1.0"
+  date: "2026-05-17"
+  status: "initial draft (= hypothesis、 sensitivity sweep verify 待ち)"
+  author: "Claude Code + 越川氏 directive"
+  note: "π15.7 silent axis evidence (= a_env1_decay / a_env2_decay) を補正する diagnostic baseline 用初版。 4 envelope time + 1 filter cutoff conversion + 残り identity 暫定 hypothesis。"

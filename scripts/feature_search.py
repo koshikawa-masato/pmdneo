@@ -2498,6 +2498,144 @@ def sensitivity_sweep_command(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+# ============================================================================
+# make-diagnostic-baseline subcommand (= π15.8 unit-converted diagnostic baseline)
+# ----------------------------------------------------------------------------
+# 越川氏 directive (= π15.7 silent axis 補正):
+#   diagnostic patch-spec.yaml の converted_internal_value を template .fxp に
+#   注入し、 unit-converted diagnostic baseline .fxp を生成する。
+#
+# scope 厳守:
+# - aesthetic patch ではない
+# - 越川氏 audition 対象ではない
+# - optimizer / preference-learning は呼ばない
+# - best candidate selection / accept-reject 判定なし
+# ============================================================================
+
+def make_diagnostic_baseline_command(args: argparse.Namespace) -> int:
+    """π15.8 unit-converted diagnostic baseline = patch-spec converted value 列を template .fxp に逐次注入。"""
+    import yaml
+    if not args.spec.exists():
+        print(f"error: spec not found: {args.spec}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if not args.template_fxp.exists():
+        print(f"error: template fxp not found: {args.template_fxp}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    spec = yaml.safe_load(args.spec.read_text(encoding="utf-8"))
+    parameters = spec.get("parameters") or {}
+    injection_targets = spec.get("injection_targets") or list(parameters.keys())
+
+    # acceptance literal sanity check (= aesthetic-rejected 明示でなければ refuse)
+    acc = spec.get("acceptance") or {}
+    if acc.get("is_aesthetic_candidate", False):
+        print(
+            "error: spec.acceptance.is_aesthetic_candidate must be false for diagnostic baseline",
+            file=sys.stderr,
+        )
+        return EXIT_INVALID_STATE
+    if acc.get("aesthetic_acceptance") != "rejected":
+        print(
+            "error: spec.acceptance.aesthetic_acceptance must be 'rejected' (= aesthetic-rejected label literal)",
+            file=sys.stderr,
+        )
+        return EXIT_INVALID_STATE
+
+    # Iteratively patch each injection target by chaining _fxp_patch_single_parameter
+    current_fxp = args.template_fxp
+    workdir = args.output_fxp.parent / ".make-baseline-tmp"
+    workdir.mkdir(parents=True, exist_ok=True)
+    injection_log = []
+
+    for idx, param_name in enumerate(injection_targets):
+        param_entry = parameters.get(param_name)
+        if param_entry is None:
+            print(f"# warning: {param_name} not in spec.parameters, skip", file=sys.stderr)
+            continue
+        if "converted_internal_value" not in param_entry:
+            print(f"# warning: {param_name} has no converted_internal_value, skip", file=sys.stderr)
+            continue
+        new_value_raw = param_entry["converted_internal_value"]
+        new_value_str = f"{float(new_value_raw):.6f}"
+
+        next_fxp = workdir / f"step_{idx:02d}_{param_name}.fxp"
+        try:
+            patch_info = _fxp_patch_single_parameter(
+                current_fxp, param_name, new_value_str, next_fxp
+            )
+        except RuntimeError as exc:
+            print(f"error: patching {param_name} failed: {exc}", file=sys.stderr)
+            return EXIT_DATA_ERROR
+        injection_log.append({
+            "step": idx,
+            "parameter": param_name,
+            "old_value": patch_info["old_value"],
+            "new_value": new_value_str,
+            "human_intent": param_entry.get("human_intent"),
+            "conversion_formula": param_entry.get("conversion_formula"),
+            "conversion_status": param_entry.get("conversion_status"),
+            "step_fxp_sha256": patch_info["fxp_sha256"],
+        })
+        current_fxp = next_fxp
+
+    # Final output write
+    args.output_fxp.parent.mkdir(parents=True, exist_ok=True)
+    if current_fxp != args.template_fxp:
+        args.output_fxp.write_bytes(current_fxp.read_bytes())
+    else:
+        # No injection happened (= injection_targets 空 or 全 skip)
+        args.output_fxp.write_bytes(args.template_fxp.read_bytes())
+    output_sha256 = _sha256_file(args.output_fxp)
+
+    # cleanup workdir step files unless --keep-workdir
+    if not args.keep_workdir:
+        for f in sorted(workdir.iterdir()):
+            f.unlink()
+        try:
+            workdir.rmdir()
+        except OSError:
+            pass
+
+    report = {
+        "schema_version": "0.1.0",
+        "artifact_kind": "make-diagnostic-baseline-report",
+        "scope": {
+            "is_aesthetic_candidate": False,
+            "aesthetic_acceptance": "rejected",
+            "label": spec.get("label"),
+            "optimizer_involved": False,
+            "preference_learning_involved": False,
+            "best_candidate_selection": False,
+            "accept_reject_judgment_made": False,
+        },
+        "spec": str(args.spec),
+        "template_fxp": str(args.template_fxp),
+        "template_fxp_sha256": _sha256_file(args.template_fxp),
+        "output_fxp": str(args.output_fxp),
+        "output_fxp_sha256": output_sha256,
+        "injection_log": injection_log,
+        "wording_discipline": [
+            "this is a diagnostic baseline, not an aesthetic patch",
+            "aesthetic acceptance is rejected by design",
+            "for sensitivity measurement only",
+            "human audition is not the target of this artifact",
+            "next step is sensitivity sweep on the diagnostic baseline",
+        ],
+    }
+    if args.output_report:
+        _write_yaml(args.output_report, report)
+        print(f"# wrote report: {args.output_report}", file=sys.stderr)
+
+    print(_dump_yaml({
+        "wrote": str(args.output_fxp),
+        "output_fxp_sha256": output_sha256,
+        "injection_count": len(injection_log),
+        "label": spec.get("label"),
+        "note": "diagnostic baseline; not aesthetic; not accept candidate",
+    }))
+    return EXIT_OK
+
+
 def compare_command(args: argparse.Namespace) -> int:
     """Compare 2 WAVs + dump distance + per-feature diff."""
     for p in (args.reference, args.target):
@@ -2670,6 +2808,16 @@ def main() -> int:
     p_sweep.add_argument("--sample-rate", type=int, default=44100, help="render sample rate (= default 44100)")
     p_sweep.add_argument("--seed", type=int, default=2608, help="SURGE_RNG_SEED (= default 2608、 deterministic)")
 
+    p_make_baseline = subparsers.add_parser(
+        "make-diagnostic-baseline",
+        help="π15.8 unit-converted diagnostic baseline = patch-spec converted_internal_value を template .fxp に注入、 aesthetic patch ではない / sensitivity 測定 only",
+    )
+    p_make_baseline.add_argument("--spec", type=Path, required=True, help="diagnostic patch-spec.yaml (= acceptance.aesthetic_acceptance: rejected literal required)")
+    p_make_baseline.add_argument("--template-fxp", type=Path, required=True, help="template .fxp (= 既存 baseline 2608_bd.fxp 等)")
+    p_make_baseline.add_argument("--output-fxp", type=Path, required=True, help="output diagnostic .fxp path")
+    p_make_baseline.add_argument("--output-report", type=Path, default=None, help="optional injection log YAML")
+    p_make_baseline.add_argument("--keep-workdir", action="store_true", help="keep per-step .fxp files for debugging")
+
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -2686,6 +2834,8 @@ def main() -> int:
         return audition_check_command(args)
     if args.command == "sensitivity-sweep":
         return sensitivity_sweep_command(args)
+    if args.command == "make-diagnostic-baseline":
+        return make_diagnostic_baseline_command(args)
     if args.command == "optimize":
         return optimize_command(args)
 

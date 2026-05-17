@@ -1,0 +1,211 @@
+# 2608_bd-diagnostic.patch-spec = π15.8 unit-converted diagnostic baseline
+# ============================================================================
+#
+# ★ 重要 label (= 越川氏 directive literal):
+#   "unit-converted diagnostic baseline / aesthetic-rejected /
+#    for sensitivity measurement only"
+#
+# 本 file は **aesthetic patch ではない**。
+# 越川氏 audition 対象でもない。
+# BD として良いかは判定しない。
+# sensitivity 測定可能性 (= 6 軸全部で effect 観測可能) のみが目的。
+#
+# 既存 `2608_bd.patch-spec.yaml` は不変 = π5 NG state retain (= structural
+# defect evidence)。 本 file は独立 source-of-truth として並走、 conversion
+# table (= `parameter-unit-conversion.yaml`) の formula を spec yaml 作成時に
+# literal value 計算で適用。
+#
+# 各 parameter は **human_intent** と **converted_internal_value** の両方を
+# 記録 (= 越川氏 directive)、 future contributor が「何を意図して何に変換したか」
+# を直接読める形にする。
+#
+# ============================================================================
+
+schema_version: "0.1.0"
+artifact_kind: unit-converted-diagnostic-baseline-patch-spec
+label: "unit-converted diagnostic baseline / aesthetic-rejected / for sensitivity measurement only"
+based_on:
+  source_patch_spec: docs/design/rhythm-patches/synth/2608_bd.patch-spec.yaml
+  source_template_fxp: assets/drum_samples/synth/patches/2608_bd.fxp
+  conversion_table: docs/design/rhythm-patches/synth/parameter-unit-conversion.yaml
+  conversion_status: hypothesis-v0.1.0
+
+acceptance:
+  aesthetic_acceptance: rejected
+  is_aesthetic_candidate: false
+  is_for_sensitivity_measurement_only: true
+  optimizer_involved: false
+  preference_learning_involved: false
+  best_candidate_selection: false
+  human_audition_target: false
+  retention_reason: |
+    structural baseline for one-factor sensitivity sweep の 6 軸全 active 化確認用、
+    aesthetic accept / reject の評価対象ではない。
+
+# ============================================================================
+# Parameters (= unit-converted)
+# ----------------------------------------------------------------------------
+# 各 entry に human_intent と converted_internal_value 両方を記録。
+# converted_internal_value のみが actual .fxp injection target。
+# human_intent は意図記録 (= future review 用)、 spec 不変性保証 + traceability。
+# ============================================================================
+
+parameters:
+
+  # -------------------------------------------------------------------------
+  # Envelope time = log-time-seconds scale conversion
+  # -------------------------------------------------------------------------
+
+  a_env1_attack:
+    human_intent:
+      value: 5.0
+      unit: ms
+      rationale: "BD の典型 attack 時間 = 5 ms (= fast click + body)"
+    converted_internal_value: -7.643856
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    notes:
+    - "π5 baseline は 0 (= 2^0 = 1 sec attack = 非物理) で structural defect"
+    - "本 conversion で 5 ms attack を Surge XT log-time scale に整合"
+
+  a_env1_decay:
+    human_intent:
+      value: 280.0
+      unit: ms
+      rationale: "元 patch-spec intent (= 越川氏 設計 BD decay) を retain"
+    converted_internal_value: -1.836501
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    notes:
+    - "π5 baseline は 280 (= 2^280 sec = 完全非物理値) で silent axis"
+    - "本 conversion で silent 解消が gate 1 = 越川氏 directive primary"
+    primary_silent_axis_resolution_target: true
+
+  a_env1_release:
+    human_intent:
+      value: 50.0
+      unit: ms
+      rationale: "BD release は短め (= 50 ms) で sustain phase 不要"
+    converted_internal_value: -4.321928
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    notes:
+    - "π5 baseline 0 → 1 sec release で sustain 化、 conversion で適切化"
+
+  a_env2_decay:
+    human_intent:
+      value: 50.0
+      unit: ms
+      rationale: "pitch / filter envelope decay (= 短い pitch sweep を期待)"
+    converted_internal_value: -4.321928
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    notes:
+    - "π5 baseline 50 → 2^50 sec で silent axis"
+    - "本 conversion で silent 解消が gate 1 = 越川氏 directive primary"
+    primary_silent_axis_resolution_target: true
+
+  # -------------------------------------------------------------------------
+  # Filter cutoff = log-freq-semitones-from-A4 conversion
+  # -------------------------------------------------------------------------
+
+  a_filter1_cutoff:
+    human_intent:
+      value: 800.0
+      unit: Hz
+      rationale: "LP 800 Hz で低域 + 中域 body 通過、 high freq cutoff"
+    converted_internal_value: 10.349958
+    conversion_formula: "12 * log2(Hz / 440.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    notes:
+    - "π5 baseline は 800 (= 800 semitone offset = 極端高域) で structural defect"
+    - "本 conversion で 800 Hz 相当の Surge XT log-freq scale に整合"
+
+  # -------------------------------------------------------------------------
+  # Identity = scale 整合済、 既存 baseline value retain
+  # -------------------------------------------------------------------------
+
+  a_osc1_pitch:
+    human_intent:
+      value: 0
+      unit: semitone
+      rationale: "OSC1 base pitch (= MIDI note follow)"
+    converted_internal_value: 0
+    conversion_formula: identity
+    conversion_status: verified
+    notes:
+    - "既存 baseline 0 をそのまま retain"
+
+  a_osc1_octave:
+    human_intent:
+      value: 0
+      unit: integer
+      rationale: "OSC1 base octave"
+    converted_internal_value: 0
+    conversion_formula: identity
+    conversion_status: verified
+
+  a_lowcut:
+    human_intent:
+      value: -72.0
+      unit: semitone-offset
+      rationale: "lowcut minimum (= no low-cut filtering)"
+    converted_internal_value: -72.0
+    conversion_formula: identity
+    conversion_status: verified
+
+# ============================================================================
+# Injection scope = make-diagnostic-baseline subcommand が touch する parameter
+# ============================================================================
+injection_targets:
+- a_env1_attack
+- a_env1_decay
+- a_env1_release
+- a_env2_decay
+- a_filter1_cutoff
+# 残り identity 軸は既存 baseline 値と同一のため、 注入しても result unchanged
+# (= 但し record 上 explicit 化したい場合は injection 可能、 本 spec では unit-converted
+# 5 軸のみ inject 範囲とする)
+
+# ============================================================================
+# Verification gate (= make-diagnostic-baseline 後の sensitivity sweep)
+# ============================================================================
+verification:
+  sensitivity_sweep:
+    target_axes:
+    - a_osc1_octave
+    - a_env1_attack
+    - a_env1_decay         # ← π15.7 silent → diagnostic で active 化期待
+    - a_env1_release
+    - a_env2_decay         # ← π15.7 silent → diagnostic で active 化期待
+    - a_lowcut
+    expected_outcome:
+      a_env1_decay_active: true
+      a_env2_decay_active: true
+      delta_0_baseline_sha_self_consistent: true
+      render_all_succeed: true
+      optimizer_invoked: false
+      accept_reject_judgment_made: false
+  gate_summary:
+  - "gate 1: silent axis 解消 (= a_env1_decay / a_env2_decay)"
+  - "gate 2: delta=0 baseline SHA self-consistent"
+  - "gate 3: 全 6 軸 render 成功"
+  - "gate 4: optimizer / accept 判定なし"
+
+# ============================================================================
+# Out-of-scope (= 越川氏 directive literal)
+# ============================================================================
+out_of_scope:
+- "aesthetic acceptance gate"
+- "BD として良いかの判定"
+- "越川氏 audition 対象"
+- "optimizer 再開"
+- "preference-learning 再開"
+- "best candidate selection"
+- "accept / reject 判定"
+- "patch-spec.yaml aesthetic review"
