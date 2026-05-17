@@ -1,0 +1,221 @@
+# Preference learning input (= π15 越川氏 pairwise comparison + reject template)
+# ============================================================================
+#
+# π15 directive (= 2026-05-17 越川氏):
+#   "feature matching alone does not model human aesthetic preference"
+#   "metric correlation is not preference learning"
+#
+# π14 audition-check (= 1-5 score + Spearman correlation) は metric calibration のみで、
+# 越川氏 aesthetic preference の学習にはならない。 本 file は preference learning の input、
+# pairwise comparison + reject label の dataset を構築する。
+#
+# 越川氏 input flow:
+#   1. 各 pair (= 全 28 件 enumerate 済) の A と B を afplay で聴き比べ
+#   2. preference field に "A" / "B" / "tie" のいずれかを literal 入力
+#   3. 「明らかに BD として不可」 candidate は rejected list に id を追加
+#   4. 20 pair 程度で十分 (= 全 28 可能なら最強)
+#
+# 採点 command 例:
+#   !afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_03.wav
+#   !afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_05.wav
+#   # candidate_03 と candidate_05 を聴き比べて、 BD として良い方を選ぶ
+#   # 例: candidate_03 の方が良い → pair_NN の preference: "A"
+#
+# 越川氏 fill 完了後:
+#   python3 scripts/feature_search.py preference-learn \
+#       docs/design/rhythm-patches/synth/preference-input.yaml \
+#       --output docs/design/rhythm-patches/synth/preference-model-report.yaml
+#
+# ============================================================================
+
+target_drum_type: BD
+candidate_features_source: scripts/feature_search.py extract_features (= v2 with MFCC
+  / log-mel / etc)
+audition_protocol:
+  step_1_listen: afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_XX.wav
+  step_2_compare: 各 pair で A (= 1 件目) と B (= 2 件目) を聴き比べ
+  step_3_label: preference field に A / B / tie / reject_A / reject_B を記入
+  step_4_reject: 「明らかに BD として不可」 candidate は rejected section に id を追加 = 全 candidate
+    より劣ると扱う
+  minimum_pairs: 20 pair 程度で十分 (= 越川氏 directive)、 28 全 pair 可能なら最強
+candidates:
+- id: candidate_01
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_01.wav
+- id: candidate_02
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_02.wav
+- id: candidate_03
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_03.wav
+- id: candidate_04
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_04.wav
+- id: candidate_05
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_05.wav
+- id: candidate_06
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_06.wav
+- id: candidate_07
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_07.wav
+- id: candidate_08
+  wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_08.wav
+preferences:
+  pairs:
+  - id: pair_01
+    candidates:
+    - candidate_01
+    - candidate_02
+    preference: null
+  - id: pair_02
+    candidates:
+    - candidate_01
+    - candidate_03
+    preference: null
+  - id: pair_03
+    candidates:
+    - candidate_01
+    - candidate_04
+    preference: null
+  - id: pair_04
+    candidates:
+    - candidate_01
+    - candidate_05
+    preference: null
+  - id: pair_05
+    candidates:
+    - candidate_01
+    - candidate_06
+    preference: null
+  - id: pair_06
+    candidates:
+    - candidate_01
+    - candidate_07
+    preference: null
+  - id: pair_07
+    candidates:
+    - candidate_01
+    - candidate_08
+    preference: null
+  - id: pair_08
+    candidates:
+    - candidate_02
+    - candidate_03
+    preference: null
+  - id: pair_09
+    candidates:
+    - candidate_02
+    - candidate_04
+    preference: null
+  - id: pair_10
+    candidates:
+    - candidate_02
+    - candidate_05
+    preference: null
+  - id: pair_11
+    candidates:
+    - candidate_02
+    - candidate_06
+    preference: null
+  - id: pair_12
+    candidates:
+    - candidate_02
+    - candidate_07
+    preference: null
+  - id: pair_13
+    candidates:
+    - candidate_02
+    - candidate_08
+    preference: null
+  - id: pair_14
+    candidates:
+    - candidate_03
+    - candidate_04
+    preference: null
+  - id: pair_15
+    candidates:
+    - candidate_03
+    - candidate_05
+    preference: null
+  - id: pair_16
+    candidates:
+    - candidate_03
+    - candidate_06
+    preference: null
+  - id: pair_17
+    candidates:
+    - candidate_03
+    - candidate_07
+    preference: null
+  - id: pair_18
+    candidates:
+    - candidate_03
+    - candidate_08
+    preference: null
+  - id: pair_19
+    candidates:
+    - candidate_04
+    - candidate_05
+    preference: null
+  - id: pair_20
+    candidates:
+    - candidate_04
+    - candidate_06
+    preference: null
+  - id: pair_21
+    candidates:
+    - candidate_04
+    - candidate_07
+    preference: null
+  - id: pair_22
+    candidates:
+    - candidate_04
+    - candidate_08
+    preference: null
+  - id: pair_23
+    candidates:
+    - candidate_05
+    - candidate_06
+    preference: null
+  - id: pair_24
+    candidates:
+    - candidate_05
+    - candidate_07
+    preference: null
+  - id: pair_25
+    candidates:
+    - candidate_05
+    - candidate_08
+    preference: null
+  - id: pair_26
+    candidates:
+    - candidate_06
+    - candidate_07
+    preference: null
+  - id: pair_27
+    candidates:
+    - candidate_06
+    - candidate_08
+    preference: null
+  - id: pair_28
+    candidates:
+    - candidate_07
+    - candidate_08
+    preference: null
+  rejected: []
+methodology_note:
+  shift_from_pi14: π14 = metric correlation (= absolute 1-5 score + Spearman) was
+    metric calibration, not preference learning
+  pi15_principle: human preference is the primary objective、 feature distance is auxiliary
+  model: logistic pairwise ranking via sklearn LogisticRegression on standardized
+    feature differences
+  feature_set: scalar features only (= 20 dim、 vector feature 含めず robust = 過学習回避)
+  training_strategy: winner - loser → 1、 mirror → 0、 rejected ID は全 non-rejected より劣ると仮定して
+    pair 追加
+wording_discipline:
+- feature matching alone does not model human aesthetic preference
+- metric correlation is not preference learning
+- human preference is the primary objective
+- feature distance is auxiliary
+- optimizer is not final selector; preference model is also not final selector
+- 越川氏 aesthetic gate remains authoritative
+next_step_after_filling:
+  command: python3 scripts/feature_search.py preference-learn docs/design/rhythm-patches/synth/preference-input.yaml
+    --output docs/design/rhythm-patches/synth/preference-model-report.yaml
+  expected_artifact: preference-model-report.yaml = logistic coefficients + per-candidate
+    predicted preference + feature importance + training accuracy

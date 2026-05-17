@@ -523,6 +523,229 @@ def validate_command(args: argparse.Namespace) -> int:
     return EXIT_OK if overall_status == "engineering_pass" else 67  # = 67 = engineering_fail
 
 
+def preference_learn_command(args: argparse.Namespace) -> int:
+    """
+    π15 human preference learning = pairwise comparison + reject label から logistic pairwise ranking 学習.
+
+    feature matching alone does not model human aesthetic preference (= π15 wording 規律)。
+    metric correlation (= π14 audition-check) は metric calibration only、 本 subcommand は **preference learning**。
+    optimizer は最終 selector ではなく、 preference model も最終 selector ではない、
+    越川氏 aesthetic gate is authoritative (= ν 規律維持)。
+    """
+    import datetime
+    import yaml
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.preprocessing import StandardScaler
+
+    if not args.input.exists():
+        print(f"error: input YAML not found: {args.input}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    input_data = yaml.safe_load(args.input.read_text(encoding="utf-8"))
+
+    candidates = input_data.get("candidates", [])
+    pairs_in = (input_data.get("preferences") or {}).get("pairs", [])
+    rejected_ids = (input_data.get("preferences") or {}).get("rejected", []) or []
+
+    # Validate preferences are filled
+    filled_pairs = [p for p in pairs_in if p.get("preference") in ("A", "B", "tie")]
+    if len(filled_pairs) < 3 and not rejected_ids:
+        print(
+            f"error: only {len(filled_pairs)} filled pairs and 0 rejected (= 越川氏 preference 未入力?)",
+            file=sys.stderr,
+        )
+        return EXIT_DATA_ERROR
+
+    # Extract features for all candidates
+    print(f"# extracting features for {len(candidates)} candidates", file=sys.stderr)
+    features_dict = {}
+    for c in candidates:
+        cid = c["id"]
+        wav = Path(c["wav"]).expanduser()
+        if not wav.exists():
+            print(f"# warning: {cid} wav not found: {wav}", file=sys.stderr)
+            continue
+        try:
+            features_dict[cid] = extract_features(wav)
+        except Exception as exc:
+            print(f"# warning: {cid} extract failed: {exc}", file=sys.stderr)
+
+    # Scalar feature keys (= preference learning では vector feature 含めず robust に保つ、 過学習回避)
+    SCALAR_KEYS = [
+        "peak_amplitude_dbfs", "rms_amplitude_dbfs", "clipping_count",
+        "leading_silence_ms", "trailing_silence_ms", "tail_length_ms",
+        "attack_ms", "decay_1e_ms", "transient_strength",
+        "spectral_centroid_hz", "spectral_flux_mean",
+        "low_band_ratio", "mid_band_ratio", "high_band_ratio",
+        "rough_frequency_hz",
+        "onset_strength_mean", "onset_strength_std", "onset_strength_peak",
+        "spectral_flux_std", "lufs_integrated",
+    ]
+
+    def to_vector(features):
+        return np.array([
+            float(features.get(k, 0.0))
+            if features.get(k) not in (None, float("-inf"), float("inf"))
+            else 0.0
+            for k in SCALAR_KEYS
+        ])
+
+    feat_vectors = {cid: to_vector(f) for cid, f in features_dict.items()}
+
+    # Build training dataset
+    X = []
+    y = []
+    pair_records = []
+
+    # Pairwise preference (= "A" means a > b、 "B" means b > a、 "tie" = skip)
+    for pair in filled_pairs:
+        a_id = pair["candidates"][0]
+        b_id = pair["candidates"][1]
+        pref = pair["preference"]
+        if a_id not in feat_vectors or b_id not in feat_vectors:
+            continue
+        if pref == "tie":
+            pair_records.append({"a": a_id, "b": b_id, "result": "tie", "used_for_training": False})
+            continue
+        winner, loser = (a_id, b_id) if pref == "A" else (b_id, a_id)
+        X.append(feat_vectors[winner] - feat_vectors[loser])
+        y.append(1)
+        X.append(feat_vectors[loser] - feat_vectors[winner])
+        y.append(0)
+        pair_records.append({
+            "a": a_id, "b": b_id, "result": f"{winner} > {loser}",
+            "used_for_training": True,
+        })
+
+    # Rejected candidates (= reject < every non-rejected)
+    non_rejected = [cid for cid in feat_vectors if cid not in rejected_ids]
+    reject_pairs_added = 0
+    for reject_id in rejected_ids:
+        if reject_id not in feat_vectors:
+            continue
+        for nr_id in non_rejected:
+            X.append(feat_vectors[nr_id] - feat_vectors[reject_id])
+            y.append(1)
+            X.append(feat_vectors[reject_id] - feat_vectors[nr_id])
+            y.append(0)
+            reject_pairs_added += 1
+
+    if len(X) < 6:
+        print(f"error: only {len(X)} training samples、 need >= 6", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    X = np.array(X)
+    y = np.array(y)
+
+    # Scale + train
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    model = LogisticRegression(C=args.regularization_c, max_iter=1000, random_state=2608)
+    model.fit(X_scaled, y)
+    train_accuracy = float(model.score(X_scaled, y))
+
+    # Predict per-candidate preference score (= predicted probability of "this candidate > neutral reference")
+    # neutral reference = mean feature vector
+    neutral_vector = np.mean(list(feat_vectors.values()), axis=0)
+    candidate_scores = {}
+    for cid, vec in feat_vectors.items():
+        diff = (vec - neutral_vector).reshape(1, -1)
+        diff_scaled = scaler.transform(diff)
+        proba = float(model.predict_proba(diff_scaled)[0, 1])
+        candidate_scores[cid] = round(proba, 4)
+
+    # Feature importance (= absolute coefficient value、 standardized)
+    feature_importance = sorted(
+        zip(SCALAR_KEYS, model.coef_[0].tolist()),
+        key=lambda x: abs(x[1]),
+        reverse=True,
+    )
+    top5 = [
+        {"feature": k, "coefficient": round(float(c), 4), "abs_coef": round(abs(float(c)), 4)}
+        for k, c in feature_importance[:5]
+    ]
+
+    # Sort candidates by predicted preference (= descending = best first)
+    sorted_candidates = sorted(candidate_scores.items(), key=lambda x: -x[1])
+
+    report = {
+        "metadata": {
+            "generated_at": datetime.datetime.now().isoformat(),
+            "generator": "scripts/feature_search.py preference-learn",
+            "input": str(args.input),
+            "model_type": "logistic_pairwise_ranking",
+            "sklearn_version": __import__("sklearn").__version__,
+            "feature_dim": len(SCALAR_KEYS),
+            "regularization_c": args.regularization_c,
+        },
+        "dataset_summary": {
+            "total_candidates": len(candidates),
+            "candidates_with_features": len(feat_vectors),
+            "pairwise_preferences_input": len(pairs_in),
+            "pairwise_used_for_training": len([r for r in pair_records if r["used_for_training"]]),
+            "ties_skipped": len([r for r in pair_records if r["result"] == "tie"]),
+            "rejected_candidates": rejected_ids,
+            "reject_implied_pairs_added": reject_pairs_added,
+            "total_training_samples": int(len(X)),
+        },
+        "model_quality": {
+            "train_accuracy": round(train_accuracy, 4),
+            "intercept": round(float(model.intercept_[0]), 4),
+            "note": "train_accuracy >= 0.85 推奨、 < 0.7 だと preference data に矛盾 or 非線形性、 feature 拡張検討",
+        },
+        "candidate_predicted_preference": {
+            "scores": {cid: candidate_scores[cid] for cid, _ in sorted_candidates},
+            "interpretation": "0-1 range、 > 0.5 = neutral より preferred、 < 0.5 = neutral より dispreferred",
+            "ranking_best_first": [cid for cid, _ in sorted_candidates],
+        },
+        "feature_importance_top5": top5,
+        "feature_importance_note": "absolute coefficient value、 standardized space。 +符号 = 値増加で好まれる、 -符号 = 値減少で好まれる",
+        "training_pairs": pair_records,
+        "scaler_params": {
+            "mean": [round(float(m), 4) for m in scaler.mean_.tolist()],
+            "scale": [round(float(s), 4) for s in scaler.scale_.tolist()],
+            "feature_keys": SCALAR_KEYS,
+        },
+        "model_coefficients": {
+            k: round(float(c), 6)
+            for k, c in zip(SCALAR_KEYS, model.coef_[0].tolist())
+        },
+        "wording_discipline_reminder": [
+            "feature matching alone does not model human aesthetic preference",
+            "metric correlation is not preference learning",
+            "human preference is the primary objective",
+            "feature distance is auxiliary",
+            "optimizer is not final selector; preference model is also not final selector",
+            "越川氏 aesthetic gate remains authoritative",
+        ],
+        "next_step_options": [
+            "1. preference model を optimize objective に統合 (= π17 候補): score = α * feature_distance + β * (1 - predicted_preference)",
+            "2. preference data 拡充 (= さらに pair 追加 / candidate 追加 + 再 train) で model 強化",
+            "3. preference 矛盾 detect (= train_accuracy 低い場合) → 越川氏 audition 再検討",
+        ],
+    }
+
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            yaml.safe_dump(report, allow_unicode=True, sort_keys=False, default_flow_style=False),
+            encoding="utf-8",
+        )
+        print(f"# wrote preference-model-report: {args.output}", file=sys.stderr)
+
+    print(json.dumps({
+        "model_type": "logistic_pairwise_ranking",
+        "train_accuracy": round(train_accuracy, 4),
+        "total_training_samples": int(len(X)),
+        "ranking_best_first": [cid for cid, _ in sorted_candidates],
+        "top_feature": top5[0]["feature"] if top5 else None,
+        "report": str(args.output) if args.output else None,
+    }, indent=2, ensure_ascii=False))
+
+    return EXIT_OK
+
+
 def audition_check_command(args: argparse.Namespace) -> int:
     """
     π14/π15 audition correlation check = N candidate × human aesthetic score vs metric_v2 score の Spearman correlation.
@@ -1211,9 +1434,23 @@ def main() -> int:
         help="pretty-print (= JSON 出力時のみ effect)",
     )
 
+    p_pref = subparsers.add_parser(
+        "preference-learn",
+        help="π15 human preference learning = pairwise comparison + reject から logistic pairwise ranking 学習 (= π15 新規、 metric correlation の代替軸)",
+    )
+    p_pref.add_argument("input", type=Path, help="preference-input.yaml (= candidates + pairs + rejected)")
+    p_pref.add_argument(
+        "--output", type=Path, default=None,
+        help="output preference-model-report.yaml",
+    )
+    p_pref.add_argument(
+        "--regularization-c", type=float, default=1.0,
+        help="LogisticRegression C parameter (= 小値ほど強 L2 regularization、 default 1.0)",
+    )
+
     p_audition = subparsers.add_parser(
         "audition-check",
-        help="π15 audition correlation check = N candidate × human score vs metric_v2 score の Spearman correlation (= π14 新規)",
+        help="π15 audition correlation check = N candidate × human score vs metric_v2 score の Spearman correlation (= π14 新規、 retroactively replaced by preference-learn in π15)",
     )
     p_audition.add_argument("input", type=Path, help="audition-input.yaml = candidates list + target_wav + rules")
     p_audition.add_argument(
@@ -1258,6 +1495,8 @@ def main() -> int:
         return compare_command(args)
     if args.command == "validate":
         return validate_command(args)
+    if args.command == "preference-learn":
+        return preference_learn_command(args)
     if args.command == "audition-check":
         return audition_check_command(args)
     if args.command == "optimize":

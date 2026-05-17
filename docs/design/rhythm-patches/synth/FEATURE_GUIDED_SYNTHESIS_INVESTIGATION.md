@@ -907,7 +907,128 @@ correlation 判定:
 - **π16** (= correlation FAIL なら): metric_v3 design + π15 再 audition、 feature 追加 / weight tune iterate
 - **π17**: 越川氏 audition (= final gate)、 accept → ι commit / reject → metric_vN+1 へ
 
-## 11. scope-out 維持 (= 本 investigation の意図)
+## 11. π15 directive shift = metric correlation → human preference learning (= 2026-05-17 23rd session π15)
+
+### 11.1 越川氏 directive 反映 = π14 plan was insufficient
+
+π14 で提案した audition correlation check (= 1-5 absolute score + Spearman correlation) は **metric calibration only** であり、 越川氏 aesthetic preference の **学習** にはならない。 π15 directive で軸転換:
+
+> 越川氏 directive (2026-05-17): 「feature matching alone does not model human aesthetic preference / metric correlation is not preference learning」
+
+旧 plan (= π14):
+* candidate 1-5 score → metric score の Spearman correlation
+* correlation > 0.7 で metric_v2 採用 → optimize 再 run
+* 中核問題 = metric が target feature に correlate しても aesthetic preference は不明、 越川氏 何を好むかは別軸
+
+新 plan (= π15):
+* pairwise comparison (= A vs B) + reject label による preference data 収集
+* logistic pairwise ranking で preference model 学習
+* model は **越川氏 が何を好むか** を generalizable form で encode、 新 candidate にも predict 可能
+* optimizer objective に preference model output を統合 (= feature distance だけでなく predicted human preference も最小化対象)
+
+### 11.2 deliverables (= π15、 docs + 軽量 implementation)
+
+3 件:
+- `scripts/feature_search.py` に **`preference-learn` subcommand** 新規 +204 行 = sklearn LogisticRegression on pairwise feature differences + reject label expansion + per-candidate predicted preference + feature importance top5 + standardization
+- `docs/design/rhythm-patches/synth/preference-input.yaml` 新規 = 8 candidate × 28 pairs all enumerate + reject section + 越川氏 input flow literal
+- preference-model-report.yaml schema (= preference-learn 出力先) = metadata + dataset_summary + model_quality + candidate_predicted_preference + feature_importance_top5 + training_pairs + scaler_params + model_coefficients + next_step_options
+
+### 11.3 logistic pairwise ranking model 設計
+
+**alternatives 検討:**
+- Bradley-Terry (= classical 単純、 但し new candidate に generalize 不可)
+- **logistic pairwise ranking** (= feature difference を入力に LogisticRegression、 採用)
+- preference regression (= 直接 score 予測、 absolute score 必要で π15 directive (= pairwise only) と整合せず)
+- Bayesian optimization with human feedback (= 重い、 軽量初期実装の趣旨外れ)
+
+**logistic pairwise ranking 採用根拠:**
+- pairwise だけで学習可能 (= 越川氏 directive 整合)
+- new candidate に generalize 可能 (= optimizer 統合の前提)
+- 線形 model = interpretable + 過学習 risk 低
+- sklearn 標準、 軽量
+
+**学習 protocol:**
+
+```python
+# For each pair "A > B":
+#   X[i]   = features(A) - features(B), y[i]   = 1  (= A wins)
+#   X[i+1] = features(B) - features(A), y[i+1] = 0  (= B loses、 mirror)
+# Rejected: each non-rejected candidate beats rejected (= multiple pairs added)
+# Standardize features (= StandardScaler)
+# Fit LogisticRegression(C=1.0)
+# Predict: σ(W · (candidate - neutral)) = probability of being preferred over neutral mean
+```
+
+**feature set = scalar 20 dim** (= robust to overfitting):
+- peak_amplitude_dbfs / rms_amplitude_dbfs / clipping_count
+- leading_silence_ms / trailing_silence_ms / tail_length_ms
+- attack_ms / decay_1e_ms / transient_strength
+- spectral_centroid_hz / spectral_flux_mean
+- low_band_ratio / mid_band_ratio / high_band_ratio
+- rough_frequency_hz
+- onset_strength_mean / std / peak
+- spectral_flux_std / lufs_integrated
+
+vector feature (= MFCC / log-mel / spectral_contrast) は **preference learning v2** で検討、 v1 では scalar 軸のみで model robustness 確保。
+
+### 11.4 越川氏 π15 input flow
+
+```bash
+# 1. 8 candidate を試聴 (= 既存 audition_candidates/、 π14 で生成済)
+for i in 01 02 03 04 05 06 07 08; do
+    echo "=== candidate_$i ==="
+    afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_$i.wav
+    sleep 1
+done
+
+# 2. preference-input.yaml の pairs section を直接編集:
+#    各 pair の preference field に "A" / "B" / "tie" のいずれかを記入
+#    20 pair 程度で十分 (= 28 全 pair 可能なら最強)
+
+# 3. rejected section に「明らかに BD として不可」 candidate を追加 (= optional):
+#    rejected: ["candidate_02", "candidate_08"]  # = 例
+
+# 4. Claude 側で preference-learn invoke (= π15.5):
+python3 scripts/feature_search.py preference-learn \
+    docs/design/rhythm-patches/synth/preference-input.yaml \
+    --output docs/design/rhythm-patches/synth/preference-model-report.yaml
+```
+
+### 11.5 dummy run 動作確認
+
+11 pair + 1 reject (= 7 pair 暗黙追加) = 18 pair × 2 mirror = 36 training samples:
+- train_accuracy: 1.0 (= dummy data なので perfectly separable、 越川氏実 audition で <1.0 想定)
+- ranking (= best first): candidate_01 > 03 > 04 > 06 > 05 > 07 > 02 > 08
+- top feature: spectral_flux_mean (= dummy preference data の bias 反映、 越川氏実 data で異なる feature 想定)
+
+= subcommand 動作 OK、 越川氏 実 data で training を実施する flow 確立。
+
+### 11.6 中核 wording 規律 (= π15 ADR §決定 27 (12) 追加)
+
+5 件:
+- 「**feature matching alone does not model human aesthetic preference**」 (= metric distance ≠ preference)
+- 「**metric correlation is not preference learning**」 (= π14 plan の限界明示)
+- 「**human preference is the primary objective**」 (= optimize objective の中核)
+- 「**feature distance is auxiliary**」 (= preference model に対する補助軸)
+- 「**optimizer is not final selector; preference model is also not final selector**」 (= 越川氏 final gate 維持、 π13 ADR wording 拡張)
+
+### 11.7 next_step (= 越川氏 audition + π15.5 chain)
+
+- **π15** (= 越川氏、 user-side): preference-input.yaml の pairs に "A"/"B"/"tie" 記入 + rejected list 編集
+- **π15.5** (= Claude、 user 完了後): preference-learn invoke + preference-model-report.yaml 生成 + 結果 報告
+- **π16** (= preference model 学習成功時): optimize objective に preference model 統合検討 (= score = α × feature_distance + β × (1 - predicted_preference))
+- **π17**: 越川氏 audition (= final gate)、 accept → ι commit / reject → preference data 拡充 + 再学習
+
+### 11.8 π14 retroactive treatment = audition-check は v1 retroactive
+
+π14 で実装した `audition-check` subcommand (= 1-5 score + Spearman) は **retroactively v1** label:
+- 削除はしない (= backward compat、 metric calibration 用途で再利用余地)
+- `feature_search.py audition-check` help text に「retroactively replaced by preference-learn in π15」 明示
+- π15 で primary path は **preference-learn**
+
+audition-input.yaml は **v1 audition input** retroactive label、 preference-input.yaml が π15 primary。
+
+## 12. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
 - **external spike repo** = 参照のみ、 PMDNEO repo に取り込まない (= §決定 25 ι'' 維持)
