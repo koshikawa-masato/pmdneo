@@ -615,3 +615,28 @@ ADR 起票時にこのセクションを根拠として参照する。
 - runtime format にすると scope が大きくなりすぎる
 
 **根拠 docs section**: §0 結論、 §1-2 非責務、 §1-3 生成物との関係、 §16 Codex 判断 採用 1 件目。
+
+### 17-2. 軸 2: IR serialization format (ratified 2026-05-17)
+
+**決定**: IR canonical serialization は JSON に確定する。
+
+**内容**:
+
+- IR canonical format は JSON
+- schema は JSON Schema で定義する
+- YAML は手書きメモや設計補助に使ってよいが canonical ではない
+- binary chunk は現時点では canonical にしない (= scope-out for now)
+- `.NEO` に入れる場合は、 まず JSON UTF-8 payload として IRCM chunk に入れる案を future とする
+- binary encoding が必要になった時点で別 ADR / decision として扱う
+
+**理由**:
+
+- 軸 1 ratify (= IR は compiler / WebApp intermediate format) で runtime efficiency 制約が外れた
+- Z80 driver は JSON を読まない (= runtime compactness は `.mn` + `.PNE` 側で確保)
+- WebApp では JSON が最も扱いやすい (= JS native parse)
+- git diff / review / regression test に向いている
+- diagnostics と schema validation が作りやすい
+- binary も同時規格化すると dual maintenance になる
+- 設計 doc §15 現時点の推奨 と整合する
+
+**根拠 docs section**: §15 未決定事項 1 件目 (= IR の serialization format)、 §15 現時点の推奨 (= 設計・検証段階は JSON 表現を正とする)。
