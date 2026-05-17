@@ -1,43 +1,35 @@
-# Preference learning input (= π15 越川氏 pairwise comparison + reject template)
-# ============================================================================
-#
-# π15 directive (= 2026-05-17 越川氏):
-#   "feature matching alone does not model human aesthetic preference"
-#   "metric correlation is not preference learning"
-#
-# π14 audition-check (= 1-5 score + Spearman correlation) は metric calibration のみで、
-# 越川氏 aesthetic preference の学習にはならない。 本 file は preference learning の input、
-# pairwise comparison + reject label の dataset を構築する。
-#
-# 越川氏 input flow:
-#   1. 各 pair (= 全 28 件 enumerate 済) の A と B を afplay で聴き比べ
-#   2. preference field に "A" / "B" / "tie" のいずれかを literal 入力
-#   3. 「明らかに BD として不可」 candidate は rejected list に id を追加
-#   4. 20 pair 程度で十分 (= 全 28 可能なら最強)
-#
-# 採点 command 例:
-#   !afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_03.wav
-#   !afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_05.wav
-#   # candidate_03 と candidate_05 を聴き比べて、 BD として良い方を選ぶ
-#   # 例: candidate_03 の方が良い → pair_NN の preference: "A"
-#
-# 越川氏 fill 完了後:
-#   python3 scripts/feature_search.py preference-learn \
-#       docs/design/rhythm-patches/synth/preference-input.yaml \
-#       --output docs/design/rhythm-patches/synth/preference-model-report.yaml
-#
-# ============================================================================
-
 target_drum_type: BD
-candidate_features_source: scripts/feature_search.py extract_features (= v2 with MFCC
-  / log-mel / etc)
+candidate_features_source: scripts/feature_search.py extract_features (= v2 with MFCC / log-mel / etc)
 audition_protocol:
   step_1_listen: afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_XX.wav
-  step_2_compare: 各 pair で A (= 1 件目) と B (= 2 件目) を聴き比べ
-  step_3_label: preference field に A / B / tie / reject_A / reject_B を記入
-  step_4_reject: 「明らかに BD として不可」 candidate は rejected section に id を追加 = 全 candidate
-    より劣ると扱う
+  step_2_compare_relative: 各 pair で A (= 1 件目) と B (= 2 件目) を聴き比べ (= relative ranking のみ、 acceptance ではない)
+  step_3_label_pairwise: preference field に A / B / tie を記入 (= relative judgment のみ、 採用可否ではない)
+  step_4_absolute_acceptance: 全 candidate audition 後に acceptance_status section を fill = absolute acceptance gate を別軸で記録
   minimum_pairs: 20 pair 程度で十分 (= 越川氏 directive)、 28 全 pair 可能なら最強
+three_axis_separation:
+  axis_1_pairwise_relative: 「A は B よりマシ」 = preferences.pairs section、 relative ranking only
+  axis_2_individual_acceptance: 各 candidate を「BD として採用可能か」 = acceptance_status.accepted_candidates / rejected_candidates、 absolute gate
+  axis_3_global_reject: 全 candidate を一括 reject = acceptance_status.global_reject_all = true
+  literal_rule: relative preference (= A is better than B) ≠ candidate acceptance (= A is acceptable)、 axis 1 / 2 / 3 は独立、 全 candidate に pairwise preference があっても global reject 可能
+acceptance_status:
+  global_reject_all: true
+  accepted_candidates: []
+  rejected_candidates:
+  - candidate_01
+  - candidate_02
+  - candidate_03
+  - candidate_04
+  - candidate_05
+  - candidate_06
+  - candidate_07
+  - candidate_08
+  notes: '8 candidate 全部 aesthetic_rejected (= 23rd session 越川氏 audition の真意、 π15.5 input interpretation
+    failure 修正で literal 反映)。 preferences.pairs (= 下記 28 件 A/B/tie) は relative ranking only、 採用可否
+    judgment ではない。 ranking と acceptance の混同は input schema 設計の不十分が原因 (= 旧 schema は rejected
+    section 1 つで「明らかに不可」 wording に偏重し、 absolute acceptance gate を独立軸として扱えなかった)。
+    preference model output (= preference-model-report.yaml) は relative distance のみ、 asset acceptance
+    decision には invalid。 next audition flow = 新規 candidate set 2 を生成 + audition v2 protocol (= acceptance
+    gate primary / pairwise relative auxiliary) で実施。'
 candidates:
 - id: candidate_01
   wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_01.wav
@@ -61,152 +53,149 @@ preferences:
     candidates:
     - candidate_01
     - candidate_02
-    preference: null
+    preference: A
   - id: pair_02
     candidates:
     - candidate_01
     - candidate_03
-    preference: null
+    preference: A
   - id: pair_03
     candidates:
     - candidate_01
     - candidate_04
-    preference: null
+    preference: A
   - id: pair_04
     candidates:
     - candidate_01
     - candidate_05
-    preference: null
+    preference: A
   - id: pair_05
     candidates:
     - candidate_01
     - candidate_06
-    preference: null
+    preference: A
   - id: pair_06
     candidates:
     - candidate_01
     - candidate_07
-    preference: null
+    preference: A
   - id: pair_07
     candidates:
     - candidate_01
     - candidate_08
-    preference: null
+    preference: A
   - id: pair_08
     candidates:
     - candidate_02
     - candidate_03
-    preference: null
+    preference: tie
   - id: pair_09
     candidates:
     - candidate_02
     - candidate_04
-    preference: null
+    preference: B
   - id: pair_10
     candidates:
     - candidate_02
     - candidate_05
-    preference: null
+    preference: tie
   - id: pair_11
     candidates:
     - candidate_02
     - candidate_06
-    preference: null
+    preference: tie
   - id: pair_12
     candidates:
     - candidate_02
     - candidate_07
-    preference: null
+    preference: tie
   - id: pair_13
     candidates:
     - candidate_02
     - candidate_08
-    preference: null
+    preference: tie
   - id: pair_14
     candidates:
     - candidate_03
     - candidate_04
-    preference: null
+    preference: tie
   - id: pair_15
     candidates:
     - candidate_03
     - candidate_05
-    preference: null
+    preference: tie
   - id: pair_16
     candidates:
     - candidate_03
     - candidate_06
-    preference: null
+    preference: tie
   - id: pair_17
     candidates:
     - candidate_03
     - candidate_07
-    preference: null
+    preference: A
   - id: pair_18
     candidates:
     - candidate_03
     - candidate_08
-    preference: null
+    preference: tie
   - id: pair_19
     candidates:
     - candidate_04
     - candidate_05
-    preference: null
+    preference: tie
   - id: pair_20
     candidates:
     - candidate_04
     - candidate_06
-    preference: null
+    preference: A
   - id: pair_21
     candidates:
     - candidate_04
     - candidate_07
-    preference: null
+    preference: A
   - id: pair_22
     candidates:
     - candidate_04
     - candidate_08
-    preference: null
+    preference: A
   - id: pair_23
     candidates:
     - candidate_05
     - candidate_06
-    preference: null
+    preference: tie
   - id: pair_24
     candidates:
     - candidate_05
     - candidate_07
-    preference: null
+    preference: tie
   - id: pair_25
     candidates:
     - candidate_05
     - candidate_08
-    preference: null
+    preference: tie
   - id: pair_26
     candidates:
     - candidate_06
     - candidate_07
-    preference: null
+    preference: tie
   - id: pair_27
     candidates:
     - candidate_06
     - candidate_08
-    preference: null
+    preference: tie
   - id: pair_28
     candidates:
     - candidate_07
     - candidate_08
-    preference: null
+    preference: tie
   rejected: []
 methodology_note:
-  shift_from_pi14: π14 = metric correlation (= absolute 1-5 score + Spearman) was
-    metric calibration, not preference learning
+  shift_from_pi14: π14 = metric correlation (= absolute 1-5 score + Spearman) was metric calibration, not preference learning
   pi15_principle: human preference is the primary objective、 feature distance is auxiliary
-  model: logistic pairwise ranking via sklearn LogisticRegression on standardized
-    feature differences
+  model: logistic pairwise ranking via sklearn LogisticRegression on standardized feature differences
   feature_set: scalar features only (= 20 dim、 vector feature 含めず robust = 過学習回避)
-  training_strategy: winner - loser → 1、 mirror → 0、 rejected ID は全 non-rejected より劣ると仮定して
-    pair 追加
+  training_strategy: winner - loser → 1、 mirror → 0、 rejected ID は全 non-rejected より劣ると仮定して pair 追加
 wording_discipline:
 - feature matching alone does not model human aesthetic preference
 - metric correlation is not preference learning
@@ -215,7 +204,7 @@ wording_discipline:
 - optimizer is not final selector; preference model is also not final selector
 - 越川氏 aesthetic gate remains authoritative
 next_step_after_filling:
-  command: python3 scripts/feature_search.py preference-learn docs/design/rhythm-patches/synth/preference-input.yaml
-    --output docs/design/rhythm-patches/synth/preference-model-report.yaml
-  expected_artifact: preference-model-report.yaml = logistic coefficients + per-candidate
-    predicted preference + feature importance + training accuracy
+  command: python3 scripts/feature_search.py preference-learn docs/design/rhythm-patches/synth/preference-input.yaml --output
+    docs/design/rhythm-patches/synth/preference-model-report.yaml
+  expected_artifact: preference-model-report.yaml = logistic coefficients + per-candidate predicted preference + feature importance
+    + training accuracy

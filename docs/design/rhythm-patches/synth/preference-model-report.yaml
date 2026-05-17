@@ -1,0 +1,303 @@
+validity_status:
+  status: invalid_input_interpretation
+  detected_at: '2026-05-17'
+  retention_policy: keep as failure evidence、 do not use for downstream decisions
+  false_claims_to_retract:
+  - '"越川氏 audition と完全一致" は false (= ranking と acceptance の混同が原因)'
+  - '"越川氏 が好む順序" wording は invalid (= preference model output は relative distance only)'
+  - '"candidate_01 強さ 0.9864" を「採用候補として best」 と解釈してはならない'
+  - '"train_accuracy 1.0" は input interpretation failure 下での artifact、 model semantics の validation ではない'
+  root_cause:
+  - こちらの input schema 設計が不十分 = relative ranking と absolute acceptance を別軸として扱う field がなかった
+  - こちらの interpretation 誤り = rejected: [] を「reject 入力 step 未実行」 ではなく「全 candidate accept」 と
+    false 解釈
+  - reject prompt の wording 「BD として明らかに不可」 が absolute acceptance gate を捉え損ねた = 越川氏 が「相対的にマシ」
+    だが「全部 reject」 と判断する余地を schema が表現できなかった
+  true_state:
+  - all 8 candidates = aesthetic_rejected (= 越川氏 audition、 acceptance_status.global_reject_all = true)
+  - no accepted candidate exists yet
+  - preference model output (= ranking_best_first 等) は relative ranking のみ、 acceptance gate ではない
+  - asset acceptance decision はこの report からは取得不可
+  literal_rules_to_internalize:
+  - relative preference (= A is better than B) ≠ candidate acceptance (= A is acceptable)
+  - pairwise ranking is auxiliary to acceptance gate
+  - all candidates can be globally rejected even if pairwise preferences exist
+  - 3 軸独立 = pairwise relative ranking / individual absolute acceptance / global reject all
+  - preference model is not the accepted asset selector / 越川氏 aesthetic gate is authoritative
+  retained_content_note: 下記 metadata / dataset_summary / model_quality / candidate_predicted_preference
+    / feature_importance_top5 / training_pairs / scaler_params / model_coefficients は failure analysis
+    用 evidence として保持。 越川氏 から「relative ranking と absolute acceptance を混同するな」 規律学習の literal
+    教材として残す。 downstream decisions (= optimize objective / asset selection / acceptance gate) に
+    使用してはならない。
+  next_action: π15.5 corrective commit で input schema + script + ADR + memory + investigation doc 修正、
+    次の audition flow は acceptance gate primary + pairwise relative auxiliary の 2 軸 protocol で実施。
+
+metadata:
+  generated_at: '2026-05-17T12:29:12.707359'
+  generator: scripts/feature_search.py preference-learn
+  input: /Users/koshikawamasato/Projects/pmdneo/docs/design/rhythm-patches/synth/preference-input.yaml
+  model_type: logistic_pairwise_ranking
+  sklearn_version: 1.8.0
+  feature_dim: 20
+  regularization_c: 1.0
+dataset_summary:
+  total_candidates: 8
+  candidates_with_features: 8
+  pairwise_preferences_input: 28
+  pairwise_used_for_training: 12
+  ties_skipped: 16
+  rejected_candidates: []
+  reject_implied_pairs_added: 0
+  total_training_samples: 24
+model_quality:
+  train_accuracy: 1.0
+  intercept: -0.0
+  note: train_accuracy >= 0.85 推奨、 < 0.7 だと preference data に矛盾 or 非線形性、 feature 拡張検討
+candidate_predicted_preference:
+  scores:
+    candidate_01: 0.9864
+    candidate_04: 0.8337
+    candidate_03: 0.6033
+    candidate_06: 0.4844
+    candidate_08: 0.3566
+    candidate_05: 0.23
+    candidate_07: 0.1399
+    candidate_02: 0.0666
+  interpretation: 0-1 range、 > 0.5 = neutral より preferred、 < 0.5 = neutral より dispreferred
+  ranking_best_first:
+  - candidate_01
+  - candidate_04
+  - candidate_03
+  - candidate_06
+  - candidate_08
+  - candidate_05
+  - candidate_07
+  - candidate_02
+feature_importance_top5:
+- feature: lufs_integrated
+  coefficient: 0.6228
+  abs_coef: 0.6228
+- feature: rms_amplitude_dbfs
+  coefficient: 0.5858
+  abs_coef: 0.5858
+- feature: peak_amplitude_dbfs
+  coefficient: 0.5463
+  abs_coef: 0.5463
+- feature: decay_1e_ms
+  coefficient: -0.491
+  abs_coef: 0.491
+- feature: spectral_centroid_hz
+  coefficient: -0.4208
+  abs_coef: 0.4208
+feature_importance_note: absolute coefficient value、 standardized space。 +符号 = 値増加で好まれる、
+  -符号 = 値減少で好まれる
+training_pairs:
+- a: candidate_01
+  b: candidate_02
+  result: candidate_01 > candidate_02
+  used_for_training: true
+- a: candidate_01
+  b: candidate_03
+  result: candidate_01 > candidate_03
+  used_for_training: true
+- a: candidate_01
+  b: candidate_04
+  result: candidate_01 > candidate_04
+  used_for_training: true
+- a: candidate_01
+  b: candidate_05
+  result: candidate_01 > candidate_05
+  used_for_training: true
+- a: candidate_01
+  b: candidate_06
+  result: candidate_01 > candidate_06
+  used_for_training: true
+- a: candidate_01
+  b: candidate_07
+  result: candidate_01 > candidate_07
+  used_for_training: true
+- a: candidate_01
+  b: candidate_08
+  result: candidate_01 > candidate_08
+  used_for_training: true
+- a: candidate_02
+  b: candidate_03
+  result: tie
+  used_for_training: false
+- a: candidate_02
+  b: candidate_04
+  result: candidate_04 > candidate_02
+  used_for_training: true
+- a: candidate_02
+  b: candidate_05
+  result: tie
+  used_for_training: false
+- a: candidate_02
+  b: candidate_06
+  result: tie
+  used_for_training: false
+- a: candidate_02
+  b: candidate_07
+  result: tie
+  used_for_training: false
+- a: candidate_02
+  b: candidate_08
+  result: tie
+  used_for_training: false
+- a: candidate_03
+  b: candidate_04
+  result: tie
+  used_for_training: false
+- a: candidate_03
+  b: candidate_05
+  result: tie
+  used_for_training: false
+- a: candidate_03
+  b: candidate_06
+  result: tie
+  used_for_training: false
+- a: candidate_03
+  b: candidate_07
+  result: candidate_03 > candidate_07
+  used_for_training: true
+- a: candidate_03
+  b: candidate_08
+  result: tie
+  used_for_training: false
+- a: candidate_04
+  b: candidate_05
+  result: tie
+  used_for_training: false
+- a: candidate_04
+  b: candidate_06
+  result: candidate_04 > candidate_06
+  used_for_training: true
+- a: candidate_04
+  b: candidate_07
+  result: candidate_04 > candidate_07
+  used_for_training: true
+- a: candidate_04
+  b: candidate_08
+  result: candidate_04 > candidate_08
+  used_for_training: true
+- a: candidate_05
+  b: candidate_06
+  result: tie
+  used_for_training: false
+- a: candidate_05
+  b: candidate_07
+  result: tie
+  used_for_training: false
+- a: candidate_05
+  b: candidate_08
+  result: tie
+  used_for_training: false
+- a: candidate_06
+  b: candidate_07
+  result: tie
+  used_for_training: false
+- a: candidate_06
+  b: candidate_08
+  result: tie
+  used_for_training: false
+- a: candidate_07
+  b: candidate_08
+  result: tie
+  used_for_training: false
+scaler_params:
+  mean:
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  - 0.0
+  scale:
+  - 20.0611
+  - 17.9528
+  - 1.0
+  - 6.9249
+  - 384.3324
+  - 384.3324
+  - 316.1371
+  - 0.9621
+  - 0.6375
+  - 292.1572
+  - 0.0447
+  - 0.1217
+  - 0.1124
+  - 0.0121
+  - 1.0
+  - 0.0447
+  - 0.0808
+  - 0.5417
+  - 0.0808
+  - 19.5098
+  feature_keys:
+  - peak_amplitude_dbfs
+  - rms_amplitude_dbfs
+  - clipping_count
+  - leading_silence_ms
+  - trailing_silence_ms
+  - tail_length_ms
+  - attack_ms
+  - decay_1e_ms
+  - transient_strength
+  - spectral_centroid_hz
+  - spectral_flux_mean
+  - low_band_ratio
+  - mid_band_ratio
+  - high_band_ratio
+  - rough_frequency_hz
+  - onset_strength_mean
+  - onset_strength_std
+  - onset_strength_peak
+  - spectral_flux_std
+  - lufs_integrated
+model_coefficients:
+  peak_amplitude_dbfs: 0.546261
+  rms_amplitude_dbfs: 0.585832
+  clipping_count: 0.0
+  leading_silence_ms: -0.097509
+  trailing_silence_ms: 0.186599
+  tail_length_ms: 0.186599
+  attack_ms: -0.080705
+  decay_1e_ms: -0.491022
+  transient_strength: -0.321793
+  spectral_centroid_hz: -0.420813
+  spectral_flux_mean: 0.361296
+  low_band_ratio: -0.319212
+  mid_band_ratio: 0.36713
+  high_band_ratio: -0.201063
+  rough_frequency_hz: 0.0
+  onset_strength_mean: 0.361296
+  onset_strength_std: 0.386954
+  onset_strength_peak: 0.1944
+  spectral_flux_std: 0.386954
+  lufs_integrated: 0.622805
+wording_discipline_reminder:
+- feature matching alone does not model human aesthetic preference
+- metric correlation is not preference learning
+- human preference is the primary objective
+- feature distance is auxiliary
+- optimizer is not final selector; preference model is also not final selector
+- 越川氏 aesthetic gate remains authoritative
+next_step_options:
+- '1. preference model を optimize objective に統合 (= π17 候補): score = α * feature_distance
+  + β * (1 - predicted_preference)'
+- 2. preference data 拡充 (= さらに pair 追加 / candidate 追加 + 再 train) で model 強化
+- 3. preference 矛盾 detect (= train_accuracy 低い場合) → 越川氏 audition 再検討

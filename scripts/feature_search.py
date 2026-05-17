@@ -83,6 +83,7 @@ EXIT_OK = 0
 EXIT_ARG_ERROR = 64
 EXIT_DATA_ERROR = 65
 EXIT_RUNTIME_ERROR = 66
+EXIT_INVALID_STATE = 67
 
 # Silence threshold (= linear amplitude、 silence 判定基準)
 SILENCE_THRESHOLD = 1e-3  # = -60 dBFS、 sox stat の Maximum amplitude 程度
@@ -546,6 +547,51 @@ def preference_learn_command(args: argparse.Namespace) -> int:
     candidates = input_data.get("candidates", [])
     pairs_in = (input_data.get("preferences") or {}).get("pairs", [])
     rejected_ids = (input_data.get("preferences") or {}).get("rejected", []) or []
+
+    # ====================================================================
+    # acceptance_status gate (= π15.5 corrective、 3 軸独立 protocol)
+    # ====================================================================
+    # relative preference (= A is better than B) ≠ candidate acceptance (= A is acceptable)。
+    # global_reject_all: true なら preference model training を skip、 「relative ranking と
+    # absolute acceptance を混同するな」 規律を script レベルで block。
+    acceptance_status = input_data.get("acceptance_status") or {}
+    global_reject_all = bool(acceptance_status.get("global_reject_all", False))
+    accepted_candidates = acceptance_status.get("accepted_candidates", []) or []
+    rejected_in_acceptance = acceptance_status.get("rejected_candidates", []) or []
+
+    if global_reject_all:
+        invalid_report = {
+            "status": "invalid_no_accepted_candidate",
+            "reason": "acceptance_status.global_reject_all = true、 全 candidate aesthetic_rejected、 preference model training skip",
+            "literal_rules": [
+                "relative preference (= A is better than B) ≠ candidate acceptance (= A is acceptable)",
+                "pairwise ranking is auxiliary to acceptance gate",
+                "all candidates can be globally rejected even if pairwise preferences exist",
+                "preference model is not the accepted asset selector",
+                "越川氏 aesthetic gate is authoritative",
+            ],
+            "input": str(args.input),
+            "accepted_candidates": accepted_candidates,
+            "rejected_candidates": rejected_in_acceptance,
+            "pairwise_preferences_count": len(
+                [p for p in pairs_in if p.get("preference") in ("A", "B", "tie")]
+            ),
+            "next_action": "新規 candidate set 生成 + audition v2 protocol (= acceptance gate primary + pairwise relative auxiliary)",
+        }
+        if hasattr(args, "output") and args.output:
+            import datetime
+            invalid_report["generated_at"] = datetime.datetime.now().isoformat()
+            args.output.write_text(
+                yaml.safe_dump(invalid_report, allow_unicode=True, sort_keys=False, width=120),
+                encoding="utf-8",
+            )
+            print(f"# wrote invalid-state report: {args.output}", file=sys.stderr)
+        print(
+            "INVALID STATE: acceptance_status.global_reject_all = true、 training skip",
+            file=sys.stderr,
+        )
+        print(json.dumps(invalid_report, ensure_ascii=False, indent=2))
+        return EXIT_INVALID_STATE
 
     # Validate preferences are filled
     filled_pairs = [p for p in pairs_in if p.get("preference") in ("A", "B", "tie")]

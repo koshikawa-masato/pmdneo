@@ -1028,6 +1028,70 @@ python3 scripts/feature_search.py preference-learn \
 
 audition-input.yaml は **v1 audition input** retroactive label、 preference-input.yaml が π15 primary。
 
+### 11.9 π15.5 input interpretation failure + corrective commit (= 2026-05-17 23rd session π15.5)
+
+越川氏が `preference-input.yaml` の 28 pair 全部に preference: A/B/tie を fill して `preference-learn` invoke。 Claude Code 側で結果を report したところ、 越川氏指摘で **input interpretation failure** が判明。
+
+#### 11.9.1 Claude Code 側の false claims (= 撤回)
+
+- 「越川氏 audition と完全一致」 = false (= ranking と acceptance の混同)
+- 「越川氏 が好む順序」 wording = invalid (= preference model output は relative distance のみ)
+- 「candidate_01 強さ 0.9864」 を「採用候補として best」 と解釈 = false 推論
+- 「train_accuracy 1.0」 を「preference model semantics の validation」 と扱い = artifact 混同
+
+#### 11.9.2 越川氏 真の audition
+
+- 28 pair の preference: A/B/tie は **relative ranking only** (= 「A は B よりマシ」)
+- 8 candidate **全部 aesthetic_rejected** (= 「BD として採用可能」 と判断したものは 0 件)
+- no accepted candidate yet = next candidate set 生成からやり直し必要
+
+#### 11.9.3 Root cause (= こちらの設計が不十分)
+
+「越川氏の入力が悪かった」 ではなく **こちらの input schema 設計が不十分** が真因:
+
+1. **schema 設計**: relative ranking と absolute acceptance を別軸として扱う field がなかった。 `preferences.rejected: []` 1 つで「明らかに不可」 wording に偏重し、 「相対的にマシだが全部 reject」 を表現する手段がなかった。
+2. **interpretation 誤り**: `rejected: []` を「reject 入力 step を未実行」 ではなく「全 candidate accept」 と false 解釈。 schema が「reject 入力 step を実行したかどうか」 を区別する flag を持っていなかった。
+3. **reject prompt wording**: `audition_pairwise.py` の reject prompt 「BD として明らかに不可」 が absolute acceptance gate を捉え損ねた。 越川氏 が「明らかに」 のハードルが高いと判断して入れる余地がなかった。
+4. **model output 解釈**: preference model output (= predicted preference score) を「越川氏 が好む順序」 と report し、 relative distance を asset acceptance gate と混同。
+
+#### 11.9.4 修正後の 3 軸独立 protocol
+
+- **axis 1 = pairwise relative ranking** (= `preferences.pairs`、 「A is better than B」 のみ)
+- **axis 2 = individual absolute acceptance** (= `acceptance_status.accepted_candidates` / `rejected_candidates`、 各 candidate ごとの 「BD として採用可能か」)
+- **axis 3 = global reject all** (= `acceptance_status.global_reject_all: bool`、 「全 candidate を一括 reject」 flag)
+
+literal rule: `relative preference (= A is better than B) ≠ candidate acceptance (= A is acceptable)`、 axis 1 / 2 / 3 は独立、 全 candidate に pairwise preference があっても global reject 可能。
+
+#### 11.9.5 corrective commit scope (= 7 件修正)
+
+1. `preference-model-report.yaml` に `validity_status` section 上書き (= 削除せず failure analysis evidence で保持)
+2. `preference-input.yaml` に `three_axis_separation` + `acceptance_status` section 新規 + 越川氏 真の audition 反映 (= global_reject_all: true / rejected_candidates: 全 8 件)
+3. `scripts/feature_search.py preference-learn` に `acceptance_status.global_reject_all` gate 追加 = true なら training skip + status invalid_no_accepted_candidate + EXIT_INVALID_STATE (= 67)
+4. `scripts/audition_pairwise.py` reject_prompt → acceptance_prompt rename + 2 段構成 (= 全 reject Y/N + 個別 [A/R/S])
+5. ADR §決定 27 (12) 中核 wording 6 件追加 (= relative ≠ acceptance / pairwise auxiliary / global reject possible / 3 軸独立 / preference model not selector / 越川氏 gate authoritative)
+6. 本 § 11.9 新規 = input interpretation failure literal documentation
+7. memory `feedback_relative_preference_vs_absolute_acceptance.md` 新規 + MEMORY.md index update
+
+#### 11.9.6 wording 規律 (= retraction)
+
+invalid wording (= 今後使わない):
+- 「越川氏 が好む順序」
+- 「越川氏 audition と完全一致」
+- 「ranking best first = 採用候補順」
+- 「predicted preference = 採用可能性」
+
+valid wording:
+- 「pairwise relative ranking 結果」
+- 「relative distance from neutral feature vector」
+- 「越川氏 acceptance gate は別軸 (= acceptance_status)」
+- 「preference model output は asset acceptance に使用してはならない」
+
+#### 11.9.7 next_action
+
+- π15.5 corrective commit + push
+- audition flow 再設計: 新規 candidate set 2 生成 (= 6-8 candidate、 hand-crafted + random + 前回より広範な search) + audition v2 protocol = acceptance gate primary (= axis 2/3) + pairwise relative auxiliary (= axis 1)
+- π16 候補: preference model は accepted candidate が出現するまで保留 (= 「全 reject」 では training 不可能、 axis 1 + axis 2 dataset が揃ったら restart)
+
 ## 12. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
