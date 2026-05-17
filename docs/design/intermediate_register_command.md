@@ -705,3 +705,44 @@ ADR 起票時にこのセクションを根拠として参照する。
 **wording 規律**: docs / ADR / コード注釈で FM3 を「tone structure の分岐」 と表現しない。 「chip mode + operator frequency control」 と統一する。
 
 **根拠 docs section**: §7-4 FM3Mode ChipEvent、 §9-2 FM3 用 tone、 §13 validation rules (IR005)、 §16 Codex 判断 採用 4 件目。 reference doc §3 FM3 拡張モード詳細 (= `0x27` bit 6-7 + `0xA8-0xAE` operator 別 fnum / block)。
+
+### 17-5. 軸 5: ADPCM / rhythm sample / external asset reference (ratified 2026-05-17)
+
+**決定**: IR は sample 実体を持たず、 sample reference のみを持つ。 §10 sample_refs 構造 + §7-5 ADPCMATrigger + §7-6 ADPCMBDma + K/R no-op stub + IR004 / IR008 / IR009 validation を確定する。
+
+**内容**:
+
+- IR は sample 実体を持たない
+- IR は sample reference のみを持つ
+- sample_refs 構造は §10 の設計を維持する
+- ADPCM-A trigger は `ChipEvent: ADPCMATrigger` で表現する
+- ADPCM-B DMA / streaming 系は `ChipEvent: ADPCMBDma` で表現する
+- K/R は現時点では no-op stub / validation warning 扱いを維持する
+- `IR004` / `IR008` / `IR009` validation を維持する
+
+**sample_refs 基本構造** (= §10 のまま確定):
+
+- `sampleRef` (uint16, IR 内 id)
+- `kind` (enum: `adpcm_a`, `adpcm_b`)
+- `packFile` (string?: 例 `NEOSI001.PNE`)
+- `slot` (uint8?: ADPCM-A slot)
+- `name` (string?: `bd`, `sd` 等)
+- `sourceUri` (string?: converter 入力追跡)
+
+**scope-out / future decision**:
+
+- ADPCM-B を `.PNE` に統合するか、 別 format にするかは §15-5 のまま別 decision (= ADPCM-B 実装段階で判断)
+- K/R rhythm を ADPCM-A 6ch trigger に lower するかは別 decision (= Step 12-17 path 流用候補だが本軸では未確定)
+- license / provenance の詳細構造化は IR ではなく `.PNE` / `.NEO` 側で扱う
+- ADR-0033 の sample provenance 詳細を IR に直接持ち込まない
+
+**wording 規律**: IR の sample_refs は「参照解決のための lightweight handle」 であり、 asset provenance の source-of-truth ではない。 docs / ADR / コード注釈で sample_refs を asset 管理の master record として表現しない。
+
+**理由**:
+
+- IR は compiler / WebApp intermediate であり、 asset container ではない
+- sample 実体や provenance を IR に持たせると責務が膨らむ
+- `.PNE` / `.NEO` 側で asset 実体と provenance を扱う方が自然
+- ADPCM-B と K/R lowering は実装段階で別途判断する方が安全
+
+**根拠 docs section**: §3-2 target_profile、 §4-1 channel kind、 §7-5 ADPCMATrigger、 §7-6 ADPCMBDma、 §10 sample_refs、 §13 validation (IR004 / IR008 / IR009)、 §14-1 lowering 方針、 §14-2 IR → `.PNE`、 §16 Codex 判断 採用 5 件目 + 要検討 ADPCM-B asset 管理。 §15 未決定事項 5 件目 (= ADPCM-B 統合 vs 別 format) は別軸として温存。
