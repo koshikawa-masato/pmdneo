@@ -361,3 +361,136 @@ _fxp_patch_single_parameter(
 candidate に進むか」 を越川氏 別 directive で判断する materials を repo に固定する。 本
 commit は **plan doc + ADR entry のみ**、 実 verify / artifact 投入は越川氏別 directive
 起点。
+
+## 9. Plan A/B/C scratch verify result (= π15.13)
+
+§ 1〜8 で literal 固定した Plan A/B/C を v2 baseline から scratch verify した結果を
+本 section に追記固定する。 generated artifact (= scratch .fxp / rendered wav /
+analysis-drum 出力) は `/private/tmp` ephemeral retain、 **repo 投入しない** (= 越川氏
+directive literal)。
+
+### 9.1 verify identity
+
+| plan | wav sha256 | classify | confidence |
+|---|---|---|---|
+| **Plan A** | `ab90e1920848226a...` | BD | 0.774 |
+| **Plan B** | `c63a10cc0b0ec9c7...` | BD | 0.834 |
+| **Plan C** | `1b7d1d95776d6b42...` | BD | 0.829 |
+
+Plan A の wav sha256 は Phase 2 trial 1 と **完全一致** = deterministic round-trip
+literal verified ✓。
+
+### 9.2 feature literal comparison (= target / v2 baseline / Plan A / B / C)
+
+| feature | target | v2 base | Plan A | Plan B | Plan C |
+|---|---|---|---|---|---|
+| tail_length_ms | 0.0 | 168.6 | **0.0** | **0.0** | **0.0** |
+| rough_body_frequency_hz | 45.2 | 64.6 | 64.6 | **43.1** | **43.1** |
+| attack_ms | 9.4 | 10.5 | 10.5 | 19.6 | 18.7 |
+| decay_1e_ms | 1.8 | 3.1 | 3.1 | 6.3 | 5.9 |
+| transient_strength | 3.10 | 1.70 | 1.70 | 1.66 | 1.64 |
+| pitch_contour_confidence | 0.285 | 0.579 | 0.665 | 0.957 | 0.938 |
+| band sub | 0.800 | 0.813 | 0.814 | **0.9995** | **0.9995** |
+| band low | 0.199 | 0.187 | 0.186 | **0.0005** | **0.0005** |
+
+### 9.3 per-plan summary
+
+#### Plan A: a_env1_release +3 (= clean isolated)
+
+- **tail 168.6 → 0.0** (= target match literal、 完全解消)
+- band / body_freq / attack / decay / transient ほぼ v2 baseline 維持
+- pitch_contour_confidence +0.086 (= 微小副次、 audible 影響ほぼなし想定)
+- target との literal gap retention: body_freq +19.4 / transient -1.40 / decay +1.22
+- 副作用の少ない確実な改善 = **clean isolated plan**
+
+#### Plan B: + a_osc1_octave -1 (= body match だが band 破壊)
+
+- body_freq 64.6 → 43.1 (= target match、 |gap| 2.1)
+- **band sub 0.813 → 0.9995** (= target 0.800 から大乖離)
+- **band low 0.187 → 0.0005** (= target 0.199 から大乖離、 殆ど消失)
+- attack 10.5 → 19.6 ms (= +10.2 ms 延長)
+- decay 3.1 → 6.3 ms (= 約 2 倍延長)
+- transient 改善なし
+- **band balance broken** = trade-off 大
+
+#### Plan C: + a_osc1_pitch +1 (= band 補正仮説 failed)
+
+- Plan B の band 軸結果と **完全同一** = sub 0.9995 / low 0.0005
+- a_osc1_pitch +1 の単独 effect (= Phase 2.5: sub -0.109 / low +0.109) が **cumulative
+  で消失**
+- 期待値 (= 単純 sum): sub ~0.891 / low ~0.109
+- 実際値: sub 0.9995 / low 0.0005
+- 微小差分: attack -0.93 ms / transient -0.02 / pitch_conf -0.019 (= a_osc1_pitch +1 の
+  attack / pitch_conf effect は部分残存)
+- **band compensation hypothesis is failed** = Plan B の band 破壊を補正できない
+
+### 9.4 Important finding (= literal 規律、 越川氏 directive)
+
+#### Finding 1: cumulative parameter interaction is nonlinear
+
+isolated sensitivity sweep で得た per-axis effect を **線形に足し合わせても cumulative
+patch の literal feature value にならない**。 Plan C で literal 反証された。
+
+#### Finding 2: single-axis sensitivity cannot be linearly summed
+
+期待:
+- a_osc1_octave -1 → band sub +0.187
+- a_osc1_pitch +1 → band sub -0.109
+- 単純 sum 仮説: 0.813 + 0.187 - 0.109 = ~0.891
+
+実際 (= Plan C):
+- 0.9995 (= Plan B と同じ saturation 状態)
+
+→ **single-axis 効果の線形重ね合わせは cumulative state に成り立たない**。
+
+#### Finding 3: octave -1 causes band saturation
+
+a_osc1_octave -1 が band sub を 0.9995 まで押し上げ、 **limit 値 (= ~1.0) に saturate**。
+saturate 状態では additional shift (= 反対方向 shift も) が clamp で吸収される。
+
+#### Finding 4: pitch +1 cannot recover low band after saturation
+
+a_osc1_pitch +1 の本来の band shift effect (= sub -0.109 / low +0.109) は、 octave -1 で
+saturation が発生した後では **band 軸で消失**。 但し非 band 軸 (= attack / pitch_conf)
+には部分 effect 残存。
+
+これは sensitivity findings の **線形累積仮定** が cumulative patch では破綻する literal
+evidence。 future cumulative authoring では「saturation 軸の identify」 が必要。
+
+### 9.5 Plan ranking (= literal、 越川氏 directive wording)
+
+| plan | status | reason |
+|---|---|---|
+| **Plan A** | **leading verification plan** | 副作用の少ない確実な改善 (= tail clean 解消) |
+| Plan B | not promoted | band balance broken (= sub 0.9995 / low 0.0005、 target から大乖離) |
+| Plan C | not promoted | band compensation hypothesis failed (= Plan B と band 同一、 補正効果消失) |
+
+**重要 wording 規律** (= 越川氏 directive literal):
+- ✓ "leading verification plan" = Plan A の現状記述
+- ✗ "best plan" = 禁止 (= 越川氏 audition gate 通過前の wording)
+- ✗ "accepted plan" = 禁止 (= aesthetic acceptance gate 通過前の wording)
+
+Plan A は **leading verification plan** = 現時点で最も副作用少ない verification candidate
+であり、 aesthetic candidate ではない、 best / accepted ではない。
+
+### 9.6 next decision (= 越川氏別 directive 起点)
+
+- Plan A may be promoted to aesthetic candidate **only by separate 越川氏 directive**
+- no generated artifact is committed yet (= scratch .fxp / wav / analysis-drum 出力は
+  `/private/tmp` ephemeral retain、 repo 投入しない)
+- human audition remains final gate (= §決定 27 (12) ν 規律維持)
+- Plan A 昇格時の選択肢:
+  - new patch-spec.yaml = `2608_bd-candidate-A.patch-spec.yaml` 等で aesthetic candidate
+    label 化
+  - acceptance.aesthetic_acceptance = `pending` (= 越川氏 audition 待ち)
+  - 越川氏 audition → accept / reject の literal record
+
+### 9.7 scope-out (= 越川氏 directive literal、 § 9 追記範囲)
+
+- aesthetic candidate 昇格しない (= 本 § 9 は finding doc 化のみ)
+- generated artifact repo 投入なし
+- accept / reject 判定なし
+- best candidate 選別なし
+- optimizer / preference-learning なし
+- 別 plan combination 探索なし (= 本 § は 3 plan literal record のみ)
+- human audition まだ行わない
