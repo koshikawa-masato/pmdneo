@@ -494,3 +494,87 @@ Plan A は **leading verification plan** = 現時点で最も副作用少ない 
 - optimizer / preference-learning なし
 - 別 plan combination 探索なし (= 本 § は 3 plan literal record のみ)
 - human audition まだ行わない
+
+## 10. Plan A scratch audition failure (= π15.14)
+
+§ 9 で Plan A = leading verification plan に認定後、 π15.14 で Plan A を初の aesthetic
+candidate phase artifact として 4 件 (= .fxp / .wav / patch-spec / analysis-summary) を
+scratch 生成し、 越川氏 audition を試みた。 **越川氏 audition で「音として認識できない」
+と reject されたため、 4 件は repo 投入せず `/private/tmp/pmdneo-plan-a-rejected/` に
+退避** (= future evidence retain、 削除ではない)。
+
+### 10.1 audition finding (= literal)
+
+- **Plan A scratch artifact was generated but not committed**
+- **human audition result**: 越川氏「音として認識できない」
+- **root cause**: level too low
+  - target peak_dbfs: about **-3 dBFS**
+  - v2 baseline / Plan A peak_dbfs: about **-25 dBFS**
+  - gap: about **22 dB**
+- Plan A tail feature was good (= tail 168.6 → 0.0 完全 target match)、 **but audible-level
+  gate failed**
+- feature similarity / sensitivity success **does not imply audition-ready level**
+- diagnostic baseline **did not guarantee audible amplitude**
+
+### 10.2 level metrics literal
+
+| metric | target | v2 baseline | Plan A | gap (Plan A vs target) |
+|---|---|---|---|---|
+| peak_dbfs | **-3.00** | -25.00 | **-25.00** | **-22.00 dB** |
+| rms_dbfs | -15.06 | -34.55 | -34.32 | **-19.26 dB** |
+| clipping_count | 0 | 0 | 0 | OK |
+
+v2 baseline 自体が既に **peak -25 dBFS** = audible threshold 不足 state。 Plan A は
+`a_env1_release +3` のみ修正、 gain 軸触れず baseline level をそのまま継承。
+
+### 10.3 rejected artifact retention
+
+| artifact | original path | retention path |
+|---|---|---|
+| .fxp | `assets/drum_samples/synth/patches/2608_bd-plan-a.fxp` | `/private/tmp/pmdneo-plan-a-rejected/` |
+| .wav | `assets/drum_samples/synth/2608_bd-plan-a.wav` | 同上 |
+| patch-spec.yaml | `docs/design/rhythm-patches/synth/2608_bd-plan-a.patch-spec.yaml` | 同上 |
+| analysis-summary.yaml | `docs/design/rhythm-patches/synth/2608_bd-plan-a.analysis-summary.yaml` | 同上 |
+
+repo 投入なし、 越川氏 directive 「未追跡のまま削除、 または /private/tmp に退避」 通り
+ephemeral retain。
+
+### 10.4 important wording (= 越川氏 directive literal)
+
+- **Plan A is not promoted** (= leading verification plan のまま、 aesthetic candidate
+  昇格は撤回)
+- **Plan A scratch audition failed due to inaudible level**
+- **next task is audible-level structural dependency investigation**
+- this is a **pre-audition engineering gate**, not aesthetic acceptance
+- **normalize による解決はしない** = render 後処理ではなく、 `.fxp` 側の gain / mixer 構造
+  として解く
+
+### 10.5 root cause classification (= literal)
+
+これは新カテゴリの finding:
+
+| category | π15.x reference | 例 |
+|---|---|---|
+| unit conversion 問題 | π15.8 (v0.1.0) | a_env1_decay 280ms → log2 変換 |
+| structural routing 問題 | π15.9 (v0.2.0) | a_env2 → filter envmod chain |
+| **audible-level structural problem** | **π15.14 (本 §)** | **v2 baseline peak -25 dBFS** |
+| synth architecture 選択問題 | π15.11 (BD_TRANSIENT_LEVER_DESIGN) | waveshaper / noise / OSC param |
+
+「audible-level structural problem」 は **synth architecture 選択ではなく structural
+dependency 延長** = 「音が出る base state」 の前提条件。 sensitivity 軸 (= feature delta
+observation) と audible level 軸 (= 越川氏 audition gate) は別軸であり、 6/6 active 化が
+audition 可能性を意味しない literal proof。
+
+### 10.6 next step (= 越川氏別 directive、 本 commit scope-out)
+
+audible-level structural dependency 調査:
+- 対象候補 = a_volume / a_level_o1 / mixer / scene gain 系 allowlist parameter
+- v2 baseline 基準で isolated gain sweep
+- target peak_dbfs -6〜-3 dBFS 目安
+- no normalize
+- gain → peak / RMS / clipping への影響
+- clipping_count == 0 維持
+- generated artifacts は /private/tmp のみ
+- これは pre-audition engineering gate、 越川氏 audition gate ではない
+
+本 § 10 は **doc-only record**、 audible-level investigation 実 sweep は本 commit scope-out。

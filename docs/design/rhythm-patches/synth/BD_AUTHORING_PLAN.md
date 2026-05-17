@@ -247,6 +247,53 @@ phase 2 で 1 軸ずつ trial。
 [[metric-pass-is-not-aesthetic-pass]] / [[preference-learning-beats-metric-correlation]]
 規律維持。
 
+### 6.4 audible-level pre-audition gate (= π15.14 追加)
+
+aesthetic candidate phase に進む前に、 **audible-level engineering gate** を通す必要が
+ある:
+
+- baseline render の **peak_dbfs** が **-6 〜 -3 dBFS** 範囲に収まること
+- **clipping_count == 0** 維持
+- rms_dbfs が target wav の rms_dbfs ± 6 dB 範囲に収まること
+
+これは π15.14 で Plan A audition が **「音として認識できない」** と reject された literal
+evidence (= v2 baseline / Plan A peak -25 dBFS / target -3 dBFS、 gap 22 dB) を踏まえて
+追加した規律。
+
+#### 6.4.1 audible-level gate は越川氏 audition gate と別軸
+
+- audible-level gate = **engineering pre-condition** (= 音が聞こえる前提)
+- 越川氏 audition gate = **aesthetic acceptance** (= BD として良いか判断)
+- audible-level gate を通過しないと audition gate に到達できない = 「音として認識できない」
+  と aesthetic 判断不能
+
+#### 6.4.2 normalize による解決 禁止
+
+audible-level の解決方法として、 **render 後処理 (= normalize)** で peak amplitude を
+調整することは **禁止**。 audible amplitude は `.fxp` 側の **gain / mixer 構造** として
+解くべき (= source-of-truth 規律維持)。
+
+- 候補: `a_volume` / `a_level_o1` / mixer / scene gain 系 allowlist parameter
+- 各軸の isolated gain sweep で peak / RMS / clipping への literal effect 観察
+- target peak_dbfs ~ -3 dBFS を達成する gain setup を baseline structural dependency に
+  追加 (= v2.1 audible-level extension 候補 or 別 baseline chain)
+
+#### 6.4.3 phase 3 entry 条件 update (= π15.14 補正)
+
+phase 3 aesthetic candidate phase に進む前に **必要な gate**:
+
+```text
+1. v2 diagnostic baseline 上の feature gap が advisory advisory 確認済
+2. 1 parameter 修正の sensitivity findings 蓄積済
+3. authoring candidate plan literal 固定済 (= BD_MINIMAL_AUTHORING_CANDIDATE_PLAN.md)
+4. ★ audible-level engineering gate clear ★ (= π15.14 新規追加)
+5. scratch candidate generation
+6. 越川氏 audition gate (= aesthetic acceptance、 final gate)
+```
+
+gate 4 が clear しないまま gate 5 / 6 に進むと、 「音として認識できない」 で audition
+gate が機械的 reject される (= π15.14 で literal experienced)。
+
 ## 7. 関連 ADR / doc
 
 - `docs/adr/0033-pmdneo-rhythm-sample-provenance-and-self-authored-migration-policy.md`
