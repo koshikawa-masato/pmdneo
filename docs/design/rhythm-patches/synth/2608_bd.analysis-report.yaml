@@ -1,0 +1,102 @@
+metadata:
+  generated_at: '2026-05-17T09:05:27.114633'
+  generator: scripts/feature_search.py validate
+  input_wav: /Users/koshikawamasato/Projects/surge-spike/test-assets/2608_bd.optimized.wav
+  drum_type: BD
+  rules_file: docs/design/rhythm-patches/synth/feature-rules.yaml
+  rules_version: 0.1.0
+features:
+  waveform_sanity:
+    total_samples: 44100
+    sample_rate: 44100
+    duration_sec: 1.0
+    channels: 1
+  peak_amplitude_linear: 0.16748
+  peak_amplitude_dbfs: -15.521
+  rms_amplitude_linear: 0.024392
+  rms_amplitude_dbfs: -32.255
+  clipping_count: 0
+  leading_silence_ms: 0.249
+  trailing_silence_ms: 693.719
+  attack_ms: 10.998
+  decay_1e_ms: 1.95
+  transient_strength: 2.094
+  spectral_centroid_hz: 215.55
+  spectral_flux_mean: 0.0396
+  low_band_ratio: 0.9021
+  mid_band_ratio: 0.0908
+  high_band_ratio: 0.0071
+  rough_frequency_hz: 0.0
+  tail_length_ms: 693.719
+rule_evaluation:
+- feature: attack_ms
+  criterion: value < 20
+  actual: 10.998
+  passed: true
+  severity: critical
+  failure_category: null
+  rationale: BD の attack は非常に短い (= 1-15 ms 想定)、 20 ms 超過は envelope broken = π11 strong
+    discriminator
+- feature: peak_amplitude_dbfs
+  criterion: -6 <= value <= -3
+  actual: -15.521
+  passed: false
+  severity: warning
+  failure_category: volume_mismatch_peak
+  rationale: §決定 26 (4) peak target -6 〜 -3 dBFS、 外れは patch envelope / drive 設定の indicator
+- feature: low_band_ratio
+  criterion: 0.5 <= value <= 0.95
+  actual: 0.9021
+  passed: true
+  severity: critical
+  failure_category: null
+  rationale: BD は低域 (<500 Hz) 主体だが、 0.95 超過は pure sine (= 高調波 / transient 不在) で BD
+    らしさ不足 = π11 upper bound 追加で 2608_bd 0.987 pure sine を detect
+- feature: decay_1e_ms
+  criterion: 0.5 <= value <= 500
+  actual: 1.95
+  passed: true
+  severity: warning
+  failure_category: null
+  rationale: BD の decay 1/e (= peak から 1/e まで) は drum type で大幅変動 (= Kick 909ish transient-heavy
+    1.07 ms / typical body-heavy 280 ms)、 range 0.5-500 ms に緩和 + severity 下げ = π11
+    calibration、 真の sustain 化 detect は trailing_silence_ms rule で担保
+- feature: clipping_count
+  criterion: value == 0
+  actual: 0
+  passed: true
+  severity: critical
+  failure_category: null
+  rationale: §決定 26 (4) clipping 禁止 literal
+- feature: spectral_centroid_hz
+  criterion: value < 500
+  actual: 215.55
+  passed: true
+  severity: warning
+  failure_category: null
+  rationale: 'BD の spectral centroid は低い (= Kick 909ish: 159 Hz)、 500 Hz 超過は BD らしさ不足'
+- feature: transient_strength
+  criterion: value > 2.0
+  actual: 2.094
+  passed: true
+  severity: warning
+  failure_category: null
+  rationale: BD は明瞭な transient (= peak/RMS > 2)、 弱いと punch 感不足
+- feature: trailing_silence_ms
+  criterion: value > 300
+  actual: 693.719
+  passed: true
+  severity: critical
+  failure_category: null
+  rationale: BD は短い (= 800 ms note + 200 ms tail) 想定、 trailing silence 300 ms 以上必須
+    = 音が早く decay 終了している = BD らしさ。 0 ms 近辺は sustain 化 (= decay 効かず 1 sec 鳴り続け) = engineering
+    FAIL の root cause、 π7 越川氏 audition で実証
+summary:
+  total_rules: 8
+  passed: 7
+  critical_fails: 0
+  warning_fails: 1
+  overall_status: engineering_pass
+  failure_categories:
+  - volume_mismatch_peak
+

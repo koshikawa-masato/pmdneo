@@ -479,6 +479,388 @@ def validate_command(args: argparse.Namespace) -> int:
     return EXIT_OK if overall_status == "engineering_pass" else 67  # = 67 = engineering_fail
 
 
+def _load_baseline_from_fxp(fxp_path: Path) -> dict:
+    """Load all parameter element values from baseline .fxp (= Kick 909ish reference 想定)."""
+    import struct
+    import xml.etree.ElementTree as ET
+    data = fxp_path.read_bytes()
+    chunk = data[60 : 60 + struct.unpack(">I", data[56:60])[0]]
+    xml_start = chunk.find(b"<?xml")
+    xml_end = chunk.find(b"</patch>") + len(b"</patch>")
+    root = ET.fromstring(chunk[xml_start:xml_end])
+    params = root.find("parameters")
+    return {p.tag: p.get("value") for p in params}
+
+
+def _build_override_args(overrides: dict) -> list[str]:
+    """Build --override KEY=VALUE flag list for subprocess invoke."""
+    args = []
+    for k, v in overrides.items():
+        args.extend(["--override", f"{k}={v}"])
+    return args
+
+
+def _compute_distance_score(candidate_features: dict, target_features: dict, weights: dict) -> float:
+    """Weighted L2 relative distance (= matches compute_distance logic、 但し dict-based)."""
+    weighted_sq = 0.0
+    weight_sum = 0.0
+    for key, w in weights.items():
+        a = target_features.get(key)
+        b = candidate_features.get(key)
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            continue
+        if a == float("-inf") or b == float("-inf"):
+            continue
+        denom = max(abs(a), 1.0)
+        rel = (a - b) / denom
+        weighted_sq += w * rel ** 2
+        weight_sum += w
+    if weight_sum <= 0:
+        return float("inf")
+    return math.sqrt(weighted_sq / weight_sum)
+
+
+def optimize_command(args: argparse.Namespace) -> int:
+    """
+    π12 black-box optimization closed loop = scipy.optimize.differential_evolution + bridge + render + score.
+
+    LLM is NOT the selector; optimizer is the selector. fixed seed + trial history + engineering gate before human audition.
+    """
+    import datetime
+    import hashlib
+    import os
+    import subprocess
+    import tempfile
+    import yaml
+    from scipy.optimize import differential_evolution
+    import numpy as np
+
+    # ---- 1. Validate inputs ----
+    for p, label in [
+        (args.template, "template"),
+        (args.allowlist, "allowlist"),
+        (args.rules, "rules"),
+        (args.target_wav, "target_wav"),
+        (args.baseline_fxp, "baseline_fxp"),
+        (args.fxp2wav_bin, "fxp2wav_bin"),
+    ]:
+        if not Path(p).expanduser().exists():
+            print(f"error: {label} file not found: {p}", file=sys.stderr)
+            return EXIT_ARG_ERROR
+
+    template = Path(args.template).expanduser()
+    allowlist = Path(args.allowlist).expanduser()
+    rules_path = Path(args.rules).expanduser()
+    target_wav = Path(args.target_wav).expanduser()
+    baseline_fxp = Path(args.baseline_fxp).expanduser()
+    fxp2wav_bin = Path(args.fxp2wav_bin).expanduser()
+    output_fxp = Path(args.output_fxp).expanduser()
+    output_wav = Path(args.output_wav).expanduser()
+    output_report = Path(args.output_report).expanduser()
+    output_analysis_report = Path(args.output_analysis_report).expanduser()
+
+    # ---- 2. Load rules + search space + weights ----
+    rules = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
+    drum_rules = (rules.get("drum_rules") or {}).get(args.drum_type)
+    if drum_rules is None:
+        print(f"error: drum_type {args.drum_type!r} not in rules", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    search_space = drum_rules.get("search_space")
+    if not search_space:
+        print(f"error: search_space not defined for drum_type {args.drum_type!r}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    weights = drum_rules.get("distance_weights", {})
+
+    # ---- 3. Load baseline (= Kick 909ish reference) + restrict to allowlist + search space exclude ----
+    allowlist_data = yaml.safe_load(allowlist.read_text(encoding="utf-8"))
+    allowed_names = {p["xml_element_name"] for p in allowlist_data.get("allowed_parameters", []) or []}
+
+    baseline_full = _load_baseline_from_fxp(baseline_fxp)
+    # Only keep baseline values that are in allowlist + NOT in search space (= fixed baseline = enum / routing)
+    search_keys = list(search_space.keys())
+    fixed_baseline = {k: v for k, v in baseline_full.items() if k in allowed_names and k not in search_keys}
+
+    print(f"# search_space: {len(search_keys)} continuous parameters", file=sys.stderr)
+    print(f"# fixed_baseline (= Kick 909ish enum/routing): {len(fixed_baseline)} elements", file=sys.stderr)
+
+    # ---- 4. Extract target features (= reference) ----
+    print(f"# extracting target features from {target_wav}", file=sys.stderr)
+    target_features = extract_features(target_wav)
+
+    # ---- 5. Workdir for transient .fxp / .wav per trial ----
+    workdir = Path(tempfile.mkdtemp(prefix="pmdneo-opt-"))
+    print(f"# workdir: {workdir}", file=sys.stderr)
+
+    trial_history: list[dict] = []
+    best_state = {"score": float("inf"), "params": None, "features": None, "fxp_bytes": None, "wav_bytes": None}
+
+    def objective(x: "np.ndarray") -> float:
+        trial_num = len(trial_history)
+        # Build overrides
+        overrides = dict(fixed_baseline)
+        for key, value in zip(search_keys, x):
+            overrides[key] = f"{value:.6f}"
+        # Bridge invoke
+        candidate_fxp = workdir / f"trial_{trial_num:04d}.fxp"
+        candidate_wav = workdir / f"trial_{trial_num:04d}.wav"
+        try:
+            bridge_cmd = [
+                sys.executable, "scripts/fxp_template_patch.py", "patch",
+                "--template", str(template),
+                "--allowlist", str(allowlist),
+                "--output", str(candidate_fxp),
+            ] + _build_override_args(overrides)
+            subprocess.run(bridge_cmd, check=True, capture_output=True, text=True)
+            # Render
+            render_env = dict(os.environ)
+            render_env["SURGE_RNG_SEED"] = str(args.seed)
+            render_cmd = [
+                str(fxp2wav_bin),
+                "--patch", str(candidate_fxp),
+                "--out", str(candidate_wav),
+                "--note", "36",
+                "--velocity", "127",
+                "--duration-ms", "800",
+            ]
+            subprocess.run(render_cmd, check=True, capture_output=True, text=True, env=render_env)
+            # Feature extract + score
+            candidate_features = extract_features(candidate_wav)
+            score = _compute_distance_score(candidate_features, target_features, weights)
+        except subprocess.CalledProcessError as exc:
+            print(f"# trial {trial_num}: subprocess FAIL = {exc}", file=sys.stderr)
+            score = 1e6  # = high penalty
+            candidate_features = None
+        except Exception as exc:
+            print(f"# trial {trial_num}: unexpected FAIL = {exc}", file=sys.stderr)
+            score = 1e6
+            candidate_features = None
+
+        trial_history.append({
+            "trial_num": trial_num,
+            "params": {k: float(v) for k, v in zip(search_keys, x.tolist())},
+            "score": float(score),
+            "features": candidate_features,
+        })
+
+        # Update best
+        if score < best_state["score"]:
+            best_state["score"] = float(score)
+            best_state["params"] = {k: float(v) for k, v in zip(search_keys, x.tolist())}
+            best_state["features"] = candidate_features
+            if candidate_fxp.exists():
+                best_state["fxp_bytes"] = candidate_fxp.read_bytes()
+            if candidate_wav.exists():
+                best_state["wav_bytes"] = candidate_wav.read_bytes()
+            print(f"# trial {trial_num}: NEW BEST score={score:.4f}", file=sys.stderr)
+        else:
+            if trial_num % 10 == 0:
+                print(f"# trial {trial_num}: score={score:.4f} (best={best_state['score']:.4f})", file=sys.stderr)
+
+        return score
+
+    # ---- 6. Run optimizer ----
+    bounds = [(search_space[k]["min"], search_space[k]["max"]) for k in search_keys]
+    print(f"# starting differential_evolution: maxiter={args.max_iter}, popsize={args.popsize}, seed={args.seed}", file=sys.stderr)
+    start_ts = datetime.datetime.now()
+    try:
+        result = differential_evolution(
+            objective,
+            bounds=bounds,
+            seed=args.seed,
+            maxiter=args.max_iter,
+            popsize=args.popsize,
+            tol=0.01,
+            workers=1,
+            polish=False,  # = skip local refinement to keep deterministic + fast
+            init="sobol",
+        )
+    except Exception as exc:
+        print(f"# optimizer failed: {exc}", file=sys.stderr)
+        return EXIT_RUNTIME_ERROR
+    end_ts = datetime.datetime.now()
+
+    duration_sec = (end_ts - start_ts).total_seconds()
+    total_trials = len(trial_history)
+    print(f"# optimization complete: {total_trials} trials in {duration_sec:.1f} sec", file=sys.stderr)
+    print(f"# best score: {best_state['score']:.4f}", file=sys.stderr)
+
+    # ---- 7. Write best candidate .fxp + .wav ----
+    if best_state["fxp_bytes"]:
+        output_fxp.parent.mkdir(parents=True, exist_ok=True)
+        output_fxp.write_bytes(best_state["fxp_bytes"])
+        print(f"# wrote best fxp: {output_fxp}", file=sys.stderr)
+    if best_state["wav_bytes"]:
+        output_wav.parent.mkdir(parents=True, exist_ok=True)
+        output_wav.write_bytes(best_state["wav_bytes"])
+        print(f"# wrote best wav: {output_wav}", file=sys.stderr)
+
+    # ---- 8. Engineering gate via validate ----
+    engineering_pass = False
+    failure_categories = []
+    if output_wav.exists():
+        # Run validate via subprocess (= same script, validate subcommand)
+        validate_cmd = [
+            sys.executable, "scripts/feature_search.py", "validate",
+            str(output_wav),
+            "--rules", str(rules_path),
+            "--drum-type", args.drum_type,
+            "--format", "yaml",
+        ]
+        try:
+            validate_proc = subprocess.run(validate_cmd, capture_output=True, text=True)
+            output_analysis_report.parent.mkdir(parents=True, exist_ok=True)
+            output_analysis_report.write_text(validate_proc.stdout, encoding="utf-8")
+            analysis_data = yaml.safe_load(validate_proc.stdout)
+            engineering_pass = analysis_data["summary"]["overall_status"] == "engineering_pass"
+            failure_categories = analysis_data["summary"]["failure_categories"]
+            print(f"# engineering gate: {analysis_data['summary']['overall_status']}", file=sys.stderr)
+        except Exception as exc:
+            print(f"# validate failed: {exc}", file=sys.stderr)
+
+    # ---- 9. Distance threshold check ----
+    distance_pass = best_state["score"] <= args.threshold
+    overall_engineering_pass = engineering_pass and distance_pass
+
+    # ---- 10. Generate optimization-report.yaml ----
+    # Compute hashes
+    def _sha256_of(p: Path) -> str:
+        return hashlib.sha256(p.read_bytes()).hexdigest()
+
+    # Top 5 candidates by score
+    sorted_trials = sorted(trial_history, key=lambda t: t["score"])[:5]
+    top5 = [
+        {
+            "trial_num": t["trial_num"],
+            "score": t["score"],
+            "params": t["params"],
+        }
+        for t in sorted_trials
+    ]
+
+    # Failure reason histogram (= per-trial validate would be too slow; instead use score-based bucketing)
+    score_buckets = {"score<5": 0, "5<=score<20": 0, "20<=score<100": 0, "score>=100": 0}
+    for t in trial_history:
+        s = t["score"]
+        if s < 5: score_buckets["score<5"] += 1
+        elif s < 20: score_buckets["5<=score<20"] += 1
+        elif s < 100: score_buckets["20<=score<100"] += 1
+        else: score_buckets["score>=100"] += 1
+
+    report = {
+        "metadata": {
+            "generated_at": end_ts.isoformat(),
+            "generator": "scripts/feature_search.py optimize",
+            "duration_sec": round(duration_sec, 2),
+            "drum_type": args.drum_type,
+            "rules_file": str(rules_path),
+            "rules_version": rules.get("rules_version", "?"),
+        },
+        "optimizer": {
+            "name": "scipy.optimize.differential_evolution",
+            "scipy_version": __import__("scipy").__version__,
+            "random_seed": args.seed,
+            "max_iter": args.max_iter,
+            "popsize": args.popsize,
+            "init": "sobol",
+            "polish": False,
+            "tolerance": 0.01,
+            "workers": 1,
+        },
+        "search_space": {
+            k: {
+                "min": float(search_space[k]["min"]),
+                "max": float(search_space[k]["max"]),
+                "baseline": float(search_space[k]["baseline"]),
+                "scale": search_space[k].get("scale", "unknown"),
+            }
+            for k in search_keys
+        },
+        "fixed_baseline": fixed_baseline,
+        "fixed_baseline_count": len(fixed_baseline),
+        "inputs": {
+            "target_wav": str(target_wav),
+            "target_wav_sha256": _sha256_of(target_wav),
+            "template_fxp": str(template),
+            "template_fxp_sha256": _sha256_of(template),
+            "baseline_fxp": str(baseline_fxp),
+            "baseline_fxp_sha256": _sha256_of(baseline_fxp),
+            "allowlist": str(allowlist),
+            "allowlist_version": allowlist_data.get("allowlist_version", "?"),
+            "fxp2wav_bin": str(fxp2wav_bin),
+        },
+        "trials": {
+            "total": total_trials,
+            "duration_sec": round(duration_sec, 2),
+            "score_histogram": score_buckets,
+        },
+        "best_candidate": {
+            "score": best_state["score"],
+            "params": best_state["params"],
+            "features": best_state["features"],
+            "output_fxp": str(output_fxp) if best_state["fxp_bytes"] else None,
+            "output_fxp_sha256": _sha256_of(output_fxp) if output_fxp.exists() else None,
+            "output_wav": str(output_wav) if best_state["wav_bytes"] else None,
+            "output_wav_sha256": _sha256_of(output_wav) if output_wav.exists() else None,
+        },
+        "engineering_gate": {
+            "validate_engineering_pass": engineering_pass,
+            "failure_categories": failure_categories,
+            "distance_threshold": args.threshold,
+            "distance_pass": distance_pass,
+            "overall_engineering_pass": overall_engineering_pass,
+            "analysis_report_path": str(output_analysis_report) if output_analysis_report.exists() else None,
+        },
+        "top_5_candidates": top5,
+        "full_trial_history": [
+            {"trial_num": t["trial_num"], "score": t["score"], "params": t["params"]}
+            for t in trial_history
+        ],
+        "reproducibility": {
+            "command_template": (
+                f"python3 scripts/feature_search.py optimize "
+                f"--target-wav {target_wav} --baseline-fxp {baseline_fxp} "
+                f"--template {template} --allowlist {allowlist} --rules {rules_path} "
+                f"--drum-type {args.drum_type} --seed {args.seed} "
+                f"--max-iter {args.max_iter} --popsize {args.popsize} "
+                f"--output-fxp {output_fxp} --output-wav {output_wav} "
+                f"--output-report {output_report} --output-analysis-report {output_analysis_report}"
+            ),
+        },
+    }
+
+    output_report.parent.mkdir(parents=True, exist_ok=True)
+    output_report.write_text(
+        yaml.safe_dump(report, allow_unicode=True, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
+    print(f"# wrote optimization-report: {output_report}", file=sys.stderr)
+
+    # ---- 11. Cleanup workdir (= optional、 keep for debug if --keep-workdir) ----
+    if not args.keep_workdir:
+        import shutil
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    # ---- 12. Final summary to stdout ----
+    print(json.dumps({
+        "status": "engineering_pass" if overall_engineering_pass else "engineering_fail",
+        "best_score": best_state["score"],
+        "distance_threshold": args.threshold,
+        "distance_pass": distance_pass,
+        "validate_engineering_pass": engineering_pass,
+        "failure_categories": failure_categories,
+        "total_trials": total_trials,
+        "duration_sec": round(duration_sec, 2),
+        "output_fxp": str(output_fxp) if best_state["fxp_bytes"] else None,
+        "output_wav": str(output_wav) if best_state["wav_bytes"] else None,
+        "optimization_report": str(output_report),
+        "analysis_report": str(output_analysis_report) if output_analysis_report.exists() else None,
+    }, indent=2))
+
+    return EXIT_OK if overall_engineering_pass else 67
+
+
 def compare_command(args: argparse.Namespace) -> int:
     """Compare 2 WAVs + dump distance + per-feature diff."""
     for p in (args.reference, args.target):
@@ -560,6 +942,27 @@ def main() -> int:
         help="pretty-print (= JSON 出力時のみ effect)",
     )
 
+    p_optimize = subparsers.add_parser(
+        "optimize",
+        help="Black-box optimization closed loop = scipy.optimize.differential_evolution (= π12 新規)",
+    )
+    p_optimize.add_argument("--template", type=Path, required=True, help="template .fxp path")
+    p_optimize.add_argument("--allowlist", type=Path, required=True, help="parameter-allowlist.yaml")
+    p_optimize.add_argument("--rules", type=Path, required=True, help="feature-rules.yaml (= search_space + weights)")
+    p_optimize.add_argument("--drum-type", choices=["BD", "SD", "CYM", "HH", "TOM", "RIM"], default="BD")
+    p_optimize.add_argument("--target-wav", type=Path, required=True, help="reference WAV (= aesthetic target)")
+    p_optimize.add_argument("--baseline-fxp", type=Path, required=True, help="baseline fxp (= enum/routing 固定 source、 例 Kick 909ish.fxp)")
+    p_optimize.add_argument("--fxp2wav-bin", type=Path, required=True, help="fxp2wav-surge binary path")
+    p_optimize.add_argument("--output-fxp", type=Path, required=True, help="best candidate fxp output")
+    p_optimize.add_argument("--output-wav", type=Path, required=True, help="best candidate wav output")
+    p_optimize.add_argument("--output-report", type=Path, required=True, help="optimization-report.yaml output")
+    p_optimize.add_argument("--output-analysis-report", type=Path, required=True, help="analysis-report.yaml output (= best validate)")
+    p_optimize.add_argument("--seed", type=int, default=2608, help="random seed (= deterministic)")
+    p_optimize.add_argument("--max-iter", type=int, default=5, help="max generations")
+    p_optimize.add_argument("--popsize", type=int, default=8, help="population size per generation")
+    p_optimize.add_argument("--threshold", type=float, default=5.0, help="distance score threshold for engineering_pass")
+    p_optimize.add_argument("--keep-workdir", action="store_true", help="keep tmp workdir for debugging")
+
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -568,6 +971,8 @@ def main() -> int:
         return compare_command(args)
     if args.command == "validate":
         return validate_command(args)
+    if args.command == "optimize":
+        return optimize_command(args)
 
     parser.print_help()
     return EXIT_ARG_ERROR

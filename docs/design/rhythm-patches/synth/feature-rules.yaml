@@ -110,6 +110,73 @@ drum_rules:
         bd_2608_ng_actual: 0.0   # = strong discriminator
 
     # ---------------------------------------------------------------------------
+    # Search space (= π12 optimize subcommand の探索範囲 literal、 continuous parameter のみ)
+    # = enum / routing 系 (= a_osc1_type / a_filter1_type / a_fb_config / a_ws_type / a_mute_noise 等)
+    #   は Kick 909ish baseline 固定、 search 対象外
+    # = bounds は Surge XT internal scale (= log-time / log-freq / normalized / dB / semitones) の reasonable range
+    # ---------------------------------------------------------------------------
+    search_space:
+      # Amplitude envelope (= AEG = a_env1_*)
+      a_env1_attack:
+        min: -12.0
+        max: -3.0
+        baseline: -8.0       # = Kick 909ish reference value
+        scale: log-time      # = 2^V seconds
+        note: "BD attack 1-15 ms 想定、 2^-12 = 0.25 ms / 2^-3 = 125 ms"
+      a_env1_decay:
+        min: -5.0
+        max: 0.0
+        baseline: -2.089
+        scale: log-time
+        note: "BD decay 31-1000 ms 想定、 patch-spec decay_ms 280 → log2(0.28) = -1.84"
+      a_env1_release:
+        min: -10.0
+        max: -2.0
+        baseline: -5.0
+        scale: log-time
+        note: "BD release 1-250 ms 想定、 short tail"
+      # Filter envelope (= FEG = a_env2_*) = pitch sweep 期間
+      a_env2_decay:
+        min: -7.0
+        max: -2.0
+        baseline: -4.716
+        scale: log-time
+        note: "pitch sweep 8-250 ms 想定、 短期間"
+      # Filter
+      a_filter1_cutoff:
+        min: -60.0
+        max: -5.0
+        baseline: -40.99
+        scale: log-freq      # = semitones from reference
+        note: "BD filter cutoff = 低域、 sub-bass to mid 範囲"
+      a_lowcut:
+        min: -72.0
+        max: -20.0
+        baseline: -32.38
+        scale: log-freq
+        note: "global lowcut HPF、 sub-bass cutoff"
+      # Mixer / Drive
+      a_level_noise:
+        min: 0.0
+        max: 1.0
+        baseline: 0.55
+        scale: normalized
+        note: "noise generator level = BD click 用、 0-100% (= Kick 909ish: 0.55)"
+      a_ws_drive:
+        min: 0.0
+        max: 10.0
+        baseline: 3.514
+        scale: dB           # = 推定、 要確認
+        note: "waveshaper drive amount"
+      # OSC pitch shift
+      a_osc1_pitch:
+        min: -12.0
+        max: 0.0
+        baseline: -1.732
+        scale: semitones
+        note: "OSC1 pitch shift = 1 octave 下 〜 元 pitch"
+
+    # ---------------------------------------------------------------------------
     # Distance metric weights (= BD 特化、 π10 universal weight 上書き)
     # = π12 optimize subcommand で feature_distance 計算時に使う重み
     # ---------------------------------------------------------------------------

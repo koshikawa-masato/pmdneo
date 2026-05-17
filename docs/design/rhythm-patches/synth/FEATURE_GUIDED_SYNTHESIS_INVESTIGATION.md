@@ -545,7 +545,127 @@ summary_fields: total_rules / passed / critical_fails / warning_fails / overall_
 - **π15**: 越川氏 aesthetic audition (= final gate)
 - **ι commit**: 越川氏 accept 後、 2608_bd_self.adpcma 並行配置 + commit
 
-## 8. scope-out 維持 (= 本 investigation の意図)
+## 8. π12 black-box optimization loop = engineering_pass 到達 (= 2026-05-17 23rd session π12)
+
+### 8.1 deliverables
+
+3 件:
+- `feature-rules.yaml` の `drum_rules.BD` に **`search_space`** 9 continuous parameter literal 追加 (= log-time / log-freq / normalized / dB / semitones の bounds + baseline + scale 注釈)
+- `scripts/feature_search.py` に **`optimize`** subcommand 実装 = scipy.optimize.differential_evolution + bridge invoke (= subprocess) + fxp2wav-surge render + feature extract + score の closed loop + trial history + reports 生成
+- 1 回 end-to-end run + 2 reports + best .fxp + best .wav 生成
+
+### 8.2 中核 design principle (= user directive、 ADR レベル wording 候補)
+
+**「LLM is not the selector; optimizer is the selector」**:
+- LLM (= Claude) は (1) search space 設計 (2) feature weight / rule 設計 (3) failure reason 説明 (4) report 生成 (5) ADR 反映 = 設計 + 説明 + integration 軸
+- Optimizer (= scipy.optimize.differential_evolution) は (1) parameter 候補生成 (2) score 最小化 (3) seed 固定 (4) trial history 保存 (5) best candidate 選定 = **数値判定 + 候補選定軸**
+- LLM の「良さそう」 判断は **patch 採用には使わない**、 feature distance score + hard gate + fixed seed で deterministic に選定
+
+**「fixed seed + trial history + reproducibility」**:
+- random seed = 2608 (= SURGE_RNG_SEED と同値 = render + optimizer 両方 deterministic)
+- 全 trial の (params, score) を `optimization-report.yaml` 内 `full_trial_history` に保存
+- reproducibility_command literal = 同 command で同結果再現可能
+
+**「machine-checkable engineering gate before human audition」**:
+- engineering_pass 条件 = (a) distance_score <= threshold (= 5.0) + (b) validate 8 rules all PASS or critical PASS
+- engineering FAIL の candidate は **越川氏 audition に回さない** hard gate
+- 越川氏 aesthetic gate (= π15) は engineering_pass 後のみ
+
+### 8.3 search space 設計 (= LLM 役割 (1))
+
+9 continuous parameter (= `feature-rules.yaml drum_rules.BD.search_space` literal):
+
+| element | min | max | baseline (= Kick 909ish) | scale |
+|---------|-----|-----|--------------------------|-------|
+| a_env1_attack | -12.0 | -3.0 | -8.0 | log-time (= BD attack 1-15 ms 想定) |
+| a_env1_decay | -5.0 | 0.0 | -2.089 | log-time (= BD decay 31-1000 ms) |
+| a_env1_release | -10.0 | -2.0 | -5.0 | log-time |
+| a_env2_decay | -7.0 | -2.0 | -4.716 | log-time (= pitch sweep 期間) |
+| a_filter1_cutoff | -60.0 | -5.0 | -40.99 | log-freq |
+| a_lowcut | -72.0 | -20.0 | -32.38 | log-freq HPF |
+| a_level_noise | 0.0 | 1.0 | 0.55 | normalized |
+| a_ws_drive | 0.0 | 10.0 | 3.514 | dB |
+| a_osc1_pitch | -12.0 | 0.0 | -1.732 | semitones |
+
+**fixed_baseline = 45 elements** (= Kick 909ish.fxp から allowlist 内 + search space 外 elements = enum/routing 系) を全 trial で applied。
+
+### 8.4 1 回 end-to-end run 実測
+
+```bash
+python3 scripts/feature_search.py optimize \
+    --template assets/drum_samples/synth/templates/2608_template.fxp \
+    --allowlist docs/design/rhythm-patches/synth/parameter-allowlist.yaml \
+    --rules docs/design/rhythm-patches/synth/feature-rules.yaml \
+    --drum-type BD \
+    --target-wav ~/Projects/surge-spike/test-assets/kick_909ish.wav \
+    --baseline-fxp ~/Projects/surge-spike/test-assets/kick_909ish.fxp \
+    --fxp2wav-bin ~/Projects/surge-spike/surge/build/src/fxp2wav-surge/fxp2wav-surge \
+    --output-fxp /tmp/pmdneo_2608_bd_optimized.fxp \
+    --output-wav ~/Projects/surge-spike/test-assets/2608_bd.optimized.wav \
+    --output-report docs/design/rhythm-patches/synth/2608_bd.optimization-report.yaml \
+    --output-analysis-report docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml \
+    --seed 2608 --max-iter 1 --popsize 4 --threshold 5.0
+```
+
+**結果:**
+- **128 trials / 12 秒 / best score 0.9110** (= π7 NG baseline 39.83 から **43x 改善**)
+- **status: `engineering_pass`** ✓
+- failure_categories: `[volume_mismatch_peak]` のみ (= warning、 critical 0 件)
+- score_histogram: `score<5: 119 / 5-20: 9 / 20-100: 0 / 100+: 0` = 大半の trial が distance threshold 内 (= search space + baseline が reasonable)
+
+### 8.5 best candidate feature 比較 = NG → Optimized → Reference
+
+| feature | NG (= π7 passthrough) | Optimized (= π12 result) | Kick 909ish (= target) |
+|---------|------------------------|--------------------------|------------------------|
+| peak_amplitude_dbfs | -25.093 | **-15.521** | -4.495 |
+| attack_ms | **781.088** | **10.998** | 5.782 |
+| decay_1e_ms | 2.993 | 1.95 | 1.066 |
+| spectral_centroid_hz | 261.99 | **215.55** | 158.84 |
+| low_band_ratio | **0.987** | **0.9021** | 0.7978 |
+| trailing_silence_ms | **0.0** | **693.719** | 766.236 |
+| transient_strength | 1.997 | **2.094** | 2.799 |
+
+**critical 改善:**
+- attack 781 → 11 ms (= envelope 完全修復)
+- trailing 0 → 694 ms (= sustain 化 完全解消)
+- peak -25 → -15.5 dBFS (= 10 dB up、 まだ target -6〜-3 には届かず = warning only)
+- low_band 99% → 90% (= pure sine 緩和)
+- spectral centroid 262 → 215 Hz (= 低域寄り)
+
+### 8.6 best params (= optimizer 出力)
+
+```yaml
+a_env1_attack: -7.44     # = ~3 ms (baseline -8 から)
+a_env1_decay: -1.60      # = ~330 ms (baseline -2.09 から)
+a_env1_release: -4.31    # = ~50 ms
+a_env2_decay: -2.81      # = ~144 ms
+a_filter1_cutoff: -7.42  # = 中位 cutoff (baseline -41 から大変動)
+a_lowcut: -54.49         # = 低 HPF
+a_level_noise: 0.29      # = 中位 noise mix
+a_ws_drive: 7.03         # = 高 drive (baseline 3.5 から大幅up)
+a_osc1_pitch: -3.73      # = 4 semitones 下
+```
+
+→ optimizer は baseline (= Kick 909ish reference value) から **大幅に動いた** = Kick 909ish と異なる音色 candidate を発見、 但し engineering_pass 規律内。 これは **「reference-inspired」 (= 設計 inspiration) であり「derivative」 ではない** (= §決定 14 補強 5 軸 table 整合) の literal 実証。
+
+### 8.7 deliverable files
+
+| path | role | size |
+|------|------|------|
+| `docs/design/rhythm-patches/synth/2608_bd.optimization-report.yaml` | π12 deliverable = 全 trial history + best params + reproducibility command | ~55 KB |
+| `docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml` | best candidate validate output (= ν step 4 deliverable format) | ~3.4 KB |
+| `/tmp/pmdneo_2608_bd_optimized.fxp` | best candidate .fxp (= ephemeral、 越川氏 accept 後に PMDNEO repo 移動候補) | ~31 KB |
+| `~/Projects/surge-spike/test-assets/2608_bd.optimized.wav` | best candidate rendered wav (= 越川氏 audition 用、 external) | 88 KB |
+
+### 8.8 π13+ chain (= 越川氏 audition + ι commit)
+
+- **π13** (= 越川氏 audition): `afplay ~/Projects/surge-spike/test-assets/2608_bd.optimized.wav` で aesthetic gate
+  - accept: π14 ι commit へ
+  - reject: search space / weight / threshold 再検討 + optimizer 再 run
+- **π14** (= ι commit、 越川氏 accept 時): `/tmp/pmdneo_2608_bd_optimized.fxp` → `assets/drum_samples/synth/patches/2608_bd.fxp` (= canonical path、 overwrite NG version) + provenance_chain step_2_fxp update + step_3_wav status 反映
+- **π15+**: superctr/adpcm encode (= ν step 8 = `.adpcma` 生成) + 並行配置 + final commit
+
+## 9. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
 - **external spike repo** = 参照のみ、 PMDNEO repo に取り込まない (= §決定 25 ι'' 維持)
