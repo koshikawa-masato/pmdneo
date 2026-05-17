@@ -2039,6 +2039,466 @@ def optimize_command(args: argparse.Namespace) -> int:
     return EXIT_OK if overall_engineering_pass else 67
 
 
+# ============================================================================
+# sensitivity-sweep subcommand (= ADR-0033 軌道修正、 one-factor sensitivity table)
+# ----------------------------------------------------------------------------
+# 1 baseline .fxp / 1 parameter / 1 delta / 1 render / 1 analyze-drum / 1 row。
+# optimizer ではない、 best candidate も選ばない、 accept/reject 判断もしない。
+# feature delta と effect summary を deterministic に記録するだけ。
+# ============================================================================
+
+def _fxp_load_segments(fxp_path: Path) -> dict:
+    """Read .fxp → parse VST2 header + chunk segments (= sub3 / xml / trailing)."""
+    import importlib.util as _ilu
+    import struct as _struct
+    script_path = Path(__file__).parent / "fxp_template_patch.py"
+    spec = _ilu.spec_from_file_location("_fxp_tp", script_path)
+    module = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    data = fxp_path.read_bytes()
+    header = module.parse_vst2_header(data)
+    chunk_byte_size = _struct.unpack(">I", data[56:60])[0]
+    chunk = data[60 : 60 + chunk_byte_size]
+    sub3, xml_body, trailing = module.extract_chunk_segments(chunk)
+    return {
+        "data": data,
+        "header": header,
+        "chunk_byte_size": chunk_byte_size,
+        "sub3": sub3,
+        "xml_body": xml_body,
+        "trailing": trailing,
+        "module": module,
+    }
+
+
+def _fxp_extract_parameter_value(xml_body: bytes, parameter_name: str) -> str | None:
+    """Return current value string for <parameter_name value="..."/> or None."""
+    import re
+    pattern = (
+        rb'<' + re.escape(parameter_name.encode()) + rb'\b[^>]*?\bvalue="([^"]+)"'
+    )
+    match = re.search(pattern, xml_body)
+    if match is None:
+        return None
+    return match.group(1).decode("ascii", errors="replace")
+
+
+def _fxp_patch_single_parameter(
+    baseline_fxp: Path,
+    parameter_name: str,
+    new_value: str,
+    output_fxp: Path,
+) -> dict:
+    """Patch baseline .fxp で 1 parameter の value を new_value に差し替え、 output_fxp に write。
+
+    Returns dict with old_value / new_value / fxp_sha256 / chunk_byte_size。
+    """
+    segments = _fxp_load_segments(baseline_fxp)
+    module = segments["module"]
+    data = segments["data"]
+    old_chunk_byte_size = segments["chunk_byte_size"]
+
+    new_xml, old_value = module._modify_xml_element_value(
+        segments["xml_body"], parameter_name, new_value
+    )
+    if old_value is None:
+        raise RuntimeError(f"parameter {parameter_name!r} not found in .fxp XML")
+
+    new_chunk = segments["sub3"] + new_xml + segments["trailing"]
+    new_chunk_byte_size = len(new_chunk)
+    delta_bytes = new_chunk_byte_size - old_chunk_byte_size
+
+    # Reconstruct file = header[0:56] + new chunk_byte_size + new_chunk
+    head_prefix = bytearray(data[:60])
+    head_prefix[56:60] = new_chunk_byte_size.to_bytes(4, "big")
+    # outer byteSize (= field 4-8) も update (= remaining bytes from offset 8 onwards)
+    old_total = int.from_bytes(head_prefix[4:8], "big")
+    head_prefix[4:8] = (old_total + delta_bytes).to_bytes(4, "big")
+    new_data_bytes = bytes(head_prefix) + new_chunk
+
+    # invariant verify (= sub3 header / trailing 不変、 XML well-formed)
+    module._verify_patch_invariants(
+        data, new_data_bytes, {parameter_name}, {parameter_name}
+    )
+
+    output_fxp.parent.mkdir(parents=True, exist_ok=True)
+    output_fxp.write_bytes(new_data_bytes)
+    return {
+        "old_value": old_value,
+        "new_value": new_value,
+        "fxp_sha256": _sha256_file(output_fxp),
+        "chunk_byte_size": new_chunk_byte_size,
+    }
+
+
+def _invoke_fxp2wav_surge(
+    producer_cmd: str,
+    fxp_path: Path,
+    wav_path: Path,
+    note: int,
+    velocity: int,
+    duration_ms: int,
+    tail_ms: int,
+    sample_rate: int,
+    seed: int,
+) -> dict:
+    """Subprocess invoke external producer (= §決定 25 ι'' = scope-in not repo-in)。"""
+    import os
+    import subprocess
+    env = os.environ.copy()
+    env["SURGE_RNG_SEED"] = str(seed)
+    wav_path.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        producer_cmd,
+        "--patch", str(fxp_path),
+        "--out", str(wav_path),
+        "--note", str(note),
+        "--velocity", str(velocity),
+        "--duration-ms", str(duration_ms),
+        "--tail-ms", str(tail_ms),
+        "--sample-rate", str(sample_rate),
+    ]
+    result = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    if result.returncode != 0 or not wav_path.exists():
+        raise RuntimeError(
+            f"fxp2wav-surge invocation failed: returncode={result.returncode}\n"
+            f"  cmd: {' '.join(cmd)}\n"
+            f"  stderr: {result.stderr[:500]}"
+        )
+    return {
+        "wav_sha256": _sha256_file(wav_path),
+        "returncode": result.returncode,
+        "producer_cmd": producer_cmd,
+        "render_params": {
+            "note": note,
+            "velocity": velocity,
+            "duration_ms": duration_ms,
+            "tail_ms": tail_ms,
+            "sample_rate": sample_rate,
+            "surge_rng_seed": seed,
+        },
+    }
+
+
+def _analyze_drum_into(wav_path: Path, output_dir: Path, profile_override: str | None) -> dict:
+    """Run common analysis + classifier + profile summary → write 3 artifact + return summary dict。"""
+    common_analysis = extract_common_analysis(wav_path)
+    classifier = classify_drum_kind(common_analysis)
+    selected_profile = (
+        classifier["predicted_kind"] if profile_override in (None, "auto") else profile_override
+    )
+    profile_summary = build_profile_summary(common_analysis, classifier, selected_profile)
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    scalar_path = output_dir / "analysis-scalar.yaml"
+    timeseries_path = output_dir / "analysis-timeseries.json"
+    summary_path = output_dir / "analysis-summary.yaml"
+
+    scalar_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-scalar",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "analysis_params": common_analysis["analysis_params"],
+        "common_features": common_analysis["common_features"],
+    }
+    timeseries_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-timeseries",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "analysis_params": common_analysis["analysis_params"],
+        "timeseries": common_analysis["timeseries"],
+    }
+    summary_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-summary",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "classifier": classifier,
+        "selected_profile": selected_profile,
+        "profile_summary": profile_summary,
+        "scope": {
+            "metric_is_final_judge": False,
+            "optimizer_involved": False,
+            "human_audition_final_gate": True,
+        },
+    }
+
+    _write_yaml(scalar_path, scalar_doc)
+    _write_json(timeseries_path, timeseries_doc)
+    summary_doc["artifacts"] = {
+        "analysis_scalar": scalar_path.name,
+        "analysis_scalar_sha256": _sha256_file(scalar_path),
+        "analysis_timeseries": timeseries_path.name,
+        "analysis_timeseries_sha256": _sha256_file(timeseries_path),
+    }
+    _write_yaml(summary_path, summary_doc)
+    return {
+        "summary_doc": summary_doc,
+        "summary_path": summary_path,
+        "scalar_path": scalar_path,
+        "timeseries_path": timeseries_path,
+        "summary_sha256": _sha256_file(summary_path),
+    }
+
+
+def _scalar_feature_delta(baseline_snapshot: dict, candidate_snapshot: dict) -> dict:
+    """Compute scalar feature delta = candidate - baseline (= profile feature_snapshot)。"""
+    delta: dict = {}
+    for key, base_val in baseline_snapshot.items():
+        if key not in candidate_snapshot:
+            continue
+        if isinstance(base_val, dict):
+            sub_delta: dict = {}
+            for sub_key, sub_val in base_val.items():
+                cand_sub = candidate_snapshot[key].get(sub_key)
+                if isinstance(sub_val, (int, float)) and isinstance(cand_sub, (int, float)):
+                    sub_delta[sub_key] = round(cand_sub - sub_val, 6)
+            if sub_delta:
+                delta[key + "_delta"] = sub_delta
+        elif isinstance(base_val, (int, float)) and isinstance(
+            candidate_snapshot[key], (int, float)
+        ):
+            delta[key + "_delta"] = round(candidate_snapshot[key] - base_val, 6)
+    return delta
+
+
+def _effect_summary_from_delta(parameter: str, feature_delta: dict) -> dict:
+    """Generate minimum literal effect labels from scalar delta sign。 越川氏 hand-on 追記前提。"""
+    primary = None
+    secondary: list[str] = []
+    # 主要 scalar に対する sign-based literal label (= 越川氏 hand-on で精緻化)
+    if "decay_1e_ms_delta" in feature_delta:
+        d = feature_delta["decay_1e_ms_delta"]
+        if abs(d) > 5:
+            primary = "shorter_decay" if d < 0 else "longer_decay"
+    if "attack_ms_delta" in feature_delta:
+        d = feature_delta["attack_ms_delta"]
+        if abs(d) > 2:
+            label = "shorter_attack" if d < 0 else "longer_attack"
+            if primary is None:
+                primary = label
+            else:
+                secondary.append(label)
+    if "rough_body_frequency_hz_delta" in feature_delta:
+        d = feature_delta["rough_body_frequency_hz_delta"]
+        if abs(d) > 5:
+            label = "lower_body_pitch" if d < 0 else "higher_body_pitch"
+            if primary is None:
+                primary = label
+            else:
+                secondary.append(label)
+    if "tail_length_ms_delta" in feature_delta:
+        d = feature_delta["tail_length_ms_delta"]
+        if abs(d) > 20:
+            label = "shorter_tail" if d < 0 else "longer_tail"
+            if primary is None:
+                primary = label
+            else:
+                secondary.append(label)
+    return {
+        "primary": primary or "no_significant_change",
+        "secondary": secondary,
+        "note": "machine-generated literal label from scalar delta sign; 越川氏 hand-on 追記で精緻化想定",
+    }
+
+
+def sensitivity_sweep_command(args: argparse.Namespace) -> int:
+    """π15.5 軌道修正 = one-factor sensitivity table = 1 parameter / 1 delta / 1 render / 1 analyze / 1 row。
+
+    optimizer は呼ばない。 best candidate も選ばない。 accept/reject 判断もしない。
+    feature delta と effect summary を deterministic に記録するだけ。
+    """
+    import csv
+    import datetime
+    import shutil
+
+    if not args.baseline_fxp.exists():
+        print(f"error: baseline fxp not found: {args.baseline_fxp}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    # parse deltas
+    try:
+        deltas = [float(x.strip()) for x in args.deltas.split(",") if x.strip()]
+    except ValueError as exc:
+        print(f"error: --deltas parse failed: {exc}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if not deltas:
+        print("error: --deltas empty", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    # extract baseline parameter value
+    segments = _fxp_load_segments(args.baseline_fxp)
+    baseline_value_str = _fxp_extract_parameter_value(
+        segments["xml_body"], args.parameter
+    )
+    if baseline_value_str is None:
+        print(
+            f"error: parameter {args.parameter!r} not found in {args.baseline_fxp}",
+            file=sys.stderr,
+        )
+        return EXIT_DATA_ERROR
+    baseline_value = float(baseline_value_str)
+
+    output_dir = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # baseline render + analyze (= delta=0 別扱い、 reference row として記録)
+    baseline_dir = output_dir / "baseline"
+    baseline_dir.mkdir(parents=True, exist_ok=True)
+    baseline_fxp_copy = baseline_dir / "patched.fxp"
+    shutil.copy2(args.baseline_fxp, baseline_fxp_copy)
+    baseline_wav = baseline_dir / "rendered.wav"
+    print(f"# baseline render: {args.baseline_fxp.name}", file=sys.stderr)
+    baseline_render = _invoke_fxp2wav_surge(
+        args.producer_cmd, baseline_fxp_copy, baseline_wav,
+        args.note, args.velocity, args.duration_ms, args.tail_ms,
+        args.sample_rate, args.seed,
+    )
+    print(f"# baseline analyze", file=sys.stderr)
+    baseline_analysis = _analyze_drum_into(baseline_wav, baseline_dir, args.profile)
+    baseline_snapshot = baseline_analysis["summary_doc"]["profile_summary"]["feature_snapshot"]
+
+    # sweep
+    rows = []
+    for delta in deltas:
+        new_value = baseline_value + delta
+        new_value_str = f"{new_value:.6f}"
+        delta_label = f"delta_{delta:+.4f}".replace("+", "p").replace("-", "m").replace(".", "_")
+        trial_dir = output_dir / delta_label
+        trial_dir.mkdir(parents=True, exist_ok=True)
+
+        patched_fxp = trial_dir / "patched.fxp"
+        print(f"# {args.parameter} delta={delta:+.4f} → patch + render + analyze", file=sys.stderr)
+        patch_info = _fxp_patch_single_parameter(
+            args.baseline_fxp, args.parameter, new_value_str, patched_fxp
+        )
+        rendered_wav = trial_dir / "rendered.wav"
+        render_info = _invoke_fxp2wav_surge(
+            args.producer_cmd, patched_fxp, rendered_wav,
+            args.note, args.velocity, args.duration_ms, args.tail_ms,
+            args.sample_rate, args.seed,
+        )
+        analysis = _analyze_drum_into(rendered_wav, trial_dir, args.profile)
+        candidate_snapshot = analysis["summary_doc"]["profile_summary"]["feature_snapshot"]
+        feature_delta = _scalar_feature_delta(baseline_snapshot, candidate_snapshot)
+        effect_summary = _effect_summary_from_delta(args.parameter, feature_delta)
+
+        rows.append({
+            "parameter": args.parameter,
+            "baseline_value": baseline_value,
+            "delta": delta,
+            "new_value": round(new_value, 6),
+            "fxp_sha256": patch_info["fxp_sha256"],
+            "wav_sha256": render_info["wav_sha256"],
+            "analysis_summary_sha256": analysis["summary_sha256"],
+            "feature_delta": feature_delta,
+            "effect_summary": effect_summary,
+            "predicted_kind": analysis["summary_doc"]["classifier"]["predicted_kind"],
+            "trial_dir": str(trial_dir),
+        })
+
+    # write sensitivity-table.yaml
+    table_doc = {
+        "schema_version": "0.1.0",
+        "artifact_kind": "sensitivity-table",
+        "generated_at": datetime.datetime.now().isoformat(),
+        "generator": "scripts/feature_search.py sensitivity-sweep",
+        "scope": {
+            "metric_is_final_judge": False,
+            "optimizer_involved": False,
+            "human_audition_final_gate": True,
+            "selection_decision": False,
+            "trial_protocol": "1 parameter / 1 delta / 1 render / 1 analyze / 1 row",
+        },
+        "baseline": {
+            "fxp": str(args.baseline_fxp),
+            "label": args.baseline_label,
+            "value": baseline_value,
+            "render": baseline_render,
+            "analysis_summary_sha256": baseline_analysis["summary_sha256"],
+            "feature_snapshot": baseline_snapshot,
+        },
+        "sweep": {
+            "parameter": args.parameter,
+            "profile": args.profile,
+            "deltas": deltas,
+            "render_params": {
+                "note": args.note,
+                "velocity": args.velocity,
+                "duration_ms": args.duration_ms,
+                "tail_ms": args.tail_ms,
+                "sample_rate": args.sample_rate,
+                "surge_rng_seed": args.seed,
+            },
+        },
+        "rows": rows,
+        "wording_discipline": [
+            "this table is diagnostic only",
+            "no candidate is accepted or rejected here",
+            "effect_summary is machine-generated literal label, not aesthetic judgment",
+            "human audition remains final gate",
+            "baseline is labeled diagnostic-baseline, not accepted-baseline",
+        ],
+    }
+    table_yaml_path = output_dir / "sensitivity-table.yaml"
+    _write_yaml(table_yaml_path, table_doc)
+
+    # write sensitivity-table.csv (= flatten for spreadsheet)
+    csv_path = output_dir / "sensitivity-table.csv"
+    # 全 feature_delta key を union 化
+    all_delta_keys: list = []
+    for row in rows:
+        for k in row["feature_delta"]:
+            if k not in all_delta_keys:
+                all_delta_keys.append(k)
+    flat_fieldnames = [
+        "parameter", "baseline_value", "delta", "new_value",
+        "fxp_sha256", "wav_sha256", "analysis_summary_sha256",
+        "predicted_kind", "effect_primary",
+    ] + all_delta_keys
+    with csv_path.open("w", newline="", encoding="utf-8") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=flat_fieldnames)
+        writer.writeheader()
+        for row in rows:
+            flat: dict = {
+                "parameter": row["parameter"],
+                "baseline_value": row["baseline_value"],
+                "delta": row["delta"],
+                "new_value": row["new_value"],
+                "fxp_sha256": row["fxp_sha256"],
+                "wav_sha256": row["wav_sha256"],
+                "analysis_summary_sha256": row["analysis_summary_sha256"],
+                "predicted_kind": row["predicted_kind"],
+                "effect_primary": row["effect_summary"]["primary"],
+            }
+            for k in all_delta_keys:
+                v = row["feature_delta"].get(k)
+                if isinstance(v, dict):
+                    flat[k] = json.dumps(v, ensure_ascii=False, sort_keys=True)
+                else:
+                    flat[k] = v
+            writer.writerow(flat)
+
+    print(
+        _dump_yaml({
+            "wrote": {
+                "sensitivity_table_yaml": str(table_yaml_path),
+                "sensitivity_table_csv": str(csv_path),
+                "baseline_dir": str(baseline_dir),
+            },
+            "parameter": args.parameter,
+            "baseline_value": baseline_value,
+            "deltas": deltas,
+            "row_count": len(rows),
+            "note": "diagnostic only; no accept/reject; optimizer not invoked",
+        })
+    )
+    return EXIT_OK
+
+
 def compare_command(args: argparse.Namespace) -> int:
     """Compare 2 WAVs + dump distance + per-feature diff."""
     for p in (args.reference, args.target):
@@ -2193,6 +2653,24 @@ def main() -> int:
     p_optimize.add_argument("--threshold", type=float, default=5.0, help="distance score threshold for engineering_pass")
     p_optimize.add_argument("--keep-workdir", action="store_true", help="keep tmp workdir for debugging")
 
+    p_sweep = subparsers.add_parser(
+        "sensitivity-sweep",
+        help="One-factor parameter sensitivity sweep (= π15.5 軌道修正、 optimizer 不使用、 1 parameter / 1 delta / 1 render / 1 analyze / 1 row、 best candidate を選ばない、 accept/reject 判断もしない)",
+    )
+    p_sweep.add_argument("--baseline-fxp", type=Path, required=True, help="baseline .fxp path (= diagnostic-baseline、 accepted candidate ではない)")
+    p_sweep.add_argument("--baseline-label", type=str, default="diagnostic-baseline", help="baseline label (= default diagnostic-baseline、 越川氏 directive 例 'diagnostic-baseline / aesthetic-rejected')")
+    p_sweep.add_argument("--parameter", type=str, required=True, help="single parameter name (= 例 a_osc1_pitch)")
+    p_sweep.add_argument("--deltas", type=str, required=True, help="comma-separated delta values (= 例 '-3,-1,0,1,3'、 baseline + delta = new value)")
+    p_sweep.add_argument("--output-dir", type=Path, required=True, help="output directory for table + per-delta artifact")
+    p_sweep.add_argument("--producer-cmd", type=str, default="fxp2wav-surge", help="fxp2wav-surge binary path (= default 'fxp2wav-surge' = PATH lookup、 越川氏 環境では絶対 path 推奨)")
+    p_sweep.add_argument("--profile", default="auto", choices=["auto", "BD", "SD", "CYM", "HH", "TOM", "RIM"], help="drum profile override (= default auto via classifier)")
+    p_sweep.add_argument("--note", type=int, default=36, help="MIDI note (= §決定 26 default 36)")
+    p_sweep.add_argument("--velocity", type=int, default=127, help="MIDI velocity (= default 127)")
+    p_sweep.add_argument("--duration-ms", type=int, default=800, help="render duration ms (= default 800)")
+    p_sweep.add_argument("--tail-ms", type=int, default=200, help="render tail ms (= default 200)")
+    p_sweep.add_argument("--sample-rate", type=int, default=44100, help="render sample rate (= default 44100)")
+    p_sweep.add_argument("--seed", type=int, default=2608, help="SURGE_RNG_SEED (= default 2608、 deterministic)")
+
     args = parser.parse_args()
 
     if args.command == "extract":
@@ -2207,6 +2685,8 @@ def main() -> int:
         return preference_learn_command(args)
     if args.command == "audition-check":
         return audition_check_command(args)
+    if args.command == "sensitivity-sweep":
+        return sensitivity_sweep_command(args)
     if args.command == "optimize":
         return optimize_command(args)
 
