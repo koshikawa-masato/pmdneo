@@ -1,0 +1,45 @@
+{
+  "$schema": "../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "PMDNEO IR schema v0.1 adpcma-trigger example (= 2026-05-17 24th session、 ADR-0034 ratify 後)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute",
+    "tempoBase": 120.0
+  },
+  "channels": [
+    {
+      "channelId": { "kind": "adpcm_a", "index": 1 },
+      "name": "Part L ADPCM-A ch1"
+    }
+  ],
+  "sampleRefs": [
+    {
+      "sampleRef": 0,
+      "kind": "adpcm_a",
+      "packFile": "step5.PNE",
+      "slot": 0,
+      "name": "bd",
+      "sourceUri": "file://samples/bd.wav"
+    }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "ADPCMATrigger",
+      "channel": { "kind": "adpcm_a", "index": 1 },
+      "sampleRef": 0,
+      "volume": 31,
+      "panLeft": true,
+      "panRight": true
+    }
+  ]
+}

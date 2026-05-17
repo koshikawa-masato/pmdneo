@@ -1,0 +1,33 @@
+{
+  "$schema": "../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "mewmml",
+    "createdBy": "PMDNEO IR schema v0.1 raw-register-write example (= 2026-05-17 24th session、 ADR-0034 ratify 後)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute",
+    "tempoBase": 120.0
+  },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 39,
+      "data": 192,
+      "barrier": true,
+      "source": {
+        "dialect": "mewmml",
+        "rawCommand": "y$27,$C0"
+      }
+    }
+  ]
+}

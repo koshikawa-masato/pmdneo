@@ -1,0 +1,74 @@
+{
+  "$schema": "../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "PMDNEO IR schema v0.1 minimal-fm-note example (= 2026-05-17 24th session、 ADR-0034 ratify 後)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute",
+    "tempoBase": 120.0
+  },
+  "channels": [
+    {
+      "channelId": { "kind": "fm", "index": 2 },
+      "name": "Part B FM2"
+    }
+  ],
+  "tones": [
+    {
+      "toneId": 0,
+      "algorithm": 4,
+      "feedback": 5,
+      "operators": [
+        { "ar": 31, "dr": 14, "sr": 0, "rr": 7, "sl": 1, "tl": 35, "ks": 0, "mul": 1, "dt": 0, "am": false, "ssgEg": 0 },
+        { "ar": 25, "dr": 5,  "sr": 0, "rr": 5, "sl": 2, "tl": 20, "ks": 0, "mul": 4, "dt": 0, "am": false, "ssgEg": 0 },
+        { "ar": 31, "dr": 14, "sr": 0, "rr": 7, "sl": 1, "tl": 35, "ks": 0, "mul": 1, "dt": 0, "am": false, "ssgEg": 0 },
+        { "ar": 25, "dr": 5,  "sr": 0, "rr": 5, "sl": 2, "tl": 0,  "ks": 0, "mul": 1, "dt": 0, "am": false, "ssgEg": 0 }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Tempo",
+      "bpm": 120.0
+    },
+    {
+      "tick": 0,
+      "order": 1,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "ToneSelect",
+      "channel": { "kind": "fm", "index": 2 },
+      "toneId": 0
+    },
+    {
+      "tick": 0,
+      "order": 2,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Note",
+      "channel": { "kind": "fm", "index": 2 },
+      "note": 60,
+      "duration": 192,
+      "velocity": 100,
+      "tie": false
+    },
+    {
+      "tick": 192,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Rest",
+      "channel": { "kind": "fm", "index": 2 },
+      "duration": 192
+    }
+  ]
+}
