@@ -746,3 +746,47 @@ ADR 起票時にこのセクションを根拠として参照する。
 - ADPCM-B と K/R lowering は実装段階で別途判断する方が安全
 
 **根拠 docs section**: §3-2 target_profile、 §4-1 channel kind、 §7-5 ADPCMATrigger、 §7-6 ADPCMBDma、 §10 sample_refs、 §13 validation (IR004 / IR008 / IR009)、 §14-1 lowering 方針、 §14-2 IR → `.PNE`、 §16 Codex 判断 採用 5 件目 + 要検討 ADPCM-B asset 管理。 §15 未決定事項 5 件目 (= ADPCM-B 統合 vs 別 format) は別軸として温存。
+
+### 17-6. 軸 6: `.NEO` container versioning と互換性 (ratified 2026-05-17)
+
+**決定**: `.NEO` は WebApp / builder / archive 用 container 候補として概念 fix する。 正式採用 + spec 詳細は WebApp / builder 実装段階の別 decision として温存する。 wording: `.NEO` は "candidate container, not runtime replacement"。
+
+**内容**:
+
+- `.NEO` は runtime format ではない
+- Z80 driver は `.NEO` を読まない
+- runtime は引き続き `.mn` + `.PNE`
+- `.NEO` は WebApp / builder / archive / diagnostics 用 container 候補
+- chunk 候補は記録するが、 正式採用はまだしない
+
+**chunk 候補** (= §11 のまま記録):
+
+- `META` (= 曲名、 作者、 tool version)
+- `IRCM` (= IR data、 軸 2 ratify に従い JSON UTF-8 payload 想定)
+- `MN  ` (= `.mn` binary)
+- `PNE ` (= `.PNE` binary)
+- `DIAG` (= 変換 warning / lossy report)
+
+**IRCM の serialization (= 軸 2 ratify との整合)**:
+
+- まず JSON UTF-8 payload を想定する
+- binary IR chunk は future decision (= 軸 2 ratify 「binary encoding は別 ADR / decision」 に整合)
+
+**scope-out / future decision**:
+
+- `.NEO` を正式配布 format にするか
+- magic / version field / chunk extension policy
+- forward compatibility policy
+- license / provenance metadata の配置 (= `.NEO` META chunk vs `.PNE` directory entry の選択は別軸)
+- WebApp 内部 package に限定するか、 外部 archive format にするか
+
+**wording 規律**: docs / ADR / コード注釈で `.NEO` を "candidate container, not runtime replacement" として表現する。 runtime format / driver readable container として表現しない。
+
+**理由**:
+
+- `.NEO` の正式採用は WebApp / builder 実装段階で判断する方が安全
+- 先に container を固めすぎると、 IR / `.mn` / `.PNE` の設計変更に弱くなる
+- runtime path に入れないことで driver semantics を守れる
+- ただし将来に備え、 chunk 候補と役割だけは記録しておく価値がある
+
+**根拠 docs section**: §11 `.NEO` コンテナとの関係、 §16 Codex 判断 要検討 1 件目 (= `.NEO` container の正式採用範囲)。 §15 未決定事項 2 件目 (= `.NEO` 正式採用 vs WebApp 内部) は別軸として温存。 reference doc §4 (= section 単位分離 + 前方互換性意識) を採用時の設計方針として参照。
