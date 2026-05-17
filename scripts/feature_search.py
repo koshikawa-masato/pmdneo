@@ -73,9 +73,11 @@ PMDNEO ADR-0033 §決定 27 (12) π10 spike = feature-guided parameter search (s
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import sys
+import wave
 from pathlib import Path
 
 # Exit code constants
@@ -87,6 +89,78 @@ EXIT_INVALID_STATE = 67
 
 # Silence threshold (= linear amplitude、 silence 判定基準)
 SILENCE_THRESHOLD = 1e-3  # = -60 dBFS、 sox stat の Maximum amplitude 程度
+
+# Deterministic common-analysis parameters (= ADR-0033 π15.5 design)
+COMMON_ANALYSIS_VERSION = "0.1.0"
+COMMON_HOP_LENGTH = 256
+COMMON_FRAME_LENGTH = 1024
+COMMON_N_FFT = 2048
+COMMON_N_MELS = 32
+COMMON_PYIN_FMIN = 30.0
+COMMON_PYIN_FMAX = 1000.0
+COMMON_BANDS = {
+    "sub": (0.0, 80.0),
+    "low": (80.0, 250.0),
+    "low_mid": (250.0, 700.0),
+    "mid": (700.0, 2000.0),
+    "high": (2000.0, 8000.0),
+    "air": (8000.0, math.inf),
+}
+
+PROFILE_FEATURE_FOCUS = {
+    "BD": [
+        "band_energy_ratio.sub",
+        "band_energy_ratio.low",
+        "rough_body_frequency_hz",
+        "pitch_drop",
+        "attack_ms",
+        "decay_1e_ms",
+        "tail_length_ms",
+    ],
+    "SD": [
+        "transient_strength",
+        "band_energy_ratio.mid",
+        "band_energy_ratio.high",
+        "noisiness_ratio",
+        "decay_1e_ms",
+    ],
+    "HH": [
+        "band_energy_ratio.high",
+        "band_energy_ratio.air",
+        "spectral_centroid_mean",
+        "tail_length_ms",
+        "attack_ms",
+    ],
+    "CYM": [
+        "band_energy_ratio.high",
+        "band_energy_ratio.air",
+        "spectral_contrast_mean",
+        "tail_length_ms",
+    ],
+    "TOM": [
+        "band_energy_ratio.low",
+        "band_energy_ratio.low_mid",
+        "rough_body_frequency_hz",
+        "pitch_contour_confidence",
+        "decay_1e_ms",
+    ],
+    "RIM": [
+        "transient_strength",
+        "band_energy_ratio.mid",
+        "band_energy_ratio.high",
+        "tail_length_ms",
+        "peak_rms_ratio",
+    ],
+}
+
+PROFILE_PARAMETER_AXES = {
+    "BD": ["a_osc1_pitch", "a_osc1_octave", "a_env1_attack", "a_env1_decay", "a_env1_release", "a_env2_decay", "a_lowcut"],
+    "SD": ["a_level_noise", "a_env1_attack", "a_env1_decay", "a_filter1_cutoff", "a_ws_drive", "a_level_o1"],
+    "HH": ["a_level_noise", "a_filter1_cutoff", "a_env1_decay", "a_env1_release", "a_ws_drive"],
+    "CYM": ["a_level_noise", "a_filter1_cutoff", "a_env1_decay", "a_env1_release", "a_filter1_resonance"],
+    "TOM": ["a_osc1_pitch", "a_osc1_octave", "a_env1_decay", "a_env1_release", "a_filter1_cutoff"],
+    "RIM": ["a_env1_attack", "a_env1_decay", "a_level_noise", "a_ws_drive", "a_lowcut"],
+}
 
 # Distance metric weights (= 各 feature の比較 weight、 future tuning 余地)
 DISTANCE_WEIGHTS = {
@@ -113,6 +187,572 @@ def linear_to_dbfs(x: float) -> float:
     if x <= 0:
         return -math.inf
     return 20.0 * math.log10(max(x, 1e-10))
+
+
+def _clamp01(value: float) -> float:
+    return max(0.0, min(1.0, value))
+
+
+def _round_float(value: float, digits: int = 6):
+    if isinstance(value, float) and (math.isinf(value) or math.isnan(value)):
+        return str(value)
+    return round(float(value), digits)
+
+
+def _sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _read_wav_metadata(path: Path) -> dict:
+    with wave.open(str(path), "rb") as w:
+        sample_width = w.getsampwidth()
+        return {
+            "sample_rate": int(w.getframerate()),
+            "channels": int(w.getnchannels()),
+            "bit_depth": int(sample_width * 8),
+            "total_samples": int(w.getnframes()),
+            "duration_ms": round(w.getnframes() / w.getframerate() * 1000.0, 3),
+        }
+
+
+def _tolist_rounded(values, digits: int = 6) -> list:
+    import numpy as np
+
+    arr = np.asarray(values, dtype=float)
+    arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    return [round(float(v), digits) for v in arr.tolist()]
+
+
+def _band_masks(freqs) -> dict:
+    import numpy as np
+
+    masks = {}
+    for name, (lo, hi) in COMMON_BANDS.items():
+        if math.isinf(hi):
+            masks[name] = freqs >= lo
+        else:
+            masks[name] = (freqs >= lo) & (freqs < hi)
+    return masks
+
+
+def _frame_rms(y, frame_length: int, hop_length: int):
+    import numpy as np
+
+    if len(y) < frame_length:
+        frame = np.pad(y, (0, frame_length - len(y)))
+        return np.asarray([float(np.sqrt(np.mean(frame ** 2)))])
+    starts = range(0, len(y) - frame_length + 1, hop_length)
+    return np.asarray([
+        float(np.sqrt(np.mean(y[start:start + frame_length] ** 2)))
+        for start in starts
+    ])
+
+
+def _log_frequency_spectrogram(power, freqs, n_bands: int):
+    import numpy as np
+
+    lo = max(20.0, float(freqs[1]) if len(freqs) > 1 else 20.0)
+    hi = max(lo * 2.0, float(freqs[-1]))
+    edges = np.geomspace(lo, hi, n_bands + 1)
+    rows = []
+    for idx in range(n_bands):
+        if idx == n_bands - 1:
+            mask = (freqs >= edges[idx]) & (freqs <= edges[idx + 1])
+        else:
+            mask = (freqs >= edges[idx]) & (freqs < edges[idx + 1])
+        if not np.any(mask):
+            rows.append(np.zeros(power.shape[1]))
+        else:
+            rows.append(np.mean(power[mask], axis=0))
+    spec = np.vstack(rows)
+    return 10.0 * np.log10(np.maximum(spec, 1e-12))
+
+
+def extract_common_analysis(wav_path: Path) -> dict:
+    """
+    Extract deterministic common feature set for all 6 drum kinds.
+
+    This is diagnostic data for profile selection and sensitivity tables.
+    It is not an acceptance metric.
+    """
+    import numpy as np
+    import scipy.signal
+    import soundfile as sf
+
+    metadata = _read_wav_metadata(wav_path)
+    y_raw, sr = sf.read(str(wav_path), dtype="float32", always_2d=True)
+    y = y_raw.mean(axis=1)
+    if len(y) == 0:
+        raise ValueError("empty WAV")
+
+    total_samples = int(len(y))
+    duration_ms = round(total_samples / sr * 1000.0, 3)
+    abs_y = np.abs(y)
+    peak_linear = float(np.max(abs_y))
+    rms_linear = float(np.sqrt(np.mean(y ** 2)))
+    peak_dbfs = linear_to_dbfs(peak_linear)
+    rms_dbfs = linear_to_dbfs(rms_linear)
+    clipping_count = int(np.sum(abs_y >= 0.999))
+
+    non_silent_idx = np.where(abs_y > SILENCE_THRESHOLD)[0]
+    if len(non_silent_idx) == 0:
+        onset_idx = 0
+        peak_idx = 0
+        leading_silence_ms = duration_ms
+        trailing_silence_ms = 0.0
+        attack_ms = 0.0
+        tail_length_ms = 0.0
+    else:
+        onset_idx = int(non_silent_idx[0])
+        peak_idx = int(np.argmax(abs_y))
+        leading_silence_ms = onset_idx / sr * 1000.0
+        trailing_silence_ms = (total_samples - 1 - int(non_silent_idx[-1])) / sr * 1000.0
+        attack_ms = max(0.0, (peak_idx - onset_idx) / sr * 1000.0)
+        tail_length_ms = trailing_silence_ms
+
+    if peak_idx < total_samples - 1 and peak_linear > SILENCE_THRESHOLD:
+        target_amp = peak_linear / math.e
+        post_peak = abs_y[peak_idx:]
+        decay_idx_arr = np.where(post_peak < target_amp)[0]
+        if len(decay_idx_arr) > 0:
+            decay_1e_ms = float(decay_idx_arr[0] / sr * 1000.0)
+        else:
+            decay_1e_ms = float((total_samples - peak_idx) / sr * 1000.0)
+    else:
+        decay_1e_ms = 0.0
+
+    attack_window = y[onset_idx : min(onset_idx + int(0.050 * sr), total_samples)]
+    if len(attack_window) > 0:
+        window_rms = float(np.sqrt(np.mean(attack_window ** 2)))
+        transient_strength = float(np.max(np.abs(attack_window)) / window_rms) if window_rms > 0 else 0.0
+    else:
+        transient_strength = 0.0
+    peak_rms_ratio = peak_linear / rms_linear if rms_linear > 0 else 0.0
+
+    nperseg = min(COMMON_N_FFT, len(y))
+    noverlap = max(0, nperseg - min(COMMON_HOP_LENGTH, nperseg))
+    freqs, _, stft = scipy.signal.stft(
+        y,
+        fs=sr,
+        window="hann",
+        nperseg=nperseg,
+        noverlap=noverlap,
+        nfft=COMMON_N_FFT,
+        boundary=None,
+        padded=False,
+    )
+    mag = np.abs(stft)
+    power = mag ** 2
+    masks = _band_masks(freqs)
+    total_energy = float(np.sum(power))
+    band_energy_ratio = {}
+    band_energy_envelope = {}
+    for name, mask in masks.items():
+        band_power = power[mask]
+        band_total = float(np.sum(band_power))
+        band_energy_ratio[name] = round(band_total / total_energy, 6) if total_energy > 0 else 0.0
+        band_energy_envelope[name] = _tolist_rounded(np.sum(band_power, axis=0), 6)
+
+    mag_sum = np.sum(mag, axis=0)
+    centroid_series = np.divide(
+        np.sum(mag * freqs[:, None], axis=0),
+        mag_sum,
+        out=np.zeros_like(mag_sum),
+        where=mag_sum > 0,
+    )
+    spectral_centroid_mean = float(np.mean(centroid_series)) if len(centroid_series) else 0.0
+    if mag.shape[1] > 1:
+        positive_diff = np.maximum(np.diff(mag, axis=1), 0.0)
+        onset_env = np.concatenate(([0.0], np.sqrt(np.sum(positive_diff ** 2, axis=0))))
+    else:
+        onset_env = np.zeros(mag.shape[1])
+    spectral_flux_mean = float(np.mean(onset_env)) if len(onset_env) else 0.0
+
+    spectral_contrast_mean = []
+    for name in COMMON_BANDS:
+        band_mag = mag[masks[name]]
+        if band_mag.size == 0:
+            spectral_contrast_mean.append(0.0)
+            continue
+        log_band = 20.0 * np.log10(np.maximum(band_mag, 1e-10))
+        contrast_series = np.percentile(log_band, 95, axis=0) - np.percentile(log_band, 5, axis=0)
+        spectral_contrast_mean.append(round(float(np.mean(contrast_series)), 4))
+
+    log_mel = _log_frequency_spectrogram(power, freqs, COMMON_N_MELS)
+
+    low_body_mask = (freqs >= COMMON_PYIN_FMIN) & (freqs < 700.0)
+    low_body_power = power[low_body_mask]
+    low_body_freqs = freqs[low_body_mask]
+    if low_body_power.size > 0 and float(np.sum(low_body_power)) > 0:
+        summed = np.sum(low_body_power, axis=1)
+        rough_body_frequency_hz = float(low_body_freqs[int(np.argmax(summed))])
+        denom = np.sum(low_body_power, axis=0)
+        centroid_num = np.sum(low_body_power * low_body_freqs[:, None], axis=0)
+        low_band_centroid_series = np.divide(
+            centroid_num,
+            denom,
+            out=np.zeros_like(centroid_num),
+            where=denom > 0,
+        )
+    else:
+        rough_body_frequency_hz = 0.0
+        low_band_centroid_series = np.zeros(power.shape[1])
+
+    if low_body_power.size > 0:
+        peak_idx_by_frame = np.argmax(low_body_power, axis=0)
+        f0_clean = low_body_freqs[peak_idx_by_frame]
+        low_total_by_frame = np.sum(low_body_power, axis=0)
+        low_peak_by_frame = np.max(low_body_power, axis=0)
+        pitch_conf_by_frame = np.divide(
+            low_peak_by_frame,
+            low_total_by_frame,
+            out=np.zeros_like(low_peak_by_frame),
+            where=low_total_by_frame > 0,
+        )
+        voiced = pitch_conf_by_frame > 0.25
+        voiced_frame_ratio = float(np.mean(voiced)) if len(voiced) else 0.0
+        pitch_contour_confidence = float(np.mean(pitch_conf_by_frame)) if len(pitch_conf_by_frame) else 0.0
+    else:
+        f0_clean = np.zeros(power.shape[1])
+        voiced = np.zeros(power.shape[1], dtype=bool)
+        voiced_frame_ratio = 0.0
+        pitch_contour_confidence = 0.0
+
+    try:
+        import pyloudnorm as pyln
+
+        meter = pyln.Meter(sr)
+        integrated_lufs = float(meter.integrated_loudness(y))
+    except Exception:
+        integrated_lufs = float("-inf")
+
+    noisiness_ratio = _clamp01(
+        band_energy_ratio.get("high", 0.0) + band_energy_ratio.get("air", 0.0)
+    )
+
+    scalar = {
+        "waveform": {
+            "duration_ms": duration_ms,
+            "sample_rate": int(metadata["sample_rate"]),
+            "channels": int(metadata["channels"]),
+            "bit_depth": int(metadata["bit_depth"]),
+            "total_samples": int(metadata["total_samples"]),
+        },
+        "level": {
+            "peak_dbfs": _round_float(peak_dbfs, 3),
+            "rms_dbfs": _round_float(rms_dbfs, 3),
+            "integrated_lufs": _round_float(integrated_lufs, 3),
+            "clipping_count": clipping_count,
+        },
+        "timing": {
+            "leading_silence_ms": round(float(leading_silence_ms), 3),
+            "attack_ms": round(float(attack_ms), 3),
+            "decay_1e_ms": round(float(decay_1e_ms), 3),
+            "tail_length_ms": round(float(tail_length_ms), 3),
+            "transient_strength": round(float(transient_strength), 3),
+            "peak_rms_ratio": round(float(peak_rms_ratio), 3),
+        },
+        "spectrum": {
+            "band_energy_ratio": band_energy_ratio,
+            "spectral_centroid_mean": round(float(spectral_centroid_mean), 3),
+            "spectral_flux_mean": round(float(spectral_flux_mean), 6),
+            "spectral_contrast_mean": spectral_contrast_mean,
+        },
+        "pitchedness_noise": {
+            "rough_body_frequency_hz": round(float(rough_body_frequency_hz), 3),
+            "pitch_contour_confidence": round(float(pitch_contour_confidence), 6),
+            "voiced_frame_ratio": round(float(voiced_frame_ratio), 6),
+            "noisiness_ratio": round(float(noisiness_ratio), 6),
+        },
+    }
+
+    timeseries = {
+        "rms_envelope": _tolist_rounded(
+            _frame_rms(y, COMMON_FRAME_LENGTH, COMMON_HOP_LENGTH),
+            8,
+        ),
+        "onset_envelope": _tolist_rounded(onset_env, 6),
+        "band_energy_envelope": band_energy_envelope,
+        "spectral_centroid_series": _tolist_rounded(centroid_series, 3),
+        "low_band_centroid_series": _tolist_rounded(low_band_centroid_series, 3),
+        "pitch_contour": _tolist_rounded(f0_clean, 3),
+        "pitch_voiced": [bool(v) for v in np.asarray(voiced).tolist()],
+        "log_mel_spectrogram": [
+            _tolist_rounded(row, 3) for row in np.asarray(log_mel, dtype=float)
+        ],
+    }
+
+    return {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "source_wav": str(wav_path),
+        "source_wav_sha256": _sha256_file(wav_path),
+        "analysis_params": {
+            "hop_length": COMMON_HOP_LENGTH,
+            "frame_length": COMMON_FRAME_LENGTH,
+            "n_fft": COMMON_N_FFT,
+            "n_mels": COMMON_N_MELS,
+            "silence_threshold": SILENCE_THRESHOLD,
+            "pitch_estimator": "low-band-peak-per-frame",
+            "pitch_estimator_fmin": COMMON_PYIN_FMIN,
+            "pitch_estimator_fmax": COMMON_PYIN_FMAX,
+            "bands": {k: [v[0], None if math.isinf(v[1]) else v[1]] for k, v in COMMON_BANDS.items()},
+        },
+        "common_features": scalar,
+        "timeseries": timeseries,
+    }
+
+
+def _triangular_membership(value: float, center: float, width: float) -> float:
+    if width <= 0:
+        return 0.0
+    return _clamp01(1.0 - abs(value - center) / width)
+
+
+def classify_drum_kind(common_analysis: dict) -> dict:
+    """Rule-based deterministic drum-kind classifier for profile selection."""
+    features = common_analysis["common_features"]
+    bands = features["spectrum"]["band_energy_ratio"]
+    timing = features["timing"]
+    spectrum = features["spectrum"]
+    pn = features["pitchedness_noise"]
+
+    sub = bands.get("sub", 0.0)
+    low = bands.get("low", 0.0)
+    low_mid = bands.get("low_mid", 0.0)
+    mid = bands.get("mid", 0.0)
+    high = bands.get("high", 0.0)
+    air = bands.get("air", 0.0)
+    low_body = sub + low
+    tom_body = low + low_mid
+    mid_high = mid + high
+    high_air = high + air
+
+    centroid = float(spectrum["spectral_centroid_mean"])
+    centroid_low = _clamp01(1.0 - centroid / 3000.0)
+    centroid_mid = _triangular_membership(centroid, 1800.0, 1800.0)
+    centroid_high = _clamp01((centroid - 1500.0) / 5000.0)
+    tail = float(timing["tail_length_ms"])
+    tail_short = _clamp01(1.0 - tail / 120.0)
+    tail_medium = _triangular_membership(tail, 180.0, 220.0)
+    tail_long = _clamp01((tail - 220.0) / 500.0)
+    transient = _clamp01(float(timing["transient_strength"]) / 5.0)
+    pitch_conf = _clamp01(float(pn["pitch_contour_confidence"]))
+    noisiness = _clamp01(float(pn["noisiness_ratio"]))
+
+    raw_scores = {
+        "BD": (
+            0.40 * _clamp01(low_body * 2.0)
+            + 0.20 * centroid_low
+            + 0.20 * pitch_conf
+            + 0.10 * tail_medium
+            + 0.10 * _clamp01(transient)
+        ),
+        "TOM": (
+            0.35 * _clamp01(tom_body * 2.0)
+            + 0.25 * pitch_conf
+            + 0.20 * centroid_mid
+            + 0.10 * tail_medium
+            + 0.10 * _clamp01(1.0 - sub * 2.0)
+        ),
+        "SD": (
+            0.30 * _clamp01(mid_high * 1.5)
+            + 0.25 * noisiness
+            + 0.20 * transient
+            + 0.15 * tail_medium
+            + 0.10 * centroid_mid
+        ),
+        "RIM": (
+            0.35 * transient
+            + 0.25 * tail_short
+            + 0.25 * _clamp01(mid_high * 1.5)
+            + 0.15 * centroid_mid
+        ),
+        "HH": (
+            0.40 * _clamp01(high_air * 1.5)
+            + 0.25 * centroid_high
+            + 0.20 * tail_short
+            + 0.15 * _clamp01(1.0 - pitch_conf)
+        ),
+        "CYM": (
+            0.40 * _clamp01(high_air * 1.5)
+            + 0.25 * centroid_high
+            + 0.25 * tail_long
+            + 0.10 * noisiness
+        ),
+    }
+    candidates = {
+        kind: round(_clamp01(score), 6)
+        for kind, score in sorted(raw_scores.items(), key=lambda item: (-item[1], item[0]))
+    }
+    predicted_kind = next(iter(candidates))
+    return {
+        "schema_version": "0.1.0",
+        "predicted_kind": predicted_kind,
+        "confidence": candidates[predicted_kind],
+        "candidates": candidates,
+        "rule_version": "drum-kind-rules-v0.1.0",
+        "classifier_scope": "profile-selection-only-not-acceptance",
+    }
+
+
+def build_profile_summary(common_analysis: dict, classifier: dict, profile: str) -> dict:
+    """Build a Claude-readable profile summary from common features."""
+    features = common_analysis["common_features"]
+    bands = features["spectrum"]["band_energy_ratio"]
+    timing = features["timing"]
+    pn = features["pitchedness_noise"]
+
+    selected = {
+        "profile": profile,
+        "selected_by": "classifier" if profile == classifier["predicted_kind"] else "override",
+        "focus_features": PROFILE_FEATURE_FOCUS[profile],
+        "parameter_axes_for_sensitivity": PROFILE_PARAMETER_AXES[profile],
+        "feature_snapshot": {
+            "band_energy_ratio": bands,
+            "attack_ms": timing["attack_ms"],
+            "decay_1e_ms": timing["decay_1e_ms"],
+            "tail_length_ms": timing["tail_length_ms"],
+            "transient_strength": timing["transient_strength"],
+            "rough_body_frequency_hz": pn["rough_body_frequency_hz"],
+            "pitch_contour_confidence": pn["pitch_contour_confidence"],
+            "noisiness_ratio": pn["noisiness_ratio"],
+        },
+        "wording_discipline": [
+            "profile summary is diagnostic only",
+            "classifier selects interpretation profile only",
+            "human audition remains final gate",
+            "optimizer is not involved",
+        ],
+    }
+    return selected
+
+
+def _write_yaml(path: Path, data: dict) -> None:
+    path.write_text(_dump_yaml(data), encoding="utf-8")
+
+
+def _dump_yaml(data: dict) -> str:
+    import yaml
+
+    class NoAliasDumper(yaml.SafeDumper):
+        def ignore_aliases(self, data):
+            return True
+
+    return yaml.dump(
+        data,
+        Dumper=NoAliasDumper,
+        allow_unicode=True,
+        sort_keys=False,
+    )
+
+
+def _write_json(path: Path, data: dict) -> None:
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def analyze_drum_command(args: argparse.Namespace) -> int:
+    """Emit deterministic common analysis + classifier + profile artifacts."""
+    if not args.input.exists():
+        print(f"error: input file not found: {args.input}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if args.profile != "auto" and args.profile not in PROFILE_FEATURE_FOCUS:
+        print(f"error: unknown profile: {args.profile}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    try:
+        common_analysis = extract_common_analysis(args.input)
+        classifier = classify_drum_kind(common_analysis)
+    except wave.Error as exc:
+        print(f"error: WAV metadata read failed: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+    except Exception as exc:
+        print(f"error: common analysis failed: {exc}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    selected_profile = classifier["predicted_kind"] if args.profile == "auto" else args.profile
+    profile_summary = build_profile_summary(common_analysis, classifier, selected_profile)
+
+    scalar_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-scalar",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "analysis_params": common_analysis["analysis_params"],
+        "common_features": common_analysis["common_features"],
+    }
+    timeseries_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-timeseries",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "analysis_params": common_analysis["analysis_params"],
+        "timeseries": common_analysis["timeseries"],
+    }
+    summary_doc = {
+        "schema_version": COMMON_ANALYSIS_VERSION,
+        "artifact_kind": "analysis-summary",
+        "source_wav": common_analysis["source_wav"],
+        "source_wav_sha256": common_analysis["source_wav_sha256"],
+        "classifier": classifier,
+        "selected_profile": selected_profile,
+        "profile_summary": profile_summary,
+        "scope": {
+            "metric_is_final_judge": False,
+            "optimizer_involved": False,
+            "human_audition_final_gate": True,
+        },
+    }
+
+    if args.output_dir is None:
+        output = {
+            "scalar": scalar_doc,
+            "classifier": classifier,
+            "profile_summary": profile_summary,
+        }
+        if args.format == "json":
+            print(json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True))
+        else:
+            print(_dump_yaml(output))
+        return EXIT_OK
+
+    output_dir = args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
+    scalar_path = output_dir / "analysis-scalar.yaml"
+    timeseries_path = output_dir / "analysis-timeseries.json"
+    summary_path = output_dir / "analysis-summary.yaml"
+
+    _write_yaml(scalar_path, scalar_doc)
+    _write_json(timeseries_path, timeseries_doc)
+    summary_doc["artifacts"] = {
+        "analysis_scalar": scalar_path.name,
+        "analysis_scalar_sha256": _sha256_file(scalar_path),
+        "analysis_timeseries": timeseries_path.name,
+        "analysis_timeseries_sha256": _sha256_file(timeseries_path),
+    }
+    _write_yaml(summary_path, summary_doc)
+
+    print(
+        _dump_yaml(
+            {
+                "wrote": {
+                    "analysis_scalar": str(scalar_path),
+                    "analysis_timeseries": str(timeseries_path),
+                    "analysis_summary": str(summary_path),
+                },
+                "selected_profile": selected_profile,
+                "predicted_kind": classifier["predicted_kind"],
+                "confidence": classifier["confidence"],
+            }
+        )
+    )
+    return EXIT_OK
 
 
 def extract_features(wav_path: Path) -> dict:
@@ -1480,6 +2120,26 @@ def main() -> int:
         help="pretty-print (= JSON 出力時のみ effect)",
     )
 
+    p_analyze_drum = subparsers.add_parser(
+        "analyze-drum",
+        help="Deterministic 6-drum common analysis + drum-kind classifier + profile summary (= π15.5 新規)",
+    )
+    p_analyze_drum.add_argument("input", type=Path, help="input WAV file path")
+    p_analyze_drum.add_argument(
+        "--output-dir", type=Path, default=None,
+        help="directory to write analysis-scalar.yaml / analysis-timeseries.json / analysis-summary.yaml",
+    )
+    p_analyze_drum.add_argument(
+        "--profile",
+        choices=["auto", "BD", "SD", "CYM", "HH", "TOM", "RIM"],
+        default="auto",
+        help="profile override (= default auto via deterministic classifier)",
+    )
+    p_analyze_drum.add_argument(
+        "--format", choices=["yaml", "json"], default="yaml",
+        help="stdout format when --output-dir is omitted (= default yaml)",
+    )
+
     p_pref = subparsers.add_parser(
         "preference-learn",
         help="π15 human preference learning = pairwise comparison + reject から logistic pairwise ranking 学習 (= π15 新規、 metric correlation の代替軸)",
@@ -1541,6 +2201,8 @@ def main() -> int:
         return compare_command(args)
     if args.command == "validate":
         return validate_command(args)
+    if args.command == "analyze-drum":
+        return analyze_drum_command(args)
     if args.command == "preference-learn":
         return preference_learn_command(args)
     if args.command == "audition-check":

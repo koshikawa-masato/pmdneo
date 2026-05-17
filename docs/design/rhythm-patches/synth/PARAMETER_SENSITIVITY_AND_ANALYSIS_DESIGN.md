@@ -1,0 +1,629 @@
+# Surge XT parameter sensitivity + analysis design investigation
+
+- 状態: **investigation / design draft** (= 23rd session π15.5 軌道修正)
+- 関連 ADR: ADR-0033 §決定 26 / §決定 27
+- 関連 artifact: `assets/drum_samples/synth/2608_bd.wav`, `assets/drum_samples/synth/patches/2608_bd.fxp`
+- scope: 6 音共通解析手段の選定設計 + drum profile 設計 + `.fxp` parameter sensitivity table 設計
+- non-goal: metric 最大化 / optimizer 再実行 / `.fxp` 自動最適化 / 既存 `2608_BD.adpcma` 更新
+
+---
+
+## 1. 調査目的
+
+現在の chain は `feature distance` と `optimizer` に寄りすぎている。
+本来の目的は **`2608_*.wav` を Surge XT `.fxp` parameter file として再現可能に定義すること** であり、解析 score を 1 に近づけることではない。
+
+本調査書の目的は、次の 2 点を先に固定すること。
+
+1. `2608_BD.wav` と Surge XT render WAV を同じ方法で解析し、比較可能な deterministic data に変換する設計
+2. Surge XT `.fxp` parameter を 1 件ずつ動かしたとき、解析 data のどこがどう変わるかを記録する対応表の設計
+
+この 2 点がないまま optimizer を回すと、score は改善しても **`.fxp` authoring の知識** にならない。
+
+## 2. 以前の ADR との対応
+
+PMDDotNET / MML 検証では、2 経路で同じ WAV が得られることを byte / SHA256 で確認した。
+今回も同じ考え方を使う。
+
+```text
+target:
+  2608_BD.wav
+    -> deterministic analysis data
+
+candidate:
+  Surge XT .fxp
+    -> fxp2wav-surge render wav
+    -> deterministic analysis data
+
+compare:
+  target analysis data と candidate analysis data の差分を見る
+```
+
+ただし今回は byte-identical WAV を目指すのではない。
+WAV 全体の byte 一致ではなく、BD 再現に必要な特徴を deterministic data として比較する。
+
+## 3. 解析 tool 選定の前提
+
+解析 tool は **final judge ではない**。
+解析 tool は、耳での判断に入る前の diagnostic data を作るためのもの。
+
+採用条件:
+
+- 同一 WAV から同一 feature が再生成できる
+- sample rate / channel / bit depth などの前提を明示できる
+- BD の主要要素を分けて観察できる
+- `.fxp` parameter sensitivity table に転用できる
+- YAML / CSV として artifact 化できる
+
+除外条件:
+
+- score だけを返し、どの音響要素が動いたか分からないもの
+- human audition を置き換えるもの
+- target WAV の sample data を再利用するもの
+
+## 4. BD 再現で必要な観察軸
+
+BD では、少なくとも次の軸を分けて観察する必要がある。
+
+| 軸 | 見たいこと | 代表 feature 候補 |
+|---|---|---|
+| onset | 立ち上がりが遅くないか | leading silence, attack_ms, onset peak |
+| transient | クリック / punch があるか | peak/RMS, onset envelope, spectral flux |
+| body pitch | 胴鳴りの高さ | rough f0, low-band peak, pitch contour |
+| pitch drop | BD らしい下降があるか | frame-wise f0, low-band centroid time series |
+| decay | 短すぎる / 長すぎる / sustain 化していないか | RMS envelope, decay_1e_ms, tail length |
+| spectral balance | 低域・中域・高域の比率 | band energy ratio, log-mel bands |
+| noise/click | noise 成分が過不足ないか | spectral contrast, high-band transient |
+| loudness | 音量差で誤判定していないか | peak, RMS, LUFS |
+
+既存 `feature_search.py` の v1/v2 feature は出発点として使える。
+ただし、BD 再現には **time-series 系 feature** が特に重要。
+
+## 5. 解析 tool 群の候補
+
+### 5.1 current baseline
+
+既存:
+
+- `scripts/feature_search.py extract`
+- `scripts/feature_search.py compare`
+- `scripts/feature_search.py validate`
+- `docs/design/rhythm-patches/synth/feature-rules.yaml`
+- `docs/design/rhythm-patches/synth/feature-rules-v2.yaml`
+
+位置づけ:
+
+- baseline として維持
+- 既存 metric の採否は未確定
+- optimizer objective ではなく、diagnostic feature extractor として再評価する
+
+### 5.2 scalar feature
+
+用途:
+
+- 早い sanity check
+- 異常 candidate の除外
+- sensitivity table の summary column
+
+候補:
+
+- peak / RMS / LUFS
+- attack_ms
+- decay_1e_ms
+- tail_length_ms
+- low/mid/high band ratio
+- spectral centroid
+- rough_frequency_hz
+
+弱点:
+
+- 時間変化を潰す
+- BD の pitch drop / transient shape を捉えにくい
+
+### 5.3 time-series feature
+
+用途:
+
+- BD の再現性を見る主軸
+- parameter sensitivity を見る主軸
+
+候補:
+
+- RMS envelope time series
+- onset envelope time series
+- low-band energy envelope
+- log-mel spectrogram time series
+- frame-wise spectral centroid
+- frame-wise low-band centroid
+- rough f0 / pitch contour
+
+評価方法:
+
+- fixed hop length
+- fixed frame count または fixed time grid
+- target / candidate を同じ長さに切り出して比較
+- DTW は補助。最初は固定 time grid の差分を優先する
+
+### 5.4 perceptual feature
+
+用途:
+
+- 音量差・聴感差の補助
+
+候補:
+
+- LUFS
+- MFCC mean/std
+- log-mel mean/std
+- spectral contrast
+
+注意:
+
+- MFCC / log-mel は便利だが、理由説明が弱くなりやすい
+- sensitivity table では scalar summary と time-series delta に分けて使う
+
+## 6. 解析 tool 評価方法
+
+解析 tool 自体も評価対象にする。
+
+### 6.1 repeatability
+
+同じ WAV を複数回解析し、出力 YAML が byte-identical になること。
+
+```text
+2608_BD.wav
+  -> analysis A
+  -> analysis B
+  -> SHA256(A) == SHA256(B)
+```
+
+### 6.2 discrimination
+
+明らかに違う candidate を区別できること。
+
+例:
+
+- silence
+- pure sine long sustain
+- click only
+- low sine no transient
+- noise only
+- existing rejected candidate
+- accepted / hand-authored candidate
+
+ここで区別できない feature は、BD 再現の主 feature にしない。
+
+### 6.3 interpretability
+
+feature の差分から、修正すべき parameter 群を推測できること。
+
+例:
+
+- attack が遅い -> `a_env1_attack`
+- decay が長い -> `a_env1_decay`, `a_env1_release`
+- 低域が高すぎる / 低すぎる -> `a_osc1_pitch`, `a_osc1_octave`
+- 高域 transient が足りない -> `a_level_noise`, filter / drive
+
+### 6.4 correlation with audition
+
+human audition との相関は必要。
+ただし、これは metric を final judge にするためではない。
+
+目的:
+
+- 明らかに役に立たない feature set を退ける
+- sensitivity table の読み方を改善する
+
+## 7. `.fxp` parameter sensitivity table 設計
+
+目的は、次の対応を機械的に作ること。
+
+```text
+Surge XT parameter delta
+  -> rendered wav delta
+  -> analysis feature delta
+  -> human-readable effect label
+```
+
+これは optimization ではない。
+1 parameter だけを動かし、音響特徴の変化を観察する。
+
+## 8. 実験 protocol
+
+### 8.1 fixed inputs
+
+- baseline `.fxp`: 1 件に固定
+- render note: MIDI 36
+- velocity: 127
+- duration: 800 ms
+- sample rate: 44100 Hz
+- channel: mono
+- bit depth: 16-bit
+- normalize: off
+- leading: 0
+- trailing trim: +50-100 ms
+- seed: §決定 26 (6) literal 固定
+
+### 8.2 one-factor-at-a-time
+
+1 回の render で変更する parameter は 1 件だけ。
+
+```text
+baseline.fxp
+  + a_env1_decay = baseline + delta
+  -> render
+  -> analyze
+  -> compare with baseline analysis
+```
+
+複数 parameter の相互作用は、最初の sensitivity table ができた後に扱う。
+
+### 8.3 parameter sweep
+
+各 parameter は固定 grid で動かす。
+
+例:
+
+```yaml
+parameter: a_env1_decay
+baseline: -2.089
+values:
+  - -5.0
+  - -4.0
+  - -3.0
+  - -2.089
+  - -1.0
+  - 0.0
+```
+
+grid は `feature-rules-v2.yaml` の `search_space` を初期値に使う。
+
+## 9. 初期対象 parameter
+
+最初は BD に効く可能性が高いものだけに絞る。
+
+| parameter | 期待される主効果 |
+|---|---|
+| `a_env1_attack` | onset / transient |
+| `a_env1_decay` | body decay |
+| `a_env1_release` | tail / sustain 化 |
+| `a_env2_decay` | pitch/filter envelope 期間 |
+| `a_filter1_cutoff` | 明るさ / 高域抑制 |
+| `a_lowcut` | 低域量 / body |
+| `a_level_noise` | click / noise transient |
+| `a_ws_drive` | punch / saturation / loudness |
+| `a_osc1_pitch` | body pitch |
+| `a_osc1_octave` | body pitch range |
+
+次段階で追加候補:
+
+- `a_level_o1`
+- `a_level_o2`
+- `a_mute_noise`
+- `a_filter1_resonance`
+- `a_filter1_type`
+- OSC type / routing enum
+
+enum / routing は効果が大きいので、continuous sweep とは別表にする。
+
+## 10. table 出力 format
+
+### 10.1 machine-readable YAML
+
+```yaml
+schema_version: "0.1.0"
+target: BD
+baseline:
+  fxp: assets/drum_samples/synth/patches/2608_bd.fxp
+  wav: assets/drum_samples/synth/2608_bd.wav
+  analysis_sha256: "<sha256>"
+render_condition:
+  sample_rate: 44100
+  channels: 1
+  bit_depth: 16
+  normalize: false
+  note: 36
+  velocity: 127
+sweeps:
+  - parameter: a_env1_decay
+    scale: log-time
+    baseline_value: -2.089
+    observations:
+      - value: -5.0
+        wav_sha256: "<sha256>"
+        analysis_sha256: "<sha256>"
+        feature_delta:
+          decay_1e_ms: -120.4
+          tail_length_ms: -90.0
+          rms_amplitude_dbfs: -2.1
+        effect_summary:
+          primary: shorter_decay
+          secondary:
+            - lower_loudness
+```
+
+### 10.2 CSV summary
+
+Claude Code が読みやすい summary も出す。
+
+```csv
+parameter,value,primary_effect,attack_ms_delta,decay_1e_ms_delta,low_band_ratio_delta,rough_frequency_delta,notes
+a_env1_decay,-5.0,shorter_decay,0.0,-120.4,-0.02,0.0,"tail shortened"
+```
+
+## 11. 解析 data 出力 format
+
+解析結果は raw score だけにしない。
+次の 3 層を保存する。
+
+1. `analysis-scalar.yaml`
+2. `analysis-timeseries.npz` または `analysis-timeseries.json`
+3. `analysis-summary.yaml`
+
+`analysis-summary.yaml` は人間と Claude Code が読む。
+`analysis-timeseries.*` は再計算と図示用。
+
+## 12. 判定 wording
+
+使ってよい wording:
+
+- feature delta
+- diagnostic similarity
+- candidate differs in attack / decay / pitch contour
+- sensitivity observed
+- parameter affects feature
+
+使わない wording:
+
+- match
+- clone
+- reproduced by metric
+- score が良いので成功
+- optimizer が選んだので accept
+
+## 13. 推奨 next step
+
+まず実装するのは optimizer ではない。
+
+1. analysis extractor の出力を deterministic artifact 化する
+2. 6 音共通 feature set の schema を固定する
+3. rule-based drum-kind classifier を追加する
+4. profile-specific summary を追加する
+5. analysis tool 評価用の small fixture set を作る
+6. `parameter-sensitivity` subcommand を設計する
+7. 初期 parameter で one-factor sweep を実行する
+8. YAML / CSV の sensitivity table を artifact として保存する
+9. Claude Code はその表を使って `.fxp` authoring 方針を立てる
+
+## 14. scope constraints
+
+- driver semantics 不変
+- 既存 `2608_BD.adpcma` 非破壊
+- `assets/drum_samples/synth/2608_bd.wav` は source artifact として扱う
+- metric / table は final judge ではない
+- human audition が final gate
+- 新 artifact chain 追加 only
+
+## 15. 6音共通 feature set + profile selection
+
+対象は BD だけではなく、最終的には `2608_*.wav` 6 音すべて。
+解析 extractor は音種ごとに別実装しない。
+まず全音に同じ common feature set を出し、その後で drum profile を選ぶ。
+
+```text
+WAV
+  -> common feature extraction
+  -> deterministic drum-kind classifier
+  -> profile selection
+  -> profile-specific interpretation
+```
+
+### 15.1 common feature set
+
+全音に必ず出す feature:
+
+```yaml
+waveform:
+  - duration_ms
+  - sample_rate
+  - channels
+  - bit_depth
+  - total_samples
+level:
+  - peak_dbfs
+  - rms_dbfs
+  - integrated_lufs
+  - clipping_count
+timing:
+  - leading_silence_ms
+  - attack_ms
+  - decay_1e_ms
+  - tail_length_ms
+  - transient_strength
+spectrum:
+  - band_energy_ratio
+  - band_energy_envelope
+  - spectral_centroid_mean
+  - spectral_centroid_series
+  - spectral_flux_mean
+  - spectral_contrast_mean
+  - log_mel_spectrogram
+pitchedness_noise:
+  - rough_body_frequency_hz
+  - pitch_contour
+  - pitch_contour_confidence
+  - low_band_centroid_series
+  - noisiness_ratio
+  - voiced_frame_ratio
+```
+
+固定 band:
+
+| band | range | 主用途 |
+|---|---:|---|
+| sub | 0-80 Hz | BD low body |
+| low | 80-250 Hz | BD / TOM body |
+| low_mid | 250-700 Hz | TOM / SD body |
+| mid | 700-2000 Hz | SD / RIM body |
+| high | 2000-8000 Hz | HH / CYM / click |
+| air | 8000 Hz+ | HH / CYM brightness |
+
+### 15.2 drum profiles
+
+common feature は全音共通。
+profile は「どの feature を重く見るか」「どう解釈するか」だけを定義する。
+
+| profile | 重視する feature |
+|---|---|
+| BD | sub/low energy, body frequency, pitch drop, attack, decay, tail |
+| SD | transient, mid/high energy, noisiness, noise tail, decay |
+| HH | high/air energy, centroid, short noise decay, onset sharpness |
+| CYM | high/air energy, spectral spread, long tail, spectral contrast |
+| TOM | low/low_mid energy, body frequency, pitch contour, decay, tail |
+| RIM | transient, mid/high energy, very short tail, peak/RMS |
+
+### 15.3 deterministic classifier
+
+profile 選択は手入力に依存させない。
+同じ WAV から同じ common feature が得られ、同じ rule で同じ `predicted_kind` が出る必要がある。
+
+classifier input:
+
+- band energy ratio
+- spectral centroid
+- tail_length_ms
+- attack_ms
+- transient_strength
+- rough_body_frequency_hz
+- pitch_contour_confidence
+- noisiness_ratio
+- voiced_frame_ratio
+
+classifier output:
+
+```yaml
+drum_kind_classifier:
+  schema_version: "0.1.0"
+  predicted_kind: BD
+  confidence: 0.82
+  candidates:
+    BD: 0.82
+    TOM: 0.54
+    SD: 0.18
+    RIM: 0.12
+    HH: 0.05
+    CYM: 0.03
+  rule_version: "drum-kind-rules-v0.1.0"
+```
+
+初期 rule は ML ではなく固定式でよい。
+
+| kind | rule sketch |
+|---|---|
+| BD | sub+low が高い、centroid 低い、pitch confidence あり、tail 中程度 |
+| TOM | low/low_mid が高い、pitch confidence あり、BD より centroid 高い |
+| SD | mid/high が高い、noise が多い、transient 強い、tail 中程度 |
+| RIM | transient 強い、tail 非常に短い、mid/high が高い |
+| HH | high/air が高い、tail 短い、pitch confidence 低い |
+| CYM | high/air が高い、tail 長い、spectral spread 大きい |
+
+classifier は profile 選択の入口であり、音源の正しさを判定しない。
+
+## 16. deterministic trial protocol
+
+試行錯誤は許可する。
+ただし 1 回ごとの trial は常に決定論的に記録する。
+
+```text
+same input
+same render condition
+same analysis condition
+same classifier rule
+same profile rule
+same parameter delta
+  -> same output artifact
+```
+
+1 trial の最小単位:
+
+```text
+1 baseline .fxp
+1 parameter
+1 delta
+1 render
+1 common analysis
+1 classifier result
+1 profile-specific summary
+1 sensitivity table row
+```
+
+この単位を崩して、複数 parameter を同時に動かさない。
+
+## 17. Codex 設計上の着地点
+
+本設計の着地点は次の 4 点。
+
+1. 6 音すべてに common feature set を適用する
+2. common feature から deterministic classifier で drum profile を選ぶ
+3. profile ごとに feature の重みと解釈を切り替える
+4. sensitivity table は `1 parameter / 1 delta / 1 row` で蓄積する
+
+以後の実装指示は次の形にできる。
+
+```text
+optimizer を再開しない。
+まず deterministic analysis extractor と drum profile classifier を実装し、
+6 音共通 feature set と profile-specific summary を artifact 化する。
+その後、one-factor sensitivity table を作る。
+```
+
+## 18. 実装入口 (= Claude Code 用)
+
+`scripts/feature_search.py analyze-drum` を deterministic analysis の入口にする。
+この command は optimizer を呼ばない。
+
+```bash
+python3 scripts/feature_search.py analyze-drum \
+  assets/sounds/adpcma/2608_BD-roundtrip.wav \
+  --output-dir /private/tmp/pmdneo-analyze-drum
+```
+
+出力 artifact:
+
+```text
+analysis-scalar.yaml
+analysis-timeseries.json
+analysis-summary.yaml
+```
+
+役割:
+
+- `analysis-scalar.yaml`: common feature set + analysis params
+- `analysis-timeseries.json`: envelope / band energy / pitch contour / log-frequency spectrogram
+- `analysis-summary.yaml`: classifier result + selected profile + profile-specific focus + sensitivity parameter axes
+
+profile を固定したい場合:
+
+```bash
+python3 scripts/feature_search.py analyze-drum \
+  path/to/input.wav \
+  --profile BD \
+  --output-dir /private/tmp/pmdneo-analyze-drum
+```
+
+repeatability condition:
+
+- 同じ input WAV
+- 同じ command
+- 同じ script version
+
+で 3 artifact の SHA256 が一致すること。
+
+smoke evidence:
+
+```text
+input: assets/sounds/adpcma/2608_BD-roundtrip.wav
+predicted_kind: BD
+selected_profile: BD
+repeatability: analysis-scalar.yaml / analysis-timeseries.json / analysis-summary.yaml all SHA256 identical across two output directories
+```
