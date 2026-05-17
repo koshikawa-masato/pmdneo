@@ -640,3 +640,35 @@ ADR 起票時にこのセクションを根拠として参照する。
 - 設計 doc §15 現時点の推奨 と整合する
 
 **根拠 docs section**: §15 未決定事項 1 件目 (= IR の serialization format)、 §15 現時点の推奨 (= 設計・検証段階は JSON 表現を正とする)。
+
+### 17-3. 軸 3: register command と abstract event の境界 (ratified 2026-05-17)
+
+**決定**: SemanticEvent / ChipEvent / RawRegisterWrite の 3 層 hybrid を確定する。 標準 event 最小集合は §2-2 のまま。 LFO / portamento / pitch envelope は本軸では標準昇格させず別軸として残す。
+
+**内容**:
+
+- **SemanticEvent**: MML の音楽的意味を保持する層 (= Note / Rest / ToneSelect / Volume / Pan / Tempo / Loop など)
+- **ChipEvent**: OPNB 操作に近い正規化層 (= KeyOn / KeyOff / FMToneLoad / FMFrequency / FM3Mode / ADPCMATrigger / ADPCMBDma など)
+- **RawRegisterWrite**: 低レベル escape hatch (= port / address / data / barrier)
+- 同一 tick で複数層 event が共存してよい
+- 共通 field `order` で順序を保証する
+- lowering は SemanticEvent → ChipEvent → RawRegisterWrite の段階構造
+- importer は SemanticEvent 生成を基本とし、 必要に応じて ChipEvent / RawRegisterWrite を併用してよい
+- 標準 event 最小集合は §2-2 のまま確定
+
+**LFO / portamento / pitch envelope の扱い (= §15 未決定事項 4 件目)**:
+
+- 今は標準 SemanticEvent に昇格しない
+- 方言差が大きいため、 importer 実装段階で実例を見て別 decision とする
+- 現時点では ChipEvent または RawRegisterWrite で escape 可能とする
+
+**理由**:
+
+- SemanticEvent を残すことで WebApp 編集 / diagnostics / diff がしやすい
+- ChipEvent により OPNB への lowering が明確になる
+- RawRegisterWrite により方言差や未標準機能を失わず保持できる
+- 2 層化 (= SemanticEvent 排除) すると importer 側に負担が寄る
+- register-only にすると音楽的意味を失いすぎる
+- LFO / portamento は方言差が大きく、 今ここで標準化しすぎると危険
+
+**根拠 docs section**: §0 結論、 §2-1 レジスタ寄りのハイブリッド形式、 §2-2 標準イベントは少なく保つ、 §6 SemanticEvent、 §7 ChipEvent、 §8 RawRegisterWrite、 §14 lowering 方針、 §16 Codex 判断 採用 2 件目。 §15 未決定事項 4 件目 (= LFO / portamento 標準昇格条件) は別軸として温存。
