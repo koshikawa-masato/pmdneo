@@ -894,3 +894,127 @@ silent axes: 2/6 (= env1_release / env2_decay)
 この commit で `a_env1_decay` の silent axis が解消され、 sensitivity table で
 `parameter -> feature delta` の measurable 軸が 1 つ増えた。 同時に 2 件の failure を
 literal 記録することで「conversion table is iterative」 規律を repo に固定した。
+
+## 21. unit-converted diagnostic baseline v2 = structural dependency expansion (= π15.9)
+
+§ 20 で確定した π15.8 の 2 件 failure (= `a_env2_decay` 完全 silent / `a_env1_release`
+想定外 silent) の root cause を read-only inspection + minimal scratch sweep で分離した
+結果を反映した **v0.2.0 diagnostic baseline**。
+
+重要規律: 本 v2 は **conversion formula の修正ではない**。 conversion 軸 5 件は v0.1.0
+retain (= `log2(ms/1000)` / `12*log2(Hz/440)`)、 **structural dependency setup 4 件を
+追加** し schema 上で別 section として分離した。
+
+### 21.1 v2 artifact identity
+
+- v2 spec:
+  `docs/design/rhythm-patches/synth/2608_bd-diagnostic-v2.patch-spec.yaml`
+- v2 fxp:
+  `assets/drum_samples/synth/patches/2608_bd-diagnostic-v2.fxp`
+- v2 fxp sha256:
+  `c03d32284d5d9108da905bcce6674b09a5912845cb5b46f0262ab2c069013517`
+- v2 delta=0 baseline render sha256 (= 6 sweep 全一致):
+  `28442a6ed106fa2cfcbe2b5b8eb008244faeea092c0f55d80823f7de17858114`
+- v1 (= `2608_bd-diagnostic.fxp`) は **完全 retain**、 上書きなし
+
+label literal: `unit-converted diagnostic baseline v2 / aesthetic-rejected /
+for sensitivity measurement only / structural dependency expansion`
+
+### 21.2 root cause 分析 (= π15.9 scratch sweep 検証)
+
+#### Failure B = a_env1_release 想定外 silent (= π15.8 v1)
+
+- **root cause**: `a_env1_sustain = 0` baseline 設定
+- sustain phase で amp = 0 → release は 0 → 0 で audible 不変
+- π5 baseline で release が partial active だったのは `a_env1_decay` 値が log-time clamp
+  内で「decay 完了せず amp peak 維持」 だった偶然 (= sustain=0 でも release effect 出ていた)
+- **verify**: scratch sweep (`/private/tmp/pmdneo-scratch-release`) で sustain=0.5 +
+  release sweep が tail ±7.9 〜 -168.6 ms ACTIVE 化を確認
+
+#### Failure A = a_env2_decay 完全 silent (= π15.8 v1)
+
+- **root cause = 3 件複合 dependency** (= 単一原因ではなく chain):
+  1. `a_filter1_type = 0` → filter bypass、 envmod 経路無効
+  2. `a_filter1_envmod = 0` → env2 → cutoff routing depth なし
+  3. `a_env2_sustain = 1` → sustain saturate、 decay phase 通過せず
+- 3 件全部解消で初めて active 化、 effect は微小 (~0.05 ms)
+- **verify**: 段階 scratch sweep 3 件で 1 件ずつ調整、 3 件全成立で初 active 化を確認
+
+### 21.3 schema 分離 (= conversion vs structural dependency)
+
+`parameter-unit-conversion.yaml` v0.2.0 で 2 section に分離:
+
+- **`conversions`** (= 既存 retain):
+  - 「human-readable value を Surge XT internal scale に変換するか」
+  - 例: `a_env1_decay` の `log2(ms / 1000)`
+- **`structural_dependencies`** (= 新規 v0.2.0):
+  - 「対象 axis を active 化するための baseline 前提条件」
+  - 例: `enables_a_env1_release` = `a_env1_sustain: 0.5`
+  - 例: `enables_a_env2_decay` = 3 件複合 (filter type / envmod / env2 sustain)
+  - 各 entry に `evidence` (= scratch sweep path) + `status` (= hypothesis-verified-by-scratch-sweep)
+
+`2608_bd-diagnostic-v2.patch-spec.yaml` 内の各 parameter には `parameter_kind:
+conversion` または `parameter_kind: structural_dependency_setup` を明示記載。
+
+### 21.4 6 軸 sweep gate 結果 (= v2)
+
+| gate | 内容 | 結果 |
+|---|---|---|
+| gate 1a | `a_env1_release` silent 解消 | **✓** (= tail ±10.0 〜 -168.6 ms 範囲 active) |
+| gate 1b | `a_env2_decay` silent 解消 | **✓** (= attack ±0.046 ms 微小、 caveat literal) |
+| gate 2 | `delta=0` baseline SHA self-consistent | **✓** (= 全 6 sweep 同一 sha256) |
+| gate 3 | 全 6 軸 render 成功 | **✓** (= producer error 0) |
+| gate 4 | optimizer / accept 判定なし | **✓** |
+
+### 21.5 軸別 active / silent 判定 (= π15.7 / π15.8 / π15.9 比較)
+
+| axis | π15.7 (π5) | π15.8 (v1) | π15.9 (v2) | 主 effect (v2) |
+|---|---|---|---|---|
+| `a_osc1_octave` | active | active | **ACTIVE** | attack ±/ body ±21〜+194 Hz / band shift |
+| `a_env1_attack` | active | active | **ACTIVE** | attack ±29.8 ms (= 範囲拡大) |
+| `a_env1_decay` | **silent** ✗ | active | **ACTIVE** | attack -6.6 ms (= effect 軸移行) |
+| `a_env1_release` | partial | **silent** ✗ | **ACTIVE** ✓ | tail +10.0 / -168.6 ms |
+| `a_env2_decay` | **silent** ✗ | **silent** ✗ | **ACTIVE** ✓ | attack ±0.046 (= 微小、 caveat) |
+| `a_lowcut` | active | active | **ACTIVE** | attack -1.2〜+5.4 / tail +0.3〜+4.2 |
+
+**active count**: π15.7 = 4/6 → π15.8 = 4/6 → **π15.9 = 6/6 ✓**
+**silent count**: π15.7 = 2/6 → π15.8 = 2/6 → **π15.9 = 0/6 ✓**
+
+### 21.6 重要 finding (= 固定)
+
+1. **v2 で 6/6 軸 active 化達成** = sensitivity 測定可能性 gate を完全に満たす diagnostic
+   baseline 成立
+2. **conversion formula は不変** = v0.1.0 の `log2(ms/1000)` は正しい、 失敗は formula
+   ではなく **baseline state の前提条件** だった
+3. **structural dependency は別 schema concept** = parameter-unit-conversion.yaml で
+   `conversions` と `structural_dependencies` の 2 section に分離、 将来 contributor が
+   「conversion を直すべきか / setup を整えるべきか」 を区別できる
+4. **effect 軸が baseline 構造で移動する** = `a_env1_decay` の effect は v1 で tail 軸、
+   v2 で attack 軸へ移行 (= sustain=0.5 で sustain phase 形成され decay phase 短縮の副次)、
+   silent 化ではなく effect representation の literal 変化
+5. **a_env2_decay の effect 微小は許容** = active 化したことが gate、 強い effect 取得には
+   envmod / sustain range 調整が future scope (= π15.10 候補、 本 commit scope-out)
+6. **v1 を完全 retain** = 1st round failure evidence は repo retention、 v2 と並走、
+   どちらが optimal かは越川氏判断軸 (= 本 commit は v2 成立のみが gate)
+
+### 21.7 scope-out (= 越川氏 directive literal)
+
+- envmod range expansion sweep (= π15.10 候補)
+- sustain range expansion sweep (= π15.10 候補)
+- optimizer 再開
+- preference-learning 再開
+- aesthetic candidate 作成
+- best candidate selection
+- accept / reject 判定
+- 既存 diagnostic v0.1.0 の上書き
+- patch-spec.yaml aesthetic review
+
+### 21.8 commit value
+
+> 「failure 原因を structural dependency として反映した v2 diagnostic baseline」
+
+v0.1.0 1st round failure 2 件を root cause 分析 (= 4 件 scratch sweep evidence) で確定、
+schema 上で conversion と structural dependency を分離し、 v0.2.0 で 6/6 active 化を
+達成した 2nd round。 v0.1.0 は failure evidence として retain、 v0.2.0 は active diagnostic
+baseline として並走。 **diagnostic baseline は aesthetic-rejected**、 越川氏 audition 対象
+ではない、 BD として良いかは判定しない。

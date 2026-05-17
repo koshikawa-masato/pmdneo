@@ -1,0 +1,260 @@
+# 2608_bd-diagnostic-v2.patch-spec = π15.9 structural dependency expansion
+# ============================================================================
+#
+# ★ 重要 label (= 越川氏 directive literal):
+#   "unit-converted diagnostic baseline v2 / aesthetic-rejected /
+#    for sensitivity measurement only / structural dependency expansion"
+#
+# v0.1.0 (= `2608_bd-diagnostic.patch-spec.yaml`) は **完全 retain**、 上書きしない。
+# v2 は v0.1.0 の **5 conversion 軸を継承** + π15.9 root cause 分析で確定した
+# **4 件 structural dependency setup を追加**。
+#
+# 重要規律:
+# - これは aesthetic patch ではない
+# - 越川氏 audition 対象ではない
+# - BD として良いかは判定しない
+# - sensitivity 測定可能性 (= a_env1_release / a_env2_decay 含む 6 軸全 active 化)
+#   のみが目的
+# - conversion formula は v0.1.0 と同 (= log2(ms/1000) / 12*log2(Hz/440))
+# - 追加分は **structural dependency setup** (= conversion ではなく baseline 前提条件)
+#
+# 既存 `2608_bd.patch-spec.yaml` / `2608_bd-diagnostic.patch-spec.yaml` 不変 retain
+# (= 両者とも structural defect / 1st round failure evidence として保持)。
+# ============================================================================
+
+schema_version: "0.2.0"
+artifact_kind: unit-converted-diagnostic-baseline-patch-spec
+spec_revision: v2
+label: "unit-converted diagnostic baseline v2 / aesthetic-rejected / for sensitivity measurement only / structural dependency expansion"
+based_on:
+  source_patch_spec_v1: docs/design/rhythm-patches/synth/2608_bd-diagnostic.patch-spec.yaml
+  source_template_fxp: assets/drum_samples/synth/patches/2608_bd.fxp
+  conversion_table: docs/design/rhythm-patches/synth/parameter-unit-conversion.yaml
+  conversion_status: hypothesis-v0.2.0
+  predecessor_v1_status: retained-as-1st-round-failure-evidence
+  predecessor_v1_fxp_sha256: c132faee4b7e74a2f6af9f6c522956a489cf62b52280bc3d7c8ae5d78607d256
+
+acceptance:
+  aesthetic_acceptance: rejected
+  is_aesthetic_candidate: false
+  is_for_sensitivity_measurement_only: true
+  optimizer_involved: false
+  preference_learning_involved: false
+  best_candidate_selection: false
+  human_audition_target: false
+  retention_reason: |
+    π15.8 v0.1.0 1st round の 2 件 failure (= a_env2_decay / a_env1_release) を
+    structural dependency setup として補正した 2nd round diagnostic baseline。
+    aesthetic 軸ではなく sensitivity 測定可能性 only が gate。
+
+# ============================================================================
+# Parameters (= v0.1.0 conversion 軸 5 件 retain + v0.2.0 structural dependency 4 件追加)
+# ----------------------------------------------------------------------------
+# parameter_kind:
+#   - conversion = human-readable value を Surge XT internal scale に変換
+#   - structural_dependency_setup = baseline state の前提条件 (= conversion ではない)
+# ============================================================================
+
+parameters:
+
+  # ========== v0.1.0 retain (= conversion axes) ==========
+
+  a_env1_attack:
+    parameter_kind: conversion
+    human_intent:
+      value: 5.0
+      unit: ms
+      rationale: "BD の典型 attack 時間 = 5 ms (= fast click + body)"
+    converted_internal_value: -7.643856
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+
+  a_env1_decay:
+    parameter_kind: conversion
+    human_intent:
+      value: 280.0
+      unit: ms
+      rationale: "元 patch-spec intent を retain (= 越川氏 設計 BD decay)"
+    converted_internal_value: -1.836501
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+
+  a_env1_release:
+    parameter_kind: conversion
+    human_intent:
+      value: 50.0
+      unit: ms
+      rationale: "BD release は短め (= 50 ms) で sustain phase 不要"
+    converted_internal_value: -4.321928
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    pi15_9_dependency_note: |
+      v0.1.0 で silent 化した root cause は a_env1_sustain=0 (= sustain phase 0 amp)
+      で release が 0→0 audible 不変だったため。 v0.2.0 で a_env1_sustain=0.5 を
+      structural dependency setup として追加、 release が active 化する条件を整える。
+
+  a_env2_decay:
+    parameter_kind: conversion
+    human_intent:
+      value: 50.0
+      unit: ms
+      rationale: "pitch / filter envelope decay (= 短い pitch sweep を期待)"
+    converted_internal_value: -4.321928
+    conversion_formula: "log2(ms / 1000.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+    pi15_9_dependency_note: |
+      v0.1.0 で完全 silent だった root cause は 3 件複合:
+      (1) a_filter1_type=0 で filter bypass、 envmod 経路無効
+      (2) a_filter1_envmod=0 で env2 → filter cutoff routing depth 0
+      (3) a_env2_sustain=1 で sustain saturate、 decay phase 通過せず
+      v0.2.0 で 3 件全部 structural dependency setup として追加、 active 化条件を整える。
+
+  a_filter1_cutoff:
+    parameter_kind: conversion
+    human_intent:
+      value: 800.0
+      unit: Hz
+      rationale: "LP 800 Hz で低域 + 中域 body 通過、 high freq cutoff"
+    converted_internal_value: 10.349958
+    conversion_formula: "12 * log2(Hz / 440.0)"
+    conversion_status: hypothesis
+    expected_active_in_sweep: true
+
+  # ========== v0.2.0 NEW (= structural dependency setup) ==========
+
+  a_env1_sustain:
+    parameter_kind: structural_dependency_setup
+    human_intent:
+      value: 0.5
+      unit: linear-0-1
+      rationale: "sustain phase で amp > 0 に保ち、 a_env1_release が audible 化する前提条件"
+    converted_internal_value: 0.500000
+    conversion_formula: identity
+    enables_axis: a_env1_release
+    pi15_9_evidence: "scratch sweep /private/tmp/pmdneo-scratch-release で sustain=0.5 + release sweep が tail ±7.9 〜 -168.6 ms active 化を確認"
+
+  a_filter1_type:
+    parameter_kind: structural_dependency_setup
+    human_intent:
+      value: 1
+      unit: integer
+      rationale: "filter bypass (= 0) 解除、 envmod 経路を有効化する前提条件"
+    converted_internal_value: 1
+    conversion_formula: identity
+    enables_axis: a_env2_decay
+    pi15_9_evidence: "scratch sweep /private/tmp/pmdneo-scratch-filter-env2 で type=1 にしても envmod only では silent、 sustain との複合必要を確認"
+
+  a_filter1_envmod:
+    parameter_kind: structural_dependency_setup
+    human_intent:
+      value: 0.5
+      unit: linear-0-1
+      rationale: "env2 → filter cutoff routing depth、 0 では envmod 経路無効"
+    converted_internal_value: 0.500000
+    conversion_formula: identity
+    enables_axis: a_env2_decay
+    pi15_9_evidence: "scratch sweep /private/tmp/pmdneo-scratch-env2decay で envmod=0.5 only では silent、 filter type + sustain との複合必要"
+
+  a_env2_sustain:
+    parameter_kind: structural_dependency_setup
+    human_intent:
+      value: 0.0
+      unit: linear-0-1
+      rationale: "sustain saturate (= 1.0) 解除、 decay phase 通過で decay time が audible 化する前提条件"
+    converted_internal_value: 0.000000
+    conversion_formula: identity
+    enables_axis: a_env2_decay
+    pi15_9_evidence: "scratch sweep /private/tmp/pmdneo-scratch-env2-sustain0 で 3 件 chain (= filter type + envmod + sustain=0) で初めて active 化 (= effect 微小)"
+
+  # ========== identity retain (= v0.1.0 retain) ==========
+
+  a_osc1_pitch:
+    parameter_kind: conversion
+    human_intent:
+      value: 0
+      unit: semitone
+    converted_internal_value: 0
+    conversion_formula: identity
+    conversion_status: verified
+
+  a_osc1_octave:
+    parameter_kind: conversion
+    human_intent:
+      value: 0
+      unit: integer
+    converted_internal_value: 0
+    conversion_formula: identity
+    conversion_status: verified
+
+  a_lowcut:
+    parameter_kind: conversion
+    human_intent:
+      value: -72.0
+      unit: semitone-offset
+    converted_internal_value: -72.0
+    conversion_formula: identity
+    conversion_status: verified
+
+# ============================================================================
+# Injection scope (= make-diagnostic-baseline subcommand が touch する parameter)
+# ============================================================================
+injection_targets:
+# v0.1.0 conversion axes (= 5 件 retain)
+- a_env1_attack
+- a_env1_decay
+- a_env1_release
+- a_env2_decay
+- a_filter1_cutoff
+# v0.2.0 structural dependency setup (= 4 件新規)
+- a_env1_sustain
+- a_filter1_type
+- a_filter1_envmod
+- a_env2_sustain
+
+# ============================================================================
+# Verification gate (= make-diagnostic-baseline v2 後の sensitivity sweep)
+# ============================================================================
+verification:
+  sensitivity_sweep:
+    target_axes:
+    - a_osc1_octave
+    - a_env1_attack
+    - a_env1_decay
+    - a_env1_release      # ← π15.8 silent → v2 で active 化期待
+    - a_env2_decay        # ← π15.8 silent → v2 で active 化期待 (= effect 微小許容)
+    - a_lowcut
+    expected_outcome:
+      a_env1_release_active: true
+      a_env2_decay_active: true
+      delta_0_baseline_sha_self_consistent: true
+      render_all_succeed: true
+      optimizer_invoked: false
+      accept_reject_judgment_made: false
+  gate_summary:
+  - "gate 1a: a_env1_release silent 解消 (= sustain dependency 解除)"
+  - "gate 1b: a_env2_decay silent 解消 (= 3 件複合 dependency 解除)"
+  - "gate 2: delta=0 baseline SHA self-consistent"
+  - "gate 3: 全 6 軸 render 成功"
+  - "gate 4: optimizer / accept 判定なし"
+  effect_magnitude_caveat: |
+    a_env2_decay の effect は v0.2.0 setup で微小 (~0.05 ms 程度)。
+    強い effect 取得には envmod / sustain range 調整が future scope (= π15.10 候補)、
+    本 v0.2.0 では「active 化したかどうか」 のみが gate。
+
+# ============================================================================
+# Out-of-scope (= 越川氏 directive literal)
+# ============================================================================
+out_of_scope:
+- "envmod range expansion sweep (= π15.10 候補)"
+- "sustain range expansion sweep (= π15.10 候補)"
+- "optimizer 再開"
+- "preference-learning 再開"
+- "aesthetic candidate 作成"
+- "best candidate selection"
+- "accept / reject 判定"
+- "既存 diagnostic v0.1.0 の上書き"
+- "patch-spec.yaml aesthetic review"

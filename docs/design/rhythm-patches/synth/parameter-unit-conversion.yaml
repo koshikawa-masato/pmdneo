@@ -248,3 +248,74 @@ version_history:
   status: "initial draft (= hypothesis、 sensitivity sweep verify 待ち)"
   author: "Claude Code + 越川氏 directive"
   note: "π15.7 silent axis evidence (= a_env1_decay / a_env2_decay) を補正する diagnostic baseline 用初版。 4 envelope time + 1 filter cutoff conversion + 残り identity 暫定 hypothesis。"
+- version: "0.2.0"
+  date: "2026-05-17"
+  status: "π15.9 structural dependency expansion (= conversion formula は不変、 失敗 axis active 化のための setup parameter を schema 上で追加分離)"
+  author: "Claude Code + 越川氏 directive"
+  note: |
+    π15.8 1st round で a_env2_decay / a_env1_release 2 件 failure を literal 記録。
+    π15.9 candidate 調査で root cause 確定:
+    - Failure B = a_env1_sustain=0 dependency (= release は 0→0 で audible 不変)
+    - Failure A = 3 件複合 dependency = filter1_type bypass + filter1_envmod=0 + env2_sustain=1
+      saturation の全 3 件解消が必要
+    重要 wording: これらは conversion formula の修正 (= log2(ms/1000)) ではなく、
+    **structural dependency setup** (= baseline state の前提条件)、 schema 上で別 section
+    として分離 (= conversions vs structural_dependencies)。
+
+# ============================================================================
+# Structural dependency setup (= v0.2.0 新規 section、 conversion formula とは別軸)
+# ----------------------------------------------------------------------------
+# これらは 「value をどう変換するか」 ではなく 「どんな baseline state を満たすと
+# 対象 axis が active 化するか」 を記録する setup parameter。
+#
+# conversion formula は同 axis の delta を物理的に意味ある量に揃える役割、
+# structural dependency は同 axis が render output に audible 効果を持つための
+# baseline 前提条件。 役割が違うので別 section で扱う。
+# ============================================================================
+
+structural_dependencies:
+
+  enables_a_env1_release:
+    description: "a_env1_release を active 化するための baseline state"
+    required_state:
+      a_env1_sustain:
+        value: 0.5
+        unit: linear-0-1
+        rationale: "sustain phase で amp > 0 になり、 release が 0 → 非ゼロ → 0 の audible curve を描くため"
+    evidence:
+      scratch_sweep: "/private/tmp/pmdneo-scratch-release"
+      result: "sustain=0.5 で release sweep が tail ±7.9 ~ -168.6 ms に literal 反応"
+      pi15_8_silent_baseline_state: "a_env1_sustain = 0"
+    status: hypothesis-verified-by-scratch-sweep
+    note: |
+      π15.8 v0.1.0 diagnostic baseline は a_env1_sustain=0 を retain したまま release を
+      conversion しており、 sustain phase が 0 amplitude のため release time が audible
+      不変だった。 sustain > 0 で activation。
+
+  enables_a_env2_decay:
+    description: "a_env2_decay を active 化するための baseline state (= 3 件複合 chain)"
+    required_state:
+      a_filter1_type:
+        value: 1
+        unit: integer
+        rationale: "filter type 0 = bypass で envmod 経路が無効。 type=1 で filter 有効化"
+      a_filter1_envmod:
+        value: 0.5
+        unit: linear-0-1
+        rationale: "envmod=0 で env2 → filter cutoff routing depth が 0。 0.5 以上で routing 有効"
+      a_env2_sustain:
+        value: 0.0
+        unit: linear-0-1
+        rationale: "sustain=1 で decay phase が peak で固定 (= decay time 変えても audible 不変)。 sustain<1 で decay 通過"
+    evidence:
+      scratch_sweeps:
+      - "/private/tmp/pmdneo-scratch-env2decay (= envmod のみ → silent)"
+      - "/private/tmp/pmdneo-scratch-filter-env2 (= type+envmod → silent)"
+      - "/private/tmp/pmdneo-scratch-env2-sustain0 (= 3 件全部 → active 化、 effect 微小)"
+      result: "3 件複合 dependency 全部成立で初めて a_env2_decay が audible 化"
+      pi15_8_silent_baseline_state:
+        a_filter1_type: 0
+        a_filter1_envmod: 0
+        a_env2_sustain: 1.0
+      effect_magnitude_note: "v0.2.0 setup で active 化するが effect 微小 (~0.05 ms)、 強い effect 取得には envmod / sustain range 調整が future scope (= π15.10 候補、 本 commit scope-out)"
+    status: hypothesis-verified-by-scratch-sweep

@@ -282,3 +282,44 @@ python3 scripts/feature_search.py sensitivity-sweep \
 - it refuses to run if `spec.acceptance.aesthetic_acceptance != "rejected"`
 - the output artifact is always labeled `aesthetic-rejected`
 
+### v0.2.0 baseline = structural dependency expansion (= π15.9)
+
+v0.1.0 left two axes silent (`a_env2_decay` and `a_env1_release`). Root cause
+turned out to be **baseline state**, not the conversion formula:
+
+- `a_env1_release` was silent because `a_env1_sustain = 0` made the release
+  segment travel 0 -> 0.
+- `a_env2_decay` was silent because of a 3-way chain: filter type was bypass,
+  filter envmod amount was 0, and `a_env2_sustain = 1` saturated the envelope
+  so decay had nothing to traverse.
+
+v0.2.0 adds four `structural_dependency_setup` parameters on top of the v0.1.0
+conversion axes:
+
+- `a_env1_sustain = 0.5` (= enables `a_env1_release`)
+- `a_filter1_type = 1` (= enables filter so envmod has a target)
+- `a_filter1_envmod = 0.5` (= enables env2 -> cutoff routing)
+- `a_env2_sustain = 0.0` (= breaks decay-phase saturation)
+
+Generate v2 baseline (= existing v0.1.0 file is **not** overwritten):
+
+```bash
+python3 scripts/feature_search.py make-diagnostic-baseline \
+  --spec docs/design/rhythm-patches/synth/2608_bd-diagnostic-v2.patch-spec.yaml \
+  --template-fxp assets/drum_samples/synth/patches/2608_bd.fxp \
+  --output-fxp assets/drum_samples/synth/patches/2608_bd-diagnostic-v2.fxp
+```
+
+Result (= π15.9):
+
+- v2 fxp sha256:
+  `c03d32284d5d9108da905bcce6674b09a5912845cb5b46f0262ab2c069013517`
+- v2 delta=0 baseline render sha256:
+  `28442a6ed106fa2cfcbe2b5b8eb008244faeea092c0f55d80823f7de17858114`
+- 6/6 axes active, 0/6 silent
+- v0.1.0 (`2608_bd-diagnostic.fxp`) retained as 1st-round failure evidence
+
+The conversion formula in `parameter-unit-conversion.yaml` is unchanged
+between v0.1.0 and v0.2.0; the new entries live in the new
+`structural_dependencies` section. v0.1.0 history is preserved.
+
