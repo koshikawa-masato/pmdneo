@@ -1,0 +1,24 @@
+{
+  "$schema": "../../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "mewmml",
+    "createdBy": "PMDNEO IR schema v0.1 negative fixture: raw-register-out-of-range (= address 256 + data 999 はともに 255 max を超過、 maximum violation を期待)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 256,
+      "data": 999
+    }
+  ]
+}

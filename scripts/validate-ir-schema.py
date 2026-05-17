@@ -3,12 +3,14 @@
 
 機械的検証 helper:
 1. schema 自身が JSON Schema draft-2020-12 として正当か (= meta-validation)
-2. 各 example file が schema に適合するか (= instance validation)
+2. 各 valid example が schema に適合するか (= positive validation)
+3. 各 invalid fixture が schema validation で失敗するか (= negative validation、
+   --invalid-examples 指定時のみ実行)
 
 exit codes:
-  0  = all pass
+  0  = all pass (= positive 全 PASS + invalid 全 correctly rejected)
   64 = argument error (= command line / file not found / JSON parse error)
-  65 = schema / data validation fail
+  65 = schema / data validation fail (= positive で reject、 または negative で通過)
   66 = runtime error (= unexpected exception or missing dependency)
 """
 
@@ -103,6 +105,33 @@ def validate_examples(schema: dict, example_paths: list[Path]) -> tuple[int, int
     return failed, total
 
 
+def validate_invalid_fixtures(
+    schema: dict, fixture_paths: list[Path]
+) -> tuple[int, int]:
+    """Invalid fixture が schema validation で失敗することを PASS とする。
+
+    通過してしまった (= schema が緩い or fixture が壊れた) 場合は FAIL。
+    """
+    validator = Draft202012Validator(schema)
+    failed = 0
+    total = len(fixture_paths)
+    for path in fixture_paths:
+        data = _load_json(path)
+        errors = list(validator.iter_errors(data))
+        rel = _rel(path)
+        if errors:
+            rep = errors[0]
+            loc = _format_error_location(rep)
+            print(f"[PASS] invalid: {rel} (= rejected at {loc}: {rep.message})")
+            continue
+        failed += 1
+        print(
+            f"[FAIL] invalid: {rel} (= should have been rejected but passed validation)",
+            file=sys.stderr,
+        )
+    return failed, total
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="PMDNEO IR Schema validator (ADR-0034 / v0.1 draft)",
@@ -116,7 +145,12 @@ def main() -> int:
     parser.add_argument(
         "--examples",
         default=DEFAULT_EXAMPLES_GLOB,
-        help="examples glob pattern (default: examples/*.ir.json)",
+        help="valid examples glob pattern (default: examples/*.ir.json)",
+    )
+    parser.add_argument(
+        "--invalid-examples",
+        default=None,
+        help="invalid fixtures glob pattern (= 全件が schema validation で失敗することが PASS 条件、 default は実行しない)",
     )
     args = parser.parse_args()
 
@@ -126,17 +160,34 @@ def main() -> int:
 
     schema = validate_schema(args.schema)
 
+    total_failed = 0
+
     example_paths = sorted(Path(p) for p in glob.glob(args.examples))
-    if not example_paths:
+    if example_paths:
+        failed, total = validate_examples(schema, example_paths)
+        total_failed += failed
+        print(f"\nValid examples: {total - failed}/{total} passed")
+    else:
         print(
-            f"[WARN] no examples matched pattern: {args.examples}",
+            f"[WARN] no valid examples matched pattern: {args.examples}",
             file=sys.stderr,
         )
-        return EXIT_OK
 
-    failed, total = validate_examples(schema, example_paths)
-    print(f"\nResult: {total - failed}/{total} examples passed")
-    return EXIT_OK if failed == 0 else EXIT_VALIDATION
+    if args.invalid_examples:
+        invalid_paths = sorted(Path(p) for p in glob.glob(args.invalid_examples))
+        if invalid_paths:
+            failed, total = validate_invalid_fixtures(schema, invalid_paths)
+            total_failed += failed
+            print(
+                f"Invalid fixtures: {total - failed}/{total} correctly rejected"
+            )
+        else:
+            print(
+                f"[WARN] no invalid fixtures matched pattern: {args.invalid_examples}",
+                file=sys.stderr,
+            )
+
+    return EXIT_OK if total_failed == 0 else EXIT_VALIDATION
 
 
 if __name__ == "__main__":

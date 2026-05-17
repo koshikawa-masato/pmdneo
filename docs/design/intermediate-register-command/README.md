@@ -5,10 +5,16 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
 ## 構成
 
 - `ir-schema-v0.1.schema.json`: JSON Schema draft-2020-12 本体 (= ADR-0034 §決定 1-6 を spec 化)
-- `examples/`: schema 適合 example file 群
+- `examples/`: schema 適合 example file 群 (= positive fixture)
   - `minimal-fm-note.ir.json`: FM ch 2 で Tempo + ToneSelect + Note + Rest 4 event
   - `adpcma-trigger.ir.json`: ADPCM-A ch 1 で ADPCMATrigger 1 event
   - `raw-register-write.ir.json`: reg 0x27 FM3 mode RawRegisterWrite 1 event
+- `examples/invalid/`: schema validation が **失敗する** ことを期待する fixture 群 (= negative fixture)
+  - `bad-magic.ir.json`: `metadata.magic` const violation (= "PMDNEO-IR" 以外)
+  - `unknown-event-type.ir.json`: events oneOf 不適合 (= semantic / Portamento は v0.1 未定義 type)
+  - `invalid-channel-kind.ir.json`: `channelId.kind` enum violation (= "opm" 等は対象外)
+  - `raw-register-out-of-range.ir.json`: `RawRegisterWrite.address` / `data` maximum violation (= 256 以上)
+  - `missing-required-field.ir.json`: Note event の `duration` 欠落 (= required violation)
 
 ## v0.1 で fully validated な event types (= 6 件)
 
@@ -25,7 +31,9 @@ v0.2 以降の event types (= 拡張予定): `KeyOn` / `KeyOff` / `FMToneLoad` /
 
 ## 検証 command
 
-repo root で実行:
+repo root で実行。
+
+### positive validation のみ (= default)
 
 ```bash
 python3 scripts/validate-ir-schema.py
@@ -34,12 +42,29 @@ python3 scripts/validate-ir-schema.py
 実行内容:
 
 1. schema 自身が JSON Schema draft-2020-12 として正当か (= meta-validation)
-2. `examples/*.ir.json` 全件が schema に適合するか (= instance validation)
+2. `examples/*.ir.json` 全件が schema に適合するか (= positive validation)
 
-option:
+期待 exit: **0** (= 全 positive example が PASS)
+
+### positive + negative validation
 
 ```bash
-python3 scripts/validate-ir-schema.py --schema <path> --examples '<glob>'
+python3 scripts/validate-ir-schema.py \
+  --invalid-examples 'docs/design/intermediate-register-command/examples/invalid/*.ir.json'
+```
+
+実行内容:
+
+1. 上記 positive validation
+2. `examples/invalid/*.ir.json` 全件が schema validation で **失敗する** ことを確認 (= negative validation、 失敗 = PASS、 通過 = FAIL)
+3. 各 invalid fixture の representative error (= JSON pointer 式 location + message) を表示
+
+期待 exit: **0** (= 全 invalid fixture が想定通り reject される)
+
+### option
+
+```bash
+python3 scripts/validate-ir-schema.py --schema <path> --examples '<glob>' --invalid-examples '<glob>'
 ```
 
 ## exit code

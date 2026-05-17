@@ -1,0 +1,27 @@
+{
+  "$schema": "../../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "PMDNEO IR schema v0.1 negative fixture: unknown-event-type (= semantic / Portamento は v0.1 schema 未定義、 events oneOf violation を期待)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [
+    { "channelId": { "kind": "fm", "index": 2 } }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Portamento",
+      "channel": { "kind": "fm", "index": 2 },
+      "fromNote": 60,
+      "toNote": 64,
+      "duration": 96
+    }
+  ]
+}
