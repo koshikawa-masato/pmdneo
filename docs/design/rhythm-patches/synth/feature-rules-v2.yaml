@@ -1,0 +1,212 @@
+# Feature rules v2 = π14 calibration in progress (= ADR-0033 §決定 27 (12) π13 finding 反映)
+# ============================================================================
+#
+# π13 で確立した「metric pass ≠ aesthetic pass」 規律下で、 metric v2 を audition correlation
+# check (= π15) 経由で literal verify する前提の calibration draft。
+#
+# **status = calibration-in-progress**: 本 file の distance_weights / thresholds は π15 audition
+# correlation check で Spearman correlation > 0.7 達成しなければ採用しない、 失敗時 metric_v3 へ。
+#
+# v1 (= feature-rules.yaml) との違い:
+#   v1 = static feature 中心 (= peak / RMS / spectral centroid / band ratio / attack / decay / etc)
+#   v2 = v1 全部 + time-varying feature 追加 (= MFCC / log-mel / onset envelope / spectral contrast / LUFS)
+#
+# 関連 ADR / §決定:
+#   - ADR-0033 §決定 27 (5)  AI self-analysis 10 項目 (= v1 base)
+#   - ADR-0033 §決定 27 (12) target-feature matching optimization + π13 中核 wording 3 件
+#   - FEATURE_GUIDED_SYNTHESIS_INVESTIGATION.md § 9 = π13 metric_v1 limitation analysis
+#   - feedback_metric_pass_is_not_aesthetic_pass memory = generalizable principle
+#
+# ============================================================================
+
+rules_version: "0.2.0-draft"
+status: calibration-in-progress   # calibration-in-progress | aesthetic_correlated_v2 | retired
+metric_version: v2
+
+# ===========================================================================
+# Drum-type specific rules
+# ===========================================================================
+drum_rules:
+
+  # ---------------------------------------------------------------------------
+  # BD = Bass Drum / Kick (= π14 v2 calibration draft)
+  # ---------------------------------------------------------------------------
+  BD:
+    description: "Bass Drum / Kick = low-frequency dominant + fast attack + fast decay + short tail (v2 = time-varying + perceptual)"
+    reference_wav: "~/Projects/surge-spike/test-assets/kick_909ish.wav"
+
+    # ---------------------------------------------------------------------------
+    # Thresholds (= v1 8 rule 維持、 v2 では rule 追加 / 修正は audition correlation 後)
+    # ---------------------------------------------------------------------------
+    thresholds:
+      # v1 inherited 8 rules (= feature-rules.yaml v0.1.0 と同一、 backward compat 維持)
+      - feature: attack_ms
+        criterion: "value < 20"
+        severity: critical
+        failure_category: envelope_broken_attack
+        rationale: "v1 inherited、 BD attack 1-15 ms 想定"
+      - feature: peak_amplitude_dbfs
+        criterion: "-6 <= value <= -3"
+        severity: warning
+        failure_category: volume_mismatch_peak
+        rationale: "v1 inherited、 §決定 26 (4) peak target"
+      - feature: low_band_ratio
+        criterion: "0.5 <= value <= 0.95"
+        severity: critical
+        failure_category: spectral_imbalance_low
+        rationale: "v1 inherited、 BD 低域 dominant + pure sine 排除 upper bound"
+      - feature: decay_1e_ms
+        criterion: "0.5 <= value <= 500"
+        severity: warning
+        failure_category: envelope_broken_decay
+        rationale: "v1 inherited、 transient-heavy / body-heavy 両対応"
+      - feature: clipping_count
+        criterion: "value == 0"
+        severity: critical
+        failure_category: clipping
+        rationale: "v1 inherited、 §決定 26 (4) clipping 禁止"
+      - feature: spectral_centroid_hz
+        criterion: "value < 500"
+        severity: warning
+        failure_category: spectral_imbalance_centroid
+        rationale: "v1 inherited、 BD 低域 centroid"
+      - feature: transient_strength
+        criterion: "value > 2.0"
+        severity: warning
+        failure_category: transient_weak
+        rationale: "v1 inherited、 BD punch 軸"
+      - feature: trailing_silence_ms
+        criterion: "value > 300"
+        severity: critical
+        failure_category: sustain_化
+        rationale: "v1 inherited、 sustain 化 detect 最強 discriminator"
+
+      # v2 新 rules は audition correlation check 後に確定予定 (= π15 verify 後)
+      # candidate v2 thresholds (= future、 commented out):
+      # - lufs_integrated in [-25, -8] = perceptual loudness band
+      # - onset_strength_peak > 0.8 = clear transient onset
+      # - mfcc[0] (= overall energy) within reference range
+
+    # ---------------------------------------------------------------------------
+    # Search space (= v1 と同一、 9 continuous parameters)
+    # ---------------------------------------------------------------------------
+    search_space:
+      a_env1_attack:    {min: -12.0, max:  -3.0, baseline: -8.0,    scale: log-time}
+      a_env1_decay:     {min:  -5.0, max:   0.0, baseline: -2.089,  scale: log-time}
+      a_env1_release:   {min: -10.0, max:  -2.0, baseline: -5.0,    scale: log-time}
+      a_env2_decay:     {min:  -7.0, max:  -2.0, baseline: -4.716,  scale: log-time}
+      a_filter1_cutoff: {min: -60.0, max:  -5.0, baseline: -40.99,  scale: log-freq}
+      a_lowcut:         {min: -72.0, max: -20.0, baseline: -32.38,  scale: log-freq}
+      a_level_noise:    {min:   0.0, max:   1.0, baseline:  0.55,   scale: normalized}
+      a_ws_drive:       {min:   0.0, max:  10.0, baseline:  3.514,  scale: dB}
+      a_osc1_pitch:     {min: -12.0, max:   0.0, baseline: -1.732,  scale: semitones}
+
+    # ---------------------------------------------------------------------------
+    # Distance metric weights (= v1 weight + v2 vector feature weights、 π14 draft)
+    # = π15 audition correlation check で 0.7 threshold pass しなければ tune iterate
+    # ---------------------------------------------------------------------------
+    distance_weights:
+      # === v1 scalar features (= 維持、 但し individual weight 微調整) ===
+      attack_ms:              2.5
+      decay_1e_ms:            1.5  # = v1: 2.0 → v2: 1.5 (= v2 time-varying で envelope shape も covered、 単独重み軽減)
+      low_band_ratio:         2.0  # = v1: 2.5 → v2: 2.0 (= log_mel が時間軸も含む、 単独重み軽減)
+      peak_amplitude_dbfs:    1.0  # = v1: 1.5 → v2: 1.0 (= LUFS で perceptual loudness を担う)
+      spectral_centroid_hz:   1.0  # = v1: 1.5 → v2: 1.0 (= log_mel / spectral_contrast で詳細補完)
+      transient_strength:     1.5  # = v1: 1.0 → v2: 1.5 (= onset_strength と組合せで punch 軸強化)
+      rough_frequency_hz:     0.8
+      rms_amplitude_dbfs:     0.5
+      spectral_flux_mean:     0.5
+      mid_band_ratio:         0.4
+      high_band_ratio:        0.3
+      leading_silence_ms:     0.3
+      trailing_silence_ms:    0.3
+      tail_length_ms:         0.3
+      clipping_count:         0.5
+
+      # === v2 vector features (= 新規、 group weight = vector L2 distance 用) ===
+      mfcc_mean:              3.0   # = perceptual cepstral 形状、 timbre 軸の核心、 高 weight
+      mfcc_std:               1.5   # = timbre variability、 transient detail 軸
+      log_mel_mean:           2.5   # = time-varying spectral envelope mean、 drum 音色 core
+      log_mel_std:            1.0   # = spectral envelope variability
+      onset_strength_mean:    1.5   # = onset detail
+      onset_strength_std:     0.8
+      onset_strength_peak:    1.5   # = transient attack の明瞭度
+      spectral_contrast_mean: 2.0   # = tonal vs noise 軸、 drum で重要
+      spectral_flux_std:      0.5
+
+      # === v2 perceptual scalar (= 新規、 LUFS) ===
+      lufs_integrated:        1.5   # = ITU-R BS.1770 perceptual loudness、 audition 軸と直結期待
+
+# ===========================================================================
+# Failure category 分類 (= v1 inherited + v2 拡張余地)
+# ===========================================================================
+failure_categories:
+  envelope_broken_attack:
+    description: "v1 inherited: attack 時間範囲外"
+    likely_root_cause: "patch-spec attack_ms passthrough 未変換"
+    fix_axis: "unit conversion = log2(sec)"
+
+  envelope_broken_decay:
+    description: "v1 inherited: decay 1/e measure 範囲外 (= warning)"
+    likely_root_cause: "patch-spec decay_ms passthrough 未変換"
+    fix_axis: "unit conversion"
+
+  sustain_化:
+    description: "v1 inherited: trailing_silence < 300 ms = sustain 化"
+    likely_root_cause: "decay envelope 完全 broken"
+    fix_axis: "unit conversion + a_env1_release も短く"
+
+  volume_mismatch_peak:
+    description: "v1 inherited: peak target -6 〜 -3 dBFS 外"
+    likely_root_cause: "amp env / drive / OSC level 累積 gain"
+    fix_axis: "a_env1 + a_level_o1 + a_volume + a_ws_drive 調整"
+
+  spectral_imbalance_low:
+    description: "v1 inherited: 低域 ratio 想定範囲外"
+    likely_root_cause: "OSC pitch / filter / type 不適切"
+    fix_axis: "a_osc1_octave 下 / cutoff 下 / type = Classic"
+
+  spectral_imbalance_centroid:
+    description: "v1 inherited: spectral centroid 想定範囲超過"
+    likely_root_cause: "OSC harmonic / filter cutoff 高"
+    fix_axis: "a_filter1_cutoff 下"
+
+  transient_weak:
+    description: "v1 inherited: transient strength < 2.0"
+    likely_root_cause: "attack 緩い / drive 不足"
+    fix_axis: "a_env1_attack 短く / a_ws_drive 上げ"
+
+  clipping:
+    description: "v1 inherited: clipping 発生"
+    likely_root_cause: "volume / drive 累積 over"
+    fix_axis: "volume 下げ"
+
+# ===========================================================================
+# analysis-report.yaml field 命名 contract (= v2 拡張)
+# ===========================================================================
+analysis_report_schema:
+  field_names_stable: true
+  schema_version: "0.2.0-draft"
+  metric_version: v2
+  features_fields_v2_additions:
+    - mfcc_mean              # 13 coeff list
+    - mfcc_std               # 13 coeff list
+    - log_mel_mean           # 13 mel bands list
+    - log_mel_std            # 13 mel bands list
+    - onset_strength_mean    # scalar
+    - onset_strength_std     # scalar
+    - onset_strength_peak    # scalar
+    - spectral_contrast_mean # 7 bands list
+    - spectral_flux_std      # scalar
+    - lufs_integrated        # scalar (ITU-R BS.1770)
+  # 残り fields は v1 schema と同一
+
+# ===========================================================================
+# version history
+# ===========================================================================
+version_history:
+  - version: "0.2.0-draft"
+    date: "2026-05-17"
+    status: calibration-in-progress (= π14 commit、 audition correlation check 待ち)
+    author: "Claude Opus 4.7 (1M context) + 越川氏 directive"
+    note: "metric_v2 calibration draft = v1 8 rule 維持 + v2 vector feature (= MFCC + log-mel + onset env + spectral contrast + LUFS) 追加、 distance_weights は v1 重みを vector feature 導入に合わせ微調整 (= scalar 軽減 + vector に weight 配分)、 π15 audition correlation check で Spearman > 0.7 verify 必須、 失敗時 metric_v3 へ。"

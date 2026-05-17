@@ -214,6 +214,38 @@ def extract_features(wav_path: Path) -> dict:
     # = trailing_silence_ms と同じ semantic、 確認用 redundant
     tail_length_ms = trailing_silence_ms
 
+    # === metric_v2 additional features (= π14 新規、 time-varying + perceptual) ===
+    # MFCC (= 13 coeff、 mean + std per coefficient = perceptual cepstral timbre)
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mfcc_mean = [round(float(v), 3) for v in mfcc.mean(axis=1).tolist()]
+    mfcc_std = [round(float(v), 3) for v in mfcc.std(axis=1).tolist()]
+
+    # log-mel spectrogram (= 13 mel bands、 time-varying spectral envelope)
+    mel_spec_v2 = librosa.feature.melspectrogram(y=y, sr=sr, n_mels=13)
+    log_mel = librosa.power_to_db(mel_spec_v2)
+    log_mel_mean = [round(float(v), 2) for v in log_mel.mean(axis=1).tolist()]
+    log_mel_std = [round(float(v), 2) for v in log_mel.std(axis=1).tolist()]
+
+    # onset envelope time-series statistics (= attack detail + transient shape)
+    onset_strength_mean = round(float(np.mean(onset_env)), 4)
+    onset_strength_std = round(float(np.std(onset_env)), 4)
+    onset_strength_peak = round(float(np.max(onset_env)), 4)
+
+    # spectral contrast (= 7 bands、 tonal vs noise 軸)
+    sc = librosa.feature.spectral_contrast(y=y, sr=sr)
+    spectral_contrast_mean = [round(float(v), 2) for v in sc.mean(axis=1).tolist()]
+
+    # spectral flux std (= mean is in v1)
+    spectral_flux_std = round(float(np.std(onset_env)), 4)
+
+    # LUFS integrated loudness (= ITU-R BS.1770 perceptual loudness)
+    try:
+        import pyloudnorm as pyln
+        meter = pyln.Meter(sr)
+        lufs_integrated = round(float(meter.integrated_loudness(y)), 2)
+    except Exception:
+        lufs_integrated = float("-inf")  # = silent or too short
+
     return {
         "waveform_sanity": {
             "total_samples": total_samples,
@@ -221,6 +253,7 @@ def extract_features(wav_path: Path) -> dict:
             "duration_sec": round(duration_sec, 6),
             "channels": 1,  # = mono load 指定
         },
+        # === v1 features (= scalar、 static aggregates) ===
         "peak_amplitude_linear": round(peak_linear, 6),
         "peak_amplitude_dbfs": round(linear_to_dbfs(peak_linear), 3),
         "rms_amplitude_linear": round(rms_linear, 6),
@@ -238,6 +271,17 @@ def extract_features(wav_path: Path) -> dict:
         "high_band_ratio": round(high_band_ratio, 4),
         "rough_frequency_hz": round(rough_frequency_hz, 2),
         "tail_length_ms": round(tail_length_ms, 3),
+        # === metric_v2 features (= π14 新規) ===
+        "mfcc_mean": mfcc_mean,                      # 13 coeff
+        "mfcc_std": mfcc_std,                        # 13 coeff
+        "log_mel_mean": log_mel_mean,                # 13 mel bands
+        "log_mel_std": log_mel_std,                  # 13 mel bands
+        "onset_strength_mean": onset_strength_mean,  # scalar
+        "onset_strength_std": onset_strength_std,    # scalar
+        "onset_strength_peak": onset_strength_peak,  # scalar
+        "spectral_contrast_mean": spectral_contrast_mean,  # 7 bands
+        "spectral_flux_std": spectral_flux_std,      # scalar
+        "lufs_integrated": lufs_integrated,          # scalar = ITU-R BS.1770
     }
 
 
@@ -479,6 +523,208 @@ def validate_command(args: argparse.Namespace) -> int:
     return EXIT_OK if overall_status == "engineering_pass" else 67  # = 67 = engineering_fail
 
 
+def audition_check_command(args: argparse.Namespace) -> int:
+    """
+    π14/π15 audition correlation check = N candidate × human aesthetic score vs metric_v2 score の Spearman correlation.
+
+    threshold (= default 0.7) を超えれば metric_v2 を採用可能 = π16 optimize 着手可、
+    超えなければ metric_v3 設計へ戻し (= 「metric pass ≠ aesthetic pass」 規律遵守、
+    optimize 実行前 hard gate)。
+    """
+    import datetime
+    import yaml
+    from scipy.stats import spearmanr
+
+    if not args.input.exists():
+        print(f"error: input YAML not found: {args.input}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    input_data = yaml.safe_load(args.input.read_text(encoding="utf-8"))
+    candidates_in = input_data.get("candidates", [])
+    if not candidates_in:
+        print(f"error: input.candidates empty", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    target_wav = Path(input_data.get("target_wav") or "").expanduser()
+    rules_path = Path(input_data.get("rules") or "").expanduser()
+    drum_type = input_data.get("drum_type", "BD")
+
+    if not target_wav.exists():
+        print(f"error: target_wav not found: {target_wav}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+    if not rules_path.exists():
+        print(f"error: rules YAML not found: {rules_path}", file=sys.stderr)
+        return EXIT_ARG_ERROR
+
+    rules = yaml.safe_load(rules_path.read_text(encoding="utf-8"))
+    weights = (rules.get("drum_rules") or {}).get(drum_type, {}).get("distance_weights", {})
+    if not weights:
+        print(f"error: distance_weights not defined for {drum_type}", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    # Parse --scores (= comma-separated 1-5 integers in order of candidates)
+    if args.scores:
+        try:
+            scores = [int(s.strip()) for s in args.scores.split(",")]
+        except ValueError:
+            print(f"error: --scores parse failed: {args.scores!r}", file=sys.stderr)
+            return EXIT_ARG_ERROR
+        if len(scores) != len(candidates_in):
+            print(
+                f"error: --scores count {len(scores)} != candidates count {len(candidates_in)}",
+                file=sys.stderr,
+            )
+            return EXIT_ARG_ERROR
+        for i, s in enumerate(scores):
+            if s < 1 or s > 5:
+                print(f"error: --scores[{i}] = {s} out of range 1-5", file=sys.stderr)
+                return EXIT_ARG_ERROR
+    else:
+        # Read scores from YAML if --scores not given
+        scores = []
+        for c in candidates_in:
+            s = c.get("human_score")
+            if s is None:
+                print(f"error: candidate {c.get('id')!r} has no human_score (= use --scores CLI or fill YAML)",
+                      file=sys.stderr)
+                return EXIT_ARG_ERROR
+            scores.append(int(s))
+
+    # Extract target features once
+    print(f"# extracting target features from {target_wav}", file=sys.stderr)
+    target_features = extract_features(target_wav)
+
+    # Compute metric_v2 score for each candidate
+    print(f"# extracting + scoring {len(candidates_in)} candidates", file=sys.stderr)
+    candidate_results = []
+    for c, score in zip(candidates_in, scores):
+        wav_path = Path(c["wav"]).expanduser()
+        if not wav_path.exists():
+            print(f"# warning: candidate {c.get('id')!r} wav not found: {wav_path}, skipping", file=sys.stderr)
+            candidate_results.append({
+                "id": c.get("id"),
+                "wav": str(wav_path),
+                "description": c.get("description", ""),
+                "human_score": score,
+                "metric_v2_score": None,
+                "error": "wav_not_found",
+            })
+            continue
+        try:
+            features = extract_features(wav_path)
+            metric_score = _compute_distance_score(features, target_features, weights)
+        except Exception as exc:
+            print(f"# warning: candidate {c.get('id')!r} feature extract failed: {exc}", file=sys.stderr)
+            candidate_results.append({
+                "id": c.get("id"),
+                "wav": str(wav_path),
+                "description": c.get("description", ""),
+                "human_score": score,
+                "metric_v2_score": None,
+                "error": "extract_failed",
+            })
+            continue
+        candidate_results.append({
+            "id": c.get("id"),
+            "wav": str(wav_path),
+            "description": c.get("description", ""),
+            "human_score": score,
+            "metric_v2_score": round(metric_score, 4),
+        })
+
+    # Filter valid pairs (= both scores present)
+    valid_pairs = [
+        (r["human_score"], r["metric_v2_score"])
+        for r in candidate_results
+        if r.get("metric_v2_score") is not None
+    ]
+    if len(valid_pairs) < 3:
+        print(f"error: only {len(valid_pairs)} valid pairs, need >= 3 for correlation", file=sys.stderr)
+        return EXIT_DATA_ERROR
+
+    human_scores = [p[0] for p in valid_pairs]
+    metric_scores = [p[1] for p in valid_pairs]
+
+    # Spearman rank correlation
+    # Note: human score 高 = 良い = metric score 低 (= distance) なので、 負の correlation が望ましい
+    # → -spearman を見るか、 metric score を反転 (5 - metric) してから計算
+    # ここでは raw correlation を出して、 解釈 (= 負の方が望ましい) を report に明示
+    result = spearmanr(human_scores, metric_scores)
+    spearman_r = float(result.correlation if hasattr(result, "correlation") else result[0])
+    p_value = float(result.pvalue if hasattr(result, "pvalue") else result[1])
+
+    # Interpretation: ideal = strong negative correlation (= high human score = low metric score)
+    # |r| (absolute value) で評価、 threshold は |r| > 0.7
+    abs_r = abs(spearman_r)
+    correlation_pass = abs_r >= args.threshold
+    correlation_direction = "negative_correct" if spearman_r <= 0 else "positive_inverted"
+
+    verdict = (
+        "metric_v2 correlates with human audition (= |r| > threshold) → π16 optimize 着手可"
+        if correlation_pass and spearman_r <= 0
+        else (
+            "metric_v2 sign inverted (= human 高 score なのに metric 高 score = 距離大)、 weight 符号 / scale 再検討"
+            if correlation_pass and spearman_r > 0
+            else "metric_v2 did NOT correlate with human audition、 metric_v3 calibration へ戻す"
+        )
+    )
+
+    report = {
+        "metadata": {
+            "generated_at": datetime.datetime.now().isoformat(),
+            "generator": "scripts/feature_search.py audition-check",
+            "input": str(args.input),
+            "target_wav": str(target_wav),
+            "rules_file": str(rules_path),
+            "drum_type": drum_type,
+            "metric_version": rules.get("metric_version", "v2"),
+            "threshold_abs_r": args.threshold,
+        },
+        "candidates": candidate_results,
+        "correlation": {
+            "spearman_r": round(spearman_r, 4),
+            "spearman_abs_r": round(abs_r, 4),
+            "p_value": round(p_value, 4),
+            "direction": correlation_direction,
+            "expected_direction": "negative (= high human score / low metric score)",
+            "threshold_abs_r": args.threshold,
+            "abs_r_pass": correlation_pass,
+            "sign_correct": spearman_r <= 0,
+        },
+        "verdict": verdict,
+        "next_step": (
+            "π16: feature_search.py optimize --rules feature-rules-v2.yaml"
+            if correlation_pass and spearman_r <= 0
+            else "metric_v3 design + audition correlation check re-iterate"
+        ),
+        "wording_discipline_reminder": [
+            "current metric (= weighted L2 v2) correlation with human audition: " + f"{spearman_r:.4f}",
+            "「近づいた」 「reference に類似」 等 aesthetic 含意 wording は使わない",
+            "metric pass alone ≠ aesthetic pass、 optimizer は final selector ではない、 human aesthetic gate is authoritative",
+        ],
+    }
+
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(
+            yaml.safe_dump(report, allow_unicode=True, sort_keys=False, default_flow_style=False),
+            encoding="utf-8",
+        )
+        print(f"# wrote audition-check report: {args.output}", file=sys.stderr)
+
+    print(json.dumps({
+        "spearman_r": round(spearman_r, 4),
+        "abs_r": round(abs_r, 4),
+        "threshold": args.threshold,
+        "abs_r_pass": correlation_pass,
+        "sign_correct": spearman_r <= 0,
+        "verdict": verdict,
+        "next_step": report["next_step"],
+    }, indent=2, ensure_ascii=False))
+
+    return EXIT_OK if (correlation_pass and spearman_r <= 0) else 68  # = 68 = correlation_fail
+
+
 def _load_baseline_from_fxp(fxp_path: Path) -> dict:
     """Load all parameter element values from baseline .fxp (= Kick 909ish reference 想定)."""
     import struct
@@ -501,12 +747,35 @@ def _build_override_args(overrides: dict) -> list[str]:
 
 
 def _compute_distance_score(candidate_features: dict, target_features: dict, weights: dict) -> float:
-    """Weighted L2 relative distance (= matches compute_distance logic、 但し dict-based)."""
+    """
+    Weighted L2 relative distance with vector feature support (= π14 v2 拡張).
+
+    Scalar features = (a - b) / max(|a|, 1) 単純相対差
+    Vector features (= list of floats、 例 MFCC 13 / log_mel 13 / spectral_contrast 7)
+       = L2 vector distance、 normalized by L2 norm of target vector
+    """
     weighted_sq = 0.0
     weight_sum = 0.0
     for key, w in weights.items():
         a = target_features.get(key)
         b = candidate_features.get(key)
+        if a is None or b is None:
+            continue
+        # Vector feature handling (= list of floats)
+        if isinstance(a, list) and isinstance(b, list):
+            if len(a) != len(b) or len(a) == 0:
+                continue
+            try:
+                squared_diff = sum((float(ai) - float(bi)) ** 2 for ai, bi in zip(a, b))
+                target_norm_sq = sum(float(ai) ** 2 for ai in a)
+                # Normalize by target L2 norm、 with floor to avoid divide-by-zero
+                rel = math.sqrt(squared_diff) / max(math.sqrt(target_norm_sq), 1.0)
+            except (TypeError, ValueError):
+                continue
+            weighted_sq += w * rel ** 2
+            weight_sum += w
+            continue
+        # Scalar feature handling
         if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
             continue
         if a == float("-inf") or b == float("-inf"):
@@ -942,6 +1211,24 @@ def main() -> int:
         help="pretty-print (= JSON 出力時のみ effect)",
     )
 
+    p_audition = subparsers.add_parser(
+        "audition-check",
+        help="π15 audition correlation check = N candidate × human score vs metric_v2 score の Spearman correlation (= π14 新規)",
+    )
+    p_audition.add_argument("input", type=Path, help="audition-input.yaml = candidates list + target_wav + rules")
+    p_audition.add_argument(
+        "--scores", type=str, default=None,
+        help="comma-separated human aesthetic scores 1-5 (= 例 '5,1,2,4,3,4,2,3'、 candidate 順、 未指定なら input YAML の human_score field 使用)",
+    )
+    p_audition.add_argument(
+        "--threshold", type=float, default=0.7,
+        help="absolute Spearman correlation threshold (= default 0.7 越川氏 directive)",
+    )
+    p_audition.add_argument(
+        "--output", type=Path, default=None,
+        help="output audition-output.yaml (= optional、 stdout だけでよければ未指定)",
+    )
+
     p_optimize = subparsers.add_parser(
         "optimize",
         help="Black-box optimization closed loop = scipy.optimize.differential_evolution (= π12 新規)",
@@ -971,6 +1258,8 @@ def main() -> int:
         return compare_command(args)
     if args.command == "validate":
         return validate_command(args)
+    if args.command == "audition-check":
+        return audition_check_command(args)
     if args.command == "optimize":
         return optimize_command(args)
 

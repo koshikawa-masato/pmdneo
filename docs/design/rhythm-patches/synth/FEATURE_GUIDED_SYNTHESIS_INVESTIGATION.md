@@ -772,7 +772,142 @@ metric_v2 が aesthetic と相関するか **optimize 実行前に literal verif
 - 2608_bd.optimization-report.yaml + analysis-report.yaml = `aesthetic_audition.status: rejected` + `metric_calibration_status.v1_status: aesthetic_uncorrelated` を追記済 (= 本 commit)
 - 既存 `assets/drum_samples/synth/patches/2608_bd.fxp` (= π5 NG version) は維持 (= overwrite せず、 metric_v2 calibration 完了後の再 optimize で再判断)
 
-## 10. scope-out 維持 (= 本 investigation の意図)
+## 10. π14 metric_v2 feature extraction + audition-check + N=8 candidate generation (= 2026-05-17 23rd session π14)
+
+### 10.1 deliverables (= 越川氏 π14 directive 通り)
+
+5 件:
+- `scripts/feature_search.py extract_features()` に **v2 feature 10 件追加** = MFCC mean/std (= 13 coeff list × 2) + log-mel mean/std (= 13 mel bands list × 2) + onset_strength mean/std/peak (= 3 scalar) + spectral_contrast_mean (= 7 bands list) + spectral_flux_std (= 1 scalar) + lufs_integrated (= 1 scalar)
+- `_compute_distance_score` を **vector feature 対応に拡張** (= list of floats を L2 vector distance、 target norm で normalize、 既存 scalar feature handling と共存)
+- `feature-rules-v2.yaml` 新規 = v1 thresholds 維持 + v2 distance_weights (= mfcc 3.0 / log_mel 2.5 / spectral_contrast 2.0 / lufs 1.5 等)
+- `scripts/feature_search.py` に **`audition-check` subcommand** 新規 = audition-input.yaml + `--scores "5,1,4,3,..." --threshold 0.7` で Spearman correlation 計算 + verdict + audition-output.yaml 生成
+- **N=8 candidate wav 生成** + `audition-input.yaml` 越川氏 scoring template
+
+### 10.2 metric_v2 feature 追加 (= librosa + pyloudnorm)
+
+```python
+# v1 (= scalar、 static aggregates) は維持
+# v2 (= time-varying + perceptual) 追加:
+mfcc_mean: list[13]       # = librosa.feature.mfcc per coeff mean
+mfcc_std: list[13]        # = per coeff std
+log_mel_mean: list[13]    # = librosa.feature.melspectrogram per band mean (log scale)
+log_mel_std: list[13]     # = per band std
+onset_strength_mean: float
+onset_strength_std: float
+onset_strength_peak: float
+spectral_contrast_mean: list[7]   # = librosa.feature.spectral_contrast per band mean
+spectral_flux_std: float
+lufs_integrated: float    # = pyloudnorm.Meter().integrated_loudness (= ITU-R BS.1770)
+```
+
+dependencies: librosa 0.11.0 (= π10 install 済) + pyloudnorm 0.1.1 (= π14 新規 install)。
+
+### 10.3 distance metric = vector feature 対応
+
+`_compute_distance_score(candidate, target, weights)` を拡張:
+
+- **scalar features** (= int/float): `rel = (a - b) / max(|a|, 1)` の単純相対差
+- **vector features** (= list of floats): `rel = sqrt(sum((a_i - b_i)^2)) / max(sqrt(sum(a_i^2)), 1)` = L2 vector distance / target L2 norm で normalize
+- 統合: `weighted_sq = w_i × rel^2` の累積、 最終 score = `sqrt(weighted_sq / weight_sum)`
+
+これで MFCC (= 13 dim) も log-mel (= 13 dim) も spectral_contrast (= 7 dim) も group weight 1 個で扱える。
+
+### 10.4 8 candidate generation = audition pool 設計
+
+audition pool 構成 (= ~/Projects/surge-spike/test-assets/audition_candidates/):
+
+| id | wav | source | 期待 human score (= Claude 予想、 ground truth は越川氏 audition) |
+|----|-----|--------|------------------------------------------------------------------|
+| candidate_01 | kick_909ish target render の copy | target_reference | 5 (= anchor) |
+| candidate_02 | π5 passthrough NG render の copy | pi5_passthrough_ng | 1 (= 既聴) |
+| candidate_03 | hand-crafted typical BD (= attack -10 / decay -1.7 / filter -30 / drive 4) | hand_crafted | (= 越川氏判断) |
+| candidate_04 | hand-crafted snappy BD (= attack -11 / decay -3 / filter -20 / drive 6) | hand_crafted | (= 越川氏判断) |
+| candidate_05 | hand-crafted deep BD (= attack -8 / decay -0.5 / filter -50 / drive 1) | hand_crafted | (= 越川氏判断) |
+| candidate_06 | hand-crafted midrange BD (= attack -9 / decay -2 / filter -35 / drive 3) | hand_crafted | (= 越川氏判断) |
+| candidate_07 | random sample seed=2608 | random_sample | (= 越川氏判断) |
+| candidate_08 | random sample seed=31337 | random_sample | (= 越川氏判断) |
+
+各 candidate の sha256 + parameter 値は `audition-input.yaml` に literal 記録。
+
+### 10.5 audition-check subcommand 動作
+
+dummy run (= Claude が予想した scores `5,1,4,3,3,4,2,2` で動作確認):
+
+```json
+{
+  "spearman_r": -0.788,        // ← negative = correct direction (= human 高 = metric 低)
+  "abs_r": 0.788,
+  "threshold": 0.7,
+  "abs_r_pass": true,
+  "sign_correct": true,
+  "verdict": "metric_v2 correlates with human audition (= |r| > threshold) → π16 optimize 着手可"
+}
+```
+
+→ subcommand 動作確認 OK。 但し **越川氏 実 audition で異なる scores になる可能性大** = 上記 dummy は Claude 予想、 ground truth は越川氏。
+
+exit code:
+- 0 = correlation_pass (= |r| > 0.7 + 負方向)
+- 68 = correlation_fail (= 0.7 未満 or 符号 inverted)
+
+### 10.6 越川氏 π15 audition + scoring 手順
+
+```bash
+# 1. 試聴 (= 8 candidate を順番に afplay、 各 1 sec)
+for i in 01 02 03 04 05 06 07 08; do
+    echo "=== candidate_$i ==="
+    afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_$i.wav
+    sleep 1
+done
+
+# 2. 採点 (= 1-5 score per candidate)
+#    1 = BD として全く不可
+#    2 = BD っぽさは少しあるが採用不可
+#    3 = 方向性はあるが要改善
+#    4 = かなり良い、 採用候補
+#    5 = PMDNEO BD として採用可能
+
+# 3. 採点結果 (= scores) を Claude に渡す
+#    例: "5,1,3,2,3,3,1,1"
+
+# 4. Claude 側で audition-check invoke
+python3 scripts/feature_search.py audition-check \
+    docs/design/rhythm-patches/synth/audition-input.yaml \
+    --scores "<8 scores comma-separated>" \
+    --threshold 0.7 \
+    --output docs/design/rhythm-patches/synth/audition-output.yaml
+```
+
+### 10.7 「human audition correlation check」 = optimize 前 hard gate
+
+correlation 判定:
+- **PASS** (= |r| > 0.7 + r < 0): metric_v2 が aesthetic と相関 = π16 optimize 着手可
+- **FAIL** (= |r| < 0.7 or r > 0): metric_v3 calibration へ戻し
+  - feature 追加 (= 例 spectral_rolloff / chroma / tempo)
+  - weight 再設計
+  - threshold 再評価
+  - π15 audition 再実施
+
+これで 「数値は良いのに耳では違う」 (= π12 pattern) を **optimize 実行前に detect** 可能。
+
+### 10.8 wording 規律 (= π13 確立分の遵守確認)
+
+本 commit で使用する wording:
+- ✓ 「current metric correlation = 0.XX」
+- ✓ 「metric_v2 calibration draft」
+- ✓ 「audition correlation check 前段」
+- ✗ 「metric_v2 が aesthetic を捉えた」 (= aesthetic 含意あり、 越川氏 verify 前)
+- ✗ 「reference に近接」 (= aesthetic 含意)
+
+### 10.9 π15 以降 chain (= 越川氏 audition + correlation 判定後)
+
+- **π15** (= 越川氏 audition、 user-side work): 8 candidate scoring + Claude へ scores 共有
+- **π15.5** (= Claude、 user 採点後): audition-check 実行 + audition-output.yaml 生成 + 判定報告
+- **π16** (= correlation PASS なら): metric_v2 で optimize 再 run = `scripts/feature_search.py optimize --rules feature-rules-v2.yaml`
+- **π16** (= correlation FAIL なら): metric_v3 design + π15 再 audition、 feature 追加 / weight tune iterate
+- **π17**: 越川氏 audition (= final gate)、 accept → ι commit / reject → metric_vN+1 へ
+
+## 11. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
 - **external spike repo** = 参照のみ、 PMDNEO repo に取り込まない (= §決定 25 ι'' 維持)

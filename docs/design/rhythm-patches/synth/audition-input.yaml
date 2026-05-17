@@ -1,0 +1,150 @@
+# Audition input (= π14 candidate list、 π15 越川氏 scoring 待ち)
+# ============================================================================
+#
+# 8 candidates for human aesthetic audition (= 1-5 score)。
+# 採点後、 `feature_search.py audition-check` で metric_v2 score との Spearman correlation 計算、
+# |r| > 0.7 で metric_v2 採用可、 < 0.7 なら metric_v3 calibration へ。
+#
+# 採点基準 (= 越川氏 directive):
+#   1 = BD として全く不可
+#   2 = BD っぽさは少しあるが採用不可
+#   3 = 方向性はあるが要改善
+#   4 = かなり良い、採用候補
+#   5 = PMDNEO BD として採用可能
+#
+# 試聴 command:
+#   for i in 01 02 03 04 05 06 07 08; do
+#       echo "=== candidate_$i ==="
+#       afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_$i.wav
+#       sleep 1
+#   done
+#
+# または個別:
+#   !afplay ~/Projects/surge-spike/test-assets/audition_candidates/candidate_03.wav
+#
+# 採点後の invoke:
+#   python3 scripts/feature_search.py audition-check \
+#       docs/design/rhythm-patches/synth/audition-input.yaml \
+#       --scores "5,1,4,3,3,4,2,2" \   # ← 8 scores 順番に
+#       --output docs/design/rhythm-patches/synth/audition-output.yaml
+#
+# ============================================================================
+
+target_wav: ~/Projects/surge-spike/test-assets/kick_909ish.wav
+rules: docs/design/rhythm-patches/synth/feature-rules-v2.yaml
+drum_type: BD
+
+candidates:
+  - id: candidate_01
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_01.wav
+    description: "kick_909ish target reference render (= Surge XT factory Percussion/Kick 909ish.fxp、 越川氏 scoring 参照アンカー = 5 想定)"
+    source: target_reference
+    human_score: null   # = 越川氏 fill 予定
+
+  - id: candidate_02
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_02.wav
+    description: "π5 passthrough NG render (= 越川氏 既聴audition「ものすごい低音だけ」、 patch-spec 値を Surge XT scale 不変換で注入)"
+    source: pi5_passthrough_ng
+    human_score: null
+
+  - id: candidate_03
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_03.wav
+    description: "hand-crafted: typical BD (= attack ~1ms / decay ~310ms / mid filter / drive 4)"
+    source: hand_crafted
+    params:
+      a_env1_attack: -10.0
+      a_env1_decay: -1.7
+      a_env1_release: -6.0
+      a_env2_decay: -3.0
+      a_filter1_cutoff: -30.0
+      a_lowcut: -40.0
+      a_level_noise: 0.4
+      a_ws_drive: 4.0
+      a_osc1_pitch: -2.0
+    human_score: null
+
+  - id: candidate_04
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_04.wav
+    description: "hand-crafted: snappy BD (= ultra-fast attack / short decay / more click / more drive)"
+    source: hand_crafted
+    params:
+      a_env1_attack: -11.0
+      a_env1_decay: -3.0
+      a_env1_release: -8.0
+      a_env2_decay: -5.0
+      a_filter1_cutoff: -20.0
+      a_lowcut: -50.0
+      a_level_noise: 0.7
+      a_ws_drive: 6.0
+      a_osc1_pitch: -1.0
+    human_score: null
+
+  - id: candidate_05
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_05.wav
+    description: "hand-crafted: deep BD (= long body / dark filter / minimal click / minimal drive)"
+    source: hand_crafted
+    params:
+      a_env1_attack: -8.0
+      a_env1_decay: -0.5
+      a_env1_release: -5.0
+      a_env2_decay: -2.5
+      a_filter1_cutoff: -50.0
+      a_lowcut: -65.0
+      a_level_noise: 0.2
+      a_ws_drive: 1.0
+      a_osc1_pitch: -6.0
+    human_score: null
+
+  - id: candidate_06
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_06.wav
+    description: "hand-crafted: midrange BD (= moderate envelope / moderate filter / moderate drive)"
+    source: hand_crafted
+    params:
+      a_env1_attack: -9.0
+      a_env1_decay: -2.0
+      a_env1_release: -5.0
+      a_env2_decay: -4.0
+      a_filter1_cutoff: -35.0
+      a_lowcut: -45.0
+      a_level_noise: 0.5
+      a_ws_drive: 3.0
+      a_osc1_pitch: -2.5
+    human_score: null
+
+  - id: candidate_07
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_07.wav
+    description: "random sample (seed=2608、 deterministic、 search space 全 9 param uniform)"
+    source: random_sample
+    seed: 2608
+    human_score: null
+
+  - id: candidate_08
+    wav: ~/Projects/surge-spike/test-assets/audition_candidates/candidate_08.wav
+    description: "random sample (seed=31337、 deterministic、 search space 全 9 param uniform)"
+    source: random_sample
+    seed: 31337
+    human_score: null
+
+# ===========================================================================
+# Methodology note (= ADR-0033 §決定 27 (12) π13 中核 wording 遵守)
+# ===========================================================================
+methodology:
+  purpose: "metric_v2 が human aesthetic 軸と相関するか optimize 実行前に literal verify"
+  scoring_protocol:
+    - "8 candidate を順番に afplay で試聴 (= 必要なら repeat)"
+    - "各 candidate に 1-5 score を付与 (= 採点基準 上記)"
+    - "scoring の盲性 = candidate 01 (= target) と 02 (= 既聴 NG) は anchor として bias 受容、 03-08 は new candidates"
+  correlation_method:
+    name: "Spearman rank correlation (= rank-based、 monotonic 関係を測定、 線形性不要)"
+    expected_sign: "negative (= human 高 score → metric 低 score = 距離小)"
+    threshold_abs_r: 0.7
+    interpretation:
+      strong_negative: "|r| > 0.7 and r < 0 → metric_v2 採用可、 π16 optimize 着手"
+      strong_positive: "|r| > 0.7 and r > 0 → metric weight 符号 inverted、 直すか metric_v3 再設計"
+      weak: "|r| < 0.7 → metric_v2 採用不可、 metric_v3 calibration へ"
+  next_step_decision_tree:
+    - "correlation pass: π16 optimize subcommand を feature-rules-v2.yaml で再 invoke"
+    - "correlation fail: feature 追加 (= 例 spectral_rolloff / chroma / tempo) or weight 再設計 + π15 再 audition"
+  wording_discipline:
+    - "「current metric correlation = 0.XX」 のみ literal、 「metric が aesthetic を捉えた」 等の含意 wording 禁止"
+    - "metric pass alone は越川氏 final accept を保証しない、 audition correlation check は前段 gate のみ"
