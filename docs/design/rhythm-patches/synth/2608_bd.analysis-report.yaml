@@ -99,4 +99,19 @@ summary:
   overall_status: engineering_pass
   failure_categories:
   - volume_mismatch_peak
+  # ★ π13 retroactive reclassification (= 2026-05-17):
+  # 上記 "engineering_pass" は metric_v1 上の pass のみ、 aesthetic gate を通過していない。
+  reclassification:
+    retroactive_label: metric_pass_v1
+    retroactive_at: "2026-05-17"
+    reason: "metric_v1 (= 8 rule + 16 feature) は aesthetic 軸 (= human ear judgement) を捉えきれず"
+
+aesthetic_audition:
+  status: rejected
+  audition_at: "2026-05-17"
+  auditor: "越川将人 / M.Koshikawa."
+  comment_literal: "reference / target の BD と全然似ていない"
+  correlation_with_metric_v1: did_not_correlate
+  finding: "metric_pass_v1 ≠ aesthetic_pass"
+  next_axis: metric_v2_calibration (= details in 2608_bd.optimization-report.yaml)
 

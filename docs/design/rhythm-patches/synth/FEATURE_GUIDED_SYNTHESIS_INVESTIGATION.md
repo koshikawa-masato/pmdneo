@@ -665,7 +665,114 @@ a_osc1_pitch: -3.73      # = 4 semitones 下
 - **π14** (= ι commit、 越川氏 accept 時): `/tmp/pmdneo_2608_bd_optimized.fxp` → `assets/drum_samples/synth/patches/2608_bd.fxp` (= canonical path、 overwrite NG version) + provenance_chain step_2_fxp update + step_3_wav status 反映
 - **π15+**: superctr/adpcm encode (= ν step 8 = `.adpcma` 生成) + 並行配置 + final commit
 
-## 9. scope-out 維持 (= 本 investigation の意図)
+## 9. π13 metric calibration failure analysis = aesthetic_rejected + metric_v1 retroactive reclassification (= 2026-05-17 23rd session π13)
+
+### 9.1 越川氏 audition 結果 = aesthetic_rejected
+
+π12 で生成した `~/Projects/surge-spike/test-assets/2608_bd.optimized.wav` を 越川氏 audition:
+
+> 越川氏 audition comment literal (= 2026-05-17): 「reference / target の BD と全然似ていない」
+
+**判定 = aesthetic_rejected** = π12 で metric_v1 上 best score 0.911 + validate engineering_pass を達成したが、 **human aesthetic gate を通過していない**。 metric_v1 score 改善と human audition 判断が **乖離**。
+
+### 9.2 重要 design lesson (= ADR レベル wording 追加)
+
+π12 結果が aesthetic で reject されたことから 3 件の literal wording 確立:
+
+| wording | meaning |
+|---------|---------|
+| **「optimizer is also not the final selector」** | LLM だけでなく optimizer も final 選定権限なし、 越川氏 audition が最終 gate |
+| **「human aesthetic gate is authoritative」** | metric pass / score / validate result は necessary but not sufficient、 越川氏 judgement が ground truth |
+| **「metric pass ≠ aesthetic pass」** | metric は **versioning** 軸で iterate、 各 version で audition correlation check 経由 verify、 v1 で reject なら v2 へ |
+
+これらは ν 「acceptance is downstream」 → ξ 「越川氏 hand-on engineering ゼロ」 → π 「越川氏 aesthetic final gate」 chain の **literal 強化** (= π13 evidence 反映)。
+
+### 9.3 wording 規律 = aesthetic 含意の有無を厳密分離
+
+π12 と π13 を切り分ける wording 規律:
+
+| 言ってよい (= engineering 軸 only) | 言わない (= aesthetic 含意) |
+|------------------------------------|---------------------------|
+| "current metric (= weighted L2 v1) decreased from 39.83 to 0.911" | "近づいた" |
+| "score histogram: 119 trials with score < 5" | "BD に類似" |
+| "validate 8 rules passed with 1 warning" | "似ている" |
+| "engineering metric pass v1" | "engineering_pass" (= aesthetic 含意あり) |
+| "metric_v1 と human audition が乖離" | "後一歩で aesthetic pass" |
+| "feature distance reduction" | "BD らしさが出てきた" |
+
+「engineering metric pass」 は **aesthetic 軸を保証しない数値結果のみ** を意味する、 metric の subscript (= v1 / v2 ...) を必ず添える。
+
+### 9.4 metric_v1 (= π10-12) の limitation 分析 = aesthetic 不一致 root cause
+
+metric_v1 = 16 feature の weighted L2 + 8 rule validate gate。 audition reject から逆算した **不足 feature 軸**:
+
+| 軸 | metric_v1 でカバー | metric_v1 で不在 | 重要度推定 |
+|----|---------------------|------------------|-----------|
+| static peak / RMS | ✓ | - | 中 (= 越川氏 audition で volume 軸言及あったが root cause ではない) |
+| static spectral centroid / band ratio | ✓ | - | 中 (= 低域 dominance OK だったが BD らしさ不足) |
+| envelope shape (= attack / decay 1/e / trailing silence) | ✓ | - | 中 |
+| **time-varying spectral envelope** | - | ✗ | **高** (= drum 音色 character の中核、 静的 centroid では不十分) |
+| **MFCC / log-mel** | - | ✗ | **高** (= perceptual 軸 (= human ear bark / mel scale) を encode、 spectral centroid + band ratio より perception 近) |
+| **onset envelope detail** | - | ✗ (= 単一 onset detection あり) | 中-高 (= attack 直後の transient detail) |
+| **perceptual loudness (= LUFS)** | - | ✗ (= peak/RMS のみ) | 中-高 (= subjective loudness != peak dBFS、 ITU-R BS.1770 等) |
+| pitch tracking | ✓ (= pyin) | - | 中 (= percussive で pyin 信頼性低) |
+| transient strength (= peak/RMS in 50 ms) | ✓ | - | 中 |
+| polyphonic content / inharmonic | - | ✗ | 中 (= drum は inharmonic 中心、 sine osc 軸で抜けやすい) |
+
+**結論**: metric_v1 は **static feature 中心**、 time-varying / perceptual 軸を欠く = **drum 音色の core を捉えきれない** = aesthetic 軸と乖離。
+
+### 9.5 metric_v2 calibration 計画 (= π14+ 着手予定)
+
+**追加予定 feature** (= metric_v2 計算 layer):
+
+| feature | librosa function | rationale |
+|---------|------------------|-----------|
+| MFCC (= 13 coeff) | `librosa.feature.mfcc()` | perceptual cepstral 表現、 timbre 軸の標準 |
+| log-mel spectrogram | `librosa.feature.melspectrogram()` + log | time-varying spectral envelope、 drum 音色 core |
+| onset envelope time-series | `librosa.onset.onset_strength(aggregate=np.mean)` (= time series) | attack detail + transient shape |
+| time-varying spectral flux | `librosa.onset.onset_strength()` (= per-frame) | spectral motion 軸 |
+| perceptual loudness (= LUFS) | `pyloudnorm.Meter().integrated_loudness()` (= 外部 dep) | ITU-R BS.1770、 subjective loudness |
+| spectral contrast | `librosa.feature.spectral_contrast()` | tonal vs noise 軸、 drum で重要 |
+
+**distance metric refinement**:
+- 静的 feature L2 + **時系列 feature の DTW (= dynamic time warping) or Euclidean per-frame** で時系列軸 加算
+- weight 再設計 = audition correlation check で empirical tuning
+
+### 9.6 「human audition correlation check」 methodology = optimize 着手前必須 gate
+
+metric_v2 が aesthetic と相関するか **optimize 実行前に literal verify**:
+
+1. N candidate (= 5-10 件) を hand-craft / random sample で生成 = parameter space の dispersion 確保
+2. 越川氏 audition で各 candidate を aesthetic score (= 1-5 or thumbs up/down) 評価
+3. metric_v2 で各 candidate の score 計算
+4. Spearman correlation = metric_v2 score と human aesthetic score の rank correlation
+5. **correlation > 0.7 (= 仮 threshold) なら metric_v2 採用、 optimize 実行 OK**
+6. correlation < 0.7 なら metric_v2 design 修正、 audition + correlation check を loop
+
+この pre-check 経由で 「optimize 実行 → audition で reject → metric の問題 retro 認識」 という π12 pattern を **prevent**。 metric の aesthetic 整合性が optimize 前に verify される。
+
+### 9.7 π14+ chain (= metric_v2 着手 + 再 optimize)
+
+- **π14** (= metric_v2 spike 実装): `scripts/feature_search.py` に新 feature extraction = MFCC + log-mel + onset env + LUFS + spectral_contrast + time-varying flux 追加、 feature dict 拡張、 `feature-rules-v2.yaml` (= 新 file) で weight 再設計
+- **π15** (= human audition correlation check): N=5-8 candidate を hand-craft + 越川氏 audition で aesthetic score 取得 + metric_v2 score 計算 + Spearman correlation verify
+- **π16** (= correlation > 0.7 達成時): metric_v2 で optimize 再 run = `scripts/feature_search.py optimize --rules feature-rules-v2.yaml`
+- **π17**: 新 best candidate の 越川氏 audition (= aesthetic gate)
+- **π17 reject 時**: metric_v3 へ iteration、 または target / search space / weight 再壁打ち
+- **π17 accept 時**: ι commit (= canonical asset 化)
+
+### 9.8 π12 の正しい treatment
+
+π12 (= commit 4ab5fc0) の re-framing:
+
+- **status**: `aesthetic_rejected` (= NOT `engineering_pass`)
+- **literal milestone**: 「black-box optimization loop works mechanically, but metric_v1 failed to predict human judgement」
+- **deliverable value**: trial history + 2 reports = 「metric_v1 の limitation evidence」 として保存、 metric_v2 設計の base data
+- **2608_bd.optimized.wav**: rejected candidate (= aesthetic 軸で却下、 削除はしないが asset として採用しない)
+- **NOT accepted candidate** (= canonical `2608_bd.fxp` への昇格は不適)
+- 2608_bd.optimization-report.yaml + analysis-report.yaml = `aesthetic_audition.status: rejected` + `metric_calibration_status.v1_status: aesthetic_uncorrelated` を追記済 (= 本 commit)
+- 既存 `assets/drum_samples/synth/patches/2608_bd.fxp` (= π5 NG version) は維持 (= overwrite せず、 metric_v2 calibration 完了後の再 optimize で再判断)
+
+## 10. scope-out 維持 (= 本 investigation の意図)
 
 - **driver / runtime / fixture / verify script** 完全不変 (= 23rd session 既存 23 commit 規律維持)
 - **external spike repo** = 参照のみ、 PMDNEO repo に取り込まない (= §決定 25 ι'' 維持)

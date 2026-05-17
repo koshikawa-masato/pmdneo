@@ -26,7 +26,15 @@
 # ============================================================================
 
 rules_version: "0.1.0"
-status: initial-calibration   # initial-calibration | tuned | stable
+status: aesthetic_uncorrelated_v1   # initial-calibration | aesthetic_uncorrelated_v1 | tuned | stable
+
+# ★ π13 (= 2026-05-17) retroactive status update:
+# 本 rules v0.1.0 は metric_v1 として運用、 π12 で scipy.optimize.differential_evolution + 8 rule + 16 feature で
+# best score 0.911 達成も、 越川氏 audition で aesthetic gate FAIL = metric_v1 score 改善 ≠ human aesthetic accept。
+# → 「metric_pass_v1」 への retroactive 降格 + metric_v2 calibration 着手予定 (= MFCC / log-mel / onset / time-varying / loudness norm)。
+# 詳細 = docs/design/rhythm-patches/synth/2608_bd.optimization-report.yaml の aesthetic_audition + metric_calibration_status section、
+#       および FEATURE_GUIDED_SYNTHESIS_INVESTIGATION.md § 9 = π13 metric calibration failure analysis。
+# 本 rules file は metric_v1 の literal evidence として保持、 v2 計算 layer 着手時に新 file 候補 (= feature-rules-v2.yaml)。
 
 # ===========================================================================
 # Drum-type specific rules

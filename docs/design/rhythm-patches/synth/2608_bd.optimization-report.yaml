@@ -173,6 +173,42 @@ engineering_gate:
   distance_pass: true
   overall_engineering_pass: true
   analysis_report_path: docs/design/rhythm-patches/synth/2608_bd.analysis-report.yaml
+  # ★ π13 retroactive reclassification (= 2026-05-17):
+  # 上記 "engineering_pass" は metric_v1 上の pass のみで、 越川氏 aesthetic gate を通過していない。
+  # metric_v1 score 改善 と human audition 判断 が乖離 = 詳細は下記 aesthetic_audition + metric_calibration_status 参照。
+  reclassification:
+    retroactive_label: metric_pass_v1
+    retroactive_at: "2026-05-17"
+    reason: "metric_v1 = weighted L2 of 16 features + 8 rule validate gate は aesthetic 軸を捉えきれず"
+
+aesthetic_audition:
+  status: rejected
+  audition_at: "2026-05-17"
+  auditor: "越川将人 / M.Koshikawa."
+  audition_method: "afplay ~/Projects/surge-spike/test-assets/2608_bd.optimized.wav"
+  comment_literal: "reference / target の BD と全然似ていない"
+  correlation_with_metric_v1: did_not_correlate
+  finding_summary: "metric_v1 (= weighted L2 of 16 features + 8 rule validate gate) passed but did NOT predict aesthetic acceptance"
+  wording_discipline:
+    - "current metric (= weighted L2 v1) decreased from 39.83 to 0.911"
+    - "「近づいた」 「近接した」 「reference に類似」 wording は使わない (= aesthetic 含意、 metric 改善は engineering 軸 only)"
+    - "optimizer は selector ではない = LLM is not the selector / optimizer is also not the final selector / human aesthetic gate is authoritative"
+
+metric_calibration_status:
+  current_metric_version: v1
+  v1_status: aesthetic_uncorrelated
+  v1_status_reason: "metric_v1 は static feature 中心 (= peak / RMS / spectral centroid / band ratio / attack / decay / transient / silence 等) で time-varying spectral envelope + perceptual loudness + MFCC / log-mel + onset detail を欠く"
+  next_axis: metric_v2_calibration
+  v2_planned_features:
+    - "MFCC (= mel-frequency cepstral coefficients)"
+    - "log-mel spectrogram distance (= time-varying)"
+    - "onset envelope time-series comparison"
+    - "time-varying spectral flux"
+    - "perceptual loudness normalization (= LUFS-based)"
+    - "pitch + decay + transient weight 再評価"
+  v2_pre_check_requirement: "human audition correlation check (= N candidates + 越川氏 audition + metric_v2 score の Spearman correlation > 0.7 等 verify) を optimize 実行前に必須化、 correlation 低い metric で optimize 実行は gate"
+  v2_target_handling: "target を Kick 909ish のみでなく 2608_BD reference (= 既存 forensic unknown 起源) と比較する場合は 「aesthetic reference (= 越川氏 musical context 構築用)」 と明記、 derivative ではない"
+
 top_5_candidates:
 - trial_num: 103
   score: 0.910954544013662
