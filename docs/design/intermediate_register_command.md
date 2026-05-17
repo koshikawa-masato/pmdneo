@@ -672,3 +672,36 @@ ADR 起票時にこのセクションを根拠として参照する。
 - LFO / portamento は方言差が大きく、 今ここで標準化しすぎると危険
 
 **根拠 docs section**: §0 結論、 §2-1 レジスタ寄りのハイブリッド形式、 §2-2 標準イベントは少なく保つ、 §6 SemanticEvent、 §7 ChipEvent、 §8 RawRegisterWrite、 §14 lowering 方針、 §16 Codex 判断 採用 2 件目。 §15 未決定事項 4 件目 (= LFO / portamento 標準昇格条件) は別軸として温存。
+
+### 17-4. 軸 4: FM3 拡張音色の表現 (ratified 2026-05-17)
+
+**決定**: FM3 拡張音色は FM3Mode ChipEvent + FMTone 共用で表現する。 FM3 は「tone structure の分岐」 ではなく「chip mode + operator frequency control」 として扱う。
+
+**内容**:
+
+- tone 構造は通常の `FMTone` を共用する
+- FM3 専用 tone 構造は新設しない
+- FM3 mode の有効化 / 無効化は `ChipEvent: FM3Mode` として表現する
+- operator 別 pitch / block / fnum は `FM3Mode` 側で保持する
+- lowering 時に `FM3Mode` から register `0x27` / `0xA8-0xAE` 系へ展開する
+- RawRegisterWrite だけにはしない
+- FM3 を SemanticEvent には置かない
+
+**理由**:
+
+- FM3 拡張は OPNB register 操作に近いので ChipEvent が自然
+- `FMTone` を共用でき、 tone import / WebApp UI が単純になる
+- FM3 専用 tone を作ると dual maintenance になる
+- RawRegisterWrite だけにすると validation / diagnostics / editor 表示が弱くなる
+- SemanticEvent に置くと音楽的意味と chip mode 操作が混ざる
+
+**validation**:
+
+- 既存 `IR005` (= FM3 enabled 中に通常 FM ch 3 Note が混在) を維持
+- 拡張 validation 候補 (= ADR 起票時に IR010 以降で具体化想定):
+  - operator 別 fnum / block 欠落を検出する
+  - FM3Mode が有効な tick での ordering rule を明記する
+
+**wording 規律**: docs / ADR / コード注釈で FM3 を「tone structure の分岐」 と表現しない。 「chip mode + operator frequency control」 と統一する。
+
+**根拠 docs section**: §7-4 FM3Mode ChipEvent、 §9-2 FM3 用 tone、 §13 validation rules (IR005)、 §16 Codex 判断 採用 4 件目。 reference doc §3 FM3 拡張モード詳細 (= `0x27` bit 6-7 + `0xA8-0xAE` operator 別 fnum / block)。
