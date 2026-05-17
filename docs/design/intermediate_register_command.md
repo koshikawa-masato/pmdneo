@@ -587,3 +587,31 @@ IR は sample 実体を持たず、sample reference だけを持つ。
 - LFO / portamento の標準 event 化。
 - mdx / OPM tone 変換の品質基準。
 - ADPCM-B asset 管理を `.PNE` に含めるかどうか。
+
+---
+
+## 17. ADR 起票候補事項 (user ratification log)
+
+このセクションは、 user (越川将人) が壁打ちで明示的に ratify した決定を順次記録する。
+ADR 起票時にこのセクションを根拠として参照する。
+
+### 17-1. 軸 1: IR の位置づけ (ratified 2026-05-17)
+
+**決定**: IR は compiler / WebApp intermediate format として確定する。
+
+**内容**:
+
+- IR は Z80 driver が直接読む runtime format ではない
+- runtime は引き続き `.mn` + `.PNE`
+- IR は build / authoring / WebApp / diagnostics のための正規化形式
+- IR から `.mn` / `.PNE` / diagnostics を生成する
+- `.NEO` は archive / WebApp / builder 用 container 候補であり、 runtime replacement ではない
+
+**理由**:
+
+- Z80 driver semantics を巻き込まない
+- 現行 `.mn` / `.PNE` chain を壊さない
+- MML 方言差、 WebApp 編集、 診断、 将来の変換を IR 側で吸収できる
+- runtime format にすると scope が大きくなりすぎる
+
+**根拠 docs section**: §0 結論、 §1-2 非責務、 §1-3 生成物との関係、 §16 Codex 判断 採用 1 件目。
