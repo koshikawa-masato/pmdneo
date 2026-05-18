@@ -1,0 +1,24 @@
+{
+  "$schema": "../../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 spike-invalid fixture: rmw-missing-mask (= RawRegisterMaskWrite event の mask field 欠落、 schema 上 required violation で reject + spike layer も _validate_rmw 必須 field check で reject、 ADR-0039 §決定 3 必須 field 規律整合、 schema/spike 両 layer defense literal、 29th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterMaskWrite",
+      "port": 0,
+      "address": 39,
+      "value": 64
+    }
+  ]
+}

@@ -642,3 +642,84 @@ done
 - FM3Mode → RawRegisterWrite raw lowering (= v0.5 以降別 ADR、 RMW/mask event 新設判断含む)
 - mode 切替直前 KeyOff 推奨 diagnostics (= 別 sprint)
 - driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / FM3 operator pitch 自動導出 / importer / optimization / 0x27 bit 0-5/7 semantics / CSM / aesthetic / automated CI
+
+---
+
+## IR RawRegisterMaskWrite raw-to-raw identity + validation spike (v0.5)
+
+「IR raw layer に partial bit update event (= `RawRegisterMaskWrite`) を追加し、 schema + spike 両 layer で validation 可能 + raw-to-raw identity で下流に流せる」 ことを示す read-only spike。 ADR-0039 で設計 fix。 FM3Mode → RawRegisterMaskWrite chip → raw lowering は ADR-0040 候補別 ADR で扱う defer (= 本 spike は raw event 単体 chain proof)。
+
+### path / 入出力
+
+- path: `scripts/ir-lower-rmw-spike.py` (= chmod +x、 Python 3.10+)
+- 入力: v0.5 IR JSON (= RawRegisterMaskWrite event を含む)
+- 出力: v0.5 IR JSON (= 全 event raw-to-raw identity pass-through、 allocator で order 再採番)
+
+### validation 規律 (= ADR-0039 §決定 3-4 + §決定 8 整合)
+
+- `port`: int 0-1
+- `address`: int 0-255
+- `mask`: int 1-255 (= no-op 防止 ADR-0035 §決定 6 規律踏襲)
+- `value`: int 0-255 (= mask 外 bit は don't care、 warning 出さない、 ADR-0039 §決定 4)
+- `trackId`: 必須 (= v0.3-v0.4 ChipEvent 規律継承)
+- `barrier`: optional bool 厳密
+- 共通 (= 26-28 session pattern): sort + 重複 reject + timeMode delta reject + 必須 field 欠落 reject + type(x) is int / type(x) is bool 厳密判定 (= bool subclass silent pass 防止)
+
+### driver runtime 軸 semantics (= ADR-0039 §決定 4 literal)
+
+driver runtime 軸では `new_data = (shadow & ~mask) | (value & mask)` で実 register に write (= YM2610 実機 register は read 不可で driver code 側 shadow が ground truth)。 IR layer はこの semantics を expression 保持のみ (= driver code 側責務)。
+
+### 検証 command
+
+```bash
+python3 scripts/ir-lower-rmw-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+### 検証例
+
+```bash
+python3 scripts/ir-lower-rmw-spike.py \
+  docs/design/intermediate-register-command/examples/v0.5/rmw-fm3-enable.ir.json \
+  --output /tmp/rmw.json --stats
+
+diff docs/design/intermediate-register-command/examples/v0.5/spike-rmw-identity-tiny.ir.json /tmp/rmw.json
+```
+
+期待: 1 event → 1 event (= identity)、 diff 0 行 (= deterministic byte-identical)、 exit 0、 stats rmw_validated=1。
+
+### exit code (= ir-lower-rmw-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK |
+| 64 | argument error |
+| 65 | lowering parse error (= timeMode delta / 重複 / 必須 field 欠落 / RawRegisterMaskWrite 固有 validation 違反) |
+| 66 | runtime error |
+
+### fixture
+
+- positive (= FM3 enable): `examples/v0.5/rmw-fm3-enable.ir.json` (= port=0/address=0x27/mask=0x40/value=0x40、 ADR-0039 §決定 5 接続条件 literal)
+- positive (= FM3 disable): `examples/v0.5/rmw-fm3-disable.ir.json` (= 同上 + value=0x00、 enable/disable pair example)
+- positive (= spike output deterministic): `examples/v0.5/spike-rmw-identity-tiny.ir.json` (= rmw-fm3-enable を spike に通した byte-identical 証跡)
+- spike-level reject (= negative): `examples/v0.5/spike-invalid/rmw-mask-zero.ir.json` + `rmw-port-out-of-range.ir.json` + `rmw-missing-mask.ir.json` (= schema layer + spike layer 両 reject の defense in depth literal)
+
+### v0.5 spike-level reject 検証
+
+```bash
+for f in docs/design/intermediate-register-command/examples/v0.5/spike-invalid/*.ir.json; do
+  python3 scripts/ir-lower-rmw-spike.py "$f" > /dev/null 2>&1
+  code=$?
+  echo "$(basename $f): exit=$code"
+done
+```
+
+期待: 各 fixture `exit=65` (= 全 3 件 reject)。 schema validation 経路でも 3/3 reject = 両 layer defense literal。
+
+### spike scope-out (= ADR-0039 §scope-out 抜粋)
+
+- FM3Mode → RawRegisterMaskWrite 生成 (= chip → raw lowering 実装、 ADR-0040 候補別 ADR)
+- 既存 RawRegisterWrite の RMW 化 (= 既存 event touch なし、 並列新規 event 追加のみ)
+- driver runtime 実 RMW 実行 (= driver code 側責務)
+- optimization layer (= 同 address 連続 RMW merge)
+- 既存 ADR-0035 raw spike chain (= chip → raw lowering) touch なし
+- driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / aesthetic / automated CI

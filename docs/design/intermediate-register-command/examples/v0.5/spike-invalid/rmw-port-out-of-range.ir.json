@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 spike-invalid fixture: rmw-port-out-of-range (= RawRegisterMaskWrite event の port=2 = 0-1 range out、 schema 上 maximum 1 で reject + spike layer も port range check で reject、 YM2610 は port 0/1 のみ (ADR-0035 §決定 4) 整合、 schema/spike 両 layer defense literal、 29th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterMaskWrite",
+      "port": 2,
+      "address": 39,
+      "mask": 64,
+      "value": 64
+    }
+  ]
+}

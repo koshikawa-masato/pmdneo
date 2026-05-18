@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 spike-invalid fixture: rmw-mask-zero (= RawRegisterMaskWrite event の mask=0、 schema 上 minimum 1 で reject + spike layer も mask range check で reject、 no-op 防止 (= ADR-0035 §決定 6 operatorMask 規律踏襲) 整合、 schema/spike 両 layer defense literal 証跡、 29th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterMaskWrite",
+      "port": 0,
+      "address": 39,
+      "mask": 0,
+      "value": 0
+    }
+  ]
+}
