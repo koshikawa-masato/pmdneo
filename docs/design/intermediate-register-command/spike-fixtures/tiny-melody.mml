@@ -1,0 +1,22 @@
+; tiny-melody.mml — IR spike v0.1 minimal fixture
+; PMDNEO Intermediate Register Command Data (IR) MML -> IR exporter spike fixture
+; ADR-0034 ratified、 24th session 2026-05-17、 spike 実装 2026-05-18
+;
+; 期待 events = Tempo + ToneSelect + Note C4 + Rest + Note E4 + Rest (= 6 件)
+;
+; tick map (= IR PPQN 192 = 1 quarter note は 192 ticks、 schema 流):
+;   tick   0 order 0  Tempo (bpm=120)
+;   tick   0 order 1  ToneSelect (toneId=0)
+;   tick   0 order 2  Note C4 (= MIDI 60、 duration 192 = quarter)
+;   tick 192 order 0  Rest (duration 192 = quarter)
+;   tick 384 order 0  Note E4 (= MIDI 64、 duration 192 = quarter)
+;   tick 576 order 0  Rest (duration 192 = quarter)
+;
+; 注: PPQN (= Pulses Per Quarter Note) MIDI 流規約のため、 ticksPerBeat=192 で
+;     quarter note = 192 ticks。 PMD MML 内部の #Zenlen 192 convention (= whole=192、 quarter=48)
+;     とは違う。 PMD MML を import するときは importer が変換 (= PMD c4 内部 48 ticks →
+;     IR 192 ticks へ * 4 換算)。 本 spike は IR canonical PPQN を直接 emit する。
+;
+t120
+@0
+o5 c4 r4 e4 r4

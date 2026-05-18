@@ -90,3 +90,89 @@ python3 scripts/validate-ir-schema.py --schema <path> --examples '<glob>' --inva
 - `.mn` / `.PNE` 生成 path は触らない
 - binary IR encoder は作らない
 - YAML 版は作らない
+
+---
+
+## MML → IR spike (v0.1)
+
+「MML から IR に落ちる最小の道がある」 ことを示す read-only spike。 compiler 本体 / WebApp / runtime / driver は touch しない。
+
+### script
+
+- path: `scripts/mml-to-ir-spike.py` (= chmod +x、 Python 3.10+)
+- 役割: tiny PMD-flavored MML subset 入力 → IR JSON v0.1 出力
+
+### サポート tokens (= tiny PMD-flavored subset)
+
+| token | 意味 | 例 |
+|---|---|---|
+| `t<bpm>` | Tempo event | `t120` |
+| `@<n>` | ToneSelect | `@0` |
+| `o<n>` | octave state (= 1-9) | `o5` |
+| `<a-g>[+\|-]?<len>?` | Note event | `c4` / `c+8` / `c-2` |
+| `r<len>?` | Rest event | `r4` / `r` |
+| `;` から行末 | comment | `; comment` |
+
+octave / length state は state machine が保持、 length 省略時は直前 length を引き継ぎ。 default `o4` / `len 4`。
+
+### tick / pitch convention
+
+- IR の `ticksPerBeat` は **PPQN (= Pulses Per Quarter Note) MIDI 流規約**
+- ticksPerBeat 192 で **quarter note = 192 ticks** (= 既存 `minimal-fm-note.ir.json` example の duration 値と一致)
+- 注: PMD MML 内部の #Zenlen 192 convention (= whole=192、 quarter=48) とは違う。 PMD importer は変換 (= PMD c4 内部 48 ticks → IR 192 ticks へ ×4 換算) する設計、 spike は IR canonical PPQN を直接 emit
+- PMD `o5 c` = MIDI 60 = C4 (= memory `project_pmd_voice_ml_verified` 確認済)
+- spike では PMD `o<n> c` = MIDI `n * 12` を採用
+
+### hardcoded constants
+
+- `targetProfile`: `ym2610_aes`
+- `ticksPerBeat`: 192
+- 単一 channel: FM ch 2 / Part B
+- 単一 tone: toneId 0 (= dummy FMTone、 `minimal-fm-note.ir.json` example と同一構造)
+
+### CLI
+
+```bash
+python3 scripts/mml-to-ir-spike.py <input.mml> [--output <path>]
+```
+
+- `--output` なしなら stdout
+- `--output` ありなら file 書き出し (= stderr に `[OK] wrote N events to <path>`)
+
+### 検証例
+
+```bash
+python3 scripts/mml-to-ir-spike.py \
+  docs/design/intermediate-register-command/spike-fixtures/tiny-melody.mml \
+  --output /tmp/tiny-melody.ir.json
+
+python3 scripts/validate-ir-schema.py --examples /tmp/tiny-melody.ir.json
+```
+
+期待: validator が exit 0 + 1/1 PASS。
+
+### exit code (= mml-to-ir-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK (= MML parse + IR build 成功) |
+| 64 | argument error (= input file not found) |
+| 65 | MML parse error (= unrecognized token / value out of range) |
+| 66 | runtime error |
+
+### fixture
+
+- `spike-fixtures/tiny-melody.mml`: 6 event (= Tempo + ToneSelect + Note C4 + Rest + Note E4 + Rest) を出力する最小 fixture
+
+### spike scope-out
+
+- multi channel
+- tone parameter parsing (= 音色 import は別 sprint)
+- volume / pan / loop / tie / chord
+- portamento / LFO / pitch envelope
+- octave shift `<` / `>`
+- gate time / velocity 制御
+- compiler 本体改修
+- WebApp 実装
+- driver / runtime / `.mn` / `.PNE` / `.NEO` 生成
+- automated CI 化
