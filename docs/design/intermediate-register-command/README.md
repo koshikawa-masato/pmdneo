@@ -463,6 +463,7 @@ python3 scripts/validate-ir-schema.py \
 - 入力 (= chain): `examples/v0.2/spike-lowered-tiny-melody.ir.json` (= 25th session β output)
 - 出力例 (= 委員会 review 用 committed sample): `examples/v0.2/spike-rawlowered-tiny-melody.ir.json` (= 38 event 出力、 spike 再実行で byte-identical 再生可能な deterministic output、 26th session γ)
 - spike-level reject 期待 (= negative): `examples/v0.2/spike-invalid/semantic-residual-note.ir.json` + `examples/v0.2/spike-invalid/fmtoneload-unresolved-toneid.ir.json` (= schema validation は PASS、 spike 実行で exit 65 reject、 26th session δ)
+- 注: `examples/v0.2/spike-lowered-unsorted-events.ir.json` (= 25th session β output) は **本 spike (= raw lowering) の positive 入力としては成立しない**。 `tones[]` を持たないため `FMToneLoad` の toneId resolve が必ず失敗し、 raw spike では exit 65 となる。 これは chip spike の sort 正規化挙動を観察するための fixture であり、 raw spike chain には使わない。
 
 ### spike-level reject 検証 (= schema validation 経路と別軸)
 
