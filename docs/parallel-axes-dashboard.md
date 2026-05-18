@@ -11,7 +11,7 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | **0 (= orchestration setup)** | `wip-orchestration-setup` (= MERGED) + `wip-orchestration-retrospective-fix` (= 本修正 commit) | 0041 | **完了** (= α/β/γ/δ + retrospective fix) | 82b9378 (= γ dashboard) + PR #14 MERGED 8d36113 + 本 retrospective fix commit | round 1 revise → must-fix 反映 → round 2-4 fallback approve → **round 5 Codex retrospective revise (= dashboard lifecycle 更新漏れ 1 件) → 本 commit で fix** | (= 完了、 軸 A/C/F sub-agent 並走起動済) |
 | **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= sub-agent A 経由作成 + push 済) | 0042 | **α 完了** + escalate `design_judgment_needed` pending user 判断 (= 2 案 mixer 構造 vs .fxp gain) | b6dbc0d (= ADR-0042 起票 349 行) | session 019e3b57-...、 round 1 revise → round 2 approve | **2 案判断必須** → 後段 audition gate |
 | **C (= ADPCM-B 軸)** | `wip-axis-c-adpcmb` (= sub-agent C 経由作成 + push 済) | 0043 | **α 完了** (= approve、 設計判断単一明確、 β sub-sprint 起動可) | a3a162d (= ADR-0043 起票 254 行) | session 019e3b56-...、 round 1 revise → round 2 revise → round 3 approve | β sub-sprint で audition gate + machine verify |
-| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 並走中) | 0044 | sub-agent 並走中 (= 通知待ち) | - | - | machine verify |
+| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 経由作成 + push 済) | 0044 | **α 完了** + escalate `design_judgment_needed` pending user 判断 (= 3 案 F-2-A / 全体 scope-out / F-2-A+F-2-B 統合)、 重要 finding = F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | session 019e3b57-f438-...、 round 1-2 revise → round 3 approve | **3 案判断必須** (= 主軸推奨 案 ii 全体 scope-out) |
 
 ## 後続軸 候補 (= ADR 0045+ 予約候補)
 
@@ -29,7 +29,7 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 軸 0 規律確立 review (= 例外、 layer 2 流用) | `019e3425` 流用 | 主軸 起動 | 軸 0 = 規律確立 = 統合判断系性質 |
 | 軸 A sub-agent ↔ Codex (= layer 1) | `019e3b57-08c0-7e42-a78f-7091f4fe382a` (= 取得済、 round 2 approve) | sub-agent 内自律 | commit 直前 review |
 | 軸 C sub-agent ↔ Codex (= layer 1) | `019e3b56-2f9c-7941-9704-2bb689d98e64` (= 取得済、 round 3 approve) | sub-agent 内自律 | commit 直前 review |
-| 軸 F sub-agent ↔ Codex (= layer 1) | (= 軸 F sub-agent 並走中、 取得予定) | sub-agent 内自律 | commit 直前 review |
+| 軸 F sub-agent ↔ Codex (= layer 1) | `019e3b57-f438-7800-aa07-7e4f65971486` (= 取得済、 round 3 approve) | sub-agent 内自律 | commit 直前 review |
 
 ## ADR 番号予約簿
 
@@ -52,6 +52,7 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 2026-05-18 | 軸 A α | design_judgment_needed (= sub-agent A return、 2 案 mixer 構造 vs .fxp gain、 user 判断 scope) | Codex 経由 (= layer 1 session 019e3b57-... round 2 approve、 1 案決定禁止規律遵守) | 主軸経由 user 上げ pending = 越川氏に 2 案 + 8 軸 trade-off 提示 + 判断仰ぎ | n/a (= user 判断後に進行) |
 | 2026-05-18 | 軸 C α | approve (= sub-agent C return、 設計判断単一明確) | Codex 経由 (= layer 1 session 019e3b56-... round 3 approve) | β sub-sprint 起動可 (= 主軸経由 user GO 待ち or 即時 sub-agent 起動) | n/a (= approve、 retrospective 不要) |
 | 2026-05-18 | 主軸 cwd 干渉 | worktree isolation 副作用 (= sub-agent isolation worktree 起動で本 worktree cwd が agent-ad71e73589d7ac9a7/ に切り替わり、 ADR-0042 file が本 worktree に重複展開) | 主軸単独復旧 (= cd 本 worktree + 重複 file rm + branch 状態確認) | 復旧完了、 軸 A/C/F 影響なし | unexpected_finding として memory に追加候補 |
+| 2026-05-18 | 軸 F α | design_judgment_needed (= sub-agent F return、 3 案 F-2-A 着手 / 軸 F 全体 scope-out / F-2-A+F-2-B 統合、 主軸推奨 案 ii 全体 scope-out) | Codex 経由 (= layer 1 session 019e3b57-f438-... round 3 approve、 1 案決定禁止規律遵守) | 主軸経由 user 上げ pending = 越川氏に 3 案 + F-3 完了済 finding + 主軸推奨理由 6 件提示 + 判断仰ぎ、 重要 finding = F-3 chip target flag は ADR-0016 step 1 で 9 commit chain literal 実装済 (= sub-agent F が vendor grep で発見、 軸 F 状態認識更新) | n/a (= user 判断後に進行) |
 
 ## 軸別進捗 details
 
@@ -86,8 +87,8 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | sprint | 状態 | commit | 内容 |
 |---|---|---|---|
 | context 調査 | 完了 (= sub-agent F) | - | 現役 PMDDotNETConsole (= .mml→.M 1 本化) + sub-軸 F-1/F-2/F-3 候補 + 自前 compile.py 凍結 (= ADR-0014 §B) |
-| α | sub-agent 並走中 (= return 通知待ち) | - | ADR-0044 起票 (= MML 拡張 sub-軸 設計、 F-1/F-2/F-3 候補から選択、 sub-agent 内 escalate `design_judgment_needed` 想定) |
-| β/γ/δ | sub-agent 完了後 | - | chip target flag / X/Y/Z 文法移植 / fixture + ymfm-trace byte-identical |
+| α | **完了** (= sub-agent F return、 escalate `design_judgment_needed` pending user 判断) | 5317de1 | ADR-0044 起票 382 行 (= 軸 F 3 案併記 = (i) F-2-A 着手 / (ii) 全体 scope-out / (iii) F-2-A+F-2-B 統合、 重要 finding = F-3 は ADR-0016 step 1 で 9 commit chain literal 実装済 sub-agent F vendor grep 発見、 F-1 は scope-out 推奨 256 voice 実用十分、 F-2 は compiler 側 F-2-A + driver 側 F-2-B = ADR-0008 候補軸 B 範囲に分離可能、 主軸推奨 案 ii 全体 scope-out 6 根拠、 Codex round 3 approve) |
+| β/γ/δ | user 判断後 | - | 案 (i) 採用なら F-2-A compiler 側 X/Y/Z 強制 / 案 (ii) なら ADR-0044 = 軸 F 状態整理 ADR として軸 F 完成扱い / 案 (iii) なら F-2-A+F-2-B 統合 sub-sprint (= 軸 F + 軸 B 兼用、 user 明示許可必要) |
 
 ## 主軸介入手順 (= ADR-0041 §決定 5 + §決定 4-3 fallback)
 
