@@ -1,0 +1,34 @@
+{
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.1 spike negative fixture: duplicate-tick-order (= 25th session PR #4 review finding 5 reproduction、 同一 (tick, trackId, order) を持つ valid v0.1 IR、 schema は uniqueness を強制しないが spike は exit 65 reject、 Python stable sort 経由 input array 順 silently authoritative 化を防止する literal 確認用)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute"
+  },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 39,
+      "data": 192
+    },
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Tempo",
+      "bpm": 120.0
+    }
+  ]
+}

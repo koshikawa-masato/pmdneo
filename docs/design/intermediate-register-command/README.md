@@ -278,11 +278,15 @@ KeyOn / KeyOff の `operatorMask` は spike では常に `15` (= 全 op 有効) 
 
 ADPCMATrigger / RawRegisterWrite は元 event を残しつつ `order` は allocator で再採番 (= 同一 tick 内で semantic lowering 由来 event と pass-through event が混在しても order 衝突しない)。
 
-### 入力 sort 規律 (= PR #4 review finding 4 反映)
+### 入力 sort 規律 (= PR #4 review finding 4 + finding 5 反映)
 
-入力 events 配列の **array 順は not authoritative** = IR の `(tick, order)` フィールドが semantic 真の順序。 lower_events() は処理前に `(tick, order)` で sort し直す (= array 順依存の silent semantic 順序反転 防止)。 入力に tick / order / layer / type の必須 field 欠落があれば sort 前に exit 65 reject。
+入力 events 配列の **array 順は not authoritative** = IR の `(tick, trackId, order)` フィールドが semantic 真の順序。 lower_events() は処理前に `(tick, trackId, order)` で sort し直す (= array 順依存の silent semantic 順序反転 防止)。 入力に tick / order / layer / type の必須 field 欠落があれば sort 前に exit 65 reject。
+
+同一 `(tick, trackId, order)` 重複は Python の stable sort 経由で input array 順が silently authoritative 化するため、 sort 前に検出して exit 65 reject (= finding 5、 schema 上 `order` は track 内で単調増加と規定されているため (tick, trackId, order) global unique を spike layer で enforce)。 重複検出時の error message は両 event を literal に出力し、 どこで衝突したかを debug 可能にする。
 
 `spike-fixtures/unsorted-events.ir.json` (= raw order=9 が array[0] / Tempo order=0 が array[1] / ToneSelect order=5 が array[2]) を lowering すると、 出力は (tick, order) 順で Tempo (order=0) → FMToneLoad (order=1) → RawRegisterWrite (order=2) として正規化される。
+
+`spike-fixtures/duplicate-tick-order.ir.json` (= (tick=0, trackId=0, order=0) を 2 件持つ valid v0.1 IR) は spike layer で exit 65 reject (= schema は uniqueness を強制しないが spike が enforce する safety gate の literal 実例)。
 
 ### CLI
 
