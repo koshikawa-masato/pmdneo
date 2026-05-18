@@ -568,3 +568,77 @@ done
 - 0x27 register bit 操作 (= bit 6 非破壊規律のみ、 他 defer)
 - raw register write 展開 (= 26th session β raw spike chain と分離)
 - driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / FM3Mode / SSG / pitch correction / aesthetic / automated CI
+
+---
+
+## IR FM3Mode chip event validation + identity spike (v0.4)
+
+「IR chip layer の FM3Mode event が schema + spike layer 両方で validation 可能 + chip-to-chip identity pass-through で下流に流せる」 ことを示す read-only spike。 ADR-0038 §決定 5-2 で設計 fix。 raw lowering は ADR-0038 §決定 5 で v0.5 以降別 ADR (= RMW/mask event 新設判断含む) に defer のため、 本 spike は scope を validation + identity に縮小。
+
+### path / 入出力
+
+- path: `scripts/ir-lower-fm3mode-spike.py` (= chmod +x、 Python 3.10+)
+- 入力: v0.4 IR JSON (= FM3Mode event を含む)
+- 出力: v0.4 IR JSON (= 全 event chip-to-chip identity pass-through、 allocator で order 再採番)
+
+### validation 規律 (= ADR-0038 §決定 3 + 5-2 整合)
+
+- `enabled`: bool 厳密
+- `operatorEnableMask`: int 1-15 (= no-op 防止 ADR-0035 §決定 6 規律踏襲、 全 op disable は `enabled=false` で表現)
+- `operatorBlock`: list length 4 + 各要素 int 0-7
+- `operatorFnum`: list length 4 + 各要素 int 0-2047
+- `keyPolicy`: optional enum ("all" / "operator_masked")
+- `channel`: 不在 enforce (= ADR-0038 §決定 2 FM ch 3 固定、 schema 上も `unevaluatedProperties: false` で reject)
+- 共通 (= 26th β / 27 γ spike pattern 踏襲): sort + 重複 reject + timeMode delta reject + 必須 field 欠落 reject
+
+### 検証 command
+
+```bash
+python3 scripts/ir-lower-fm3mode-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+### 検証例
+
+```bash
+python3 scripts/ir-lower-fm3mode-spike.py \
+  docs/design/intermediate-register-command/examples/v0.4/fm3mode-minimal.ir.json \
+  --output /tmp/fm3.json --stats
+
+diff docs/design/intermediate-register-command/examples/v0.4/spike-fm3mode-identity-tiny.ir.json /tmp/fm3.json
+```
+
+期待: 1 event → 1 event (= identity)、 diff 0 行 (= deterministic byte-identical)、 exit 0、 stats fm3mode_validated=1。
+
+### exit code (= ir-lower-fm3mode-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK |
+| 64 | argument error |
+| 65 | lowering parse error (= timeMode delta / 重複 / 必須 field 欠落 / FM3Mode 固有 validation 違反) |
+| 66 | runtime error |
+
+### fixture
+
+- positive (= enable): `examples/v0.4/fm3mode-minimal.ir.json` (= enabled=true + 全 op + block/fnum 全 4/617 placeholder)
+- positive (= disable): `examples/v0.4/fm3mode-disable.ir.json` (= enabled=false + 全 0 placeholder)
+- positive (= spike output deterministic): `examples/v0.4/spike-fm3mode-identity-tiny.ir.json` (= fm3mode-minimal を spike に通した byte-identical 証跡)
+- spike-level reject (= negative): `examples/v0.4/spike-invalid/fm3mode-missing-operator-block.ir.json` + `fm3mode-unexpected-channel.ir.json` + `fm3mode-invalid-block-range.ir.json` (= schema layer + spike layer 両 reject の defense in depth literal)
+
+### v0.4 spike-level reject 検証
+
+```bash
+for f in docs/design/intermediate-register-command/examples/v0.4/spike-invalid/*.ir.json; do
+  python3 scripts/ir-lower-fm3mode-spike.py "$f" > /dev/null 2>&1
+  code=$?
+  echo "$(basename $f): exit=$code"
+done
+```
+
+期待: 各 fixture `exit=65` (= 全 3 件 reject)。 schema validation 経路 (= `validate-ir-schema.py --schema ir-schema-v0.4.schema.json --invalid-examples`) でも 3/3 reject = 両 layer defense literal (= ADR-0037 tempo spike と同 pattern)。
+
+### spike scope-out (= ADR-0038 §scope-out 抜粋)
+
+- FM3Mode → RawRegisterWrite raw lowering (= v0.5 以降別 ADR、 RMW/mask event 新設判断含む)
+- mode 切替直前 KeyOff 推奨 diagnostics (= 別 sprint)
+- driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / FM3 operator pitch 自動導出 / importer / optimization / 0x27 bit 0-5/7 semantics / CSM / aesthetic / automated CI

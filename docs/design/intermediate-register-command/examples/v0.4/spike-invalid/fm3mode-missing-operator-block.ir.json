@@ -1,0 +1,24 @@
+{
+  "$schema": "../../../ir-schema-v0.4.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.4 spike-invalid fixture: fm3mode-missing-operator-block (= FM3Mode event の operatorBlock field 欠落、 schema 上は required 違反で reject + spike layer 上も defense in depth で reject、 ADR-0038 §決定 3 + spike _validate_fm3mode integrity check 整合、 schema reject + spike reject 両 layer defense literal 証跡、 28th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": true,
+      "operatorEnableMask": 15,
+      "operatorFnum": [0, 0, 0, 0]
+    }
+  ]
+}

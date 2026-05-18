@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../ir-schema-v0.4.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.4 spike-invalid fixture: fm3mode-invalid-block-range (= FM3Mode event の operatorBlock[0]=8 = 0-7 range out、 schema 上 maximum 7 violation で reject + spike layer も range check で reject、 ADR-0038 §決定 3 operatorBlock 0-7 範囲、 schema/spike 両 layer defense literal、 28th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": true,
+      "operatorEnableMask": 15,
+      "operatorBlock": [8, 0, 0, 0],
+      "operatorFnum": [0, 0, 0, 0]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "ir-lower-fm3mode-spike v0.4 (= 28th session γ、 IR FM3Mode chip event validation + identity pass-through、 raw lowering は ADR-0038 §決定 5 で v0.5 以降別 ADR defer) (= lowered from: PMDNEO IR v0.4 minimal positive fixture: fm3mode-minimal (= FM3Mode ChipEvent 1 件、 enabled=true で 3-slot mode 有効化 + operatorEnableMask=15 全 op + operatorBlock 全 4 (= C4 相当 placeholder) + operatorFnum 全 617 (= C 音相当 placeholder、 ADR-0035 §決定 8 FNUM_TABLE C 整合)、 schema 拡張 literal 証跡、 ADR-0038 §決定 1/2/3 整合、 28th session β))"
+  },
+  "targetProfile": "ym2610b",
+  "timing": {
+    "ticksPerBeat": 192
+  },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": true,
+      "operatorEnableMask": 15,
+      "operatorBlock": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "operatorFnum": [
+        617,
+        617,
+        617,
+        617
+      ]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ir-schema-v0.4.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.4 positive fixture: fm3mode-disable (= FM3Mode disable 例 = enabled=false、 operatorBlock/operatorFnum は schema 上 required だが enabled=false 時は意味なし placeholder 0 = ADR-0038 §決定 3 整合、 operatorEnableMask=1 placeholder (= minimum 1 制約遵守、 全 op disable は enabled=false で表現する ADR-0038 §決定 3 + schema description literal)、 28th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": false,
+      "operatorEnableMask": 1,
+      "operatorBlock": [0, 0, 0, 0],
+      "operatorFnum": [0, 0, 0, 0]
+    }
+  ]
+}
