@@ -1,0 +1,53 @@
+{
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "ir-lower-chipevent-spike v0.2 (= 25th session β、 IR v0.1 SemanticEvent -> v0.2 ChipEvent lowering) (= lowered from: PMDNEO IR v0.1 spike fixture: unsorted-events (= 25th session PR #4 review finding 4 reproduction、 array 配列順を意図的に (tick, order) と逆にした valid v0.1 IR、 spike が array 順ではなく (tick, order) を semantic 真の順序として処理することを literal 確認するための fixture))"
+  },
+  "targetProfile": "ym2610b",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute"
+  },
+  "channels": [
+    {
+      "channelId": {
+        "kind": "fm",
+        "index": 2
+      }
+    }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Tempo",
+      "bpm": 120.0
+    },
+    {
+      "tick": 0,
+      "order": 1,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMToneLoad",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "toneId": 0
+    },
+    {
+      "tick": 0,
+      "order": 2,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 39,
+      "data": 192
+    }
+  ]
+}

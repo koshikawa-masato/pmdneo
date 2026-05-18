@@ -20,6 +20,8 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
 - `examples/v0.2/`: v0.2 schema 適合 example file 群 (= positive fixture)
   - `chipevent-fm-note-lowered.ir.json`: `minimal-fm-note.ir.json` の semantic Note を chip layer (= FMToneLoad / FMFrequency / KeyOn / KeyOff) に lowering した hand-crafted fixture
   - `keyon-keyoff-minimal.ir.json`: chip KeyOn / KeyOff の minimal 単体 (= `operatorMask` 省略時 default = 15 動作確認)
+  - `spike-lowered-tiny-melody.ir.json`: tiny-melody.mml chain (= MML → v0.1 IR → v0.2 IR) の spike 出力 deterministic sample
+  - `spike-lowered-unsorted-events.ir.json`: `spike-fixtures/unsorted-events.ir.json` の spike 出力 (= input array 順と (tick, order) 順が逆の valid v0.1 IR を spike が semantic 真順で処理した literal 証跡、 PR #4 review finding 4 反映)
 - `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群
   - `fmfrequency-out-of-range.ir.json`: `FMFrequency.block` = 8 / `fnum` = 2048 (= maximum violation)
   - `keyon-non-fm-channel.ir.json`: `KeyOn.channel.kind` = "ssg" (= FMChannelId.kind const "fm" violation、 v0.2 minimal scope literal)
@@ -275,6 +277,12 @@ KeyOn / KeyOff の `operatorMask` は spike では常に `15` (= 全 op 有効) 
 ### pass-through 規律 (= PR #4 review finding 2 反映)
 
 ADPCMATrigger / RawRegisterWrite は元 event を残しつつ `order` は allocator で再採番 (= 同一 tick 内で semantic lowering 由来 event と pass-through event が混在しても order 衝突しない)。
+
+### 入力 sort 規律 (= PR #4 review finding 4 反映)
+
+入力 events 配列の **array 順は not authoritative** = IR の `(tick, order)` フィールドが semantic 真の順序。 lower_events() は処理前に `(tick, order)` で sort し直す (= array 順依存の silent semantic 順序反転 防止)。 入力に tick / order / layer / type の必須 field 欠落があれば sort 前に exit 65 reject。
+
+`spike-fixtures/unsorted-events.ir.json` (= raw order=9 が array[0] / Tempo order=0 が array[1] / ToneSelect order=5 が array[2]) を lowering すると、 出力は (tick, order) 順で Tempo (order=0) → FMToneLoad (order=1) → RawRegisterWrite (order=2) として正規化される。
 
 ### CLI
 
