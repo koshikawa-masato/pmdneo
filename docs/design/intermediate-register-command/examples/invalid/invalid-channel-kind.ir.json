@@ -1,0 +1,15 @@
+{
+  "$schema": "../../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "mdx",
+    "createdBy": "PMDNEO IR schema v0.1 negative fixture: invalid-channel-kind (= channelId.kind = 'opm' は enum 外、 enum violation を期待)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [
+    { "channelId": { "kind": "opm", "index": 1 }, "name": "OPM ch1 (= 非対応 chip kind)" }
+  ],
+  "events": []
+}

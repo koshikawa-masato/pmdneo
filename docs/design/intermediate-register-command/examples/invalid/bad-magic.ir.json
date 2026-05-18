@@ -1,0 +1,13 @@
+{
+  "$schema": "../../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "INVALID-MAGIC",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "PMDNEO IR schema v0.1 negative fixture: bad-magic (= metadata.magic const violation を期待)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": []
+}
