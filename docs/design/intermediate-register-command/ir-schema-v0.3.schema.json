@@ -289,7 +289,7 @@
         },
         "type": {
           "type": "string",
-          "description": "event 種別 (= layer ごとに固定値 const、 v0.2 fully validated 10 件)。"
+          "description": "event 種別 (= layer ごとに固定値 const、 v0.3 fully validated 11 件 = v0.2 baseline 10 件 + FMTimerSet 1 件)。"
         },
         "source": { "$ref": "#/$defs/SourceRef" },
         "lossyFlags": {

@@ -548,6 +548,19 @@ diff docs/design/intermediate-register-command/examples/v0.3/spike-tempo-lowered
 - 出力例 (= committed sample): `examples/v0.3/spike-tempo-lowered-tiny-melody.ir.json` (= 8 event 出力、 deterministic、 27th session δ)
 - spike-level reject 期待 (= negative): `examples/v0.3/spike-invalid/tempo-bpm-missing.ir.json` + `examples/v0.3/spike-invalid/tempo-bpm-zero.ir.json` (= spike 実行で exit 65 reject、 27th session δ)
 
+### v0.3 spike-level reject 検証 (= raw lowering spike と parity)
+
+```bash
+# 各 spike-invalid fixture を tempo spike に通して exit 65 reject 確認
+for f in docs/design/intermediate-register-command/examples/v0.3/spike-invalid/*.ir.json; do
+  python3 scripts/ir-lower-tempo-spike.py "$f" > /dev/null 2>&1
+  code=$?
+  echo "$(basename $f): exit=$code"
+done
+```
+
+期待: 各 spike-invalid fixture が `exit=65` (= 全 2 件 reject)。 schema validation 経路は spike-invalid fixture が schema layer でも reject される (= tempo-bpm-missing は Tempo.bpm required violation、 tempo-bpm-zero は exclusiveMinimum 0 violation) ため raw chain の「schema PASS / spike reject」 二軸分離とは性質が違うが、 spike layer defense in depth 経路の literal 証跡として配置。
+
 ### spike scope-out (= ADR-0037 §scope-out 抜粋)
 
 - BPM → counter 変換 literal (= 数値 literal defer)
