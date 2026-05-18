@@ -135,10 +135,10 @@ FM/SSG 軸は ADR-0035 Accepted 完了を待って停止しない。 ただし F
 
 | handoff 論点 | 本 ADR の決定 |
 |---|---|
-| 論点 1 source 触接面の独立性 verify | 決定 1 |
-| verify infra 共有範囲 (= user task で論点 2 として指定) | 決定 2 |
-| 論点 2 FM/SSG 軸 Step 1 の最小 proof scope | 決定 3 |
-| 論点 3 PMDDotNET Z80 化遺産との関係 | 決定 4 |
-| 論点 4 Step 単位粒度 | 決定 5 |
-| 論点 5 並走時の commit chain / branch 戦略 | 決定 6 |
-| 論点 6 検証 infra の共存 + 論点 7 IR 軸との接続点 | 決定 2 + 決定 7 |
+| 論点 1 source 触接面の独立性 verify | 決定 1 (= 独立 inc file 主体 + 最小 hook) |
+| 論点 2 FM/SSG 軸 Step 1 の最小 proof scope | 決定 3 (= Part B 単音 FM trace proof) |
+| 論点 3 PMDDotNET Z80 化遺産との関係 | 決定 4 (= PMDDotNET 遺産 read-only reference) |
+| 論点 4 Step 単位粒度 | 決定 5 (= Step 粒度 FM 先行 SSG 後段) |
+| 論点 5 並走時の commit chain / branch 戦略 | 決定 6 (= 完全独立 `wip-` branch) |
+| 論点 6 検証 infra の共存 | 決定 2 (= verify infra runner 共有 + expected fixture 軸別) |
+| 論点 7 IR 軸との接続点 | 決定 7 (= ADR-0035 raw 出力を oracle 接続) |
