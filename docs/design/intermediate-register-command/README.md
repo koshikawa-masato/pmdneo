@@ -23,6 +23,7 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
 - `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群
   - `fmfrequency-out-of-range.ir.json`: `FMFrequency.block` = 8 / `fnum` = 2048 (= maximum violation)
   - `keyon-non-fm-channel.ir.json`: `KeyOn.channel.kind` = "ssg" (= FMChannelId.kind const "fm" violation、 v0.2 minimal scope literal)
+  - `keyon-zero-operator-mask.ir.json`: `KeyOn.operatorMask` = 0 (= minimum 1 violation、 no-op KeyOn 防止、 PR #4 review finding 3 反映)
 
 ## v0.1 で fully validated な event types (= 6 件)
 
@@ -265,7 +266,15 @@ ToneSelect / Note は **channel.kind = "fm" のみ** lowering。 他 kind (= SSG
 
 ### operatorMask 規約
 
-KeyOn / KeyOff の `operatorMask` は spike では常に `15` (= 全 op 有効) を emit。 op 個別制御は v0.3 以降。
+KeyOn / KeyOff の `operatorMask` は spike では常に `15` (= 全 op 有効) を emit。 op 個別制御は v0.3 以降。 schema 上は minimum 1 (= no-op 防止、 PR #4 review finding 3)。
+
+### timeMode 制約 (= PR #4 review finding 1 反映)
+
+`timing.timeMode` は `"absolute"` のみ受け付ける (= 省略時 default = "absolute")。 `"delta"` は spike で exit 65 reject (= delta IR を絶対 tick 扱いで lowering すると timing が静かに破壊されるため、 importer 側で absolute 正規化必須)。
+
+### pass-through 規律 (= PR #4 review finding 2 反映)
+
+ADPCMATrigger / RawRegisterWrite は元 event を残しつつ `order` は allocator で再採番 (= 同一 tick 内で semantic lowering 由来 event と pass-through event が混在しても order 衝突しない)。
 
 ### CLI
 

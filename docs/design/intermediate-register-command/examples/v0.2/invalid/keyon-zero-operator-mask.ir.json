@@ -1,0 +1,25 @@
+{
+  "$schema": "../../../ir-schema-v0.2.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR schema v0.2 negative fixture: keyon-zero-operator-mask (= KeyOn の operatorMask = 0 は no-op で意味がない、 minimum 1 violation を期待、 25th session PR #4 review finding 3 反映)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [
+    { "channelId": { "kind": "fm", "index": 1 } }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOn",
+      "channel": { "kind": "fm", "index": 1 },
+      "operatorMask": 0
+    }
+  ]
+}

@@ -509,10 +509,10 @@
         },
         "operatorMask": {
           "type": "integer",
-          "minimum": 0,
+          "minimum": 1,
           "maximum": 15,
           "default": 15,
-          "description": "FM op 1-4 の keyon mask (= bit 0 = op1 / bit 1 = op2 / bit 2 = op3 / bit 3 = op4)。 省略時は 15 (= 全 op 有効)。"
+          "description": "FM op 1-4 の keyon mask (= bit 0 = op1 / bit 1 = op2 / bit 2 = op3 / bit 3 = op4)。 省略時は 15 (= 全 op 有効)。 minimum 1 = 少なくとも 1 op を対象とする (= no-op KeyOn 防止、 25th session PR #4 review finding 3 反映)。"
         }
       }
     },
@@ -530,10 +530,10 @@
         },
         "operatorMask": {
           "type": "integer",
-          "minimum": 0,
+          "minimum": 1,
           "maximum": 15,
           "default": 15,
-          "description": "FM op 1-4 の keyoff mask (= 通常は KeyOn と同 mask)。 省略時は 15 (= 全 op 無効化)。"
+          "description": "FM op 1-4 の keyoff mask (= 通常は KeyOn と同 mask)。 省略時は 15 (= 全 op 無効化)。 minimum 1 = 少なくとも 1 op を対象とする (= no-op KeyOff 防止、 25th session PR #4 review finding 3 反映)。"
         }
       }
     }
