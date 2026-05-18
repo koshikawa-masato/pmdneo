@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 positive fixture: fm3-raw-disable (= FM3Mode chip event 1 件、 enabled=false で ADR-0040 §決定 3 lowering 1 raw event 生成代表例、 operatorBlock/operatorFnum は schema required の placeholder 0 (= ADR-0038 §決定 3 整合)、 operatorEnableMask=1 placeholder (= schema minimum 1 制約遵守、 全 op disable は enabled=false で表現する ADR-0038 §決定 3 + schema description literal)、 spike output は RawRegisterMaskWrite(0x27, 0x40, 0x00) のみ 1 件 (= operatorBlock/Fnum は emit しない、 ADR-0040 §決定 3)、 30th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": false,
+      "operatorEnableMask": 1,
+      "operatorBlock": [0, 0, 0, 0],
+      "operatorFnum": [0, 0, 0, 0]
+    }
+  ]
+}

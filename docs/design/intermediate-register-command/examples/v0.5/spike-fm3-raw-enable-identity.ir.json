@@ -1,0 +1,106 @@
+{
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "ir-lower-fm3-raw-spike v0.5 (= 30th session γ、 IR FM3Mode chip event → raw lowering、 ADR-0040 §決定 2/3/5/6 literal 実装、 ADR-0038 §決定 5 defer 解消 + ADR-0039 §決定 6 接続条件 実装軸) (= lowered from: PMDNEO IR v0.5 positive fixture: fm3-raw-enable (= FM3Mode chip event 1 件、 enabled=true で ADR-0040 §決定 2 lowering 9 raw events 生成代表例、 §A-2 example と同 block/fnum = block=[4,5,6,7] / fnum=[256, 512, 768, 1024]、 ADR-0040 §決定 5 operator-split mapping table literal 経路 = op1→S1=(0xA9,0xAD) / op2→S3=(0xAA,0xAE) / op3→S2=(0xA8,0xAC) / op4→S4=(0xA2,0xA6) を通す入力、 byte encoding 検算可能 (= ADR-0035 §決定 5 同形式)、 30th session δ))"
+  },
+  "targetProfile": "ym2610b",
+  "timing": {
+    "ticksPerBeat": 192
+  },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterMaskWrite",
+      "port": 0,
+      "address": 39,
+      "mask": 64,
+      "value": 64
+    },
+    {
+      "tick": 0,
+      "order": 1,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 173,
+      "data": 33
+    },
+    {
+      "tick": 0,
+      "order": 2,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 169,
+      "data": 0
+    },
+    {
+      "tick": 0,
+      "order": 3,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 174,
+      "data": 42
+    },
+    {
+      "tick": 0,
+      "order": 4,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 170,
+      "data": 0
+    },
+    {
+      "tick": 0,
+      "order": 5,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 172,
+      "data": 51
+    },
+    {
+      "tick": 0,
+      "order": 6,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 168,
+      "data": 0
+    },
+    {
+      "tick": 0,
+      "order": 7,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 166,
+      "data": 60
+    },
+    {
+      "tick": 0,
+      "order": 8,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterWrite",
+      "port": 0,
+      "address": 162,
+      "data": 0
+    }
+  ]
+}

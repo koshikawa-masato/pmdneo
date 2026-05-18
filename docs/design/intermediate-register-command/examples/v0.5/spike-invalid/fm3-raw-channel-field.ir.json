@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 negative spike-invalid fixture: fm3-raw-channel-field (= FM3Mode chip event に channel field 含む、 ADR-0038 §決定 2 (= FM ch 3 固定で channel field 不要) 違反、 ADR-0040 §決定 7 spike defense in depth = _validate_fm3mode の channel field 不可 check が reject、 schema layer (= unevaluatedProperties false) でも reject、 両 layer reject 期待、 ir-lower-fm3-raw-spike.py 実行で exit 65、 30th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": true,
+      "operatorEnableMask": 15,
+      "operatorBlock": [4, 5, 6, 7],
+      "operatorFnum": [256, 512, 768, 1024],
+      "channel": { "kind": "fm", "index": 3 }
+    }
+  ]
+}

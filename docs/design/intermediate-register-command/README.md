@@ -723,3 +723,111 @@ done
 - optimization layer (= 同 address 連続 RMW merge)
 - 既存 ADR-0035 raw spike chain (= chip → raw lowering) touch なし
 - driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / aesthetic / automated CI
+
+## IR FM3Mode chip event → raw lowering spike (v0.5)
+
+「IR chip 層の FM3Mode を raw 層の RawRegisterMaskWrite + RawRegisterWrite 列に落とす道がある」 ことを示す read-only spike。 ADR-0040 (= 30th session) で設計 fix、 ADR-0038 §決定 5 で defer された FM3Mode raw lowering を ADR-0039 §決定 6 接続条件 literal を実装軸として展開。 compiler 本体 / WebApp / runtime / driver / `.mn` / `.PNE` は touch しない。
+
+### path / 入出力
+
+- path: `scripts/ir-lower-fm3-raw-spike.py` (= chmod +x、 Python 3.10+)
+- 入力: v0.5 IR JSON (= FM3Mode chip event を含む)
+- 出力: v0.5 IR JSON (= FM3Mode → RawRegisterMaskWrite + RawRegisterWrite 列展開、 他 event identity pass-through、 allocator で order 再採番)
+
+### lowering rule (= ADR-0040 §決定 2/3 整合)
+
+| 入力 event | 出力 |
+|---|---|
+| `FM3Mode (enabled=true)` chip | RawRegisterMaskWrite(0x27, mask=0x40, value=0x40) 1 件 + RawRegisterWrite 8 件 (= operator-split FNUM/Block) = **9 raw events** |
+| `FM3Mode (enabled=false)` chip | RawRegisterMaskWrite(0x27, mask=0x40, value=0x00) 1 件のみ (= operatorBlock/Fnum は emit しない、 ADR-0038 §決定 3 placeholder 整合) = **1 raw event** |
+| 他全 event | pass-through (= raw / chip / semantic 全 layer 不問、 allocator で order 再採番) |
+
+### operator-split register mapping (= ADR-0040 §決定 5 literal、 ground truth = PMD V4.8s PMD.ASM L4413/4446/4479/4512 + PMDDotNET PMD.cs L6486/6526/6566/6605 + YM2608 Application Manual Table 2-2)
+
+| operator (IR) | slot (datasheet) | low byte register | high byte register |
+|---|---|---:|---:|
+| op1 = operatorBlock[0] / operatorFnum[0] | S1 | 0xA9 | 0xAD |
+| op2 = operatorBlock[1] / operatorFnum[1] | S3 | 0xAA | 0xAE |
+| op3 = operatorBlock[2] / operatorFnum[2] | S2 | 0xA8 | 0xAC |
+| op4 = operatorBlock[3] / operatorFnum[3] | S4 | 0xA2 | 0xA6 |
+
+- operator IR index と datasheet slot 番号は **非直線対応** (= ADR-0035 §決定 8 operator parameter slot order 踏襲、 PMD/MewFM/ymfm/fmgen 慣習)
+- 全 register は port 0 (= ch3 共通)
+- byte encoding (= ADR-0035 §決定 5 同形式): high `(block << 3) | (fnum >> 8)` / low `fnum & 0xFF`
+
+### emit 順序 invariant (= ADR-0040 §決定 6)
+
+1. `RawRegisterMaskWrite(0x27, mask=0x40, value=0x40 or 0x00)` を最初に emit (= mode bit を先 set で undefined window 回避)
+2. (enabled=true のみ) op1 → op2 → op3 → op4 順、 各 operator pair 内 **high → low** (= 0x*D/0x*E/0x*C/0x*D/0x*A/0xA6 先 → 0x*9/0x*A/0x*8/0xA2 後)
+
+### validation 規律 (= ADR-0040 §決定 7 整合)
+
+- `enabled`: bool 厳密 (= type(x) is bool、 bool subclass silent pass 防止)
+- `operatorEnableMask`: int 1-15 (= no-op 防止、 ADR-0035 §決定 6 規律踏襲)
+- `operatorBlock`: array of 4 int 0-7 (= 各 element range check)
+- `operatorFnum`: array of 4 int 0-2047 (= 各 element range check)
+- `keyPolicy`: optional enum ("all" / "operator_masked")
+- `channel` field 不可 (= ADR-0038 §決定 2: FM ch 3 固定)
+- `trackId`: 必須 (= v0.3-v0.4 ChipEvent 規律継承)
+- 共通 (= 26-29 session pattern): sort + 重複 reject + timeMode delta reject + 必須 field 欠落 reject + type(x) is int / type(x) is bool 厳密判定
+
+### 検証 command
+
+```bash
+python3 scripts/ir-lower-fm3-raw-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+### 検証例
+
+```bash
+python3 scripts/ir-lower-fm3-raw-spike.py \
+  docs/design/intermediate-register-command/examples/v0.5/fm3-raw-enable.ir.json \
+  --output /tmp/fm3raw.json --stats
+
+diff docs/design/intermediate-register-command/examples/v0.5/spike-fm3-raw-enable-identity.ir.json /tmp/fm3raw.json
+```
+
+期待: 1 event → 9 events (= RMW 1 + 8 RawRegisterWrite)、 diff 0 行 (= deterministic byte-identical)、 exit 0、 stats fm3mode_enable_lowered=1。
+
+### exit code (= ir-lower-fm3-raw-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK |
+| 64 | argument error |
+| 65 | lowering parse error (= timeMode delta / 重複 / 必須 field 欠落 / FM3Mode 固有 validation 違反) |
+| 66 | runtime error |
+
+### fixture
+
+- positive (= FM3 enable): `examples/v0.5/fm3-raw-enable.ir.json` (= block=[4,5,6,7] / fnum=[256,512,768,1024] / enabled=true、 ADR-0040 §A-2 example と同 input)
+- positive (= FM3 disable): `examples/v0.5/fm3-raw-disable.ir.json` (= enabled=false + operatorBlock/Fnum placeholder 0、 enable/disable pair example)
+- positive (= spike output deterministic): `examples/v0.5/spike-fm3-raw-enable-identity.ir.json` (= fm3-raw-enable を spike に通した 9 events byte-identical 証跡、 ADR-0040 §A-2 example table 数値完全一致)
+- spike-level reject (= negative): `examples/v0.5/spike-invalid/fm3-raw-operator-block-out-of-range.ir.json` + `fm3-raw-operator-fnum-out-of-range.ir.json` + `fm3-raw-channel-field.ir.json` (= schema layer + spike layer 両 reject の defense in depth literal)
+
+### v0.5 spike-level reject 検証
+
+```bash
+for f in docs/design/intermediate-register-command/examples/v0.5/spike-invalid/fm3-raw-*.ir.json; do
+  python3 scripts/ir-lower-fm3-raw-spike.py "$f" > /dev/null 2>&1
+  code=$?
+  echo "$(basename $f): exit=$code"
+done
+```
+
+期待: 各 fixture `exit=65` (= 全 3 件 reject)。 schema validation 経路でも 3/3 reject = 両 layer defense literal。
+
+### driver runtime 軸 接続 (= ADR-0040 §決定 4 + §scope-out 整合)
+
+本 spike は IR layer の expression 保持のみで、 driver runtime での実 register write (= shadow RMW 実行 + 0x28 KeyOn 自動挿入 + mode 切替直前 KeyOff 自動挿入) は driver code 側責務。 keyPolicy 解釈 + operatorEnableMask 経由の 0x28 制御は既存 KeyOn lowering 経路 (= ADR-0035 §決定 6 既定義) に残し、 本 spike は FM3Mode chip event を「mode + operator frequency 設定」 のみに分解。
+
+### spike scope-out (= ADR-0040 §scope-out 抜粋)
+
+- 0x28 KeyOn 自動挿入 / keyPolicy 解釈 (= 既存 KeyOn lowering 経路に残す)
+- mode 切替直前 KeyOff 自動挿入 / diagnostics (= ADR-0038 §決定 5-2 別 sprint defer)
+- driver runtime 実 shadow register RMW 実行 (= driver code 側責務、 IR は expression 保持のみ)
+- optimization layer (= 同 address 連続 RMW merge / FM3Mode 連続重複削減)
+- importer 実装 (= MML → IR で FM3Mode を生成する側)
+- schema v0.6 / 新規 event 追加 (= v0.5 既存 event 2 種で完結、 ADR-0040 §決定 1)
+- 既存 ADR-0035 raw spike / ADR-0038 fm3 chip spike / ADR-0039 RMW spike chain は touch なし、 新規独立 spike (= ADR-0040 §決定 7)
+- driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / aesthetic / automated CI

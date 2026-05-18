@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 positive fixture: fm3-raw-enable (= FM3Mode chip event 1 件、 enabled=true で ADR-0040 §決定 2 lowering 9 raw events 生成代表例、 §A-2 example と同 block/fnum = block=[4,5,6,7] / fnum=[256, 512, 768, 1024]、 ADR-0040 §決定 5 operator-split mapping table literal 経路 = op1→S1=(0xA9,0xAD) / op2→S3=(0xAA,0xAE) / op3→S2=(0xA8,0xAC) / op4→S4=(0xA2,0xA6) を通す入力、 byte encoding 検算可能 (= ADR-0035 §決定 5 同形式)、 30th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FM3Mode",
+      "enabled": true,
+      "operatorEnableMask": 15,
+      "operatorBlock": [4, 5, 6, 7],
+      "operatorFnum": [256, 512, 768, 1024]
+    }
+  ]
+}
