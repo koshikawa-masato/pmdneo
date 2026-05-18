@@ -1,0 +1,22 @@
+{
+  "$schema": "../../ir-schema-v0.3.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.3 minimal positive fixture: fmtimerset-minimal (= FMTimerSet ChipEvent 1 件 + counter 128 (= 中庸 placeholder、 BPM 紐付けは ADR-0037 §決定 3 で defer につき本 fixture では bpm field 不付与)、 schema 拡張 literal 証跡、 ADR-0037 §決定 1/2/6 整合、 27th session β)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMTimerSet",
+      "counter": 128
+    }
+  ]
+}

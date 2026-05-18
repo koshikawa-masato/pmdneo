@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PMDNEO IR Schema validator (ADR-0034 / v0.1 draft).
+"""PMDNEO IR Schema validator (ADR-0034 / v0.1-v0.3).
 
 機械的検証 helper:
 1. schema 自身が JSON Schema draft-2020-12 として正当か (= meta-validation)
@@ -43,6 +43,13 @@ DEFAULT_SCHEMA = (
     REPO_ROOT
     / "docs/design/intermediate-register-command/ir-schema-v0.1.schema.json"
 )
+SCHEMA_BY_VERSION = {
+    "v0.1": DEFAULT_SCHEMA,
+    "v0.2": REPO_ROOT
+    / "docs/design/intermediate-register-command/ir-schema-v0.2.schema.json",
+    "v0.3": REPO_ROOT
+    / "docs/design/intermediate-register-command/ir-schema-v0.3.schema.json",
+}
 DEFAULT_EXAMPLES_GLOB = str(
     REPO_ROOT / "docs/design/intermediate-register-command/examples/*.ir.json"
 )
@@ -132,15 +139,102 @@ def validate_invalid_fixtures(
     return failed, total
 
 
+def _minimal_ir_with_event(event: dict) -> dict:
+    return {
+        "metadata": {
+            "magic": "PMDNEO-IR",
+            "version": 1,
+            "sourceDialect": "unknown",
+            "createdBy": "validate-ir-schema inline FMTimerSet check",
+        },
+        "targetProfile": "ym2610_aes",
+        "timing": {"ticksPerBeat": 192, "timeMode": "absolute"},
+        "channels": [],
+        "events": [event],
+    }
+
+
+def validate_inline_v03_fmtimerset(schema: dict) -> tuple[int, int]:
+    """v0.3 FMTimerSet の最小 positive / negative を fixture file なしで検証する。"""
+
+    validator = Draft202012Validator(schema)
+    positive_event = {
+        "tick": 0,
+        "order": 0,
+        "trackId": 0,
+        "layer": "chip",
+        "type": "FMTimerSet",
+        "counter": 10,
+        "bpm": 120,
+    }
+
+    failed = 0
+    total = 0
+
+    total += 1
+    positive_errors = list(
+        validator.iter_errors(_minimal_ir_with_event(positive_event))
+    )
+    if positive_errors:
+        failed += 1
+        print(
+            "[FAIL] inline v0.3 FMTimerSet positive "
+            "(counter=10, bpm=120)",
+            file=sys.stderr,
+        )
+        for e in positive_errors:
+            print(f"  - {_format_error_location(e)}: {e.message}", file=sys.stderr)
+    else:
+        print("[PASS] inline v0.3 FMTimerSet positive (counter=10, bpm=120)")
+
+    negative_cases = [
+        ("counter=-1", {**positive_event, "counter": -1}),
+        ("counter=256", {**positive_event, "counter": 256}),
+        (
+            "counter missing",
+            {k: v for k, v in positive_event.items() if k != "counter"},
+        ),
+        ("type violation", {**positive_event, "type": "FMTimerSetX"}),
+        ("layer violation", {**positive_event, "layer": "semantic"}),
+    ]
+    for label, event in negative_cases:
+        total += 1
+        errors = list(validator.iter_errors(_minimal_ir_with_event(event)))
+        if errors:
+            rep = errors[0]
+            print(
+                f"[PASS] inline v0.3 FMTimerSet negative: {label} "
+                f"(= rejected at {_format_error_location(rep)}: {rep.message})"
+            )
+            continue
+        failed += 1
+        print(
+            f"[FAIL] inline v0.3 FMTimerSet negative: {label} "
+            "(= should have been rejected but passed validation)",
+            file=sys.stderr,
+        )
+
+    return failed, total
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="PMDNEO IR Schema validator (ADR-0034 / v0.1 draft)",
+        description="PMDNEO IR Schema validator (ADR-0034 / v0.1-v0.3)",
+    )
+    parser.add_argument(
+        "--schema-version",
+        choices=sorted(SCHEMA_BY_VERSION),
+        default="v0.1",
+        help="known schema version shortcut (default: v0.1、 --schema 指定時は --schema が優先)",
     )
     parser.add_argument(
         "--schema",
         type=Path,
-        default=DEFAULT_SCHEMA,
-        help=f"schema file path (default: {_rel(DEFAULT_SCHEMA)})",
+        default=None,
+        help=(
+            "schema file path "
+            f"(default: --schema-version に対応する schema、 v0.1={_rel(DEFAULT_SCHEMA)})"
+        ),
     )
     parser.add_argument(
         "--examples",
@@ -152,13 +246,23 @@ def main() -> int:
         default=None,
         help="invalid fixtures glob pattern (= 全件が schema validation で失敗することが PASS 条件、 default は実行しない)",
     )
+    parser.add_argument(
+        "--inline-v0.3-fmtimerset-check",
+        dest="inline_v03_fmtimerset_check",
+        action="store_true",
+        help=(
+            "fixture file を作らず、 FMTimerSet positive 1 件 + negative 5 件 "
+            "(counter=-1/256/欠落、 type/layer 違反) を inline 検証する"
+        ),
+    )
     args = parser.parse_args()
 
-    if not args.schema.exists():
-        print(f"[FAIL] schema file not found: {_rel(args.schema)}", file=sys.stderr)
+    schema_path = args.schema or SCHEMA_BY_VERSION[args.schema_version]
+    if not schema_path.exists():
+        print(f"[FAIL] schema file not found: {_rel(schema_path)}", file=sys.stderr)
         return EXIT_ARG
 
-    schema = validate_schema(args.schema)
+    schema = validate_schema(schema_path)
 
     total_failed = 0
 
@@ -188,6 +292,11 @@ def main() -> int:
         print(
             f"Invalid fixtures: {total - failed}/{total} correctly rejected"
         )
+
+    if args.inline_v03_fmtimerset_check:
+        failed, total = validate_inline_v03_fmtimerset(schema)
+        total_failed += failed
+        print(f"Inline FMTimerSet checks: {total - failed}/{total} passed")
 
     return EXIT_OK if total_failed == 0 else EXIT_VALIDATION
 
