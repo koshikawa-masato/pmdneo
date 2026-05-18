@@ -214,3 +214,125 @@ python3 scripts/validate-ir-schema.py --examples /tmp/tiny-melody.ir.json
 - WebApp 実装
 - driver / runtime / `.mn` / `.PNE` / `.NEO` 生成
 - automated CI 化
+
+---
+
+## IR → ChipEvent lowering spike (v0.2)
+
+「IR の semantic 層から chip 層に落ちる最小の道がある」 ことを示す read-only spike。 compiler 本体 / WebApp / runtime / driver は touch しない。
+
+### script
+
+- path: `scripts/ir-lower-chipevent-spike.py` (= chmod +x、 Python 3.10+)
+- 役割: v0.1 IR JSON 入力 → v0.2 IR JSON 出力 (= SemanticEvent → ChipEvent lowering、 一部は pass-through)
+
+### lowering rule
+
+| 入力 (= v0.1 event) | 出力 |
+|---|---|
+| `Tempo` (semantic) | `Tempo` (semantic) として **そのまま保持** (= 下記参照) |
+| `ToneSelect` (semantic, channel.kind=fm) | `FMToneLoad` (chip) 1 件、 同 tick |
+| `Note` (semantic, channel.kind=fm) | `FMFrequency` (chip) + `KeyOn` (chip) 同 tick 2 件 + `KeyOff` (chip) tick+duration 1 件、 計 3 件 |
+| `Rest` (semantic) | 出力なし (= tick 進めるだけ、 free slot 扱い) |
+| `ADPCMATrigger` (chip) | pass-through |
+| `RawRegisterWrite` (raw) | pass-through |
+
+### Tempo の扱い (= 25th session user 指示で明示)
+
+`Tempo` は **semantic 層に保持** する (= lowering output から除外しない)。
+
+理由:
+
+- v0.2 minimal scope の ChipEvent (= FMToneLoad / FMFrequency / KeyOn / KeyOff) に Tempo 等価物はない。
+- chip / driver level の tempo 設定は YM2610 Timer A/B register write (= RawRegisterWrite level) で表現するのが正しく、 v0.3 以降の `FMTimerSet` 等で別 sprint に分離する。
+- spike では Tempo を semantic 層のまま下流 (= compiler / runtime translator / WebApp) に流し、 chip lowering の判断は下流に委ねる。
+
+### MIDI → block/fnum 変換
+
+PMD o5 c = MIDI 60 = C4 を基準に YM2610 FM frequency (= 3-bit block + 11-bit fnum) に変換:
+
+- `block = (midi // 12) - 1`     ← MIDI 60 (C4) → block 4
+- `semitone = midi % 12`
+- `fnum = FNUM_TABLE[semitone]`
+
+`FNUM_TABLE` (= 1 octave reference): C=617 / C#=654 / D=693 / D#=734 / E=778 / F=824 / F#=873 / G=925 / G#=980 / A=1038 / A#=1100 / B=1165
+
+block が 0-7 範囲外 (= MIDI 0-11 / 108-127) は exit 65 (= silent pass 防止)。
+
+### channel scope
+
+ToneSelect / Note は **channel.kind = "fm" のみ** lowering。 他 kind (= SSG / ADPCM-A / ADPCM-B / rhythm_kr) は v0.2 minimal scope 外で exit 65 reject。
+
+### operatorMask 規約
+
+KeyOn / KeyOff の `operatorMask` は spike では常に `15` (= 全 op 有効) を emit。 op 個別制御は v0.3 以降。
+
+### CLI
+
+```bash
+python3 scripts/ir-lower-chipevent-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+- `--output` なしなら stdout
+- `--output` ありなら file 書き出し (= stderr に `[OK] lowered N events -> M events: <path>`)
+- `--stats` で lowering 統計を stderr 表示 (= input_total / tempo_kept / tone_select_lowered / note_lowered / rest_dropped / chip_passthrough / raw_passthrough / output_total)
+
+### 検証例
+
+minimal-fm-note (= 既存 v0.1 fixture) で直接実行:
+
+```bash
+python3 scripts/ir-lower-chipevent-spike.py \
+  docs/design/intermediate-register-command/examples/minimal-fm-note.ir.json \
+  --output /tmp/spike-out-minimal-fm-note.ir.json --stats
+
+python3 scripts/validate-ir-schema.py \
+  --schema docs/design/intermediate-register-command/ir-schema-v0.2.schema.json \
+  --examples /tmp/spike-out-minimal-fm-note.ir.json
+```
+
+期待: lowered 4 events → 5 events、 validator が exit 0 + 1/1 PASS。
+
+tiny-melody.mml → v0.1 IR → v0.2 IR の chain:
+
+```bash
+python3 scripts/mml-to-ir-spike.py \
+  docs/design/intermediate-register-command/spike-fixtures/tiny-melody.mml \
+  --output /tmp/tiny-melody.ir.json
+
+python3 scripts/ir-lower-chipevent-spike.py \
+  /tmp/tiny-melody.ir.json \
+  --output /tmp/tiny-melody.lowered.ir.json --stats
+
+python3 scripts/validate-ir-schema.py \
+  --schema docs/design/intermediate-register-command/ir-schema-v0.2.schema.json \
+  --examples /tmp/tiny-melody.lowered.ir.json
+```
+
+期待: MML 6 event → v0.1 IR 6 event → v0.2 IR 8 event (= Tempo + FMToneLoad + FMFrequency(C4) + KeyOn + KeyOff + FMFrequency(E4) + KeyOn + KeyOff)、 validator exit 0 + 1/1 PASS。
+
+### exit code (= ir-lower-chipevent-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK (= lowering 成功) |
+| 64 | argument error (= input file not found / JSON parse error / required field missing) |
+| 65 | lowering parse error (= 未対応 event 種 / scope 外 channel kind / MIDI out-of-range) |
+| 66 | runtime error |
+
+### fixture
+
+- input: 既存 `examples/minimal-fm-note.ir.json` (= v0.1)、 chain で `spike-fixtures/tiny-melody.mml` (= MML)
+- output 例 (= 委員会 review 用 committed sample): `examples/v0.2/spike-lowered-tiny-melody.ir.json` (= tiny-melody chain の 8 event 出力、 spike 再実行で再生可能な deterministic output)
+
+### spike scope-out
+
+- gate / tie / velocity
+- FM3Mode (= 3 ch independent freq、 v0.3 軸 4)
+- Volume / Pan (= chip event、 v0.3)
+- LoopStart / LoopEnd (= flow control、 v0.3)
+- ADPCMBDma (= ADPCM-B、 v0.3)
+- SSG ch (= v0.3)
+- raw register write lowering (= chip event は block/fnum / operatorMask 抽象維持、 register write 展開は別 sprint)
+- driver / runtime / `.mn` / `.PNE` / `.NEO` 生成
+- compiler 本体改修 / WebApp 実装 / automated CI 化
