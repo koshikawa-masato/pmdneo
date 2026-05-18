@@ -490,3 +490,68 @@ python3 scripts/validate-ir-schema.py \
 - SSG / ADPCM-B / rhythm_kr channel
 - optimization / cache / 重複 register write 削減 / barrier 解決
 - driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / pitch correction / aesthetic audition / automated CI 化
+
+---
+
+## IR Tempo → FMTimerSet lowering spike (v0.3)
+
+「IR semantic 層の Tempo から chip 層 FMTimerSet (= TIMER-B counter 設定) に落ちる最小の道がある」 ことを示す read-only spike。 ADR-0037 (= 27th session) で設計 fix。 compiler 本体 / WebApp / runtime / driver / `.mn` / `.PNE` は touch しない。
+
+### path / 入出力
+
+- path: `scripts/ir-lower-tempo-spike.py` (= chmod +x、 Python 3.10+)
+- 入力: v0.2 / v0.3 IR JSON (= Tempo を semantic で含む)
+- 出力: v0.3 IR JSON (= initial Tempo → FMTimerSet、 runtime Tempo は semantic pass-through)
+
+### lowering rule (= ADR-0037 §決定 1-3 + §決定 6 整合)
+
+| 入力 event | 出力 |
+|---|---|
+| **initial Tempo (semantic) 1 件のみ** (= `(tick, trackId, order)` 昇順 sort 後の最初に出現する Tempo) | `FMTimerSet` (chip) 1 件 (= 同 tick、 同 trackId、 counter=128 placeholder + bpm 保持) |
+| 2 件目以降の `Tempo` (semantic) (= runtime tempo 変更) | pass-through (= ADR-0037 §決定 3-4 で sub-tick accumulator 委譲、 chip 化は defer) |
+| 他全 event | pass-through (= allocator で order 再採番) |
+
+### counter placeholder
+
+ADR-0037 §決定 3 で「BPM → TIMER-B counter 変換式の数値 literal は driver runtime 軸 (= ADR-0036 関連別 ADR) 同期後に literal 化」 と defer 規律。 本 spike は `counter = 128` (= 中庸 8-bit 値、 placeholder)。 source `bpm` を traceability で保持。 production 用 literal 化は driver runtime 軸 fix 後の別 sprint。
+
+### 検証 command
+
+```bash
+python3 scripts/ir-lower-tempo-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+### 検証例
+
+```bash
+python3 scripts/ir-lower-tempo-spike.py \
+  docs/design/intermediate-register-command/examples/v0.2/spike-lowered-tiny-melody.ir.json \
+  --output /tmp/tempo.json --stats
+
+diff docs/design/intermediate-register-command/examples/v0.3/spike-tempo-lowered-tiny-melody.ir.json /tmp/tempo.json
+```
+
+期待: 8 events → 8 events (= Tempo 1 → FMTimerSet 1 + 他 7 pass-through)、 diff 0 行 (= deterministic byte-identical)、 exit 0。
+
+### exit code (= ir-lower-tempo-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK |
+| 64 | argument error (= input file not found / JSON parse error / required field missing) |
+| 65 | lowering parse error (= `timeMode != "absolute"` / `(tick, trackId, order)` 重複 / 必須 common field 欠落 / Tempo `bpm` 欠落・非正値・非数値 等) |
+| 66 | runtime error |
+
+### fixture
+
+- 入力 (= chain): `examples/v0.2/spike-lowered-tiny-melody.ir.json` (= 25th session β output)
+- 出力例 (= committed sample): `examples/v0.3/spike-tempo-lowered-tiny-melody.ir.json` (= 8 event 出力、 deterministic、 27th session δ)
+- spike-level reject 期待 (= negative): `examples/v0.3/spike-invalid/tempo-bpm-missing.ir.json` + `examples/v0.3/spike-invalid/tempo-bpm-zero.ir.json` (= spike 実行で exit 65 reject、 27th session δ)
+
+### spike scope-out (= ADR-0037 §scope-out 抜粋)
+
+- BPM → counter 変換 literal (= 数値 literal defer)
+- runtime tempo 変更の chip 化 (= sub-tick accumulator 委譲)
+- 0x27 register bit 操作 (= bit 6 非破壊規律のみ、 他 defer)
+- raw register write 展開 (= 26th session β raw spike chain と分離)
+- driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / FM3Mode / SSG / pitch correction / aesthetic / automated CI

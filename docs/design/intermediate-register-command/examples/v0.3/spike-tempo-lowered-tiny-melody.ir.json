@@ -1,0 +1,181 @@
+{
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "ir-lower-tempo-spike v0.3 (= 27th session γ、 IR semantic Tempo -> v0.3 chip FMTimerSet lowering、 counter placeholder 128) (= lowered from: ir-lower-chipevent-spike v0.2 (= 25th session β、 IR v0.1 SemanticEvent -> v0.2 ChipEvent lowering) (= lowered from: mml-to-ir-spike v0.1 (= 24th session、 ADR-0034 ratify 後)))"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": {
+    "ticksPerBeat": 192,
+    "timeMode": "absolute",
+    "tempoBase": 120.0
+  },
+  "channels": [
+    {
+      "channelId": {
+        "kind": "fm",
+        "index": 2
+      },
+      "name": "Part B FM2"
+    }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMTimerSet",
+      "counter": 128,
+      "bpm": 120.0
+    },
+    {
+      "tick": 0,
+      "order": 1,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMToneLoad",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "toneId": 0
+    },
+    {
+      "tick": 0,
+      "order": 2,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMFrequency",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "block": 4,
+      "fnum": 617
+    },
+    {
+      "tick": 0,
+      "order": 3,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOn",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "operatorMask": 15
+    },
+    {
+      "tick": 192,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOff",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "operatorMask": 15
+    },
+    {
+      "tick": 384,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "FMFrequency",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "block": 4,
+      "fnum": 778
+    },
+    {
+      "tick": 384,
+      "order": 1,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOn",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "operatorMask": 15
+    },
+    {
+      "tick": 576,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOff",
+      "channel": {
+        "kind": "fm",
+        "index": 2
+      },
+      "operatorMask": 15
+    }
+  ],
+  "tones": [
+    {
+      "toneId": 0,
+      "algorithm": 4,
+      "feedback": 5,
+      "operators": [
+        {
+          "ar": 31,
+          "dr": 14,
+          "sr": 0,
+          "rr": 7,
+          "sl": 1,
+          "tl": 35,
+          "ks": 0,
+          "mul": 1,
+          "dt": 0,
+          "am": false,
+          "ssgEg": 0
+        },
+        {
+          "ar": 25,
+          "dr": 5,
+          "sr": 0,
+          "rr": 5,
+          "sl": 2,
+          "tl": 20,
+          "ks": 0,
+          "mul": 4,
+          "dt": 0,
+          "am": false,
+          "ssgEg": 0
+        },
+        {
+          "ar": 31,
+          "dr": 14,
+          "sr": 0,
+          "rr": 7,
+          "sl": 1,
+          "tl": 35,
+          "ks": 0,
+          "mul": 1,
+          "dt": 0,
+          "am": false,
+          "ssgEg": 0
+        },
+        {
+          "ar": 25,
+          "dr": 5,
+          "sr": 0,
+          "rr": 5,
+          "sl": 2,
+          "tl": 0,
+          "ks": 0,
+          "mul": 1,
+          "dt": 0,
+          "am": false,
+          "ssgEg": 0
+        }
+      ]
+    }
+  ]
+}

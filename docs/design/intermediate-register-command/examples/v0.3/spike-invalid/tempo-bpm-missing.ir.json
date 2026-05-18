@@ -1,0 +1,21 @@
+{
+  "$schema": "../../../ir-schema-v0.3.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.3 spike-invalid fixture: tempo-bpm-missing (= Tempo event の bpm field 欠落、 schema 上は Tempo.bpm required で reject されるため本 fixture は schema-invalid + spike-invalid 両軸該当だが、 spike defense in depth check 経路 (= bpm None reject) の literal 証跡として配置、 ADR-0037 §決定 6 + spike L129 bpm None reject 整合、 27th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Tempo"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "$schema": "../../../ir-schema-v0.3.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.3 spike-invalid fixture: tempo-bpm-zero (= Tempo event の bpm = 0 = 非正値、 schema 上は exclusiveMinimum 0 で reject、 spike layer も bpm <= 0 reject (= 27 γ Codex review 反映 defense in depth) の literal 証跡、 ADR-0037 §決定 6 + spike bpm range check 整合、 27th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Tempo",
+      "bpm": 0
+    }
+  ]
+}
