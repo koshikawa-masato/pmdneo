@@ -23,10 +23,13 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
   - `spike-lowered-tiny-melody.ir.json`: tiny-melody.mml chain (= MML → v0.1 IR → v0.2 IR) の spike 出力 deterministic sample
   - `spike-lowered-unsorted-events.ir.json`: `spike-fixtures/unsorted-events.ir.json` の spike 出力 (= input array 順と (tick, order) 順が逆の valid v0.1 IR を spike が semantic 真順で処理した literal 証跡、 PR #4 review finding 4 反映)
   - `spike-rawlowered-tiny-melody.ir.json`: `spike-lowered-tiny-melody.ir.json` を `ir-lower-raw-register-spike.py` に通した出力 (= chip 4 種 → YM2610 RawRegisterWrite 列、 Tempo は semantic 保持、 38 events = raw 37 + semantic Tempo 1、 26th session γ / ADR-0035 §verify 計画 A 整合)
-- `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群
+- `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群 (= schema layer reject)
   - `fmfrequency-out-of-range.ir.json`: `FMFrequency.block` = 8 / `fnum` = 2048 (= maximum violation)
   - `keyon-non-fm-channel.ir.json`: `KeyOn.channel.kind` = "ssg" (= FMChannelId.kind const "fm" violation、 v0.2 minimal scope literal)
   - `keyon-zero-operator-mask.ir.json`: `KeyOn.operatorMask` = 0 (= minimum 1 violation、 no-op KeyOn 防止、 PR #4 review finding 3 反映)
+- `examples/v0.2/spike-invalid/`: schema validation は **PASS** するが spike `ir-lower-raw-register-spike.py` で **exit 65 reject** されることを期待する fixture 群 (= spike layer reject、 schema 表現外の invariant を spike layer で enforce、 26th session δ / ADR-0035 §verify 計画 B)
+  - `semantic-residual-note.ir.json`: schema-valid な Note (semantic) を含む IR (= 前段 Semantic→Chip lowering 不徹底検出、 §決定 3)
+  - `fmtoneload-unresolved-toneid.ir.json`: FMToneLoad で `tones[]` に存在しない toneId = 999 を参照 (= toneId reference 整合検出、 §決定 8)
 
 ## v0.1 で fully validated な event types (= 6 件)
 
@@ -97,7 +100,7 @@ python3 scripts/validate-ir-schema.py \
 
 1. schema v0.2 meta-validation
 2. `examples/v0.2/*.ir.json` 全件 (= chipevent-fm-note-lowered + keyon-keyoff-minimal + spike-lowered-tiny-melody + spike-lowered-unsorted-events + spike-rawlowered-tiny-melody) が v0.2 schema に適合
-3. `examples/v0.2/invalid/*.ir.json` 全件 (= fmfrequency-out-of-range + keyon-non-fm-channel) が schema validation で失敗
+3. `examples/v0.2/invalid/*.ir.json` 全件 (= fmfrequency-out-of-range + keyon-non-fm-channel + keyon-zero-operator-mask) が schema validation で失敗
 
 期待 exit: **0**
 
@@ -459,6 +462,24 @@ python3 scripts/validate-ir-schema.py \
 
 - 入力 (= chain): `examples/v0.2/spike-lowered-tiny-melody.ir.json` (= 25th session β output)
 - 出力例 (= 委員会 review 用 committed sample): `examples/v0.2/spike-rawlowered-tiny-melody.ir.json` (= 38 event 出力、 spike 再実行で byte-identical 再生可能な deterministic output、 26th session γ)
+- spike-level reject 期待 (= negative): `examples/v0.2/spike-invalid/semantic-residual-note.ir.json` + `examples/v0.2/spike-invalid/fmtoneload-unresolved-toneid.ir.json` (= schema validation は PASS、 spike 実行で exit 65 reject、 26th session δ)
+
+### spike-level reject 検証 (= schema validation 経路と別軸)
+
+```bash
+# 各 spike-invalid fixture を spike に通して exit 65 reject 確認
+for f in docs/design/intermediate-register-command/examples/v0.2/spike-invalid/*.ir.json; do
+  python3 scripts/ir-lower-raw-register-spike.py "$f" > /dev/null
+  echo "$f: exit=$?"
+done
+
+# 上記 fixture が schema validation 経路では PASS することも確認 (= 設計通り)
+python3 scripts/validate-ir-schema.py \
+  --schema docs/design/intermediate-register-command/ir-schema-v0.2.schema.json \
+  --examples 'docs/design/intermediate-register-command/examples/v0.2/spike-invalid/*.ir.json'
+```
+
+期待: 各 spike-invalid fixture が `exit=65`、 schema validation は `2/2 passed`。
 
 ### spike scope-out (= ADR-0035 §scope-out 抜粋)
 

@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../ir-schema-v0.2.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.2 spike-invalid fixture: semantic-residual-note (= schema-valid な Note (semantic) を含む IR、 spike ir-lower-raw-register-spike.py で exit 65 reject 期待、 前段 Semantic→Chip lowering 不徹底を検出、 ADR-0035 §決定 3 + §verify 計画 B 整合、 26th session δ)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [
+    { "channelId": { "kind": "fm", "index": 2 } }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Note",
+      "channel": { "kind": "fm", "index": 2 },
+      "note": 60,
+      "duration": 192
+    }
+  ]
+}
