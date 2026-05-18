@@ -50,7 +50,7 @@ FM3Mode は **FM ch 3 にだけ作用** する (= `intermediate_register_command
 
 ```
 - enabled: bool (= FM3 extension on/off)
-- operatorEnableMask: int 0-15 (= bit 0-3 = op1-4 keyon mask)
+- operatorEnableMask: int 1-15 (= bit 0-3 = op1-4 keyon mask、 minimum 1 = no-op 防止 ADR-0035 §決定 6 規律踏襲、 全 op disable は `enabled=false` で表現)
 - operatorBlock: array of 4 int 0-7 (= op 1-4 個別 block、 enabled=true 時のみ意味、 enabled=false 時も schema 上 required)
 - operatorFnum: array of 4 int 0-2047 (= op 1-4 個別 fnum、 同上)
 - trackId: int (= ADR-0037 §決定 6 + 27 β user 意図継承で v0.4 chip event も traceability 必須化、 schema layer enforce)
