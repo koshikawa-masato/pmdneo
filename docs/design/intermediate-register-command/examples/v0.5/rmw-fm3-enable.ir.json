@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ir-schema-v0.5.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR v0.5 minimal positive fixture: rmw-fm3-enable (= RawRegisterMaskWrite event 1 件 = 0x27 bit 6 (FM3 mode) を set する代表例、 ADR-0039 §決定 5 literal table 整合 = port=0 / address=0x27 / mask=0x40 / value=0x40、 driver runtime 軸 RMW で他 bit 0-5/7 preservation = new_data = (shadow & ~0x40) | (0x40 & 0x40) = shadow | 0x40、 ADR-0038 §決定 5 FM3Mode raw lowering defer 解消の前提軸、 schema 拡張 literal 証跡、 29th session β)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "raw",
+      "type": "RawRegisterMaskWrite",
+      "port": 0,
+      "address": 39,
+      "mask": 64,
+      "value": 64
+    }
+  ]
+}

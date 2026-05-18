@@ -1,0 +1,653 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pmdneo.example/schemas/ir-v0.5.json",
+  "title": "PMDNEO Intermediate Register Command Data (IR) v0.5",
+  "description": "PMDNEO compiler / WebApp intermediate format。 ADR-0034 ratified (= 24th session 2026-05-17)、 ADR-0037/0038 ratified-pending (= 27/28 session)、 ADR-0039 ratified-pending (= 29th session 2026-05-18、 schema 実装段階で literal 化)。 v0.4 baseline (= 12 件 = v0.3 + FM3Mode) に Raw event 1 件 = RawRegisterMaskWrite を追加 (= 13 件 fully validated)。 RawRegisterMaskWrite は ADR-0039 で確立した partial bit update event = 既存 RawRegisterWrite (= literal data write) と並列定義され、 mask で指定した bit のみ value で書き mask 外 bit は driver-maintained shadow register 上で preservation。 driver runtime 軸 semantics = new_data = (shadow & ~mask) | (value & mask)。 用途 = 0x27 bit 6 (= FM3 mode 制御、 ADR-0038 §決定 5 defer 解消の前提)、 partial bit register 全般。 0x28 KeyOn は ADR-0035 §決定 6 で literal write 既定義につき本 event 対象外。 v0.5 minimal scope = RawRegisterMaskWrite 追加のみ (= FM3Mode raw lowering 実装は ADR-0040 候補別 ADR、 Volume/Pan/LoopStart/LoopEnd/ADPCMBDma/SSG 等は v0.6 以降)。 v0.4 backward-compatible 拡張 = 既存 v0.4 IR document は v0.5 schema でも validate PASS、 既存 event 種は touch しない。 IR は Z80 driver runtime ではなく authoring / build pipeline / diagnostics 用の正規化形式。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["metadata", "targetProfile", "timing", "channels", "events"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "example file が schema 参照のために含める optional field。 IR 本体 spec の一部ではない。"
+    },
+    "metadata": { "$ref": "#/$defs/Metadata" },
+    "targetProfile": { "$ref": "#/$defs/TargetProfile" },
+    "timing": { "$ref": "#/$defs/Timing" },
+    "channels": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/ChannelDecl" }
+    },
+    "tones": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/FMTone" }
+    },
+    "sampleRefs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/SampleRef" }
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Event" }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Diagnostic" }
+    }
+  },
+  "$defs": {
+    "Metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["magic", "version", "sourceDialect", "createdBy"],
+      "properties": {
+        "magic": {
+          "const": "PMDNEO-IR",
+          "description": "IR document magic。 常に PMDNEO-IR。"
+        },
+        "version": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "IR document major version。 v0.2 schema は backwards-compatible (= v0.1 document を reject しない)、 version は 1 のままで良い。 non-backwards-compat 変更があれば bump。"
+        },
+        "sourceDialect": {
+          "$ref": "#/$defs/SourceDialect"
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "生成 tool 名 + version。 例: 'pmdneo-compiler v0.0.1' / 'ir-lower-chipevent-spike v0.2'"
+        },
+        "sourceHash": {
+          "type": "string",
+          "description": "入力 file の hash (= optional、 source 追跡用)"
+        }
+      }
+    },
+    "SourceDialect": {
+      "enum": ["pmd", "mewmml", "mdx", "mucom88", "fmp7", "unknown"]
+    },
+    "TargetProfile": {
+      "enum": ["ym2610_aes", "ym2610b", "opna_compat"],
+      "description": "対象 chip profile。 ym2610_aes は FM ch 1/4 mute warning、 ym2610b は 6 ch 全 audible、 opna_compat は K/R rhythm 検証用。"
+    },
+    "Timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ticksPerBeat"],
+      "properties": {
+        "ticksPerBeat": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "PPQN (= Pulses Per Quarter Note)。 PMDNEO IR の標準は 192。"
+        },
+        "timeMode": {
+          "enum": ["absolute", "delta"],
+          "default": "absolute",
+          "description": "IR 内部は absolute tick を正規形とする。 delta は import 時のみ許容。"
+        },
+        "tempoBase": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "初期 BPM。"
+        },
+        "swing": {
+          "type": "object",
+          "description": "v0.2 でも非標準。 拡張のための placeholder。"
+        }
+      }
+    },
+    "ChannelId": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "index"],
+      "properties": {
+        "kind": {
+          "enum": ["fm", "ssg", "adpcm_a", "adpcm_b", "rhythm_kr"],
+          "description": "channel 種別。 fm 1-6 / ssg 1-3 / adpcm_a 1-6 / adpcm_b 1 / rhythm_kr 1。"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "description": "channel index。 kind に応じて有効範囲が変わる。"
+        }
+      }
+    },
+    "FMChannelId": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "index"],
+      "properties": {
+        "kind": {
+          "const": "fm",
+          "description": "v0.2 minimal scope の chip event は FM ch のみ。 SSG / ADPCM 拡張は v0.3 以降。"
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 6,
+          "description": "FM ch index 1-6。 ym2610_aes profile では ch 1/4 が mute。"
+        }
+      }
+    },
+    "ChannelDecl": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channelId"],
+      "properties": {
+        "channelId": { "$ref": "#/$defs/ChannelId" },
+        "name": {
+          "type": "string",
+          "description": "channel の人間可読 name (= 例 'Part B FM2')。 optional。"
+        }
+      }
+    },
+    "FMTone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["toneId", "algorithm", "feedback", "operators"],
+      "properties": {
+        "toneId": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "tone_bank 内 id。 ToneSelect / FMToneLoad event から参照される。"
+        },
+        "algorithm": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "FM algorithm (AL)。 8 種 topology。"
+        },
+        "feedback": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "op1 self-feedback (FB)。 0 = なし、 6-7 で激変。"
+        },
+        "operators": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": { "$ref": "#/$defs/FMOperator" },
+          "description": "operator 1-4 の parameter (= 4 件固定)。"
+        }
+      }
+    },
+    "FMOperator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ar", "dr", "sr", "rr", "sl", "tl", "ks", "mul", "dt"],
+      "properties": {
+        "ar": { "type": "integer", "minimum": 0, "maximum": 31, "description": "Attack Rate" },
+        "dr": { "type": "integer", "minimum": 0, "maximum": 31, "description": "Decay Rate" },
+        "sr": { "type": "integer", "minimum": 0, "maximum": 31, "description": "Sustain Rate" },
+        "rr": { "type": "integer", "minimum": 0, "maximum": 15, "description": "Release Rate" },
+        "sl": { "type": "integer", "minimum": 0, "maximum": 15, "description": "Sustain Level" },
+        "tl": { "type": "integer", "minimum": 0, "maximum": 127, "description": "Total Level (= 0.75 dB/step 対数減衰)" },
+        "ks": { "type": "integer", "minimum": 0, "maximum": 3, "description": "Key Scale" },
+        "mul": { "type": "integer", "minimum": 0, "maximum": 15, "description": "Multiple (= 周波数倍率)" },
+        "dt": { "type": "integer", "minimum": -3, "maximum": 3, "description": "Detune" },
+        "am": { "type": "boolean", "default": false, "description": "AM enable" },
+        "ssgEg": { "type": "integer", "minimum": 0, "maximum": 15, "description": "SSG-EG mode" }
+      }
+    },
+    "SampleRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sampleRef", "kind"],
+      "properties": {
+        "sampleRef": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "IR 内 sample id。 ADPCMATrigger / ADPCMBDma event から参照される。"
+        },
+        "kind": {
+          "enum": ["adpcm_a", "adpcm_b"],
+          "description": "sample 種別。"
+        },
+        "packFile": {
+          "type": "string",
+          "description": "対応する pack file 名 (= 例 'step5.PNE')。 optional。"
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "ADPCM-A slot index。 optional。"
+        },
+        "name": {
+          "type": "string",
+          "description": "sample 名 (= 例 'bd', 'sd')。 optional。"
+        },
+        "sourceUri": {
+          "type": "string",
+          "description": "converter 入力追跡用 URI。 optional。"
+        }
+      }
+    },
+    "SourceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dialect"],
+      "properties": {
+        "dialect": { "$ref": "#/$defs/SourceDialect" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 },
+        "rawCommand": { "type": "string" }
+      }
+    },
+    "LossyFlag": {
+      "enum": [
+        "pitch_approx",
+        "lfo_approx",
+        "tone_approx",
+        "channel_muted",
+        "unsupported_effect",
+        "timing_quantized"
+      ]
+    },
+    "Diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^IR\\d{3,}$",
+          "description": "validation rule id (= 例 'IR001', 'IR005')。"
+        },
+        "severity": {
+          "enum": ["error", "warning", "info"]
+        },
+        "message": { "type": "string" },
+        "relatedTick": { "type": "integer", "minimum": 0 },
+        "relatedTrackId": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "EventCommon": {
+      "type": "object",
+      "required": ["tick", "order", "layer", "type"],
+      "properties": {
+        "tick": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "absolute tick position。"
+        },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "同一 tick 内の event 順序 (= track 内で 0 から増加)。"
+        },
+        "trackId": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "logical track id。"
+        },
+        "layer": {
+          "enum": ["semantic", "chip", "raw"],
+          "description": "ADR-0034 決定 3 の 3 層 hybrid discriminator。"
+        },
+        "type": {
+          "type": "string",
+          "description": "event 種別 (= layer ごとに固定値 const、 v0.5 fully validated 13 件 = v0.4 baseline 12 件 + RawRegisterMaskWrite 1 件)。"
+        },
+        "source": { "$ref": "#/$defs/SourceRef" },
+        "lossyFlags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/LossyFlag" }
+        }
+      }
+    },
+    "Event": {
+      "oneOf": [
+        { "$ref": "#/$defs/NoteEvent" },
+        { "$ref": "#/$defs/RestEvent" },
+        { "$ref": "#/$defs/TempoEvent" },
+        { "$ref": "#/$defs/ToneSelectEvent" },
+        { "$ref": "#/$defs/ADPCMATriggerEvent" },
+        { "$ref": "#/$defs/RawRegisterWriteEvent" },
+        { "$ref": "#/$defs/FMToneLoadEvent" },
+        { "$ref": "#/$defs/FMFrequencyEvent" },
+        { "$ref": "#/$defs/KeyOnEvent" },
+        { "$ref": "#/$defs/KeyOffEvent" },
+        { "$ref": "#/$defs/FMTimerSetEvent" },
+        { "$ref": "#/$defs/FM3ModeEvent" },
+        { "$ref": "#/$defs/RawRegisterMaskWriteEvent" }
+      ],
+      "description": "v0.5 で fully validated な event 種 13 件の discriminated union。 v0.1 baseline 6 件 + v0.2 ChipEvent 4 件 + v0.3 ChipEvent 1 件 (= FMTimerSet) + v0.4 ChipEvent 1 件 (= FM3Mode) + v0.5 Raw event 1 件 (= RawRegisterMaskWrite)。 layer + type 組み合わせで一意に決まる。 他 event 種 (= ADPCMBDma / Volume / Pan / LoopStart / LoopEnd / SSG 群) は v0.6 以降。"
+    },
+    "NoteEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "note", "duration"],
+      "properties": {
+        "layer": { "const": "semantic" },
+        "type": { "const": "Note" },
+        "channel": { "$ref": "#/$defs/ChannelId" },
+        "note": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127,
+          "description": "MIDI note number。 60 = MIDI C4 = PMD o5 c (= memory project_pmd_voice_ml_verified)。"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "tick 単位の note 長 (= 1 以上、 0-tick note は無効)。"
+        },
+        "gate": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "実発音 tick。 省略時は duration と同値。"
+        },
+        "velocity": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 127,
+          "description": "0-127 normalized velocity。"
+        },
+        "tie": { "type": "boolean" }
+      }
+    },
+    "RestEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "duration"],
+      "properties": {
+        "layer": { "const": "semantic" },
+        "type": { "const": "Rest" },
+        "channel": { "$ref": "#/$defs/ChannelId" },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "tick 単位の rest 長 (= 1 以上、 0-tick rest は無効)。"
+        }
+      }
+    },
+    "TempoEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["bpm"],
+      "properties": {
+        "layer": { "const": "semantic" },
+        "type": { "const": "Tempo" },
+        "bpm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "BPM (= beats per minute)。"
+        }
+      }
+    },
+    "ToneSelectEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "toneId"],
+      "properties": {
+        "layer": { "const": "semantic" },
+        "type": { "const": "ToneSelect" },
+        "channel": { "$ref": "#/$defs/ChannelId" },
+        "toneId": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "tones 配列内の toneId 参照。"
+        }
+      }
+    },
+    "ADPCMATriggerEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "sampleRef", "volume", "panLeft", "panRight"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "ADPCMATrigger" },
+        "channel": { "$ref": "#/$defs/ChannelId" },
+        "sampleRef": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "sampleRefs 配列内の sampleRef 参照。"
+        },
+        "volume": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 31,
+          "description": "ADPCM-A volume 0-31 (= 5-bit)。"
+        },
+        "panLeft": { "type": "boolean" },
+        "panRight": { "type": "boolean" }
+      }
+    },
+    "RawRegisterWriteEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["port", "address", "data"],
+      "properties": {
+        "layer": { "const": "raw" },
+        "type": { "const": "RawRegisterWrite" },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0 = port 0 (= FM ch 1-3 + 共通)、 1 = port 1 (= FM ch 4-6)。"
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "register address 0x00-0xFF。"
+        },
+        "data": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "write data 0x00-0xFF。"
+        },
+        "barrier": {
+          "type": "boolean",
+          "description": "true なら前後の並べ替え禁止 + 最適化対象外。"
+        }
+      }
+    },
+    "FMToneLoadEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "toneId"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "FMToneLoad" },
+        "channel": {
+          "$ref": "#/$defs/FMChannelId",
+          "description": "対象 FM ch (= 1-6、 v0.2 minimal は FM ch のみ)。"
+        },
+        "toneId": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "tones 配列内の toneId 参照。 ToneSelect (semantic) を chip lowering したもの。"
+        }
+      }
+    },
+    "FMFrequencyEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel", "block", "fnum"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "FMFrequency" },
+        "channel": {
+          "$ref": "#/$defs/FMChannelId",
+          "description": "対象 FM ch。"
+        },
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 7,
+          "description": "YM2610 FM frequency block (= 3-bit octave divider)。"
+        },
+        "fnum": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2047,
+          "description": "YM2610 FM F-Number (= 11-bit fine pitch within block)。"
+        }
+      }
+    },
+    "KeyOnEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "KeyOn" },
+        "channel": {
+          "$ref": "#/$defs/FMChannelId",
+          "description": "対象 FM ch (= v0.2 minimal は FM のみ、 ADPCM-A keyon は ADPCMATrigger 経由)。"
+        },
+        "operatorMask": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "default": 15,
+          "description": "FM op 1-4 の keyon mask (= bit 0 = op1 / bit 1 = op2 / bit 2 = op3 / bit 3 = op4)。 省略時は 15 (= 全 op 有効)。 minimum 1 = 少なくとも 1 op を対象とする (= no-op KeyOn 防止、 25th session PR #4 review finding 3 反映)。"
+        }
+      }
+    },
+    "KeyOffEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["channel"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "KeyOff" },
+        "channel": {
+          "$ref": "#/$defs/FMChannelId",
+          "description": "対象 FM ch (= v0.2 minimal は FM のみ)。"
+        },
+        "operatorMask": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "default": 15,
+          "description": "FM op 1-4 の keyoff mask (= 通常は KeyOn と同 mask)。 省略時は 15 (= 全 op 無効化)。 minimum 1 = 少なくとも 1 op を対象とする (= no-op KeyOff 防止、 25th session PR #4 review finding 3 反映)。"
+        }
+      }
+    },
+    "FMTimerSetEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["trackId", "counter"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "FMTimerSet" },
+        "counter": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "YM2610 TIMER-B counter 8-bit value (= 0x26 register に書く値、 0-255)。 ADR-0037 §決定 2 で TIMER-B 採用、 TIMER-A は scope-out (= 別 ADR)。 BPM → counter 変換式は driver runtime 軸 (= ADR-0036 関連別 ADR) と同期して schema 実装後の spike / driver 整合段階で literal 化、 schema 段階では int range 強制のみ。"
+        },
+        "bpm": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "source BPM (= optional、 traceability 用)。 source SemanticEvent Tempo の bpm field を保持し、 down-stream で BPM ↔ counter 関係を debug 可能にする。"
+        }
+      },
+      "description": "TIMER-B counter 設定 ChipEvent。 ADR-0037 §決定 1 で確定、 ADR-0035 §決定 14 defer 解消。 source SemanticEvent Tempo (= bpm field) を chip layer に lower した形。 trackId は Tempo source track と event ordering の traceability 用に v0.3 FMTimerSet では必須 (= EventCommon で properties には存在するが required ではない規律と異なる v0.3 固有規律、 ADR-0037 §決定 6 更新)。 0x27 register (= mode bits) は driver runtime 軸の責務 (= ADR-0037 §決定 4 bit 6 非破壊規律のみ ADR 固定、 bit 0-5/7 全 defer) のため本 event の field には含めない (= mode field は driver runtime 軸 fix 後に採否判断、 ADR-0037 §決定 6)。"
+    },
+    "FM3ModeEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["trackId", "enabled", "operatorEnableMask", "operatorBlock", "operatorFnum"],
+      "properties": {
+        "layer": { "const": "chip" },
+        "type": { "const": "FM3Mode" },
+        "enabled": {
+          "type": "boolean",
+          "description": "FM3 extension on/off (= 0x27 bit 6、 ADR-0038 §決定 5: 能動的 set/clear、 ADR-0037 §決定 4 非破壊規律と対称)。"
+        },
+        "operatorEnableMask": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 15,
+          "description": "FM op 1-4 keyon mask (= bit 0 = op1 / bit 1 = op2 / bit 2 = op3 / bit 3 = op4)。 minimum 1 = 少なくとも 1 op を対象 (= no-op 防止、 ADR-0035 §決定 6 KeyOn operatorMask 規律踏襲)。 全 op release / disable 表現は `enabled=false` で行い operatorEnableMask 0 では表現しない。"
+        },
+        "operatorBlock": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "description": "operator 1-4 個別 block (= 3-bit octave divider)。 enabled=true 時のみ意味、 enabled=false 時も schema 上 required (= conditional required 回避で複雑化防止、 任意値 0 placeholder で OK)。 ADR-0038 §決定 3。"
+        },
+        "operatorFnum": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2047
+          },
+          "description": "operator 1-4 個別 fnum (= 11-bit fine pitch)。 enabled=true 時のみ意味、 同上 enabled=false 時も required。"
+        },
+        "keyPolicy": {
+          "enum": ["all", "operator_masked"],
+          "default": "all",
+          "description": "省略時 all = 全 op keyon、 operator_masked = operatorEnableMask に従う。 ADR-0038 §決定 3。"
+        }
+      },
+      "description": "FM3 extension mode ChipEvent (= ch 3 operator-split)。 ADR-0034 §決定 4 ratify + ADR-0038 §決定 1 で v0.4 schema literal 化。 対象 channel = FM ch 3 固定 (= channel field 不要、 ADR-0038 §決定 2)。 trackId は v0.3 FMTimerSet 規律を継承して v0.4 FM3Mode でも必須 (= EventCommon で optional の例外)、 source track + event ordering の traceability 用。 raw lowering 全体は v0.5 以降別 ADR で defer (= ADR-0038 §決定 5、 既存 RawRegisterWrite では 0x27 bit 6 RMW symbolic 表現不可、 RMW/mask event 新設判断含む)。 関連 register = 0x27 bit 6 + 0xA8-0xAD (= operator-split FNUM) + 0x28 (= operatorEnableMask KeyOn 協調)。"
+    },
+    "RawRegisterMaskWriteEvent": {
+      "allOf": [{ "$ref": "#/$defs/EventCommon" }],
+      "type": "object",
+      "unevaluatedProperties": false,
+      "required": ["trackId", "port", "address", "mask", "value"],
+      "properties": {
+        "layer": { "const": "raw" },
+        "type": { "const": "RawRegisterMaskWrite" },
+        "port": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "0 = port 0 (= FM ch 1-3 + 共通)、 1 = port 1 (= FM ch 4-6)。 既存 RawRegisterWrite と同 (ADR-0035 §決定 4)。"
+        },
+        "address": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "register address 0x00-0xFF。 既存 RawRegisterWrite と同。"
+        },
+        "mask": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 255,
+          "description": "更新対象 bit が 1、 保持対象 bit が 0 (= 例 mask=0x40 → bit 6 のみ更新)。 minimum 1 = no-op 防止 (= ADR-0035 §決定 6 operatorMask 規律踏襲、 全 bit 保持の write は意味なし)。 ADR-0039 §決定 3/4。"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255,
+          "description": "mask=1 の bit に書く値、 mask=0 の bit は don't care (= validator は value & ~mask != 0 を warning にしない、 spike は値そのまま emit、 ADR-0039 §決定 4)。"
+        },
+        "barrier": {
+          "type": "boolean",
+          "description": "true なら前後の並べ替え禁止 + 最適化対象外。 既存 RawRegisterWrite と同。"
+        }
+      },
+      "description": "partial bit update event。 ADR-0039 で確立、 既存 RawRegisterWrite (= literal data write、 ADR-0034 §決定 3) と並列定義の 2 種類目 raw event。 driver runtime 軸 semantics = driver-maintained shadow register (= YM2610 実機 register は read 不可で driver code 側 shadow が ground truth) に対する RMW = new_data = (shadow & ~mask) | (value & mask)。 用途 = 0x27 bit 6 (= FM3 mode、 ADR-0038 §決定 5 defer 解消)、 partial bit register 全般。 0x28 KeyOn は ADR-0035 §決定 6 で literal 既定義につき本 event 対象外。 trackId は v0.3 FMTimerSet / v0.4 FM3Mode 規律継承で必須 (= EventCommon optional 例外)。"
+    }
+  }
+}
