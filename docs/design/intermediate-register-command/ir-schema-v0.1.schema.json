@@ -309,8 +309,8 @@
         },
         "duration": {
           "type": "integer",
-          "minimum": 0,
-          "description": "tick 単位の note 長。"
+          "minimum": 1,
+          "description": "tick 単位の note 長 (= 1 以上、 0-tick note は無効、 grace / no-op 用途は v0.2 以降で別 event 種別を検討)。"
         },
         "gate": {
           "type": "integer",
@@ -337,8 +337,8 @@
         "channel": { "$ref": "#/$defs/ChannelId" },
         "duration": {
           "type": "integer",
-          "minimum": 0,
-          "description": "tick 単位の rest 長。"
+          "minimum": 1,
+          "description": "tick 単位の rest 長 (= 1 以上、 0-tick rest は無効、 grace / no-op 用途は v0.2 以降で別 event 種別を検討)。"
         }
       }
     },

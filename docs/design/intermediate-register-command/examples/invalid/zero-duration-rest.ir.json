@@ -1,0 +1,25 @@
+{
+  "$schema": "../../ir-schema-v0.1.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "pmd",
+    "createdBy": "PMDNEO IR schema v0.1 negative fixture: zero-duration-rest (= Rest event の duration=0 は RestEvent.duration minimum 1 violation を期待、 PR #3 review 反映、 同 invariant が NoteEvent.duration にも適用される)"
+  },
+  "targetProfile": "ym2610_aes",
+  "timing": { "ticksPerBeat": 192 },
+  "channels": [
+    { "channelId": { "kind": "fm", "index": 2 } }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "semantic",
+      "type": "Rest",
+      "channel": { "kind": "fm", "index": 2 },
+      "duration": 0
+    }
+  ]
+}

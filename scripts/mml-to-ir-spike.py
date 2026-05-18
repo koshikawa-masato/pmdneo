@@ -17,7 +17,9 @@ hardcoded constants:
   targetProfile = ym2610_aes
   ticksPerBeat  = 192 (= PPQN)
   default octave = 4
-  default length = 4 (= quarter note = 48 ticks)
+  default length = 4 (= quarter note = 192 ticks at PPQN 192、 IR canonical 規約。
+                       PMD #Zenlen 192 内部 convention の「c4 = 48 ticks」 とは別軸、
+                       memory project_ir_ppqn_vs_pmd_zenlen_distinction 参照)
   PMD o5 c = MIDI 60 = C4 (= memory project_pmd_voice_ml_verified)
   single channel = FM ch 2 / Part B
   single tone   = toneId 0 (= dummy FMTone、 minimal-fm-note example と同一構造)

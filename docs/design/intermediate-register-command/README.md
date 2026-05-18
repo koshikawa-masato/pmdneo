@@ -15,6 +15,7 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
   - `invalid-channel-kind.ir.json`: `channelId.kind` enum violation (= "opm" 等は対象外)
   - `raw-register-out-of-range.ir.json`: `RawRegisterWrite.address` / `data` maximum violation (= 256 以上)
   - `missing-required-field.ir.json`: Note event の `duration` 欠落 (= required violation)
+  - `zero-duration-rest.ir.json`: Rest event の `duration: 0` (= RestEvent.duration minimum 1 violation、 PR #3 review 反映)
 
 ## v0.1 で fully validated な event types (= 6 件)
 

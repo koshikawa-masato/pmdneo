@@ -38,7 +38,7 @@ IR は Z80 driver が直接読む runtime format ではなく、 build / authori
 - **IR reference**: `docs/design/reference_intermediate_register_command.md` (= X 検索 + 海外ツール調査の参考資料)
 - **JSON Schema v0.1**: `docs/design/intermediate-register-command/ir-schema-v0.1.schema.json` (= draft-2020-12 dialect、 6 fully validated event types = Note / Rest / Tempo / ToneSelect / ADPCMATrigger / RawRegisterWrite)
 - **positive examples (= 3 件)**: `examples/{minimal-fm-note,adpcma-trigger,raw-register-write}.ir.json`
-- **negative examples (= 5 件)**: `examples/invalid/{bad-magic,unknown-event-type,invalid-channel-kind,raw-register-out-of-range,missing-required-field}.ir.json`
+- **negative examples (= 6 件)**: `examples/invalid/{bad-magic,unknown-event-type,invalid-channel-kind,raw-register-out-of-range,missing-required-field,zero-duration-rest}.ir.json`
 - **validator script**: `scripts/validate-ir-schema.py` (= positive + negative dual-mode、 4 exit code: 0 / 64 / 65 / 66)
 - **MML → IR spike**: `scripts/mml-to-ir-spike.py` + `spike-fixtures/tiny-melody.mml` (= tiny PMD-flavored subset、 6 event 生成)
 - **README**: `docs/design/intermediate-register-command/README.md` (= 構成 / 検証 command / spike section / scope)
@@ -60,7 +60,8 @@ IR は Z80 driver が直接読む runtime format ではなく、 build / authori
 | 10 | `0cbe4a0` | IR schema validation helper |
 | 11 | `61ef89a` | negative fixtures 5 件 + validator dual-mode |
 | 12 | `2864ac4` | MML → IR minimal exporter spike |
-| 13 | (本 commit) | PR_DRAFT.md 追加 |
+| 13 | `5d24c46` | PR_DRAFT.md 追加 |
+| 14 | (本 commit) | PR #3 review fix (= validator 0-match exit_arg / Note + Rest duration minimum 1 + zero-duration-rest fixture / spike docstring tick 規約) |
 
 ## 5. Scope Out
 
@@ -100,7 +101,7 @@ python3 scripts/validate-ir-schema.py \
   --invalid-examples 'docs/design/intermediate-register-command/examples/invalid/*.ir.json'
 ```
 
-期待: `Valid examples: 3/3 passed` + `Invalid fixtures: 5/5 correctly rejected` + exit 0
+期待: `Valid examples: 3/3 passed` + `Invalid fixtures: 6/6 correctly rejected` + exit 0
 
 ### 6-3. MML → IR spike + validation
 
@@ -119,7 +120,7 @@ python3 scripts/validate-ir-schema.py --examples /tmp/tiny-melody.ir.json
 | test | expected |
 |---|---|
 | positive 3/3 | PASS |
-| invalid 5/5 | correctly rejected |
+| invalid 6/6 | correctly rejected |
 | spike output 1/1 | PASS |
 
 ## 7. Key Files

@@ -163,29 +163,31 @@ def main() -> int:
     total_failed = 0
 
     example_paths = sorted(Path(p) for p in glob.glob(args.examples))
-    if example_paths:
-        failed, total = validate_examples(schema, example_paths)
-        total_failed += failed
-        print(f"\nValid examples: {total - failed}/{total} passed")
-    else:
+    if not example_paths:
         print(
-            f"[WARN] no valid examples matched pattern: {args.examples}",
+            f"[FAIL] no valid examples matched pattern: {args.examples} "
+            f"(= 0-match は silent pass を防ぐため EXIT_ARG として扱う)",
             file=sys.stderr,
         )
+        return EXIT_ARG
+    failed, total = validate_examples(schema, example_paths)
+    total_failed += failed
+    print(f"\nValid examples: {total - failed}/{total} passed")
 
     if args.invalid_examples:
         invalid_paths = sorted(Path(p) for p in glob.glob(args.invalid_examples))
-        if invalid_paths:
-            failed, total = validate_invalid_fixtures(schema, invalid_paths)
-            total_failed += failed
+        if not invalid_paths:
             print(
-                f"Invalid fixtures: {total - failed}/{total} correctly rejected"
-            )
-        else:
-            print(
-                f"[WARN] no invalid fixtures matched pattern: {args.invalid_examples}",
+                f"[FAIL] no invalid fixtures matched pattern: {args.invalid_examples} "
+                f"(= 0-match は silent pass を防ぐため EXIT_ARG として扱う)",
                 file=sys.stderr,
             )
+            return EXIT_ARG
+        failed, total = validate_invalid_fixtures(schema, invalid_paths)
+        total_failed += failed
+        print(
+            f"Invalid fixtures: {total - failed}/{total} correctly rejected"
+        )
 
     return EXIT_OK if total_failed == 0 else EXIT_VALIDATION
 
