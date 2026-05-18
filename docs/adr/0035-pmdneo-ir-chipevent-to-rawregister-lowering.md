@@ -193,6 +193,86 @@ v0.3 が必要になる場面 (= 本 sprint scope-out):
 
 これらは別 ADR / spike で起票。
 
+### 決定 11: 実装後の strict validation は schema 変更ではなく spike 防衛層
+
+26th session β 実装で追加された `type(x) is int` 厳密判定、 `am` bool 厳密判定、 `block` / `fnum` / `operatorMask` 範囲判定、 `tones[]` 同一 `toneId` 重複 reject、 tone schema 違反 reject は **v0.2 schema の意味変更ではなく spike 防衛層**として扱う。
+
+選択肢:
+
+- **A. schema v0.3 を起こして validation を schema 側へ移す**: JSON Schema 上の表現は明確になるが、 event 種追加なしで version を上げるため version churn が発生する。
+- **B. v0.2 schema は維持し、 spike 内 defense in depth として reject する**: schema 互換を守りつつ、 Python / JSON の bool-is-int silent pass 等を実装層で塞げる。
+- **C. validation を緩めて schema のみを正とする**: 実装は単純だが、 register byte 生成時の silent corruption を防げない。
+
+**採用: B**。 本 ADR の判断は「RawRegisterWrite event 種を既存 v0.2 で使う」ことであり、 strict validation は spike 実装の安全柵である。 後続で importer / compiler 共有 validation が必要になった時点で、 schema v0.3 ではなく validator helper の共通化を先に検討する。
+
+### 決定 12: positive fixture の期待値は 38 events (= raw 37 + Tempo 1) に固定
+
+`spike-lowered-tiny-melody.ir.json` を入力した raw lowering の canonical expected count は **38 events** とする。
+
+- `FMToneLoad` 1 件 → 29 raw writes (= SSG-EG 4 op field が存在するため 25 + 4)
+- `FMFrequency` 2 件 → 4 raw writes
+- `KeyOn` 2 件 → 2 raw writes
+- `KeyOff` 2 件 → 2 raw writes
+- `Tempo` 1 件 → semantic pass-through
+
+合計は raw 37 + semantic Tempo 1 = 38 events。 既存 §verify 計画 A の 34-38 events 幅は SSG-EG optional の一般式として残し、 本 fixture 固有の期待値は 38 events に固定する。
+
+選択肢:
+
+- **A. 件数幅 34-38 のまま fixture 判定する**: optional SSG-EG の一般性は残るが、 fixture regression として緩すぎる。
+- **B. fixture 固有値 38 を固定し、一般式 34-38 は仕様説明として残す**: regression が機械判定しやすく、 SSG-EG optional 仕様も維持できる。
+- **C. SSG-EG を fixture から除去して 34 events にする**: 最小化はできるが、 optional SSG-EG emit の proof が失われる。
+
+**採用: B**。 fixture は byte-identical 再生成の対象なので、 実 fixture の件数は固定値として扱う。
+
+### 決定 13: 本 ADR の verify gate は schema / byte-identical / script regression まで
+
+本 ADR の verify gate は docs + script + fixture 層に限定し、 driver / runtime / audio gate は要求しない。
+
+選択肢:
+
+- **A. raw register 列を MAME 実行まで接続して音で確認する**: end-to-end の安心感はあるが、 `.mn` 生成 / driver bridge / runtime fixture が必要になり本 ADR scope を越える。
+- **B. JSON schema validate + spike 再実行 byte-identical + negative reject + 既存 v0.1/v0.2 regression に限定する**: ADR-0034 の「IR は compiler / WebApp intermediate」責務に合い、 driver 不変を守れる。
+- **C. verify なしで設計 ADR のみ完了とする**: doc-only としては成立するが、 raw lowering spike の proof には足りない。
+
+**採用: B**。 audio audition が必要な箇所は本 ADR では発生しない。 後続の driver trace 比較や FM/SSG 実音確認では **user gate 必要**として扱い、 本 ADR ではスキップする。
+
+### 決定 14: Tempo raw lowering は ADR-0035 では閉じず、 v0.3 `FMTimerSet` 候補へ送る
+
+Tempo を raw register write へ落とす判断は本 ADR では確定しない。
+
+選択肢:
+
+- **A. YM2610 Timer A/B register write へ直ちに lowering する**: raw 出力の完結性は上がるが、 tempo 単位 / timer 分周 / driver tick source の責務が混ざる。
+- **B. `Tempo` は semantic pass-through のまま維持し、 v0.3 `FMTimerSet` または driver bridge ADR で扱う**: ADR-0034 の 3 層構造を守り、 runtime tick 設計を先送りできる。
+- **C. Tempo を drop する**: raw register 列のみを見れば単純だが、 IR の音楽的意味を壊す。
+
+**採用: B**。 Tempo は raw register lowering の未完ではなく、 runtime clock / driver bridge 側の別責務として残す。
+
+### 決定 15: ADR-0036 / FM driver 軸への接続は「仕様 oracle」であり branch blocker ではない
+
+ADR-0035 の RawRegisterWrite 出力は、 FM/SSG driver 軸で期待 register trace を作る際の **仕様 oracle**として使える。 ただし ADR-0035 Accepted 完了を FM/SSG 軸着手の blocking condition にはしない。
+
+選択肢:
+
+- **A. ADR-0035 Accepted 後まで FM/SSG 軸を止める**: 仕様同期は強いが、 並走方針に反する。
+- **B. ADR-0035 Draft の §決定 1-14 を仕様 oracle として使い、 driver trace fixture は後続 ADR で独立 verify する**: 並走しつつ、 register 仕様の重複判断を避けられる。
+- **C. FM/SSG driver 軸は ADR-0035 と完全に切り離す**: 独立性は高いが、 同じ YM2610 register 仕様を二重に決める risk がある。
+
+**採用: B**。 ADR-0036 ではこの接続を「IR 出力 = 期待 trace の候補」として受け、 driver 実装 commit では MAME / ymfm trace / audio gate を別途満たす。
+
+### 決定 16: ADR-0035 の完了判定は Draft 維持 + 後続 commit chain の明示で閉じる
+
+本 session では ADR-0035 を Accepted に移行しない。 Draft のまま、 raw lowering spike の残り判断を本 §決定 11-16 に literal 化して閉じる。
+
+選択肢:
+
+- **A. 本 doc 追記 commit で Accepted にする**: 判断は閉じるが、 fixture / negative / regression chain が別 commit として残る場合に状態が先行する。
+- **B. Draft 維持で残り判断を閉じ、 Accepted 移行は spike fixture / regression commit chain 完走後の user 最終確認へ送る**: 状態と実体のずれを避けられる。
+- **C. ADR-0035 を ADR-0036 に統合する**: IR raw lowering と FM/SSG 並走方針の責務が混ざる。
+
+**採用: B**。 ADR-0035 は IR ChipEvent → RawRegisterWrite lowering spike の ground truth として Draft 維持、 ADR-0036 は FM/SSG 並走方針の別 ADR として新規起票する。
+
 ## scope-out (= 本 ADR / spike 不可触)
 
 - driver / runtime 変更なし (= `src/sound/` 配下不変)
@@ -225,15 +305,28 @@ v0.3 が必要になる場面 (= 本 sprint scope-out):
     - Tempo 1 件 → semantic pass-through (= raw 化しない、 そのまま output に含む)
     - **total = 33-37 raw + 1 semantic = 34-38 events**
 
-### B. negative fixtures
+### B. negative fixtures (= spike-level reject、 schema validation では PASS する)
 
-- `docs/design/intermediate-register-command/examples/v0.2/invalid/semantic-residual-note.ir.json`
-  - 入力 = Note (semantic) を含む IR
-  - 期待 = exit 65 reject (= 決定 3)
+**配置 path**: `docs/design/intermediate-register-command/examples/v0.2/spike-invalid/` (= 既存 `examples/v0.2/invalid/` は schema layer reject 用で、 spike layer reject は別 directory に分離。 schema validation 経路 (= `validate-ir-schema.py --invalid-examples ...`) に spike-level fixture を混入させると「reject expected, passed」 で誤検出するため)
 
-- `docs/design/intermediate-register-command/examples/v0.2/invalid/fmtoneload-unresolved-toneid.ir.json`
-  - 入力 = FMToneLoad で参照する toneId が `tones[]` に存在しない IR
-  - 期待 = exit 65 reject (= 決定 8)
+- `spike-invalid/semantic-residual-note.ir.json`
+  - 入力 = Note (semantic) を含む schema-valid な v0.2 IR
+  - 期待 = spike `ir-lower-raw-register-spike.py` 実行で exit 65 reject (= 決定 3)
+  - schema validation: PASS (= Note は v0.2 schema で valid event)
+
+- `spike-invalid/fmtoneload-unresolved-toneid.ir.json`
+  - 入力 = FMToneLoad で参照する `toneId` が `tones[]` に存在しない schema-valid な v0.2 IR
+  - 期待 = spike `ir-lower-raw-register-spike.py` 実行で exit 65 reject (= 決定 8)
+  - schema validation: PASS (= toneId reference 整合は schema 表現外、 spike layer で enforce)
+
+**verify approach** (= schema validation 経路と別軸):
+
+```bash
+python3 scripts/ir-lower-raw-register-spike.py <fixture> > /dev/null
+# 期待 exit code: 65
+```
+
+shell exit code 確認で reject 検証。 schema validation 経路 (= `validate-ir-schema.py`) には混入させない。
 
 ### C. regression
 
