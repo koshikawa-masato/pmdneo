@@ -1,0 +1,36 @@
+{
+  "$schema": "../../ir-schema-v0.2.schema.json",
+  "metadata": {
+    "magic": "PMDNEO-IR",
+    "version": 1,
+    "sourceDialect": "unknown",
+    "createdBy": "PMDNEO IR schema v0.2 keyon-keyoff-minimal example (= 2026-05-18 25th session、 chip layer KeyOn / KeyOff 単体 minimal positive fixture、 operatorMask 省略時 default = 15 の動作確認用)"
+  },
+  "targetProfile": "ym2610b",
+  "timing": {
+    "ticksPerBeat": 192
+  },
+  "channels": [
+    {
+      "channelId": { "kind": "fm", "index": 1 }
+    }
+  ],
+  "events": [
+    {
+      "tick": 0,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOn",
+      "channel": { "kind": "fm", "index": 1 }
+    },
+    {
+      "tick": 96,
+      "order": 0,
+      "trackId": 0,
+      "layer": "chip",
+      "type": "KeyOff",
+      "channel": { "kind": "fm", "index": 1 }
+    }
+  ]
+}

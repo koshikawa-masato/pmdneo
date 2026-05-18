@@ -4,18 +4,25 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
 
 ## 構成
 
-- `ir-schema-v0.1.schema.json`: JSON Schema draft-2020-12 本体 (= ADR-0034 §決定 1-6 を spec 化)
-- `examples/`: schema 適合 example file 群 (= positive fixture)
+- `ir-schema-v0.1.schema.json`: JSON Schema draft-2020-12 v0.1 本体 (= ADR-0034 §決定 1-6 を spec 化、 fully validated event 種 6 件)
+- `ir-schema-v0.2.schema.json`: v0.2 minimal ChipEvent 拡張 (= 25th session、 v0.1 baseline + FMToneLoad / FMFrequency / KeyOn / KeyOff 4 件追加、 fully validated event 種 10 件、 backwards-compatible)
+- `examples/`: v0.1 schema 適合 example file 群 (= positive fixture)
   - `minimal-fm-note.ir.json`: FM ch 2 で Tempo + ToneSelect + Note + Rest 4 event
   - `adpcma-trigger.ir.json`: ADPCM-A ch 1 で ADPCMATrigger 1 event
   - `raw-register-write.ir.json`: reg 0x27 FM3 mode RawRegisterWrite 1 event
-- `examples/invalid/`: schema validation が **失敗する** ことを期待する fixture 群 (= negative fixture)
+- `examples/invalid/`: v0.1 schema validation が **失敗する** ことを期待する fixture 群 (= negative fixture)
   - `bad-magic.ir.json`: `metadata.magic` const violation (= "PMDNEO-IR" 以外)
   - `unknown-event-type.ir.json`: events oneOf 不適合 (= semantic / Portamento は v0.1 未定義 type)
   - `invalid-channel-kind.ir.json`: `channelId.kind` enum violation (= "opm" 等は対象外)
   - `raw-register-out-of-range.ir.json`: `RawRegisterWrite.address` / `data` maximum violation (= 256 以上)
   - `missing-required-field.ir.json`: Note event の `duration` 欠落 (= required violation)
   - `zero-duration-rest.ir.json`: Rest event の `duration: 0` (= RestEvent.duration minimum 1 violation、 PR #3 review 反映)
+- `examples/v0.2/`: v0.2 schema 適合 example file 群 (= positive fixture)
+  - `chipevent-fm-note-lowered.ir.json`: `minimal-fm-note.ir.json` の semantic Note を chip layer (= FMToneLoad / FMFrequency / KeyOn / KeyOff) に lowering した hand-crafted fixture
+  - `keyon-keyoff-minimal.ir.json`: chip KeyOn / KeyOff の minimal 単体 (= `operatorMask` 省略時 default = 15 動作確認)
+- `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群
+  - `fmfrequency-out-of-range.ir.json`: `FMFrequency.block` = 8 / `fnum` = 2048 (= maximum violation)
+  - `keyon-non-fm-channel.ir.json`: `KeyOn.channel.kind` = "ssg" (= FMChannelId.kind const "fm" violation、 v0.2 minimal scope literal)
 
 ## v0.1 で fully validated な event types (= 6 件)
 
@@ -28,13 +35,24 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
 | chip | `ADPCMATrigger` | §決定 5 |
 | raw | `RawRegisterWrite` | §決定 3 |
 
-v0.2 以降の event types (= 拡張予定): `KeyOn` / `KeyOff` / `FMToneLoad` / `FMFrequency` / `FM3Mode` (= 軸 4 ratify) / `ADPCMBDma` / `Volume` / `Pan` / `LoopStart` / `LoopEnd` 他。
+## v0.2 で追加された event types (= 4 件、 25th session)
+
+| layer | type | 用途 |
+|---|---|---|
+| chip | `FMToneLoad` | ToneSelect (semantic) を chip lowering したもの。 `tones[]` から `toneId` で参照される FM tone param を ch slot にロード |
+| chip | `FMFrequency` | YM2610 FM frequency 設定 (= `block` 3-bit + `fnum` 11-bit) |
+| chip | `KeyOn` | FM ch keyon (= `operatorMask` で op 1-4 個別有効化、 省略時 15 = 全 op) |
+| chip | `KeyOff` | FM ch keyoff (= `operatorMask` で op 1-4 個別無効化、 省略時 15 = 全 op) |
+
+v0.2 minimal scope は **FM ch のみ** (= `FMChannelId` const "fm" 制約)。 ADPCM-A keyon は既存 `ADPCMATrigger` 経由。
+
+v0.3 以降の event types (= 拡張予定): `FM3Mode` (= 軸 4 ratify) / `ADPCMBDma` / `Volume` / `Pan` / `LoopStart` / `LoopEnd` / SSG 用 chip event 等。
 
 ## 検証 command
 
 repo root で実行。
 
-### positive validation のみ (= default)
+### v0.1 positive validation のみ (= default)
 
 ```bash
 python3 scripts/validate-ir-schema.py
@@ -47,7 +65,7 @@ python3 scripts/validate-ir-schema.py
 
 期待 exit: **0** (= 全 positive example が PASS)
 
-### positive + negative validation
+### v0.1 positive + negative validation
 
 ```bash
 python3 scripts/validate-ir-schema.py \
@@ -61,6 +79,25 @@ python3 scripts/validate-ir-schema.py \
 3. 各 invalid fixture の representative error (= JSON pointer 式 location + message) を表示
 
 期待 exit: **0** (= 全 invalid fixture が想定通り reject される)
+
+### v0.2 positive + negative validation
+
+```bash
+python3 scripts/validate-ir-schema.py \
+  --schema docs/design/intermediate-register-command/ir-schema-v0.2.schema.json \
+  --examples 'docs/design/intermediate-register-command/examples/v0.2/*.ir.json' \
+  --invalid-examples 'docs/design/intermediate-register-command/examples/v0.2/invalid/*.ir.json'
+```
+
+実行内容:
+
+1. schema v0.2 meta-validation
+2. `examples/v0.2/*.ir.json` 全件 (= chipevent-fm-note-lowered + keyon-keyoff-minimal) が v0.2 schema に適合
+3. `examples/v0.2/invalid/*.ir.json` 全件 (= fmfrequency-out-of-range + keyon-non-fm-channel) が schema validation で失敗
+
+期待 exit: **0**
+
+backwards compat 確認 (= v0.1 fixture が v0.2 schema で通る) は `--schema` を v0.2 にして `--examples 'examples/*.ir.json'` で実行可能。
 
 ### option
 
