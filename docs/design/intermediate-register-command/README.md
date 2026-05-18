@@ -22,6 +22,7 @@ PMDNEO の compiler / WebApp intermediate format。 ADR-0034 (= 24th session rat
   - `keyon-keyoff-minimal.ir.json`: chip KeyOn / KeyOff の minimal 単体 (= `operatorMask` 省略時 default = 15 動作確認)
   - `spike-lowered-tiny-melody.ir.json`: tiny-melody.mml chain (= MML → v0.1 IR → v0.2 IR) の spike 出力 deterministic sample
   - `spike-lowered-unsorted-events.ir.json`: `spike-fixtures/unsorted-events.ir.json` の spike 出力 (= input array 順と (tick, order) 順が逆の valid v0.1 IR を spike が semantic 真順で処理した literal 証跡、 PR #4 review finding 4 反映)
+  - `spike-rawlowered-tiny-melody.ir.json`: `spike-lowered-tiny-melody.ir.json` を `ir-lower-raw-register-spike.py` に通した出力 (= chip 4 種 → YM2610 RawRegisterWrite 列、 Tempo は semantic 保持、 38 events = raw 37 + semantic Tempo 1、 26th session γ / ADR-0035 §verify 計画 A 整合)
 - `examples/v0.2/invalid/`: v0.2 schema validation が **失敗する** ことを期待する fixture 群
   - `fmfrequency-out-of-range.ir.json`: `FMFrequency.block` = 8 / `fnum` = 2048 (= maximum violation)
   - `keyon-non-fm-channel.ir.json`: `KeyOn.channel.kind` = "ssg" (= FMChannelId.kind const "fm" violation、 v0.2 minimal scope literal)
@@ -95,7 +96,7 @@ python3 scripts/validate-ir-schema.py \
 実行内容:
 
 1. schema v0.2 meta-validation
-2. `examples/v0.2/*.ir.json` 全件 (= chipevent-fm-note-lowered + keyon-keyoff-minimal) が v0.2 schema に適合
+2. `examples/v0.2/*.ir.json` 全件 (= chipevent-fm-note-lowered + keyon-keyoff-minimal + spike-lowered-tiny-melody + spike-lowered-unsorted-events + spike-rawlowered-tiny-melody) が v0.2 schema に適合
 3. `examples/v0.2/invalid/*.ir.json` 全件 (= fmfrequency-out-of-range + keyon-non-fm-channel) が schema validation で失敗
 
 期待 exit: **0**
@@ -357,3 +358,113 @@ python3 scripts/validate-ir-schema.py \
 - raw register write lowering (= chip event は block/fnum / operatorMask 抽象維持、 register write 展開は別 sprint)
 - driver / runtime / `.mn` / `.PNE` / `.NEO` 生成
 - compiler 本体改修 / WebApp 実装 / automated CI 化
+
+---
+
+## IR → RawRegisterWrite lowering spike (v0.2)
+
+「IR の chip 層から raw 層 (= YM2610 register write 列) に落ちる最小の道がある」 ことを示す read-only spike。 compiler 本体 / WebApp / runtime / driver / `.mn` / `.PNE` は touch しない。 ADR-0035 (= 26th session) で設計 fix。
+
+### path / 入出力
+
+- path: `scripts/ir-lower-raw-register-spike.py` (= chmod +x、 Python 3.10+)
+- 入力: v0.2 ChipEvent lowered IR JSON (= `ir-lower-chipevent-spike.py` 出力想定、 Semantic→Chip lowering 完了済)
+- 出力: v0.2 RawRegisterWrite (+ Tempo semantic pass-through) IR JSON
+
+### lowering rule (= ADR-0035 §決定 1-9 整合)
+
+| 入力 event | 出力 |
+|---|---|
+| `Tempo` (semantic) | semantic Tempo として pass-through 1 件 |
+| `FMToneLoad` (chip) | `RawRegisterWrite` 25-29 件 (= DT/MUL/TL/KS,AR/AM,DR/SR/SL,RR × 4 op + AL/FB 1 + optional SSG-EG × 0-4 op) |
+| `FMFrequency` (chip) | `RawRegisterWrite` 2 件 (= 0xA4 high → 0xA0 low 順序固定、 latch は 0xA0 write) |
+| `KeyOn` (chip) | `RawRegisterWrite` 1 件 (= port 0 0x28、 data = `(operatorMask << 4) \| ch_code`) |
+| `KeyOff` (chip) | `RawRegisterWrite` 1 件 (= port 0 0x28、 data = `ch_code`、 上 4 bit clear で全 op release、 §決定 7) |
+| `ADPCMATrigger` (chip) | pass-through 1 件 (= chip layer 維持、 raw 化は別 sprint) |
+| `RawRegisterWrite` (raw) | pass-through 1 件 |
+| `Note` / `Rest` / `ToneSelect` (semantic) | exit 65 reject (= 前段 Semantic→Chip lowering 不徹底) |
+
+### YM2610 routing (= ADR-0035 §決定 4)
+
+| FM index (IR) | port | ch_offset | KeyOn ch_code |
+|---:|---:|---:|---:|
+| 1 / 2 / 3 | 0 | 0 / 1 / 2 | 0x00 / 0x01 / 0x02 |
+| 4 / 5 / 6 | 1 | 0 / 1 / 2 | 0x04 / 0x05 / 0x06 |
+
+KeyOn / KeyOff の 0x28 のみ port 0 で全 ch 制御 (= bit 2 で port 識別、 bit 0-1 で ch_offset)。
+
+operator slot order (= ADR-0035 §決定 8、 YM2608/YM2610 仕様、 PMD/MewFM 整合): op1 → 0x00 / op2 → 0x08 / op3 → 0x04 / op4 → 0x0C。
+
+### 順序 invariant
+
+入力 IR は `(tick, trackId, order)` 昇順で sort 後、 linear scan で emit。 ChipEvent は 1 件 raw 複数件に展開、 展開列内部は tone → freq → keyon → keyoff 維持。 pass-through は 1 件をその layer/type のまま 1 件 emit。 output allocator が emit 順に order を再採番し、 最後に出力全体を `(tick, order)` で sort 正規化。 ADR-0035 §決定 9。
+
+### timing 制約 / 重複 reject
+
+`timing.timeMode` は `"absolute"` のみ受け付ける (= "delta" は exit 65 reject)。 同一 `(tick, trackId, order)` 重複は sort 前に exit 65 reject。 (= 25th session β spike 規律踏襲)
+
+### 検証 command
+
+```bash
+python3 scripts/ir-lower-raw-register-spike.py <input.ir.json> [--output <path>] [--stats]
+```
+
+### 検証例
+
+`spike-lowered-tiny-melody.ir.json` (= 25th session β output) を入力に連結再現:
+
+```bash
+python3 scripts/ir-lower-raw-register-spike.py \
+  docs/design/intermediate-register-command/examples/v0.2/spike-lowered-tiny-melody.ir.json \
+  --output /tmp/tiny-melody.rawlowered.ir.json --stats
+
+diff docs/design/intermediate-register-command/examples/v0.2/spike-rawlowered-tiny-melody.ir.json \
+  /tmp/tiny-melody.rawlowered.ir.json
+```
+
+期待: 8 events → 38 events (= raw 37 + semantic Tempo 1)、 diff 0 行 (= deterministic byte-identical)、 exit 0。
+
+MML → v0.1 IR → v0.2 chip IR → v0.2 raw IR の full chain:
+
+```bash
+python3 scripts/mml-to-ir-spike.py \
+  docs/design/intermediate-register-command/spike-fixtures/tiny-melody.mml \
+  --output /tmp/tiny-melody.ir.json
+
+python3 scripts/ir-lower-chipevent-spike.py \
+  /tmp/tiny-melody.ir.json \
+  --output /tmp/tiny-melody.chiplowered.ir.json
+
+python3 scripts/ir-lower-raw-register-spike.py \
+  /tmp/tiny-melody.chiplowered.ir.json \
+  --output /tmp/tiny-melody.rawlowered.ir.json --stats
+
+python3 scripts/validate-ir-schema.py \
+  --schema docs/design/intermediate-register-command/ir-schema-v0.2.schema.json \
+  --examples /tmp/tiny-melody.rawlowered.ir.json
+```
+
+期待: MML 6 event → v0.1 IR 6 event → v0.2 chip IR 8 event → v0.2 raw IR 38 event、 validator exit 0 + 1/1 PASS。
+
+### exit code (= ir-lower-raw-register-spike.py)
+
+| code | 意味 |
+|---|---|
+| 0 | OK (= raw lowering 成功) |
+| 64 | argument error (= input file not found / JSON parse error / required field missing) |
+| 65 | lowering parse error (= semantic 残存 / toneId 未解決 / tone schema 違反 / scope 外 channel / range out / `timeMode != "absolute"` / `(tick, trackId, order)` 重複 等) |
+| 66 | runtime error |
+
+### fixture
+
+- 入力 (= chain): `examples/v0.2/spike-lowered-tiny-melody.ir.json` (= 25th session β output)
+- 出力例 (= 委員会 review 用 committed sample): `examples/v0.2/spike-rawlowered-tiny-melody.ir.json` (= 38 event 出力、 spike 再実行で byte-identical 再生可能な deterministic output、 26th session γ)
+
+### spike scope-out (= ADR-0035 §scope-out 抜粋)
+
+- ADPCMATrigger raw 化 (= chip pass-through 維持、 別 sprint)
+- Tempo の chip lowering (= `FMTimerSet` 等、 v0.3)
+- FM3Mode / Volume / Pan / LoopStart / LoopEnd / ADPCMBDma
+- SSG / ADPCM-B / rhythm_kr channel
+- optimization / cache / 重複 register write 削減 / barrier 解決
+- driver / runtime / `.mn` / `.PNE` / `.NEO` / WebApp / pitch correction / aesthetic audition / automated CI 化
