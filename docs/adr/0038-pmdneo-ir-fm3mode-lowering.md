@@ -102,7 +102,8 @@ raw lowering を defer したため、 28 γ spike は次の最小 scope:
 - 新規 spike `scripts/ir-lower-fm3mode-spike.py` (= or 既存 spike 拡張)
 - 入力: v0.4 IR (= FM3Mode event を含む)
 - 出力: v0.4 IR (= FM3Mode を pass-through、 他 event も pass-through、 chip-to-chip identity)
-- validation: schema 表現外の制約 (= FM3Mode の operatorBlock/operatorFnum range の defense in depth、 keyPolicy enum check、 mode 切替直前 KeyOff 推奨警告 diagnostics 等)
+- validation: schema 表現外の制約 (= FM3Mode の operatorBlock/operatorFnum range の defense in depth、 keyPolicy enum check 等)
+- **diagnostics 出力 (= mode 切替直前 KeyOff 推奨警告 等) は本 spike scope-out** (= 別 sprint で扱う、 spike 実装 + README と整合)
 - ADR-0035 raw spike pattern 踏襲 (= sort + 重複 reject + timeMode delta reject + allocator)
 
 「lowering spike」 ではなく「chip event validation spike」 という性質に縮小。 raw lowering proof は v0.5 別 ADR で。
