@@ -169,7 +169,7 @@ stacked PR chain: main ← #3/#4/#5 merged ← #6 ADR-0037 ← #7 v0.3 impl ← 
 | 主 register | 0x26 (= TIMER-B counter) | 0x27 bit 6 (= 3-slot mode) + 0xA8-0xAD |
 | 0x27 bit 6 規律 | **非破壊** | **能動的 set / clear** |
 | chip 化対象 | initial Tempo のみ (= runtime tempo は defer) | 全 enable/disable + operator pitch (= optimization は別軸 defer) |
-| 数値 literal defer | counter (= driver runtime 軸同期) | operator-register mapping (= datasheet + ymfm 整合段階で fix) |
+| 数値 literal defer | counter (= driver runtime 軸同期) | raw lowering 全体 + RMW event 設計 (= operator-register mapping + 0x27 RMW semantics、 v0.5 以降別 ADR で fix) |
 | schema | v0.3 で追加 | v0.4 で追加 |
 
 両 ADR は 0x27 register を共有しつつ責務分担: FMTimerSet = bit 6 保護、 FM3Mode = bit 6 制御。
