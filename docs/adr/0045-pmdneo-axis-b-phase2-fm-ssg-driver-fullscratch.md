@@ -79,7 +79,7 @@ ADR-0041 §決定 4 規律 (= sub-agent ↔ Codex 2 段壁打ち + 3 重 zero-tr
 
 | sub | 名称 | 内容 | 完了判定 | driver touch |
 |---|---|---|---|---|
-| **α** | driver archaeology + Phase 2 scope 確定 | 既存 PMDDotNETDriver (= `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` + `PMD.cs` + `PCMDRV.cs` + `PCMLOAD.cs` + `PPZDRV.cs` + `EFCDRV.cs` + `OPNATimer.cs` ground truth、 FM/SSG dispatch routine は driver.cs/PMD.cs 内に統合配置 = 別 file 派生なし) reference + `src/driver/standalone_test.s` 本線 FM/SSG 部分 inventory + Phase 2 fullscratch boundary literal 化 (= 何を replace、 何を保護) + F-2-B ch3 4-op 既存 PMDPPZ 流儀 reference + ADR Annex 化 | 主要 routine pattern reference + 既存 driver inventory (= FM 6ch dispatch / SSG 3ch dispatch 現状) + boundary literal + driver source touch なし、 doc-only | なし |
+| **α** | driver archaeology + Phase 2 scope 確定 | 既存 PMDDotNETDriver (= `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` + `PMD.cs` + `PCMDRV.cs` + `PCMLOAD.cs` + `PPZDRV.cs` + `EFCDRV.cs` + `OPNATimer.cs` ground truth、 FM/SSG dispatch routine は driver.cs/PMD.cs 内に統合配置 = 別 file 派生なし) reference + `src/driver/standalone_test.s` 本線 FM/SSG 部分 inventory + Phase 2 fullscratch boundary literal 化 (= 何を replace、 何を保護) + F-2-B ch3 4-op 既存 PMDPPZ 流儀 reference + ADR Annex 化 | 主要 routine pattern reference + 既存 driver inventory (= FM 6ch dispatch / SSG 3ch dispatch 現状) + boundary literal + driver source touch なし、 doc-only | なし (= **完了 = 37th session α sub-sprint、 Annex D + Annex E 追加**) |
 | **β** | 最小設計 + interface 固定 | α inventory base で fullscratch driver interface 設計 (= FM/SSG dispatch routine 境界 + register write sequence + chip target flag 接続 + 既存 ADR-0023+ routine 不可触保護方針 + F-2-B ch3 4-op integration 経路) + ADR §決定 追加 | interface 設計 ADR 追加 + 既存 routine 不可触 literal 確認 + F-2-B 統合点 literal、 driver source touch なし | 設計のみ |
 | **γ** | proof / spike (= 最小 routine 1 つ proof) | β interface design を **Python spike script** (= standard library only、 `scripts/*-spike.py`) で proof + 期待 register write sequence literal + 既存 driver behavior と byte-identical 比較 (= register trace primary gate、 spike script が emit する期待値 vs 既存 driver の実 trace) | Python spike script 実装 + register trace 期待値一致 + 既存 ADR-0023+ baseline byte-identical 維持 + **driver source touch なし** (= spike は Python のみ、 driver source は α-δ 全段で完全不変) | なし (= spike script のみ) |
 | **δ** | integration (= 既存 driver と並走 + sub-axis 分解計画) | γ proof base で FM 6ch / SSG 3ch / ADPCM-A 6ch / ADPCM-B 1ch sub-axis 分解 + F-2-B ch3 4-op integration + 軸 C/G との接続点 literal + 実装 sprint chain 計画 (= verify gate strategy + audio gate strategy) | sub-axis 分解 ADR + 軸 C ADR-0043 不可触確認 + 軸 G ADR-0048 不可触確認 + F-2-B integration 経路確定 + 実装 sprint chain 計画 literal | 設計のみ |
@@ -320,6 +320,373 @@ doc-only sprint なので実装 verify (= build OK + register trace + audio gate
 5. ADR-0044 Accepted 状態 + ADR-0048 Draft 状態 + 軸 G ε partial complete state 完全不可触
 6. ADR Draft → Accepted 移行は ε 段で user 判断 gate (= 自動 trigger しない)
 
+## Annex D: 軸 B α 完了 = driver archaeology findings (= 37th session α sub-sprint deliverable、 doc-only investigation)
+
+α sub-sprint 投入 (= 37th session、 user 明示 GO 経由) で実 source 調査を主軸単独で実施 (= driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 read-only investigation)。
+
+### D-1: src/driver/ inventory (= 9 file 6777 行 = `wc -l` `.s` + `.inc` 集計、 `README.md` 等 docs 除外)
+
+| file | 行数 | 役割 |
+|---|---|---|
+| `src/driver/standalone_test.s` | 4055 | **本線 host** = ADR-0016 step 1-18 後段 + ADR-0021〜0032 + ADR-0043 + ADR-0048 累積 implementation、 hook framework + ADR-extended routine 配置 (= 詳細 D-3-b/c) |
+| `src/driver/PMD_Z80.inc` | 2213 | **PMD V4.8s 由来 legacy core** = `pmdneo_init` / `pmdneo_load_m` / `pmdneo_song_main` / `fmmain` / `pmdneo_psgmain` / `adpcmb_main` / `rhythm_main` 配置 (= 詳細 D-3-a)、 ADR-0017 §決定 1 「nullsound-free driver 本線として再評価」 + 軸 B α 調査時点で標準 PMDNEO 経路の参照対象として有効 (= 「接続点なし legacy」 と memory `project_pmdneo_driver_two_paths_discovery.md` に記述があるが、 IRQ.inc::71-81 から `pmdneo_init` / `pmdneo_load_m` 呼出経路あり = ADR 起票時の調査 finding、 詳細は D-6/D-11) |
+| `src/driver/WORKAREA.inc` | 137 | per-part workarea SRAM layout 定数 = `PART_COUNT = 17` (= legacy 値)、 standalone_test.s が `PART_COUNT = 20` で上書き (= ADR-0006 §A 20 part 規約、 詳細 D-4) |
+| `src/driver/IRQ.inc` | 121 | TIMER-B IRQ handler + sound command jump table (= cmd 0x00-0x05) |
+| `src/driver/ADPCMB_DRV.inc` | 72 | ADPCM-B init (= ADR-0043 から呼び出される adpcmb_init 等) |
+| `src/driver/PMDNEO.s` | 60 | legacy entry point (= minimal、 軸 B 範囲外) |
+| `src/driver/KR_STUB.inc` | 52 | K/R rhythm legacy stub (= ADR-0026+ dispatch source) |
+| `src/driver/ADPCMA_DRV.inc` | 48 | ADPCM-A legacy / stub |
+| `src/driver/REGMAP.inc` | 19 | YM2610/B chip register 定数 (= nullsound `ports.inc` + `ym2610.inc` include) |
+
+注: 集計対象 = `*.s` + `*.inc` のみ、 `README.md` 等の docs 除外。
+
+### D-2: vendor PMDDotNETDriver/ inventory (= 14 file 20130 行 = `wc -l` `.cs` 集計、 `.csproj` 除外、 ground truth reference、 軸 B 範囲外で touch なし)
+
+| file | 行数 | 役割 |
+|---|---|---|
+| `vendor/PMDDotNET/PMDDotNETDriver/PMD.cs` | 10748 | **MAIN driver core** (= PMD 駆動主体、 `mmain()` / `fmmain()` / `psgmain()` / `play_init()` / `data_init()` / `opn_init()` 統合配置) |
+| `vendor/PMDDotNET/PMDDotNETDriver/PW.cs` | 2167 | PartWork struct (= per-part workarea struct、 Z80 移植元) |
+| `vendor/PMDDotNET/PMDDotNETDriver/PCMDRV86.cs` | 1903 | PC-86 PCM driver (= 軸 B 範囲外) |
+| `vendor/PMDDotNET/PMDDotNETDriver/PCMLOAD.cs` | 1256 | `.PPC` loader (= 軸 G ADR-0048 ground truth、 軸 B 範囲外) |
+| `vendor/PMDDotNET/PMDDotNETDriver/PPZDRV.cs` | 1135 | PPZ8 chip 駆動 driver (= 軸 B 範囲外、 PMDPPZ 流儀 reference) |
+| `vendor/PMDDotNET/PMDDotNETDriver/PCMDRV.cs` | 1063 | ADPCM-B driver (= 軸 G ADR-0048 ground truth、 軸 B 範囲外) |
+| `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` | 601 | PMDDotNETDriver entry / dispatch / Rendering() |
+| `vendor/PMDDotNET/PMDDotNETDriver/PPZ8em.cs` | 535 | PPZ8 emulator (= 軸 B 範囲外) |
+| `vendor/PMDDotNET/PMDDotNETDriver/EFCDRV.cs` | 329 | effect driver (= 軸 B 範囲外) |
+| `vendor/PMDDotNET/PMDDotNETDriver/x86Register.cs` | 148 | x86 register 模倣 (= Z80 移植 reference) |
+| `vendor/PMDDotNET/PMDDotNETDriver/Pc98.cs` | 106 | PC-98 platform |
+| `vendor/PMDDotNET/PMDDotNETDriver/OPNATimer.cs` | 86 | OPNA timer (= TIMER-A / TIMER-B) 駆動 |
+| `vendor/PMDDotNET/PMDDotNETDriver/PPZChannelWork.cs` | 30 | PPZ8 channel work |
+| `vendor/PMDDotNET/PMDDotNETDriver/PMDDotNETOption.cs` | 23 | option 構造 |
+
+**重要 finding**: `PMD.cs` 10748 行が PMDDotNET driver core で、 ADR-0045 起票時の Annex B 推定値「約 8000 行」 は actual = **10748 行** に訂正必要 (= α 段で確定、 Annex B 行数は α 段で確定するとの注記済)。 FM/SSG dispatch routine は `PMD.cs` 内 `fmmain()` (L1216) / `psgmain()` (L1645) として配置 = 別 file 派生なし、 Annex B literal 確認。
+
+### D-3: driver routine map (= file 別 + 責務 grouping、 3 階層 = PMD_Z80.inc legacy core / standalone_test.s 本線 hook framework / standalone_test.s ADR-extended routine)
+
+#### D-3-a: PMD_Z80.inc PMD V4.8s 由来 legacy core routine (= top-level `::` labels、 軸 B α verify で 31 件 label 確認)
+
+| routine | 行 | 責務 | ADR mapping |
+|---|---|---|---|
+| `pmdneo_init::` | 29 | driver init (= SSG mixer + TIMER-B 起動 + driver state init) | ADR-0016 step 1 |
+| `fnumsetp::` | 253 | PSG fnum entry | PMD V4.8s 流儀 |
+| `fnumsetp_ch::` | 257 | PSG fnum per-ch | PMD V4.8s 流儀 |
+| `pmdneo_load_m::` | 414 | .M / .MN binary header parse + per-part body address set | ADR-0016 step 4 |
+| `pmdneo_song_main::` | 1133 | legacy song main entry | PMD V4.8s 由来 (= standalone 側に同名 routine L1810 あり、 詳細 D-3-b) |
+| `pmdneo_part_ix_from_part::` | 1163 | part 番号 → workarea index | PMD V4.8s 流儀 |
+| `pmdneo_part_fetch_byte::` | 1183 | MML byte parser | PMD V4.8s 流儀 |
+| `pmdneo_psg_keyon::` | 1195 | PSG keyon | PMD V4.8s 流儀 |
+| `pmdneo_psg_keyoff::` | 1212 | PSG keyoff | PMD V4.8s 流儀 |
+| `pmdneo_fm_keyon::` | 1228 | FM keyon | PMD V4.8s 流儀 |
+| `pmdneo_fm_keyoff::` | 1246 | FM keyoff | PMD V4.8s 流儀 |
+| `fmmain::` | 1266 | FM main per-part dispatch | PMD V4.8s 由来 |
+| `pmdneo_psgmain::` | 1335 | SSG main per-part dispatch | PMD V4.8s 由来 |
+| `adpcmb_main::` | 1402 | ADPCM-B main per-part dispatch | PMD V4.8s 由来 |
+| `rhythm_main::` | 1466 | K/R rhythm dispatch | PMD V4.8s 由来 |
+| `pmd_z80_main` | 119 | TIMER-B IRQ tick → song dispatch entry (= IRQ.inc 経由呼出、 D-6) | ADR-0016 step 4-2 |
+
+その他: `pmdneo_scale_mml_length::` L1529 / `commandsp::` L1558 / `commandsr::` L1574 (= MML command tables) / `test_play_*` (= 古い test routine 群) / `test_fm_song_data::` L1043 / `adpcm_b_beat_struct::` L2192 / `test_play_adpcmb_beat::` L2210。
+
+#### D-3-b: standalone_test.s 本線 hook framework (= 軸 B replacement target literal 軸)
+
+standalone_test.s には PMD V4.8s 由来 routine と同名の `pmdneo_song_main:` L1810 (= 本線 entry) があり、 hook framework 経由で FM/SSG/ADPCM dispatch を行う。 hook の install + dispatcher + 実装 hook 配置:
+
+| routine | 行 | 責務 |
+|---|---|---|
+| `pmdneo_song_main:` | 1810 | 本線 song main loop entry (= standalone 側、 PMD_Z80.inc L1133 とは別 routine) |
+| `pmdneo_song_main_loop:` | 1812 | per-tick main loop body |
+| `pmdneo_song_main_rhythm:` | 1828 | rhythm dispatch |
+| `pmdneo_part_ix_from_part:` | 1845 | standalone 側 part 番号 → workarea |
+| `pmdneo_part_fetch_byte:` | 1862 | standalone 側 MML byte parse |
+| `pmdneo_part_main:` | 1910 | per-part main dispatch (= 本線、 hook 呼出経路) |
+| `pmdneo5_init_part_hooks_fm:` | 1736 | hook install: FM hooks setup |
+| `pmdneo5_init_part_hooks_psg:` | (= L1729 jp dest) | hook install: PSG hooks setup |
+| `pmdneo5_init_part_hooks_pcm:` | (= L1731 jp dest) | hook install: ADPCM-B hooks setup |
+| `pmdneo5_init_part_hooks_adpcma:` | (= L1734 jp dest) | hook install: ADPCM-A hooks setup |
+| `pmdneo5_init_part_hooks_noop:` | (= L1725/L1733 jp dest) | hook install: K/R/X/Y/Z = noop (= 当面 mute literal) |
+| `pmdneo_part_call_keyon_hook:` | 2087 | hook dispatcher: keyon |
+| `pmdneo_part_call_keyoff_hook:` | 2092 | hook dispatcher: keyoff |
+| `pmdneo_part_call_fnumset_hook:` | 2097 | hook dispatcher: fnumset |
+| `pmdneo_part_call_volume_hook:` | 2102 | hook dispatcher: volume |
+| `fm_keyon_hook:` | 2595 | FM keyon hook impl |
+| `fm_keyoff_hook:` | 2602 | FM keyoff hook impl |
+| `fnumset_fm_hook:` | 2607 | FM fnum hook impl |
+| `fm_volume_hook:` | 2616 | FM volume hook impl |
+| `psg_keyon_hook:` | 2674 | PSG keyon hook impl |
+| `ssg_keyoff_hook:` | 2679 | SSG keyoff hook impl |
+| `fnumsetp_ch_hook:` | 2684 | PSG fnum hook impl |
+| `psg_volume_hook:` | 2692 | PSG volume hook impl |
+| `adpcmb_keyon_hook:` | 2710 | ADPCM-B keyon hook impl |
+| `adpcmb_keyoff_hook:` | 2715 | ADPCM-B keyoff hook impl |
+| `adpcmb_volume_hook:` | 2721 | ADPCM-B volume hook impl |
+| `adpcma_volume_hook:` | 2741 | ADPCM-A volume hook impl |
+| `adpcma_keyon_hook:` | 2758 | ADPCM-A keyon hook impl |
+| `adpcma_keyoff_hook:` | 2764 | ADPCM-A keyoff hook impl |
+| `noop_hook:` | 2767 | noop hook (= K/R/X/Y/Z 配線先) |
+
+軸 B fullscratch driver は **standalone hook framework に並設 routine 追加** or **新規 hook 配線** で実装 (= 既存 hook impl は不可触保護)。
+
+#### D-3-c: standalone_test.s ADR-extended routine (= ADR-0021〜0048 累積 implementation、 不可触保護対象)
+
+| routine | 行 | 責務 | ADR mapping |
+|---|---|---|---|
+| `fnumset_fm:` | 758 | FM fnum register write 実装 (= hook 経由呼出) | ADR-0016 step 後段 |
+| `fnumset_fm_porta:` | 816 | FM portamento variant | ADR-0016 step 後段 |
+| `init_ssg_voice:` | 835 | SSG voice init | ADR-0016 step 後段 |
+| `fnumset_ssg:` | 852 | SSG fnum register write 実装 | ADR-0016 step 後段 |
+| `ssg_keyoff:` | 904 | SSG keyoff 実装 | ADR-0016 step 後段 |
+| `ssg_keyon:` | 915 | SSG keyon 実装 | ADR-0016 step 後段 |
+| `fm_keyoff:` | 973 | FM keyoff 実装 | ADR-0016 step 後段 |
+| `fm_keyon:` | 987 | FM keyon 実装 | ADR-0016 step 後段 |
+| `pmdneo_fm_write_reg_ch:` | 1001 | FM ch-specific register write | ADR-0016 step 後段 |
+| `pmdneo_fm_write_voice_group_ch:` | 1029 | FM voice group write | ADR-0016 step 後段 |
+| `pmdneo_fm_clear_ssg_eg_ch:` | 1044 | SSG-EG clear | ADR-0016 step 後段 |
+| `pmdneo_fm_voice_set_default:` | 1059 | FM voice default | ADR-0016 step 後段 |
+| `pmdneo_fm_voice_set:` | 1063 | FM voice set | ADR-0016 step 後段 |
+| `adpcmb_keyon:` | 2794 | ADPCM-B keyon entry (= hook 経由呼出) | ADR-0043 |
+| `adpcmb_keyon_have_sample:` | 2829 | ADPCM-B keyon body (= sample addr 確定後) | ADR-0043 |
+| `adpcmb_keyoff:` | 2876 | ADPCM-B keyoff 実装 | ADR-0043 |
+| `pmdneo_select_adpcmb_ppc_pointer:` | 2901 | 軸 G PPC runtime selection | ADR-0048 δ |
+| `pmdneo_select_adpcmb_sample_pointer:` | 2949 | ADPCM-B sample pointer 選択 | ADR-0043 |
+| `adpcma_init:` | 3054 | ADPCM-A init | ADR-0016 step 5 |
+| `adpcma_keyon_simple:` | 3079 | ADPCM-A keyon | ADR-0016 step 5 |
+| `adpcma_keyoff:` | 3164 | ADPCM-A keyoff | ADR-0016 step 5 |
+| `pne_sample_directory:` | 3227 | .PNE directory | ADR-0023 |
+| `pmdneo_resolve_sample_table_id:` | 3283 | sample_table_id resolver | ADR-0023 |
+| `pmdneo_select_sample_pointer:` | 3378 | sample pointer 選択 | ADR-0024/0025 |
+| `rhythm_main:` (= standalone 側 新規 entry) | 3450 | K/R rhythm dispatch 本線 (= PMD_Z80.inc L1466 とは別 entry、 ADR-0026+ 整備) | ADR-0026〜0031 |
+| `pmdneo_rhythm_event_trigger::` | 3535 | rhythm event trigger 統合 | ADR-0026〜0031 |
+| `_rhythm_event_*_trigger:` (= b/s/c/h/t/i) | 3562-3760 | drum 種別 trigger | ADR-0026〜0031 |
+| `pmdneo_mn_direct_load_lq_part_addr::` | 3921 | .MN L-Q part addr direct load | ADR-0021/0022 |
+| `pmdneo_mn_direct_load_k_part_addr::` | 4028 | .MN K part addr direct load | ADR-0021/0022 |
+
+軸 B α verify で **これら ADR-extended routine 全件 = 不可触保護対象**。 fullscratch driver は別 routine 並設 / 別 hook 配線で実装。
+
+### D-4: WORKAREA SRAM layout (= 0xF820-0xFFBF address map + ADR mapping、 PART_COUNT 2 段 finding)
+
+**finding**: `PART_COUNT` の値は 2 段存在 = standalone_test.s L119 `PART_COUNT = 20` (= ADR-0006 §A 20 part 規約、 本線、 1280 byte 0xF820-0xFD1F) と WORKAREA.inc L32 `PART_COUNT = 17` (= legacy 値、 1088 byte = 17 × 64)。 standalone_test.s が本線の 20 part 規約を実装し、 WORKAREA.inc の 17 は legacy。 軸 B 内で WORKAREA.inc 修正 = 不可触保護 (= ADR-0006 §A 規律維持で standalone 20 part 採用継続)。
+
+| addr range | size | field | ADR mapping |
+|---|---|---|---|
+| `0xF820-0xFD1F` | 1280 byte | `part_workarea` (= 20 part × 64 byte、 standalone PART_COUNT = 20 採用) | ADR-0006 §A |
+| `0xFD20-0xFD2F` | 16 byte | `driver_pne_filename_buf` | ADR-0022 §決定 4 |
+| `0xFD30-0xFD31` | 2 byte | `driver_pne_filename_adr_word` | ADR-0022 §決定 4 |
+| `0xFD32` | 1 byte | `driver_pne_sample_table_id` | ADR-0023 §決定 4 |
+| `0xFD33-0xFD36` | 4 byte | `ppc_scratch_start/stop_lsb/msb` | ADR-0048 §決定 8 軸 G δ |
+| `0xFD37-0xFD38` | 2 byte | `audition_frame_counter_lsb/msb` | ADR-0048 §決定 8 軸 G ε (test mode) |
+| `0xFD39-0xFFBF` | 647 byte | free / 後続 phase 用 | - (= 軸 B 拡張 placement 候補) |
+
+per-part workarea field offset (= WORKAREA.inc):
+
+| offset | field | 用途 |
+|---|---|---|
+| 0 | `PART_OFF_ADDR` (2 byte) | current stream pointer |
+| 2 | `PART_OFF_LOOP` (2 byte) | loop start pointer |
+| 4 | `PART_OFF_LEN` (1 byte) | length counter |
+| 5-8 | `PART_OFF_QDATA/B/2/3` | q gate time |
+| 9 | `PART_OFF_VOLUME` | volume |
+| 10 | `PART_OFF_SHIFT` | transposition |
+| 11 | `PART_OFF_NOTE` | last note |
+| 12 | `PART_OFF_LOOPCNT` | loop counter |
+| 13 | `PART_OFF_LFOSWI` | LFO switch flag |
+| 14 | `PART_OFF_PSGPAT` | PSG tone/noise/mix |
+| 15 | `PART_OFF_TIEFLAG` | tie flag |
+| 16-21 | `PART_OFF_ENVF/PAT/PV2/PR1/PR2/ENVVOL` | PSG envelope state |
+| 22 | `PART_OFF_FLAGS` | future use |
+| 28-29 | `PART_OFF_LOOPSTART/_HI` | L global loop marker |
+| 32-48 | `PART_OFF_LOOPSTACK_BASE/LOOPDEPTH` | loop stack |
+
+### D-5: driver_state global variables (= 0xF80x、 tempo/fade/song/loop/scale)
+
+| field | 用途 | ADR mapping |
+|---|---|---|
+| `driver_tempo_d` / `driver_tempo_d_push` | BPM-encoded accumulator delta | ADR-0006 §A |
+| `driver_tempo_48` / `driver_tempo_48_push` | 48-tick tempo | ADR-0006 §A |
+| `driver_psg_noise` | PSG noise global | ADR-0006 §A |
+| `driver_tieflag` | tie flag global | ADR-0006 §A |
+| `driver_song_ready` / `driver_song_base` / `driver_song_end` | song state | ADR-0016 step 4 |
+| `driver_fade_state/counter/master/speed` | fade state | SubF-1 |
+| `driver_loop_cycle` | BD part LOOP cycle counter | ADR-0026+ |
+| `driver_subtick_acc` | sub-tick accumulator | SubF-1.1 |
+| `pmdneo_irq_count` | TIMER-B IRQ counter (16-bit) | SubB-2 |
+| `scale_step/scale_tick_lo/hi/scale_mode` | scale 演奏 state (= legacy test routine) | SubB-4/SubC-2 |
+
+### D-6: IRQ flow (= TIMER-B → nullsound NMI → polling loop → pmd_z80_main)
+
+```
+YM2610 TIMER-B 周期発火
+  ↓
+nullsound NMI handler
+  ↓
+update_timer_state_tracker (= nullsound provided)
+  ↓
+state_timer_tick_reached = 1 set
+  ↓
+pmdneo_play_loop (= IRQ.inc::74)
+  - state_timer_tick_reached を poll
+  - 1 検出時に xor a (= clear) + pmd_z80_main call
+  ↓
+pmd_z80_main (= PMD_Z80.inc:119 配置、 PMD V4.8s 由来 entry、 standalone_test.s 側に同名でなく
+                 standalone_test.s 本線 song 駆動は同 file 内の pmdneo_song_main: L1810 経路)
+  - pmdneo_irq_count increment
+  - per-part main loop (= PMD_Z80.inc 側 fmmain L1266 / pmdneo_psgmain L1335 / adpcmb_main L1402 / rhythm_main L1466、
+                          standalone 側 hook framework は pmdneo_part_call_*_hook L2087+ 経由で fm_*_hook L2595+ / psg_*_hook L2674+ / adpcmb_*_hook L2710+ / adpcma_*_hook L2741+ を dispatch)
+  - chip register write
+  - tempo / fade / mask 等 global state update
+```
+
+軸 G ε 切り分け 5 finding (= TIMER-B IRQ rate 6 秒で 2 回発火) は本 IRQ flow の TIMER-B 設定 + nullsound integration 部分 = 軸 G ζ 案 X TIMER-B 改修候補 scope (= 軸 B sprint 範囲外、 軸 G ζ defer 維持)。
+
+### D-7: snd_command jump table (= IRQ.inc::40-48)
+
+| cmd | 用途 | 実装 |
+|---|---|---|
+| 0x00 | unused | `snd_command_unused` no-op |
+| 0x01 | ngdevkit reserved (= ROM switch) | `snd_command_01_prepare_for_rom_switch` (nullsound.lib) |
+| 0x02 | PMDNEO 楽曲再生開始 | `pmdneo_init` + `pmdneo_load_m` + `pmdneo_play_loop` (= ADR-0016 step 4-2.5) |
+| 0x03 | ngdevkit reserved (= reset_driver) | nullsound.lib default 実装 |
+| 0x04 | fade out (= SubF-1 minimum) | SSG ABC + FM 6ch keyoff + ADPCM-B keyoff |
+| 0x05 | ADPCM-B beat 単発再生 (= test) | `test_play_adpcmb_beat` |
+
+軸 B 拡張で新規 cmd 追加可能 (= 0x06+ 領域)、 既存 entry 不可触保護。
+
+### D-8: ADR routine mapping (= 既存 ADR-0016〜0048 routine 不可触保護対象 literal)
+
+| ADR | 主要 routine | 行 | 役割 |
+|---|---|---|---|
+| ADR-0016 step 1-18 | standalone_test.s 全体 + IRQ.inc + WORKAREA.inc + PMD_Z80.inc legacy | 0-4055 | nullsound-free PoC 累積 implementation |
+| ADR-0021/0022 | `pmdneo_mn_direct_load_lq_part_addr` / `pmdneo_mn_direct_load_k_part_addr` + `driver_pne_filename_buf` | 3921, 4028 | .PNE asset pipeline + .MN filename embed |
+| ADR-0023 | `driver_pne_sample_table_id` + `pmdneo_resolve_sample_table_id` | 3283 | filename → sample_table_id resolver |
+| ADR-0024/0025 | `pmdneo_select_sample_pointer` + table A/B | 3378 | sample_table_id selection consumption + multi-table proof |
+| ADR-0026-0031 | `pmdneo_rhythm_event_trigger` + `_rhythm_event_*_trigger` (b/s/h/c/t/i) | 3535-3760 | K/R rhythm dispatch + drum kind expansion |
+| ADR-0032 | rhythm simultaneous trigger semantics | (= rhythm_main 関連) | simultaneous trigger proof |
+| ADR-0043 | `adpcmb_keyon:` L2794 (= entry) + `adpcmb_keyon_have_sample:` L2829 (= body) + `pmdneo_select_adpcmb_sample_pointer` L2949 + voice index table | 2794, 2829, 2949 | ADPCM-B 1ch runtime-managed architecture |
+| ADR-0048 δ | `pmdneo_select_adpcmb_ppc_pointer` + `ppc_scratch_*` | 2901 | 軸 G ADPCM 動的 sample 供給 runtime selection (= 部分実装) |
+
+**軸 B 不可触保護対象**: 上記全 routine + workarea field 既存 layout + driver_state global field 既存 + IRQ flow 既存 + snd_command 0x00-0x05 既存。
+
+### D-9: FM/SSG existing routines (= 軸 B replacement target + file 別 配置 literal)
+
+軸 B Phase 2 fullscratch driver で **replacement 対象** となる FM/SSG dispatch routine (= file 別 + D-3 inventory ref):
+
+#### PMD_Z80.inc legacy core (= D-3-a inventory)
+- **FM main dispatch**: `fmmain::` L1266
+- **SSG main dispatch**: `pmdneo_psgmain::` L1335
+- **FM keyon/keyoff**: `pmdneo_fm_keyon::` L1228 / `pmdneo_fm_keyoff::` L1246
+- **SSG keyon/keyoff**: `pmdneo_psg_keyon::` L1195 / `pmdneo_psg_keyoff::` L1212
+- **PSG fnum entry**: `fnumsetp::` L253 / `fnumsetp_ch::` L257
+
+#### standalone_test.s 本線 hook framework (= D-3-b inventory)
+- **hook dispatcher**: `pmdneo_part_call_keyon_hook:` L2087 / `pmdneo_part_call_keyoff_hook:` L2092 / `pmdneo_part_call_fnumset_hook:` L2097 / `pmdneo_part_call_volume_hook:` L2102
+- **FM hook impl**: `fm_keyon_hook:` L2595 / `fm_keyoff_hook:` L2602 / `fnumset_fm_hook:` L2607 / `fm_volume_hook:` L2616
+- **SSG hook impl**: `psg_keyon_hook:` L2674 / `ssg_keyoff_hook:` L2679 / `fnumsetp_ch_hook:` L2684 / `psg_volume_hook:` L2692
+
+#### standalone_test.s ADR-extended FM/SSG routine (= D-3-c inventory、 hook から call される実装本体)
+- **FM dispatch impl**: `fnumset_fm:` L758 + `fnumset_fm_porta:` L816 + `fm_keyon:` L987 + `fm_keyoff:` L973 + `pmdneo_fm_voice_set:` L1063 + `pmdneo_fm_write_reg_ch:` L1001 + `pmdneo_fm_voice_set_default:` L1059
+- **SSG dispatch impl**: `fnumset_ssg:` L852 + `fnumset_ssg_shift:` L874 + `fnumset_ssg_set:` L880 + `ssg_keyon:` L915 + `ssg_keyoff:` L904 + `init_ssg_voice:` L835
+
+**part workarea + driver_state**: 既存 field は 不可触保護、 軸 B 拡張は 0xFD39-0xFFBF free 領域に placement。 PART_COUNT は standalone 20 を継承 (= D-4)。
+
+軸 B 実装 sprint で **別 routine 並設 + 新規 hook 配線** (= 既存 routine + 既存 hook impl を残しつつ新規追加) で fullscratch driver 構築。 既存 routine + 既存 hook の改変 (= refactor / 削除 / 名前変更) は別 sprint 起票が必要。
+
+### D-10: F-2-B 譲渡軸 current state (= ch3 4-op individual mode、 X/Y/Z parts)
+
+| part | constant | 現状 | ADR-0006 §H 規約 |
+|---|---|---|---|
+| C (= ch3) | `PART_FM3 = 2` | active (= 通常 4-op operator-shared mode) | 通常 FM dispatch 経由 |
+| X (= ch3 op1) | `PART_FM3EXT_X = 17` | **hooks=noop = 当面 mute** | F-2-B integration 範囲 |
+| Y (= ch3 op2) | `PART_FM3EXT_Y = 18` | **hooks=noop = 当面 mute** | F-2-B integration 範囲 |
+| Z (= ch3 op3) | `PART_FM3EXT_Z = 19` | **hooks=noop = 当面 mute** | F-2-B integration 範囲 |
+
+standalone_test.s L1459 + L1706 literal: 「K (Rhythm) と X/Y/Z (FM3Extend) は常時 init、 hooks=noop で stream 読捨 (= 当面 mute)」 (= ADR-0006 §H literal preserved)。
+
+軸 B β/γ/δ で X/Y/Z integration 設計、 軸 B 実装 sprint で per-op fnum / volume / keyon 実装、 PMD V4.8s PMDPPZ 流儀 (= 100-150 件 if 分岐 + wrapper) reference。
+
+### D-11: MML compiler boundary (= .M / .MN binary format)
+
+```
+.mml source
+  ↓ PMDDotNETConsole + PMDDotNETCompiler (= vendor、 軸 F Accepted、 軸 B 範囲外)
+.M binary (= compiler 出力)
+  ↓ pmdneo_load_m:: (= PMD_Z80.inc L414、 ADR-0016 step 4-2)
+m_buf header parse + per-part body addr set
+  ↓ pmdneo_mn_direct_load_lq_part_addr:: (= standalone_test.s L3921、 ADR-0021/0022)
+.PNE filename + part body addr 受領
+  ↓
+driver runtime (= IRQ.inc::71-81 snd_command_02 + pmd_z80_main PMD_Z80.inc:119 経由 + standalone hook framework dispatch)
+  ↓
+YM2610 chip register write
+```
+
+軸 B replacement scope = **driver runtime 層 (= pmdneo_load_m から chip register write までの間、 PMD_Z80.inc + standalone_test.s 両 file の現役 routine)** で、 compiler 層 (= .M binary 出力契約) には touch しない (= 軸 F Accepted 不可触遵守)。 .M binary format は軸 B 内 不可触契約。
+
+### D-12: 軸 F F-2-A defer 維持確認
+
+F-2-A (= 改造 PMDDotNET compiler の X/Y/Z FM3Extend 文法強制 = `mc.cs` `FM3Extend_set` 改造 10-30 行) は ADR-0044 §決定 5 で「将来 sprint defer」 確定。 軸 B 範囲外 (= compiler 層 touch なし)。
+
+軸 B 内では:
+- driver 側 X/Y/Z dispatch (= F-2-B 譲渡軸) は β/γ/δ で integration 設計、 実装 sprint で実装
+- compiler 側 X/Y/Z 強制 (= F-2-A) は touch なし
+
+`vendor/PMDDotNET/PMDDotNETCompiler/mc.cs` + `mml_seg.cs` + `m_seg.cs` への変更 = 軸 B 起票 sprint 禁止 + 軸 B 全 sub-sprint α-ε 禁止。
+
+### D-13: 軸 G ADR-0048 driver runtime routine 不可触保護対象
+
+ADR-0048 ε partial complete state で driver runtime に存在する軸 G 関連 routine (= 軸 B 内 不可触保護):
+
+| routine | 行 | 役割 |
+|---|---|---|
+| `pmdneo_select_adpcmb_ppc_pointer` | 2901 | 軸 G ADR-0048 δ runtime selection proof (= 案 C 部分 runtime parse) |
+| `ppc_scratch_start_lsb/msb` / `ppc_scratch_stop_lsb/msb` | 0xFD33-0xFD36 | 軸 G ADR-0048 §決定 8 δ runtime selection scratch |
+| `audition_frame_counter_lsb/msb` | 0xFD37-0xFD38 | 軸 G ADR-0048 §決定 8 ε integration test mode (= TEST_MODE_AXIS_G_INT toggle) |
+
+軸 B 内で driver runtime 軸 G 関連 routine + workarea field touch なし (= ADR-0048 Draft state + ε partial complete 維持)。
+
+## Annex E: β interface 候補列挙 (= α 出口 = β 入口、 12 候補)
+
+α driver archaeology findings (= Annex D) base で、 β 「最小設計 + interface 固定」 で 議論すべき interface 候補を 12 件列挙。 β で各候補の boundary / contract / 拡張点を ADR §決定 として固定する。
+
+| # | interface 候補 | 現状 | β 設計対象 | 不可触保護 |
+|---|---|---|---|---|
+| 1 | FM dispatch routine boundary | PMD_Z80.inc `fmmain::` L1266 (legacy core) + standalone hook framework (`pmdneo_part_call_*_hook` L2087+ → `fm_*_hook` L2595+) + standalone ADR-extended (`fnumset_fm:` L758 等) | fullscratch FM dispatch entry + register write sequence + envelope state (= 並設 routine 追加 / 新規 hook 配線) | 既存 PMD_Z80.inc core + 既存 standalone hook + 既存 ADR-extended (= 並設 only) |
+| 2 | SSG dispatch routine boundary | PMD_Z80.inc `pmdneo_psgmain::` L1335 (legacy core) + standalone hook (`psg_*_hook` L2674+) + standalone ADR-extended (`fnumset_ssg:` L852 等) | fullscratch SSG dispatch entry + register write sequence (= 並設 routine 追加 / 新規 hook 配線) | 既存 PMD_Z80.inc core + 既存 standalone hook + 既存 ADR-extended (= 並設 only) |
+| 3 | part workarea field layout (= PartWork struct) | standalone `PART_COUNT = 20` × 64 byte = 1280 byte (= ADR-0006 §A 本線、 0xF820-0xFD1F)、 WORKAREA.inc `PART_COUNT = 17` (= legacy 値、 不可触保護) | 拡張 field placement (= 0xFD39-0xFFBF 647 byte free 領域) | 既存 field (= ADR-0021〜0048 で使用中) + standalone 20 part 規約 |
+| 4 | IRQ handler interface | `pmd_main` @ IRQ.inc::20 (= 即 ret stub) + pmdneo_play_loop polling | TIMER-B IRQ rate + sub-tick accumulator 統合方針 (= 軸 G ε 切り分け 5 finding 接続点 = ただし ζ defer 維持) | 既存 IRQ flow |
+| 5 | chip target flag (= `PMDNEO_TARGET_CHIP`) | ADR-0016 step 1 で 9 commit chain literal 実装済 (= F-3 完了) | build flag による FM 4ch/6ch 切替 (= YM2610 / YM2610B 対応) 維持 | 既存実装全体 |
+| 6 | F-2-B integration interface | X/Y/Z = PART_FM3EXT_X/Y/Z = hooks=noop (= mute) | ch3 4-op individual mode register write + per-op fnum/volume/keyon | PART_FM3 既存 dispatch との接続点 |
+| 7 | 軸 C ADPCM-B 接続点 | `adpcmb_keyon:` L2794 (= entry) + `adpcmb_keyon_have_sample:` L2829 (= body) + `pmdneo_select_adpcmb_sample_pointer` @ L2949 (= ADR-0043) | FM/SSG main loop からの adpcmb dispatch 呼び出し点 | ADR-0043 routine 全体 |
+| 8 | 軸 G ADPCM 動的 sample 供給 接続点 | `pmdneo_select_adpcmb_ppc_pointer` @ L2901 (= ADR-0048 δ partial) | sample_table_id-based selection 経由の sample pointer 取得 | ADR-0048 routine 全体 + ε partial state |
+| 9 | rhythm dispatch 接続点 | `pmdneo_rhythm_event_trigger` @ L3535 + `_rhythm_event_*_trigger` (= ADR-0026-0031) | main loop からの rhythm dispatch 呼び出し点 | ADR-0026-0031 routine 全体 |
+| 10 | MML compiler 境界 (.M / .MN binary format) | `pmdneo_load_m` @ L414 + `pmdneo_mn_direct_load_*` @ L3921, 4028 (= ADR-0016, 0021, 0022) | MML binary format 仕様 (= compiler 出力契約) 維持 | 軸 F Accepted 不可触 + .M binary format 不可触 |
+| 11 | driver_state global field | tempo_d / fade_state / song_ready 等 (= D-5 inventory) | 拡張 field placement (= 0xFD39-0xFFBF free 領域) | 既存 field 全体 |
+| 12 | sound command jump table | cmd 0x00-0x05 (= IRQ.inc::40-48) | 軸 B 実装で新規 cmd 追加経路 (= 0x06+ 領域) | 既存 entry 全体 |
+
+### β 設計の重要原則 (= α findings から導出)
+
+1. **並設 only 経路の徹底**: 全 interface 候補で既存 routine の改変 (= refactor / 削除 / 名前変更) 禁止、 新規 routine 並設で proof
+2. **PartWork 拡張は free 領域に限定**: 0xFD39-0xFFBF (= 647 byte) を軸 B 拡張 placement 候補とし、 既存 0xF820-0xFD38 layout は不可触
+3. **chip register write 順序の byte-identical 維持**: 既存 ADR-0023+ verify gate 流儀踏襲 (= register trace primary gate、 wav sha256 secondary)
+4. **軸 G ε partial state 不可触**: 軸 B 実装でも軸 G 関連 routine + workarea field + IRQ rate constant は touch なし (= 軸 G ζ defer 維持)
+5. **軸 F Accepted 不可触**: compiler 層 (= vendor PMDDotNET 全 file + .M binary format 契約) touch なし
+6. **F-2-A defer 維持**: compiler 側 X/Y/Z 強制 (= mc.cs FM3Extend_set) は β/γ/δ 全段 で touch なし
+
+### β 完了時の deliverable 想定 (= α 出口 = β 入口の link)
+
+β sub-sprint 完了で次の deliverable が ADR-0045 に追加される想定 (= 本 ADR β 段で literal 化):
+
+- Annex F: 12 interface 候補の **boundary + contract + 拡張点** 確定 (= β §決定 として追加)
+- §決定 8 新規: fullscratch driver interface design (= FM / SSG / part workarea / IRQ / chip target / F-2-B integration の boundary literal)
+- 既存 ADR-0023+ routine 不可触保護方針 literal (= 並設 only 経路 + free 領域 placement の規律確認)
+
+## Annex F: α 段 scope-out 確認 (= 追加 scope-out なし、 α 段で発見した追加保護対象)
+
+α driver archaeology で追加発見した既存資産で、 軸 B 内 不可触保護とすべき項目:
+
+1. **`src/driver/PMD_Z80.inc` 2213 行 legacy nullsound integration** = ADR-0017 §決定 1 で「nullsound-free driver 本線として再評価」 後の legacy file、 標準経路 standalone_test.s と接続点なし、 軸 B では touch なし (= 既 §決定 5 scope-out + non-goal 範囲内、 新規 scope-out 追加なし)
+2. **`src/driver/PMDNEO.s` 60 行 legacy entry point** = 同上、 軸 B では touch なし
+3. **`vendor/PMDDotNET/PMDDotNETDriver/PMD.cs` 10748 行** = 軸 B Annex B 推定値 8000 行を **actual 10748 行に訂正** (= α 段 finding)、 軸 B 範囲外 reference
+
+scope-in / scope-out / non-goal への追加修正 = なし (= 既 §決定 5 + 共通規律 2 で網羅済)。
+
 ---
 
 ## 改訂履歴
@@ -327,3 +694,4 @@ doc-only sprint なので実装 verify (= build OK + register trace + audio gate
 | 日付 | 状態 | 内容 |
 |---|---|---|
 | 2026-05-19 | Draft 起票 | 37th session 主軸推奨 + Codex layer 2 round 1 approve 経由起票、 軸 G ζ 保留 + 他軸候補整理 + 候補 α 軸 B 採用、 ADR-0044 §F-2-B 譲渡継承 + F-2-A defer 維持 + ADR-0048 Draft state 不可触、 5 段 α/β/γ/δ/ε 構成、 doc-only filing |
+| 2026-05-19 | Draft α 完了 (= 37th session α sub-sprint) | driver archaeology + Phase 2 scope 確定 = Annex D (= driver archaeology findings 13 sub-section、 src/driver/ 9 file 6777 行 + vendor 14 file 20130 行 inventory + standalone_test.s routine map + WORKAREA SRAM layout + driver_state global field + IRQ flow + snd_command jump table + ADR-0016〜0048 routine 不可触保護対象 + FM/SSG replacement target literal + F-2-B X/Y/Z current state + MML compiler boundary + F-2-A defer 維持 + 軸 G ADR-0048 routine 不可触保護) + Annex E (= β interface 候補 12 件 + β 設計 6 原則 + β 完了 deliverable 想定) + Annex F (= α 段 scope-out 確認、 追加 scope-out なし)、 Annex B 行数訂正 (= PMD.cs 推定 8000 → actual 10748 行)、 doc-only investigation で driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 vendor wav 3 件 untracked retain 維持 |
