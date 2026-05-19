@@ -2695,18 +2695,42 @@ adpcmb_keyon:
         ld      b, #0x10
         ld      c, #0x00
         call    ym2610_write_port_a
-        ;; reg 0x12-0x15 = beat.wav sample addr (= fixed、 samples.inc 由来)
+        ;; reg 0x12-0x15 = sample addr (= 軸 C 実装 sub-sprint α、 ADR-0043 §決定 3
+        ;; selector 経路で sample literal table から 4 byte read、 ADPCM-A
+        ;; pmdneo_select_sample_pointer (= L2784) 対称構造、 byte-identical 維持)
+        ;; A = voice index (= α では未使用、 β で voice index table 化 拡張接続点)
+        ld      a, PART_OFF_INSTRUMENT(ix)
+        call    pmdneo_select_adpcmb_sample_pointer
+        ;; DE == 0 sentinel check (= unknown id silent reject、 ADR-0043 §決定 3)
+        ld      a, d
+        or      e
+        jr      nz, adpcmb_keyon_have_sample
+        pop     af                      ; restore note byte (= stack 整合)
+        ret
+
+adpcmb_keyon_have_sample:
+        ;; reg 0x12 = START_LSB
         ld      b, #0x12
-        ld      c, #BEAT_START_LSB
+        ld      a, (de)
+        ld      c, a
         call    ym2610_write_port_a
+        inc     de
+        ;; reg 0x13 = START_MSB
         ld      b, #0x13
-        ld      c, #BEAT_START_MSB
+        ld      a, (de)
+        ld      c, a
         call    ym2610_write_port_a
+        inc     de
+        ;; reg 0x14 = STOP_LSB
         ld      b, #0x14
-        ld      c, #BEAT_STOP_LSB
+        ld      a, (de)
+        ld      c, a
         call    ym2610_write_port_a
+        inc     de
+        ;; reg 0x15 = STOP_MSB
         ld      b, #0x15
-        ld      c, #BEAT_STOP_MSB
+        ld      a, (de)
+        ld      c, a
         call    ym2610_write_port_a
         ;; reg 0x19/0x1A = MML 由来 delta-N (= 4-3-γ の本旨)
         pop     af                      ; restore note byte
@@ -2739,6 +2763,35 @@ adpcmb_keyoff:
         ld      c, #0x00
         call    ym2610_write_port_a
         ret
+
+;;; ===== 軸 C 実装 sub-sprint α (= ADR-0043 §決定 3、 31st session) =====
+;;; ADPCM-B sample selection arch = ADPCM-A pmdneo_select_sample_pointer (= L2784)
+;;; 対称構造、 driver_pne_sample_table_id (= 0xFD32) ベース lookup + DE pointer return
+;;; α: single sample (= beat.wav) selector + 4 byte literal table
+;;; β 以降: multi-sample 対応 + sample_table_id 経由 lookup + voice index table 化
+
+;; pmdneo_select_adpcmb_sample_pointer (= 軸 C 実装 sub-sprint α 新規追加)
+;; ADPCM-B sample literal table pointer を DE で return + caller が register write
+;; 入力: A = voice index (= α では未使用、 β で voice index table 化 拡張接続点として渡す規律維持)
+;; 出力: DE = sample literal table pointer (= 4 byte: START_LSB/MSB + STOP_LSB/MSB)
+;;        DE = 0x0000 sentinel = unknown id (= caller silent reject)
+;; clobbers: A; caller preserves note byte with push/pop af
+pmdneo_select_adpcmb_sample_pointer:
+        ld      a, (driver_pne_sample_table_id)
+        or      a
+        jr      nz, adpcmb_select_sample_unknown_id
+        ld      de, #adpcmb_sample_beat
+        ret
+
+adpcmb_select_sample_unknown_id:
+        ld      de, #0x0000
+        ret
+
+;; adpcmb_sample_beat = 4 byte literal table (= ADPCM-B sample header)
+;; layout: START_LSB, START_MSB, STOP_LSB, STOP_MSB (= samples.inc 由来 BEAT_*)
+;; β 拡張: adpcmb_sample_<id> 形式で multi-sample 化、 selector lookup table 経由
+adpcmb_sample_beat:
+        .db     BEAT_START_LSB, BEAT_START_MSB, BEAT_STOP_LSB, BEAT_STOP_MSB
 
 adpcma_init:
         ld      b, #0x00
