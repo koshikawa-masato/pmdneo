@@ -235,7 +235,7 @@ echo "=== make poc ==="
 # .equ 切替できるよう standalone_test.s に .equ PMDNEO_USE_PMDDOTNET 0 を残置)。
 # ただし standalone_test.s 内では pmddotnet_song label 参照経路は未整備、 V-1/W-1
 # 以前と同じ動作に戻る (= song_table 経由の自前 compile.py 経路)。
-make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" TEST_MODE_AXIS_G_INT="${PMDNEO_AXIS_G_INT:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
 
 echo
 echo "=== build 完了 ==="

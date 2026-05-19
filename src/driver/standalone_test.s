@@ -39,6 +39,15 @@
         ;; の env PMDNEO_USE_PMDDOTNET=1 で 1 に切替わる。
         .equ    PMDNEO_USE_PMDDOTNET, 0
 
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε、 audition build 専用)
+        ;;   0 = 既存 default (= integration test mode disable、 既存 ADR-0043 経路 + ADPCM-A 経路通常運転、 production build)
+        ;;   1 = ε integration audition mode (= 1000 ms 後 sample_table_id を 0x80 に上書き →
+        ;;       J part 以降の ADPCM-B keyon は .PPC 経路で鳴る、 越川氏 audition request 用 build)
+        ;; production 時は **必ず 0** を維持 (= Codex layer 2 ε round 1 nice-to-have #2 反映、
+        ;; audition build 専用 toggle)。 build infra (= build.mk PMDNEO_PREPROCESS_CMD) で sed 置換、
+        ;; build-poc.sh の env PMDNEO_AXIS_G_INT=1 で 1 に切替わる。
+        .equ    TEST_MODE_AXIS_G_INT, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -132,6 +141,13 @@
         .equ    ppc_scratch_stop_lsb,          0xFD35
         .equ    ppc_scratch_stop_msb,          0xFD36
 
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε): 16-bit IRQ counter
+        ;;   TEST_MODE_AXIS_G_INT=1 build で起動からの IRQ count (= 1 ms 周期) を 16-bit で track。
+        ;;   1000 (= 0x03E8) 到達時に sample_table_id を 0x80 に上書きで .PPC 経路に切替。
+        ;;   TEST_MODE_AXIS_G_INT=0 (= production default) では本領域は touch されない。
+        .equ    audition_frame_counter_lsb,    0xFD37
+        .equ    audition_frame_counter_msb,    0xFD38
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -155,7 +171,8 @@
 ;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4)
 ;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
 ;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
-;;;   0xFD37 - 0xFFBF   free / 後続 phase 用 (= 649 bytes 余裕)
+;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
+;;;   0xFD39 - 0xFFBF   free / 後続 phase 用 (= 647 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -394,6 +411,27 @@ irq_handler_body:
         ld      a, (pmdneo_irq_count)
         inc     a
         ld      (pmdneo_irq_count), a
+
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε、 audition build 専用)
+        ;;   TEST_MODE_AXIS_G_INT=0 (= production default) では本 block 全 skip (= sed pre-process
+        ;;   で .if が conditional に外れる、 既存 IRQ 処理に影響なし)
+        ;;   =1 build で 16-bit IRQ counter inc + 1000 ms 到達時 sample_table_id=0x80 に
+        ;;   上書き (= .PPC 経路に切替、 J part 以降の ADPCM-B keyon は .PPC で鳴る)
+        .if TEST_MODE_AXIS_G_INT
+        ld      hl, (audition_frame_counter_lsb)
+        inc     hl
+        ld      (audition_frame_counter_lsb), hl
+        ;; HL == 0x03E8 (= 1000 = 1 秒) のとき sample_table_id を 0x80 に切替
+        ld      a, h
+        cp      #0x03
+        jr      nz, audition_skip
+        ld      a, l
+        cp      #0xE8
+        jr      nz, audition_skip
+        ld      a, #0x80
+        ld      (driver_pne_sample_table_id), a
+audition_skip:
+        .endif
 
         ;; IRQ fade processing (= default speed 16, ~1 sec fade)
         ld      a, (driver_fade_state)
