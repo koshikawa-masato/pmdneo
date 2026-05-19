@@ -1,6 +1,42 @@
-# ADR-0044: 軸 F = PMDNEO MML compiler 拡張 sub-軸 設計 (= 改造 PMDDotNET 路線 + F-1/F-2/F-3 候補比較 + 推奨 sub-sprint chain)
+# ADR-0044: 軸 F = PMDNEO MML compiler 拡張 sub-軸 設計 (= 改造 PMDDotNET 路線 + F-1/F-2/F-3 候補比較 + 採用案 (ii) 軸 F 全体 scope-out)
 
-- 状態: **Draft** (= 2026-05-18 30th session 末 起票、 設計判断複数案 + user escalate 想定、 doc-only ADR、 driver / runtime / 既存 schema / 既存 spike / 既存 fixture 完全不変、 Accepted 移行は user 判断後 + sub-sprint chain 開始準備完了時)
+- 状態: **Accepted** (= 2026-05-19 31st session、 user 「Codex 確認後 GO」 委譲 → Codex layer 2 統合判断 session 019e3b50-8f23-... 147s response で **採用案 (ii) 軸 F 全体 scope-out 確定** = F-3 完了済認識 + F-1/F-2-A 将来 sprint defer + F-2-B 軸 B ADR-0008 候補譲渡、 ADR-0044 は軸 F 状態整理 ADR として消費、 軸 F 実質完成扱い、 ADR-0041 §決定 4-2 layer 2 統合判断機能実証 + Codex 5 step 計画 review approve 70s、 後段 F-2-A 実装は将来 sprint で別 ADR 起票時に再着手判断、 doc-only 移行 commit)
+- Accepted 移行日: 2026-05-19
+- 元 状態: ~~Draft~~ (= 2026-05-18 30th session 末 起票、 設計判断複数案 + user escalate 想定)
+
+## 採用案決定 = 案 (ii) 軸 F 全体 scope-out (= 2026-05-19、 Codex layer 2 判断)
+
+user 「Codex に確認を取ってその内容で GO」 委譲経路で Codex layer 2 統合判断 session `019e3b50-8f23-7803-af9e-903d6587f891` 147s response で確定。
+
+### 採用根拠 (= Codex layer 2 + 主軸推奨一致)
+
+1. **F-3 完了済**: chip target flag は ADR-0016 step 1 で Accepted 移行済 + 9 commit chain literal 実装済 (= sub-agent F vendor grep で発見)、 軸 F の中核 sub-軸 は既達成
+2. **F-1 実需未発生**: voice buffer 256 voice 実用十分 (= memory `project_pmddotnet_chextend_data_area.md` 整合)、 拡張要求なし
+3. **F-2-A 単独実装は観測価値低**: compiler 側 X/Y/Z 強制のみだと driver F-2-B 完成までユーザ視点観測差分なし
+4. **F-2-B は軸 B 範囲**: ADR-0008 候補 (= driver ch3 4-op 実装) は Phase 2 FM/SSG driver フルスクラッチ軸 (= 軸 B) へ譲渡、 軸 F に取り込むと軸境界曖昧化 + ADR-0041 §決定 6 forbidden write set (= driver source) 違反 risk
+5. **並走集中効率化**: active を軸 A + 軸 C に絞り、 主軸 context + Codex queue 軽減 (= ADR-0041 §決定 4-2 layer 2 統合判断趣旨と整合)
+6. **ADR-0044 = 軸 F 状態整理 ADR として消費**: 番号 0044 を本 ADR で確定使用、 軸 F 整理目的達成
+
+### 将来 sprint defer 軸
+
+- **F-2-A**: 改造 PMDDotNET compiler の X/Y/Z FM3Extend 文法強制 (= mc.cs FM3Extend_set 改造 10-30 行、 XYZ 判定を partcheck より前に置く方針) → 将来 sprint で別 ADR (= ADR-0045+ 候補) 起票時に再着手判断
+- **F-1**: voice buffer 拡張 (= 256 voice 超) → 実需発生時に再検討
+
+### 軸 B 譲渡軸
+
+- **F-2-B**: PMDNEO driver ch3 4-op FM3 拡張モード実装 → 軸 B (= Phase 2 FM/SSG driver フルスクラッチ、 ADR-0008 候補) の範囲、 軸 B 着手時に統合
+
+## 後続 sprint 想定 (= 採用案 ii 確定後)
+
+- 軸 F α 完了 (= 本 ADR 起票 + 採用案確定) で軸 F **完成扱い**
+- 軸 F β/γ/δ は未着手のまま将来 defer
+- 後段で F-2-A 再着手時は別 ADR (= ADR-0045+ 候補) 起票
+- F-2-B は軸 B 内で扱う
+
+---
+
+## 元 Draft 内容 (= 2026-05-18 31st session 軸 F sub-agent F 起票時の literal、 採用案決定後も歴史保存)
+
 - 起票日: 2026-05-18
 - 起票者: 越川将人 (M.Koshikawa)
 - 関連 ADR:
