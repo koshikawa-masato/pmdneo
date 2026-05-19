@@ -40,3 +40,15 @@
 - adpcm_b:
     name: silence
     uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/pne/silence.wav
+
+# γ-2 actual silence_b sample (= ADR-0043 §sub-sprint chain γ-2、 軸 C 実装 sub-sprint γ-2):
+#   project-owned 3rd deterministic test sample (= 16-bit 8 kHz mono 0.2s 全 zero PCM、
+#   silence と異なる長さ = vromtool 自動 layout で別 addr 配置確保)
+#   - 配置: assets/pne/silence_b.wav (= project-owned、 vendor 不可触規律遵守)
+#   - 用途: id=0x01 → table B → voice 0 → adpcmb_sample_silence_b selection 経路 register trace 実証
+#     (= reg 0x12-0x15 が SILENCE_B_* generated symbol 値で differ from beat + silence)
+#   - aesthetic 対象外 (= silence = 鳴らない sample、 audition は selection proof のみ)
+#   - sha256 4e9cc5bbce2136140462d11c5fec6e6c1ed10602c2bca874dbb58e7b9be21092
+- adpcm_b:
+    name: silence_b
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/pne/silence_b.wav
