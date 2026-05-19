@@ -82,7 +82,7 @@ ADR-0041 §決定 4 規律 (= sub-agent ↔ Codex 2 段壁打ち + 3 重 zero-tr
 | **α** | driver archaeology + Phase 2 scope 確定 | 既存 PMDDotNETDriver (= `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` + `PMD.cs` + `PCMDRV.cs` + `PCMLOAD.cs` + `PPZDRV.cs` + `EFCDRV.cs` + `OPNATimer.cs` ground truth、 FM/SSG dispatch routine は driver.cs/PMD.cs 内に統合配置 = 別 file 派生なし) reference + `src/driver/standalone_test.s` 本線 FM/SSG 部分 inventory + Phase 2 fullscratch boundary literal 化 (= 何を replace、 何を保護) + F-2-B ch3 4-op 既存 PMDPPZ 流儀 reference + ADR Annex 化 | 主要 routine pattern reference + 既存 driver inventory (= FM 6ch dispatch / SSG 3ch dispatch 現状) + boundary literal + driver source touch なし、 doc-only | なし (= **完了 = 37th session α sub-sprint、 Annex D + Annex E 追加**) |
 | **β** | 最小設計 + interface 固定 | α inventory base で fullscratch driver interface 設計 (= FM/SSG dispatch routine 境界 + register write sequence + chip target flag 接続 + 既存 ADR-0023+ routine 不可触保護方針 + F-2-B ch3 4-op integration 経路) + ADR §決定 追加 | interface 設計 ADR 追加 + 既存 routine 不可触 literal 確認 + F-2-B 統合点 literal、 driver source touch なし | 設計のみ (= **完了 = 37th session β sub-sprint、 Annex G 追加 = G-1 12 候補分類 + G-2 最小設計 9 領域 + G-3 γ/δ/ε 橋渡し**) |
 | **γ** | proof / spike (= 最小 routine 1 つ proof) | β interface design を **Python spike script** (= standard library only、 `scripts/*-spike.py`) で proof + 期待 register write sequence literal + 既存 driver behavior と byte-identical 比較 (= register trace primary gate、 spike script が emit する期待値 vs 既存 driver の実 trace) | Python spike script 実装 + register trace 期待値一致 + 既存 ADR-0023+ baseline byte-identical 維持 + **driver source touch なし** (= spike は Python のみ、 driver source は α-δ 全段で完全不変) | なし (= spike script のみ、 **完了 = 37th session γ sub-sprint、 target (c) v2 entry skeleton + 1 register write、 Annex H 追加**) |
-| **δ** | integration (= 既存 driver と並走 + sub-axis 分解計画) | γ proof base で FM 6ch / SSG 3ch / ADPCM-A 6ch / ADPCM-B 1ch sub-axis 分解 + F-2-B ch3 4-op integration + 軸 C/G との接続点 literal + 実装 sprint chain 計画 (= verify gate strategy + audio gate strategy) | sub-axis 分解 ADR + 軸 C ADR-0043 不可触確認 + 軸 G ADR-0048 不可触確認 + F-2-B integration 経路確定 + 実装 sprint chain 計画 literal | 設計のみ |
+| **δ** | integration (= 既存 driver と並走 + sub-axis 分解計画) | γ proof base で FM 6ch / SSG 3ch / ADPCM-A 6ch / ADPCM-B 1ch sub-axis 分解 + F-2-B ch3 4-op integration + 軸 C/G との接続点 literal + 実装 sprint chain 計画 (= verify gate strategy + audio gate strategy) | sub-axis 分解 ADR + 軸 C ADR-0043 不可触確認 + 軸 G ADR-0048 不可触確認 + F-2-B integration 経路確定 + 実装 sprint chain 計画 literal | 設計のみ (= **完了 = 37th session δ sub-sprint、 5 sub-axis 分解 (= δ-1 FM/SSG v2 entry + trigger path / δ-2 SRAM placement / δ-3 F-2-B / δ-4 軸C/G/rhythm 接続点保護 / δ-5 実装 sprint chain 計画)、 Annex I 追加**) |
 | **ε** | completion + Accepted 判断 | α/β/γ/δ verify gate 全 PASS 確認 + ADR Draft → Accepted 判断 (= user 判断 gate) + dashboard 軸 B 完了 reflect + 実装 sprint への bridging note | 全 sub verify PASS + user audition 不要 (= doc-only sprint で audio behavior 変化なし) + ADR Accepted 移行 user 判断 gate 経由 | なし |
 
 #### 共通規律 (= 全 sub-sprint 共通)
@@ -999,6 +999,193 @@ Python standard library only. driver source touch なし。
 8. ✅ Python standard library only (= argparse / json / sys / dataclasses / typing のみ、 外部依存なし)
 9. ✅ register trace primary gate verify (= 3 fixture + 1 invariant、 self-test ALL PASS)
 
+## Annex I: 軸 B δ 完了 = integration sub-axis 分解 (= 37th session δ sub-sprint deliverable、 doc-only design sprint、 Codex layer 2 3 round chain approve)
+
+δ sub-sprint 投入 (= 37th session、 user 明示 GO 経由) で γ proof spike findings (= Annex H) + β G-1 δ defer 4 候補 (= #6 F-2-B / #7 軸 C / #8 軸 G / #9 rhythm) + Annex H-7 拡張点 base に **5 sub-axis 分解 + 実装 sprint chain 計画** を主軸単独で確定 (= driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変、 doc-only design sprint)。
+
+### I-0: δ sub-sprint 全体構成 (= 5 sub-axis 分解)
+
+| sub-axis | 名称 | scope |
+|---|---|---|
+| **δ-1** | FM/SSG v2 entry integration + v2 dispatch trigger path | γ spike → FM 6ch + SSG 3ch sequential dispatch 拡張 + 新規 cmd 0x06 経由 trigger path |
+| **δ-2** | PartWork / SRAM placement integration | 0xFD39-0xFFBF 647 byte free region の sub-region 切り分け literal |
+| **δ-3** | F-2-B hook integration | ch3 4-op individual mode (= register 0x27 bit 7) + PART_FM3 / PART_FM3EXT_X/Y/Z 接続点 |
+| **δ-4** | 軸 C / 軸 G / rhythm 接続点保護 | ADR-0043 + ADR-0048 + ADR-0026〜0031 routine 完全不可触保護 literal |
+| **δ-5** | 実装 sprint chain 計画 + verify gate / audio gate strategy + baseline 保護戦略 | 起票 sprint chain 完了後の driver source touch sprint への bridging note |
+
+### I-1: δ-1 = FM/SSG v2 entry integration + v2 dispatch trigger path
+
+#### I-1-a: 8 評価軸
+
+| 評価軸 | 内容 |
+|---|---|
+| 目的 | γ proof spike (= 1 part → 1 register write) を FM 6ch + SSG 3ch sequential dispatch + 新規 cmd 0x06 経由 trigger path に拡張、 v2 entry boundary を整数倍化 |
+| 触る可能性のある file/routine | (1) ADR-0045 Annex I (= 本 section、 doc-only)、 (2) γ spike 拡張 `scripts/axis-b-v2-entry-spike.py` (= FM 6ch fixture 追加) or 別 spike (= 仮称 `scripts/axis-b-v2-ssg-spike.py`)、 (3) chip target flag (PMDNEO_TARGET_CHIP) と v2 entry の build-time 切替 literal |
+| 触ってはいけない file/routine | src/driver/ 全部 (= standalone_test.s / PMD_Z80.inc / WORKAREA.inc / IRQ.inc / 全 .inc)、 既存 hook framework (= `fm_*_hook` L2595-L2616 + `psg_*_hook` L2674-L2692)、 既存 ADR-extended (= `fnumset_fm:` L758 / `fnumset_ssg:` L852 等)、 IRQ flow / TIMER-B 設定 / `pmd_main` / `pmdneo_play_loop` / `state_timer_tick_reached` / `pmd_z80_main` / 既存 cmd 0x00-0x05 entry |
+| verify gate | register trace primary gate = FM 6ch 各 ch fixture + SSG 3ch 各 ch fixture、 chip target flag 経由 YM2610 ch2/3/5/6 active / YM2610B ch1-6 active 分岐 verify、 既存 cmd 0x02 path byte-identical 維持確認 |
+| regression risk | 低 (= Python spike + ADR のみ、 driver source touch なし) |
+| audio gate 要否 | 不要 (= spike + ADR、 audio behavior 変化なし) |
+| PR 境界 | δ 全体 1 PR 統合の一部 (= Codex round 1 approve 推奨 (B)) |
+| user 判断が必要な箇所 | spike 拡張方式 = γ spike file 拡張 vs 別 spike file 新設 の 2 案、 実装 sprint 着手時 user 判断仰ぎ候補 |
+
+#### I-1-b: v2 dispatch trigger path 設計 (= G-2-4 IRQ + G-2-6 sound command 経路)
+
+| 観点 | 内容 |
+|---|---|
+| IRQ flow 不可触範囲 | **IRQ flow / TIMER-B 設定 / `pmd_main` / `pmdneo_play_loop` / `state_timer_tick_reached` / `pmd_z80_main` / 既存 cmd 0x00-0x05 entry は完全不可触** (= 軸 G ζ defer 維持と整合) |
+| 実装 sprint で許容される additive 追加 | `IRQ.inc::40-48 cmd_jmptable` への **新規 cmd 0x06 entry 1 行 additive 追加のみ許容** (= 既存 entry 改変なし、 配列末尾 = padding 領域への並設追加扱い)、 `snd_command_06_play_song_v2` routine 自体は別 routine (= standalone_test.s 内 新規並設) として配置 |
+| 別 hook 配線 vs 別 cmd 経由 主軸推奨 | **新規 cmd 経由** (= 既存 hook framework `fm_*_hook` L2595+ / `psg_*_hook` L2674+ と完全並走、 既存 cmd 0x02 path も完全不変、 production-ready 化までは Phase 1 PoC base 並走) |
+| 実装 sprint 接続 | v2 dispatch trigger path = 実装 sprint で IRQ.inc cmd_jmptable 末尾 padding 領域に cmd 0x06 entry 1 行 additive 追加 + standalone_test.s 内に `snd_command_06_play_song_v2` 並設 routine 追加 + v2 entry skeleton 並設 routine 追加、 trigger path verify gate = 既存 cmd 0x02 path との byte-identical 比較 (= 既存 routine 完全不変) + cmd 0x06 経路の register trace 期待値 fixture proof |
+
+#### I-1-c: SSG fixture 対応表 (= Annex H-7 SSG 0x00-0x0F register layout 整合)
+
+| register addr | 役割 |
+|---|---|
+| `0x00-0x01` | SSG-A fine/coarse tone (= ch1) |
+| `0x02-0x03` | SSG-B fine/coarse tone (= ch2) |
+| `0x04-0x05` | SSG-C fine/coarse tone (= ch3) |
+| `0x06` | noise period |
+| `0x07` | tone/noise/mix enable (= 各 ch tone/noise bit) |
+| `0x08-0x0A` | SSG-A/B/C volume + envelope select |
+| `0x0B-0x0C` | envelope period fine/coarse |
+| `0x0D` | envelope shape (= attack/decay/sustain pattern) |
+
+δ-1 SSG fixture 想定 = 1 register write proof で `RegisterWrite(port_addr=0x04, port_data=0x05, reg_addr=0x08, reg_value=0x0F)` (= SSG-A volume = 0x0F = max)、 実 fixture は実装 sprint で literal、 ground truth = PMD.cs `psgmain()` L1645
+
+### I-2: δ-2 = PartWork / SRAM placement integration
+
+#### I-2-a: 8 評価軸
+
+| 評価軸 | 内容 |
+|---|---|
+| 目的 | β nice-to-have で defer した 0xFD39-0xFFBF (= 647 byte free region) 共用 placement 上限見積もり (= 約 320 byte) を sub-region 切り分け literal 化 |
+| 触る可能性のある file/routine | ADR-0045 Annex I (= 本 section、 doc-only)、 Annex D-4 への **引用元 不可触固定** (= α historical record として 引用のみ、 修正なし) |
+| 触ってはいけない file/routine | src/driver/WORKAREA.inc (= PART_COUNT = 17 legacy 含む全部、 既存 PartWork field layout 全部)、 0xF820-0xFD38 既存 SRAM layout 全部 (= ADR-0006/0021/0022/0023/0048 で使用中)、 standalone_test.s L119 PART_COUNT = 20 (= 不可触保護) |
+| verify gate | ADR 内整合性確認 = sub-region 上限合計 vs free region 647 byte の非重複 + 合計上限 literal verify (= 256 + 64 + 327 = 647 ✓)、 軸 G scratch 6 byte は free region 外で別途明示 |
+| regression risk | 中 (= placement 配分で field 競合可能性、 ADR で literal 化必要、 実 implementation 時に再 verify) |
+| audio gate 要否 | 不要 |
+| PR 境界 | δ 全体 1 PR 統合の一部 |
+| user 判断が必要な箇所 | sub-region 配分比率 (= PartWork 拡張 256 byte / driver_state 拡張 64 byte / 予約 327 byte) の最終決定、 実装 sprint 着手時 user 判断仰ぎ候補 |
+
+#### I-2-b: SRAM historical range (= Annex D-4 引用元 不可触固定、 正規化)
+
+| range | size | 既存 layout (= 引用元 Annex D-4 不可触固定) |
+|---|---|---|
+| `0xF820-0xFD1F` | 1280 byte | part_workarea (= 20 part × 64 byte、 ADR-0006 §A 本線、 standalone_test.s L119 PART_COUNT = 20 採用) |
+| `0xFD20-0xFD2F` | 16 byte | driver_pne_filename_buf (= ADR-0022 §決定 4) |
+| `0xFD30-0xFD31` | 2 byte | driver_pne_filename_adr_word (= ADR-0022 §決定 4) |
+| `0xFD32` | 1 byte | driver_pne_sample_table_id (= ADR-0023 §決定 4) |
+| `0xFD33-0xFD38` | 6 byte | 軸 G scratch (= ADR-0048 §決定 8 ε partial state 不可触保護対象) |
+| `0xFD39-0xFFBF` | **647 byte** | **free region** (= 軸 B δ で sub-region 切り分け、 H-7 nice-to-have 反映対象) |
+
+#### I-2-c: 0xFD39-0xFFBF free region sub-region 表 (= δ-2 新設、 非重複 + 合計上限 literal)
+
+| range | size | sub-region | bucket |
+|---|---|---|---|
+| `0xFD39-0xFE38` | 256 byte | 軸 B PartWork 拡張 上限 placement (= 仮、 実 allocation は実装 sprint で確定、 `pmdneo_v2_*` prefix 命名規約) | β nice-to-have 反映 |
+| `0xFE39-0xFE78` | 64 byte | 軸 B driver_state 拡張 上限 placement (= 仮、 同上) | β nice-to-have 反映 |
+| `0xFE79-0xFFBF` | 327 byte | reserved (= 余裕、 後続軸 拡張用、 = 647 - 256 - 64) | 予約 |
+| **合計** | **647 byte** | (= 0xFD39-0xFFBF free region 全体) | |
+
+非重複 + 合計上限 verify: 256 + 64 + 327 = 647 byte ✓ (= free region 完全充足、 軸 G scratch 6 byte は free region 外で別途明示済)
+
+### I-3: δ-3 = F-2-B hook integration
+
+#### I-3-a: 8 評価軸
+
+| 評価軸 | 内容 |
+|---|---|
+| 目的 | F-2-B 譲渡軸 (= 候補 #6) を v2 entry skeleton 経由で integration design literal、 ch3 4-op individual mode register write + per-op fnum/volume/keyon 経路確定 |
+| 触る可能性のある file/routine | ADR-0045 Annex I (= 本 section、 doc-only)、 spike 拡張 (= F-2-B fixture = ch3 op1/op2/op3/op4 individual TL/AR/DR/SR/RR/SL fnum 期待値) |
+| 触ってはいけない file/routine | standalone_test.s L116-118 (= PART_FM3EXT_X/Y/Z constant)、 L1459 / L1706 (= hooks=noop literal)、 L1723-L1734 (= pmdneo5_init_part_hooks_noop 経由配線)、 vendor/PMDDotNET/PMDDotNETCompiler/ 全部 (= F-2-A defer 維持、 mc.cs / mml_seg.cs / m_seg.cs 完全不変)、 ADR-0006 §H literal |
+| verify gate | register trace primary gate = F-2-B 4 op individual register write fixture (= ch3 op1/op2/op3/op4 個別 TL/AR/DR/SR/RR/SL fnum) + register 0x27 bit 7 = 1 (= individual mode enable) + PART_FM3 と PART_FM3EXT_X/Y/Z の chip ch3 共有経路 literal verify |
+| regression risk | 中 (= ch3 4-op で既存 PART_FM3 dispatch との衝突可能性、 PMDPPZ 流儀 100-150 件 if 分岐 + wrapper reference 必要) |
+| audio gate 要否 | 不要 (= spike + ADR、 driver touch なし) |
+| PR 境界 | δ 全体 1 PR 統合の一部 |
+| user 判断が必要な箇所 | F-2-B integration 経路 = PMDPPZ 流儀採用 vs 簡易実装 vs PMD V4.8s 流儀 の 3 案、 実装 sprint 着手時 user 判断仰ぎ候補 |
+
+#### I-3-b: F-2-B 4-op individual mode register fixture (= Annex H-7 拡張点 #3 整合)
+
+| register addr | 役割 (= YM2610 datasheet 整合) |
+|---|---|
+| `0x27` | Mode and Timer Control register、 **bit 7 = CH3 mode (1 = individual mode = F-2-B 4-op enable)** + bit 6 = CSM enable |
+| `0x40 + (op * 4) + 2` | ch3 op1-4 TL (= 0x42 / 0x46 / 0x4A / 0x4E、 per-op TL individual control) |
+| `0x50 + (op * 4) + 2` | ch3 op1-4 AR (= 0x52 / 0x56 / 0x5A / 0x5E) |
+| `0xA0-0xA2 / 0xA8-0xAA` | ch3 fnum/block (= per-op fnum for individual mode、 PART_FM3EXT_X/Y/Z で per-op control) |
+
+δ-3 F-2-B fixture では integration 開始時に 0x27 bit 7 set + 各 op TL/AR/DR/SR/RR/SL fnum を individual に register write、 ground truth = ADR-0006 §H + ADR-0044 §F-2-B 譲渡軸 literal + PMDPPZ 流儀 reference
+
+### I-4: δ-4 = 軸 C / 軸 G / rhythm 接続点保護
+
+#### I-4-a: 8 評価軸
+
+| 評価軸 | 内容 |
+|---|---|
+| 目的 | v2 main loop からの軸 C ADPCM-B / 軸 G ADPCM 動的供給 / rhythm dispatch 接続点 literal + 既存 ADR routine 完全不可触保護方針 final 確定 |
+| 触る可能性のある file/routine | ADR-0045 Annex I (= 本 section、 doc-only) |
+| 触ってはいけない file/routine | **軸 C**: standalone_test.s `adpcmb_keyon:` L2794 + `adpcmb_keyon_have_sample:` L2829 + `adpcmb_keyoff:` L2876 + `pmdneo_select_adpcmb_sample_pointer:` L2949 + `adpcmb_select_*` L2961-L3009 + `adpcmb_sample_*` L3033-L3051 + voice index table + ADPCMB_DRV.inc 全部。 **軸 G**: `pmdneo_select_adpcmb_ppc_pointer:` L2901 + `ppc_scratch_start/stop_lsb/msb` 0xFD33-0xFD36 + `audition_frame_counter_lsb/msb` 0xFD37-0xFD38 (= ADR-0048 ε partial state 完全不可触)。 **rhythm**: `pmdneo_rhythm_event_trigger::` L3535 + `_rhythm_event_*_trigger:` (= b/s/c/h/t/i) L3562-L3760 + `rhythm_main:` L3450 + KR_STUB.inc + `pmdneo_mn_direct_load_k_part_addr::` L4028 |
+| verify gate | ADR 内整合性確認 = 各 接続点 file:行番号 literal + 既存 routine 完全不可触 literal + 軸 G ADR-0048 Draft + ε partial complete state 完全不可触 literal |
+| regression risk | 低 (= 接続点 literal、 既存 routine unchanged、 軸 G state 完全不可触) |
+| audio gate 要否 | 不要 (= driver touch なし) |
+| PR 境界 | δ 全体 1 PR 統合の一部 |
+| user 判断が必要な箇所 | 接続点呼出 timing (= v2 main loop 内のどの段階で呼ぶか、 既存 hook framework との並走 vs 直接呼出) 実装 sprint 着手時 user 判断仰ぎ候補 |
+
+#### I-4-b: 軸 C / 軸 G / rhythm 接続点呼出経路 literal
+
+| 軸 | 接続点 entry | 呼出経路 (= v2 main loop 内、 literal 候補) |
+|---|---|---|
+| 軸 C ADPCM-B | `adpcmb_keyon:` L2794 (= ADR-0043 entry) | v2 main loop per-part dispatch 内、 PART_PCM (= J part = 9) に到達した時点で直接呼出 (= 既存 hook framework `adpcmb_keyon_hook:` L2710 並走維持) |
+| 軸 G ADPCM 動的供給 | `pmdneo_select_adpcmb_ppc_pointer:` L2901 (= ADR-0048 δ partial) | adpcmb_keyon 内で sample_table_id base selection 時に既存 ADR-0043 経路と分岐選択 (= 軸 G ε partial state literal 維持、 ζ defer 維持) |
+| rhythm | `pmdneo_rhythm_event_trigger::` L3535 (= ADR-0026〜0031 entry) | v2 main loop 内、 PART_RHYTHM (= K = 10) に到達した時点で直接呼出 (= 既存 `rhythm_main:` L3450 並走維持) |
+
+### I-5: δ-5 = 実装 sprint chain 計画 + verify gate / audio gate strategy + baseline 保護戦略
+
+#### I-5-a: 8 評価軸
+
+| 評価軸 | 内容 |
+|---|---|
+| 目的 | δ-1〜δ-4 終了後の軸 B 実装 sprint chain 計画 literal (= 起票 sprint chain 完了後の driver source touch sprint への bridging note) |
+| 触る可能性のある file/routine | ADR-0045 Annex I (= 本 section、 doc-only) + 改訂履歴 |
+| 触ってはいけない file/routine | 実 implementation 全部 (= 軸 B 起票 sprint chain では touch なし、 実装 sprint で別 ADR or 同 ADR 内 sub-sprint 起票判断) |
+| verify gate | ADR 内整合性確認 + 実装 sprint で各段の verify gate 設定 literal (= primary gate = register trace、 secondary = wav sha256、 baseline = ADR-0023+ byte-identical 維持) |
+| regression risk | 0 (= 計画 doc-only) |
+| audio gate 要否 | 不要 (= 起票 sprint chain では発動なし、 実装 sprint で発動条件 literal = 越川氏 audition、 必要時のみ) |
+| PR 境界 | δ 全体 1 PR 統合の一部 |
+| user 判断が必要な箇所 | 実装 sprint chain 順序 (= δ-1 → δ-2 → δ-3 → δ-4 sequential or 並列) user 判断仰ぎ、 ε Accepted 移行 trigger user 判断 gate |
+
+#### I-5-b: 実装 sprint chain 計画 (= 起票 sprint chain 完了後の bridging note)
+
+| 観点 | 内容 |
+|---|---|
+| 実装 sprint 開始時 trigger path 追加規律 | 新規 cmd 0x06 entry を `cmd_jmptable` 末尾 padding 領域に **additive 追加のみ** (= 既存 entry 完全不変)、 `snd_command_06_play_song_v2` 並設 routine + v2 entry skeleton 並設 routine 追加 (= 既存 routine 完全不変)、 user 切替判断は production-ready 後 |
+| 不可触対象 (= 全実装 sprint 共通) | IRQ flow / TIMER-B 設定 / pmd_main / pmdneo_play_loop / state_timer_tick_reached / pmd_z80_main / 既存 cmd 0x00-0x05 entry / 既存 hook framework / 既存 ADR-extended routine / 軸 G ADR-0048 routine 全部 / 軸 F ADR-0044 + F-2-A defer 維持 / 軸 C ADR-0043 routine 全部 / rhythm ADR-0026〜0031 routine 全部 |
+| 順序提案 (= 実装 sprint 候補) | δ-1 trigger path + FM 6ch / SSG 3ch dispatch 実装 → δ-2 PartWork / driver_state 拡張 placement 実装 → δ-3 F-2-B integration 実装 → δ-4 軸 C/G/rhythm 接続点 実装 + verify gate → ε Accepted 判断 user gate (= 順序 user 判断仰ぎ) |
+| verify gate strategy | 各実装 sprint で primary gate = register trace (= 期待値 vs 既存 driver 実 trace byte-identical) + secondary gate = wav sha256 (= cycle-sensitive、 timing 差分許容) + baseline gate = ADR-0023+ byte-identical 維持 (= 既存 cmd 0x02 path 完全不変 verify) |
+| audio gate strategy | 実装 sprint で audio behavior 変化時のみ越川氏 audition (= ADR-0041 §決定 4-2 例外)、 audio gate 期待音 8 軸詳細記述義務 (= 個数 / 時刻 / 経路 / sample / 期待音 / pass-fail 判定点 / aesthetic scope-out / 何が同じで何が違うべきか) |
+| baseline 保護戦略 | ADR-0023+ baseline byte-identical 維持 + 並設 only 経路 + 既存 cmd 0x02 path 完全不変 + 軸 G ADR-0048 Draft + ε partial complete state + ζ 未着手 完全不可触 + 軸 F ADR-0044 Accepted 不可触 + F-2-A defer 維持 |
+
+#### I-5-c: ADR-0041 §決定 4-2 運用読み合わせ (= 3 手順)
+
+| 手順 | 内容 |
+|---|---|
+| 各実装 sprint commit 前 | Codex layer 2 review (= ADR-0041 §決定 4-2 Codex rescue 化 default、 must-fix / nice-to-have / 規律違反 risk 取得 + approve まで chain) |
+| 各実装 sprint PR merge 後 | dashboard sync (= 軸予約表 + 軸別進捗 details + ADR 番号予約簿 + escalation 履歴 update) |
+| 各実装 sprint 完了 | OPEN PR 0 復帰確認 (= ADR-0041 §決定 4-2「session 終了判定」 (1) 「全 OPEN PR 0 + 全進行可能 sprint 完走」) |
+
+### I-6: δ 段 規律遵守確認 9 件 全 PASS
+
+δ 段で次の規律全遵守:
+
+1. ✅ driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変 (= 本 ADR + dashboard のみ変更)
+2. ✅ 軸 G ADR-0048 Draft 維持 (= I-4-b 接続点 literal + ε partial complete state + ζ 未着手 完全不可触明示)
+3. ✅ 軸 G ζ 未着手 (= 軸 B δ で ζ scope touch なし、 IRQ rate / TIMER-B 改修なし)
+4. ✅ 軸 G を完成扱いしない (= 全 sub-axis で「ε partial complete + ζ 未着手」 表記維持、 完成を断定する表現は本 Annex I 内で使用なし)
+5. ✅ vendor wav 3 件 retain (= untracked 維持、 commit 混入なし)
+6. ✅ ADR-0044 Accepted 不可触 (= I-3 F-2-A defer 維持 literal)
+7. ✅ F-2-A defer 解除なし (= I-3-a / I-5-b で「mc.cs / mml_seg.cs / m_seg.cs 完全不変」 literal 維持)
+8. ✅ ADR-0043 軸 C 完全不可触 (= I-4-a / I-4-b で adpcmb_* routine 全部 literal 列挙)
+9. ✅ Codex layer 2 3 round chain approve (= round 1 revise must-fix 2 件 + nice-to-have 3 件 + round 2 revise must-fix 2 件 → round 3 approve、 主軸推奨 (B) 1 PR 統合 + 全保護規律 PASS)
+
 ---
 
 ## 改訂履歴
@@ -1009,3 +1196,4 @@ Python standard library only. driver source touch なし。
 | 2026-05-19 | Draft α 完了 (= 37th session α sub-sprint) | driver archaeology + Phase 2 scope 確定 = Annex D (= driver archaeology findings 13 sub-section、 src/driver/ 9 file 6777 行 + vendor 14 file 20130 行 inventory + standalone_test.s routine map + WORKAREA SRAM layout + driver_state global field + IRQ flow + snd_command jump table + ADR-0016〜0048 routine 不可触保護対象 + FM/SSG replacement target literal + F-2-B X/Y/Z current state + MML compiler boundary + F-2-A defer 維持 + 軸 G ADR-0048 routine 不可触保護) + Annex E (= β interface 候補 12 件 + β 設計 6 原則 + β 完了 deliverable 想定) + Annex F (= α 段 scope-out 確認、 追加 scope-out なし)、 Annex B 行数訂正 (= PMD.cs 推定 8000 → actual 10748 行)、 doc-only investigation で driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 vendor wav 3 件 untracked retain 維持 |
 | 2026-05-19 | Draft β 完了 (= 37th session β sub-sprint) | 最小設計 + interface 固定 = Annex G (= G-1 12 interface 候補分類 = β 固定 7 件 + γ defer 1 件 + δ defer 4 件 + 軸 B scope 外 0 件 / G-2 β 最小設計境界 9 領域 = FM dispatch / SSG dispatch / PartWork PART_COUNT / IRQ handler / driver_state / sound command jump table / MML compiler / F-2-B integration / 軸 C 軸 G rhythm 接続点 / G-3 γ/δ/ε 橋渡し成果物 = γ proof / δ integration / ε Accepted 判断 / G-4 β 段 規律遵守確認 9 件 全 PASS)、 doc-only design sprint で driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 vendor wav 3 件 untracked retain 維持、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 不可触維持、 ADR-0044 Accepted + F-2-A defer 不可触維持 |
 | 2026-05-20 | Draft γ 完了 (= 37th session γ sub-sprint) | proof spike target (c) v2 entry skeleton + 1 register write = Annex H (= H-1 β retrospective review confirm = ADR-0041 §決定 6 fallback approve 妥当 / H-2 γ target 選定 = Codex layer 2 approve + 主軸推奨理由 4 件 + 評価軸 8 件全 PASS / H-3 spike script `scripts/axis-b-v2-entry-spike.py` 約 270 行 Python standard library only / H-4 v2 entry routine skeleton boundary contract = 入力 PartCtx + 出力 list[RegisterWrite] + pure function / H-5 register trace primary gate spec = 3 fixture (CH1_OP1_TL/CH4_OP1_TL/CH3_OP2_TL) + 1 invariant (register_write_count = 1) / H-6 spike self-test ALL PASS = 4/4 / H-7 γ → δ 橋渡し literal + β nice-to-have 反映 = 0xFD39-0xFFBF 共用 placement 上限見積もり 約 320 byte / 647 byte / H-8 γ 段 規律遵守確認 9 件 全 PASS)、 Python spike script 追加 + ADR-0045 + dashboard のみ変更で driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変、 vendor wav 3 件 untracked retain 維持、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 完全不可触、 ADR-0044 Accepted + F-2-A defer 完全不可触 |
+| 2026-05-20 | Draft δ 完了 (= 37th session δ sub-sprint) | integration sub-axis 分解 = Annex I 6 sub-section (= I-0 5 sub-axis 全体構成 / I-1 δ-1 FM/SSG v2 entry integration + v2 dispatch trigger path = 8 評価軸 + IRQ flow 不可触 + cmd 0x06 additive 追加のみ許容 + SSG fixture 対応表 (0x00-0x0D register layout) / I-2 δ-2 PartWork / SRAM placement integration = 8 評価軸 + Annex D-4 引用元 不可触固定 + 0xFD39-0xFFBF free region sub-region 表 (PartWork 拡張 256 byte + driver_state 拡張 64 byte + reserved 327 byte = 647 byte 整合) / I-3 δ-3 F-2-B hook integration = 8 評価軸 + register 0x27 bit 7 individual mode enable + ch3 op1-4 TL/AR/fnum fixture / I-4 δ-4 軸 C / 軸 G / rhythm 接続点保護 = 8 評価軸 + 接続点呼出経路 literal (軸 C adpcmb_keyon L2794 / 軸 G pmdneo_select_adpcmb_ppc_pointer L2901 / rhythm pmdneo_rhythm_event_trigger L3535) / I-5 δ-5 実装 sprint chain 計画 + verify/audio gate strategy + baseline 保護戦略 + ADR-0041 §決定 4-2 運用 3 手順 / I-6 δ 段 規律遵守確認 9 件 全 PASS)、 doc-only design sprint で driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変、 vendor wav 3 件 untracked retain 維持、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 完全不可触、 ADR-0044 Accepted + F-2-A defer 完全不可触、 Codex layer 2 3 round chain approve (= round 1 revise must-fix 2 件 + nice-to-have 3 件 → round 2 revise must-fix 2 件 → round 3 approve)、 主軸推奨 (B) 1 PR 統合 採用 |
