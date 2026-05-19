@@ -123,6 +123,15 @@
         .equ    driver_pne_filename_adr_word,  0xFD30
         .equ    driver_pne_sample_table_id,    0xFD32
 
+        ;; ADR-0048 §決定 8 案 C 軸 G δ: PPC directory 引き runtime selection scratch (= 4 byte)
+        ;;   pmdneo_select_adpcmb_ppc_pointer が mapping-B (v_rom_word = ppc_word + PPC_VROM_BASE_OFFSET_WORD)
+        ;;   で計算した START_LSB/MSB + STOP_LSB/MSB をここに書き、 DE = ppc_scratch_start_lsb を return。
+        ;;   既存 ADR-0043 経路の adpcmb_keyon_have_sample contract (= DE 経由 4 byte read) と互換。
+        .equ    ppc_scratch_start_lsb,         0xFD33
+        .equ    ppc_scratch_start_msb,         0xFD34
+        .equ    ppc_scratch_stop_lsb,          0xFD35
+        .equ    ppc_scratch_stop_msb,          0xFD36
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -132,6 +141,10 @@
         .equ    PNE_SAMPLE_DIRECTORY_ENTRY_COUNT, 2
 
         .include "assets/samples.inc"
+        ;; ADR-0048 §決定 8 案 C 軸 G δ: PPC_VROM_BASE_OFFSET_WORD_LSB/MSB を
+        ;; PPC_PCM_BLOB_START_LSB/MSB と同値定義 (= vromtool 配置後の samples.inc symbol を resolve)。
+        ;; scripts/ppc-to-ngdevkit.py 生成、 source of truth = src/test-fixtures/axis-g/*.PPC。
+        .include "assets/ppc_symbols.inc"
 
 ;;; ----- Z80 SRAM layout (= 2 KB at 0xF800-0xFFFF) -----
 ;;;
@@ -141,7 +154,8 @@
 ;;;   0xFD20 - 0xFD2F   driver_pne_filename_buf (= 16 bytes、ADR-0022 §決定 4)
 ;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4)
 ;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
-;;;   0xFD33 - 0xFFBF   free / 後続 phase 用 (= 653 bytes 余裕)
+;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
+;;;   0xFD37 - 0xFFBF   free / 後続 phase 用 (= 649 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -2695,12 +2709,28 @@ adpcmb_keyon:
         ld      b, #0x10
         ld      c, #0x00
         call    ym2610_write_port_a
-        ;; reg 0x12-0x15 = sample addr (= 軸 C 実装 sub-sprint α、 ADR-0043 §決定 3
+        ;; ADR-0048 §決定 8 軸 G δ: sample_table_id bit7 分岐
+        ;;   bit7 clear (= 0x00-0x7F) = 既存 ADR-0043 経路 (= production-ready 保護)
+        ;;   bit7 set   (= 0x80-0xFF) = 軸 G 新規経路 (= .PPC directory 引き、 lower 7 bit = entry index 0-127)
+        ld      a, (driver_pne_sample_table_id)
+        bit     7, a
+        jr      nz, adpcmb_keyon_ppc_source
+
+        ;; 既存 ADR-0043 経路 (= reg 0x12-0x15 = sample addr、 ADR-0043 §決定 3
         ;; selector 経路で sample literal table から 4 byte read、 ADPCM-A
         ;; pmdneo_select_sample_pointer (= L2784) 対称構造、 byte-identical 維持)
         ;; A = voice index (= α では未使用、 β で voice index table 化 拡張接続点)
         ld      a, PART_OFF_INSTRUMENT(ix)
         call    pmdneo_select_adpcmb_sample_pointer
+        jr      adpcmb_keyon_check_sentinel
+
+adpcmb_keyon_ppc_source:
+        ;; 軸 G δ 新規経路 (= sample_table_id lower 7 bit = .PPC directory entry index 0-127)
+        ld      a, (driver_pne_sample_table_id)
+        and     #0x7F
+        call    pmdneo_select_adpcmb_ppc_pointer
+
+adpcmb_keyon_check_sentinel:
         ;; DE == 0 sentinel check (= unknown id silent reject、 ADR-0043 §決定 3)
         ld      a, d
         or      e
@@ -2762,6 +2792,55 @@ adpcmb_keyoff:
         ld      b, #0x10
         ld      c, #0x00
         call    ym2610_write_port_a
+        ret
+
+;;; ===== 軸 G 実装 sub-sprint δ (= ADR-0048 §決定 8 案 C 部分 runtime parse) =====
+;;; .PPC directory binary (= 256 entries × 4 byte = 1024 byte、 PPC_DIRECTORY_BASE) を
+;;; ROM 内 .incbin 経由で取り込み、 driver runtime で entry index × 4 byte offset で
+;;; START / STOP word を read + mapping-B (= v_rom_word = ppc_word + PPC_VROM_BASE_OFFSET_WORD)
+;;; で V-ROM addr 計算 + ppc_scratch_* SRAM に 4 byte 書き出し + DE = scratch addr return。
+;;; ADR-0043 既存 selector (= pmdneo_select_adpcmb_sample_pointer) と並走、 adpcmb_keyon
+;;; 内の sample_table_id bit7 分岐で source 切替。
+
+;; pmdneo_select_adpcmb_ppc_pointer (= 軸 G δ 新規 routine)
+;; 入力: A = .PPC directory entry index (= 0-127、 sample_table_id lower 7 bit 由来)
+;; 出力: DE = ppc_scratch_start_lsb addr (= 4 byte: START_LSB/MSB + STOP_LSB/MSB)
+;;        本 routine は sentinel return しない (= entry index range check は caller 側で)
+;; mapping-B 式: v_rom_word = ppc_word + PPC_VROM_BASE_OFFSET_WORD
+;;               (= PPC_VROM_BASE_OFFSET_WORD_LSB/MSB は ppc_symbols.inc で
+;;                 PPC_PCM_BLOB_START_LSB/MSB と同値定義、 vromtool 配置後 resolve)
+;; clobbers: A, B, C, DE, HL
+pmdneo_select_adpcmb_ppc_pointer:
+        ;; HL = PPC_DIRECTORY_BASE + entry_index * 4
+        ld      l, a
+        ld      h, #0
+        add     hl, hl                  ; × 2
+        add     hl, hl                  ; × 4
+        ld      de, #PPC_DIRECTORY_BASE
+        add     hl, de
+        ;; HL = entry head pointer (= START_LSB)
+
+        ;; START_LSB = ppc_word_lsb + PPC_VROM_BASE_OFFSET_WORD_LSB
+        ld      a, (hl)
+        add     a, #PPC_VROM_BASE_OFFSET_WORD_LSB
+        ld      (ppc_scratch_start_lsb), a
+        inc     hl
+        ;; START_MSB = ppc_word_msb + PPC_VROM_BASE_OFFSET_WORD_MSB + carry
+        ld      a, (hl)
+        adc     a, #PPC_VROM_BASE_OFFSET_WORD_MSB
+        ld      (ppc_scratch_start_msb), a
+        inc     hl
+        ;; STOP_LSB = ppc_stop_word_lsb + PPC_VROM_BASE_OFFSET_WORD_LSB
+        ld      a, (hl)
+        add     a, #PPC_VROM_BASE_OFFSET_WORD_LSB
+        ld      (ppc_scratch_stop_lsb), a
+        inc     hl
+        ;; STOP_MSB = ppc_stop_word_msb + PPC_VROM_BASE_OFFSET_WORD_MSB + carry
+        ld      a, (hl)
+        adc     a, #PPC_VROM_BASE_OFFSET_WORD_MSB
+        ld      (ppc_scratch_stop_msb), a
+
+        ld      de, #ppc_scratch_start_lsb
         ret
 
 ;;; ===== 軸 C 実装 sub-sprint α (= ADR-0043 §決定 3、 31st session) =====
@@ -3875,6 +3954,14 @@ pmdneo_mn_direct_load_k_part_addr::
 ;; 2394 残存していた hardcoded を本 fix で除去、 song_data.inc が単一 source)。
 
         .include "song_data.inc"
+
+;; ADR-0048 §決定 8 案 C 軸 G δ: .PPC directory binary (= 256 entries × 4 byte = 1024 byte)
+;; を ROM 内に embed。 pmdneo_select_adpcmb_ppc_pointer が entry index × 4 byte offset で
+;; START / STOP word を read。 source = scripts/ppc-to-ngdevkit.py 生成 assets/ppc_directory.bin、
+;; source of truth = src/test-fixtures/axis-g/*.PPC + PMDNEO_PPC env で指定する .PPC file。
+;; size assert = verify script (= scripts/verify-axis-g-delta-ppc-runtime.sh) で 1024 byte 検証。
+PPC_DIRECTORY_BASE:
+        .incbin "assets/ppc_directory.bin"
 
         ;; Dummy DATA area to satisfy linker (= -b DATA=0xf800)
         .area DATA

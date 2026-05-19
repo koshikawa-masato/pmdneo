@@ -97,6 +97,27 @@ echo "=== ADPCM-B passthrough yaml を配置 (= c1 採用、 hand-written) ==="
 cp "$PMDNEO_ROOT/assets/pne/samples-map-adpcmb.yaml" "$TEMPLATE_DIR/assets/samples-map-adpcmb.yaml"
 echo "  samples-map-adpcmb.yaml <- assets/pne/samples-map-adpcmb.yaml"
 
+# ADR-0048 §決定 8 案 C: 軸 G .PPC → ngdevkit 入力 (= directory bin + adpcm_b blob + yaml + symbols)
+# PMDNEO_PPC env で .PPC file path 指定 (= default は src/test-fixtures/axis-g/minimum.PPC)。
+# generator は scripts/ppc-to-ngdevkit.py (= 35th session vromtool finding 反映、 vromtool 外側)。
+# 軸 G 経路は sample_table_id bit7 set 時のみ driver runtime で走るため、 unconditional に
+# build pipeline に組み込んでも既存 fixture (= bit7 clear) の byte-identical は維持される。
+echo "=== ADR-0048 §決定 8 案 C: .PPC → ngdevkit 入力 (= generator scripts/ppc-to-ngdevkit.py) ==="
+PMDNEO_PPC="${PMDNEO_PPC:-$PMDNEO_ROOT/src/test-fixtures/axis-g/minimum.PPC}"
+if [ ! -f "$PMDNEO_PPC" ]; then
+    echo "ERROR: .PPC file が見つからない: $PMDNEO_PPC" >&2
+    echo "  scripts/ppc-to-ngdevkit.py --emit-fixture で生成可能" >&2
+    exit 2
+fi
+python3 "$PMDNEO_ROOT/scripts/ppc-to-ngdevkit.py" \
+    --input "$PMDNEO_PPC" \
+    --output-dir "$TEMPLATE_DIR/assets" > /dev/null
+echo "  source: $PMDNEO_PPC"
+echo "  generated: assets/ppc_directory.bin (1024 byte) + assets/ppc_pcm_blob.adpcm_b + assets/ppc_symbols.inc"
+# 既存 samples-map-adpcmb.yaml に軸 G blob entry を merge (= vromtool は 1 yaml/型 受領)
+cat "$TEMPLATE_DIR/assets/samples-map-adpcmb-ppc.yaml" >> "$TEMPLATE_DIR/assets/samples-map-adpcmb.yaml"
+echo "  samples-map-adpcmb.yaml <- 既存 + samples-map-adpcmb-ppc.yaml (= merge cp)"
+
 echo "=== SAMPLE.M を sdasz80 用 .db source に変換 ==="
 python3 "$PMDNEO_ROOT/scripts/bin2db.py" \
     "$PMDNEO_ROOT/vendor/pmd48s/SAMPLE.M" \
