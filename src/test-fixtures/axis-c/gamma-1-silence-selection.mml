@@ -1,0 +1,19 @@
+#Title		ADR-0043 §sub-sprint γ-1 J part voice 1 silence selection (= ADPCM-B register write gate verify)
+#Composer	M.Koshikawa.
+#Memo		voice 1 (= @1) で sample B = silence selection 経路 register trace 実証用 fixture
+
+; FM voice (= reference template、 step4 fixture 同形式踏襲、 J part のみ verify 対象)
+; nm alg fbl
+@001 000 005
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; J part = ADPCM-B 1 ch、 @1 = voice index 1 (= PART_OFF_INSTRUMENT=1 → voice 1 →
+; sample id 1 → adpcmb_select_sample_b → adpcmb_sample_silence)
+; reg 0x12-0x15 = SILENCE_START_LSB/MSB/STOP_LSB/MSB (= samples.inc generated symbol)
+; 全音符 1 つだけ、 register write が観測できれば OK (= audio は silence = 鳴らない、
+; aesthetic 対象外、 selection proof は trace 経由のみ可)
+J	@1 o4 l1 c

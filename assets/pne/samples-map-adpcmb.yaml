@@ -29,3 +29,14 @@
 - adpcm_b:
     name: beat
     uri: file:///Users/koshikawamasato/Projects/pmdneo/vendor/ngdevkit-examples/00-template/assets/beat.wav
+
+# γ-1 actual silence sample (= ADR-0043 §sub-sprint chain γ-1、 軸 C 実装 sub-sprint γ-1):
+#   project-owned deterministic test sample (= 16-bit 8 kHz mono 0.1s 全 zero PCM)
+#   - 配置: assets/pne/silence.wav (= project-owned、 vendor 不可触規律遵守)
+#   - 用途: voice 1 = sample B selection 経路 register trace 実証 (= reg 0x12-0x15 が
+#     SILENCE_* generated symbol 値で differ from beat)
+#   - aesthetic 対象外 (= silence = 鳴らない sample、 audition は selection proof のみ)
+#   - sha256 c726d333dd159a31423f3480dbb1c5c4a9dfcd30efe1f7e12ade390dc92e8908
+- adpcm_b:
+    name: silence
+    uri: file:///Users/koshikawamasato/Projects/pmdneo/assets/pne/silence.wav
