@@ -81,7 +81,7 @@ ADR-0041 §決定 4 規律 (= sub-agent ↔ Codex 2 段壁打ち + 3 重 zero-tr
 |---|---|---|---|---|
 | **α** | driver archaeology + Phase 2 scope 確定 | 既存 PMDDotNETDriver (= `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` + `PMD.cs` + `PCMDRV.cs` + `PCMLOAD.cs` + `PPZDRV.cs` + `EFCDRV.cs` + `OPNATimer.cs` ground truth、 FM/SSG dispatch routine は driver.cs/PMD.cs 内に統合配置 = 別 file 派生なし) reference + `src/driver/standalone_test.s` 本線 FM/SSG 部分 inventory + Phase 2 fullscratch boundary literal 化 (= 何を replace、 何を保護) + F-2-B ch3 4-op 既存 PMDPPZ 流儀 reference + ADR Annex 化 | 主要 routine pattern reference + 既存 driver inventory (= FM 6ch dispatch / SSG 3ch dispatch 現状) + boundary literal + driver source touch なし、 doc-only | なし (= **完了 = 37th session α sub-sprint、 Annex D + Annex E 追加**) |
 | **β** | 最小設計 + interface 固定 | α inventory base で fullscratch driver interface 設計 (= FM/SSG dispatch routine 境界 + register write sequence + chip target flag 接続 + 既存 ADR-0023+ routine 不可触保護方針 + F-2-B ch3 4-op integration 経路) + ADR §決定 追加 | interface 設計 ADR 追加 + 既存 routine 不可触 literal 確認 + F-2-B 統合点 literal、 driver source touch なし | 設計のみ (= **完了 = 37th session β sub-sprint、 Annex G 追加 = G-1 12 候補分類 + G-2 最小設計 9 領域 + G-3 γ/δ/ε 橋渡し**) |
-| **γ** | proof / spike (= 最小 routine 1 つ proof) | β interface design を **Python spike script** (= standard library only、 `scripts/*-spike.py`) で proof + 期待 register write sequence literal + 既存 driver behavior と byte-identical 比較 (= register trace primary gate、 spike script が emit する期待値 vs 既存 driver の実 trace) | Python spike script 実装 + register trace 期待値一致 + 既存 ADR-0023+ baseline byte-identical 維持 + **driver source touch なし** (= spike は Python のみ、 driver source は α-δ 全段で完全不変) | なし (= spike script のみ) |
+| **γ** | proof / spike (= 最小 routine 1 つ proof) | β interface design を **Python spike script** (= standard library only、 `scripts/*-spike.py`) で proof + 期待 register write sequence literal + 既存 driver behavior と byte-identical 比較 (= register trace primary gate、 spike script が emit する期待値 vs 既存 driver の実 trace) | Python spike script 実装 + register trace 期待値一致 + 既存 ADR-0023+ baseline byte-identical 維持 + **driver source touch なし** (= spike は Python のみ、 driver source は α-δ 全段で完全不変) | なし (= spike script のみ、 **完了 = 37th session γ sub-sprint、 target (c) v2 entry skeleton + 1 register write、 Annex H 追加**) |
 | **δ** | integration (= 既存 driver と並走 + sub-axis 分解計画) | γ proof base で FM 6ch / SSG 3ch / ADPCM-A 6ch / ADPCM-B 1ch sub-axis 分解 + F-2-B ch3 4-op integration + 軸 C/G との接続点 literal + 実装 sprint chain 計画 (= verify gate strategy + audio gate strategy) | sub-axis 分解 ADR + 軸 C ADR-0043 不可触確認 + 軸 G ADR-0048 不可触確認 + F-2-B integration 経路確定 + 実装 sprint chain 計画 literal | 設計のみ |
 | **ε** | completion + Accepted 判断 | α/β/γ/δ verify gate 全 PASS 確認 + ADR Draft → Accepted 判断 (= user 判断 gate) + dashboard 軸 B 完了 reflect + 実装 sprint への bridging note | 全 sub verify PASS + user audition 不要 (= doc-only sprint で audio behavior 変化なし) + ADR Accepted 移行 user 判断 gate 経由 | なし |
 
@@ -854,6 +854,151 @@ scope-in / scope-out / non-goal への追加修正 = なし (= 既 §決定 5 + 
 8. ✅ F-2-A defer 維持 (= G-2-7 + G-2-8 で literal)
 9. ✅ ADR-0044 Accepted 不可触 (= G-2-7 で literal)
 
+## Annex H: 軸 B γ 完了 = proof spike target (c) v2 entry skeleton + 1 register write (= 37th session γ sub-sprint deliverable、 Python spike script + register trace primary gate)
+
+γ sub-sprint 投入 (= 37th session、 user 明示 GO 経由) で β Annex G-3-1 spike target 3 候補から **target (c) v2 entry skeleton + 1 register write** を採用 (= Codex layer 2 round 1 approve + 主軸推奨 4 件 + 評価軸 8 件全 PASS)。 Python spike script による proof + register trace primary gate verify を主軸単独で完走 (= driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変、 Python spike script のみ追加)。
+
+### H-1: β retrospective review 結果 record (= Codex 復帰後 retrospective)
+
+β sub-sprint (= PR #53 MERGED ba822cd) は ADR-0041 §決定 6 fallback 主軸単独 approve だったため、 γ 着手前に Codex layer 2 復帰後 retrospective review を実施。
+
+| 項目 | 結果 |
+|---|---|
+| 主軸 fallback approve 妥当性 | **confirm** (= 追加 must-fix なし、 規律違反 risk なし) |
+| G-1 12 候補分類整合性 | **PASS** (= Annex E と integer 整合) |
+| G-2 最小設計境界 9 領域 literal 整合性 | **PASS** (= 全網羅 + 「並設 only」 + 「既存不可触保護」 全領域 literal) |
+| G-3 γ/δ/ε 橋渡し成果物 | **PASS** (= 後続 sub-sprint で迷わない粒度) |
+| 規律遵守 | **PASS** (= 軸 G state 不可触 + ADR-0048 Draft + ζ 未着手 + vendor wav retain + F-2-A defer 維持) |
+| nice-to-have 反映時期 judgement | **γ 段で反映** (= 0xFD39-0xFFBF 共用 placement 上限見積もり note を Annex H-7 に記録、 実 allocation 分割は δ integration 側で扱う) |
+
+β fallback approve は妥当、 PR #53 MERGED ba822cd は再 verify 確認済。
+
+### H-2: γ target 選定 review 結果 record
+
+Codex layer 2 round 1 approve = **target (c) v2 entry skeleton + 1 register write 採用**。
+
+#### 主軸推奨理由 4 件 (= Codex 因果整合確認)
+
+1. FM/SSG 本実装前に v2 entry boundary + trace gate を最小で検証 (= β G-2-1/G-2-2 で確定した並設 entry の boundary contract proof)
+2. production semantics 不変 (= driver source touch なし、 既存 FM/SSG dispatch に影響しない)
+3. driver / runtime 本体改修なし、 Python script のみで収まりやすい (= entry skeleton + 1 register write を Python で table emit 形式で proof 可能)
+4. 後続 δ integration の入口として最も汎用的 (= v2 entry interface を δ で FM 6ch / SSG 3ch / F-2-B / 軸 C/G/rhythm 接続 拡張する際の base)
+
+#### 評価軸 8 件比較 (= 主軸推奨確認、 Codex round 1 全 PASS)
+
+| 評価軸 | (a) FM ch1 keyon | (b) SSG ch1 keyon | (c) v2 entry + 1 reg write |
+|---|---|---|---|
+| 1. β interface 整合 | △ | △ | **◎** |
+| 2. production build 影響 | ○ | ○ | **◎** |
+| 3. driver / runtime 不可触維持 | ○ | ○ | **○** |
+| 4. register trace primary gate 有効性 | △ | △ | **○** |
+| 5. δ integration への橋渡し | △ | △ | **◎** |
+| 6. regression risk | ○ | ○ | **○** |
+| 7. PR 境界 | ○ | ○ | **○** |
+| 8. verify gate | ○ | ○ | **○** |
+
+### H-3: spike script 配置 + scope (= Python standard library only)
+
+- **file**: `scripts/axis-b-v2-entry-spike.py` 新規 (= 約 270 行、 standard library only)
+- **import 範囲**: `argparse` / `json` / `sys` / `dataclasses` / `typing` のみ (= 標準 module)
+- **driver source touch**: なし (= Python spike のみ、 driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変)
+- **実行方法**:
+  - `python3 scripts/axis-b-v2-entry-spike.py` (= default、 self-test 実行 + 結果 print)
+  - `python3 scripts/axis-b-v2-entry-spike.py --json` (= JSON output)
+
+### H-4: v2 entry routine skeleton boundary contract (= Python proof)
+
+#### 入力 / 出力 / 副作用 contract
+
+| 観点 | 内容 |
+|---|---|
+| 入力 | `PartCtx(part: int, op: int, tl: int)` (= per-part workarea 抽象表現、 part = PART_FM1-6 = 0-5、 op = operator index 0-3、 tl = 7-bit TL field) |
+| 出力 | `list[RegisterWrite]` (= 期待 register trace、 本 spike では len == 1) |
+| 副作用 | なし (= pure function、 driver source touch なし) |
+
+#### routing rule (= chip port A/B 分岐 contract)
+
+- ch < 3 (= PART_FM1/2/3 = A/B/C) → port A (= 0x04 addr / 0x05 data)
+- ch >= 3 (= PART_FM4/5/6 = D/E/F、 YM2610B のみ active) → port B (= 0x06 addr / 0x07 data)
+
+#### register address computation (= TL register addr literal)
+
+- `reg_addr = FM_TL_BASE (= 0x40) + (op * 4) + (part % 3)`
+- 例: PART_FM1 (= ch1) op1 → `0x40 + 0 + 0 = 0x40`
+- 例: PART_FM3 (= ch3) op2 → `0x40 + 4 + 2 = 0x46`
+- 例: PART_FM4 (= ch4) op1 → `0x40 + 0 + 0 = 0x40` (= port B 側で同 layout offset)
+
+### H-5: register trace primary gate spec (= γ verify primary gate)
+
+#### 期待 register trace fixture 3 件 (= spike self-test 内 EXPECTED_TRACE_*)
+
+| fixture | 入力 | 期待 trace |
+|---|---|---|
+| `EXPECTED_TRACE_CH1_OP1_TL` | `PartCtx(part=0, op=0, tl=0x14)` | `[RegisterWrite(port_addr=0x04, port_data=0x05, reg_addr=0x40, reg_value=0x14)]` |
+| `EXPECTED_TRACE_CH4_OP1_TL` | `PartCtx(part=3, op=0, tl=0x20)` | `[RegisterWrite(port_addr=0x06, port_data=0x07, reg_addr=0x40, reg_value=0x20)]` |
+| `EXPECTED_TRACE_CH3_OP2_TL` | `PartCtx(part=2, op=1, tl=0x30)` | `[RegisterWrite(port_addr=0x04, port_data=0x05, reg_addr=0x46, reg_value=0x30)]` |
+
+#### invariant 1 件 (= register write count = 1)
+
+- `EXPECTED_REGISTER_WRITE_COUNT = 1` (= target (c) は「1 register write」 と β G-3-1 で確定)
+- 全 fixture で `len(trace) == 1` を assert
+
+### H-6: spike self-test 結果 (= ALL PASS = 4/4)
+
+`python3 scripts/axis-b-v2-entry-spike.py` 実行結果:
+
+```
+=== 軸 B sub-sprint γ proof spike (= target (c) v2 entry skeleton + 1 register write) ===
+
+ADR-0045 Annex G G-3-1 target (c) per 37th session γ.
+Python standard library only. driver source touch なし。
+
+[PASS] ch1_op1_tl_14
+[PASS] ch4_op1_tl_20
+[PASS] ch3_op2_tl_30
+[PASS] register_write_count_invariant
+
+=== γ proof spike: ALL PASS ===
+```
+
+### H-7: γ → δ 橋渡し literal (= G-3-2 拡張点 + β nice-to-have 反映)
+
+γ proof spike で確立した v2 entry interface boundary を δ integration で拡張する際の拡張点 literal:
+
+| 拡張点 | δ で literal 化される内容 |
+|---|---|
+| FM 6ch 全 dispatch | `pmdneo_v2_fm_main_skeleton` を 1 part → 6 part (= ch1-6) sequential dispatch に拡張、 chip target flag 経由で YM2610 ch2/3/5/6 active or YM2610B ch1-6 active 分岐 |
+| SSG 3ch dispatch | 別 skeleton `pmdneo_v2_ssg_main_skeleton` (= 仮称) を追加、 SSG register layout (= 0x00-0x0F の SSG-A/B/C tone/noise/mix/volume/envelope) に対応 |
+| F-2-B ch3 4-op individual mode | PART_FM3 + PART_FM3EXT_X/Y/Z で chip ch3 共有経路 + per-op fnum/volume/keyon literal |
+| 軸 C ADPCM-B 接続点 | v2 main loop から `adpcmb_keyon:` L2794 呼出経路 literal (= ADR-0043 routine 完全不可触) |
+| 軸 G ADPCM 接続点 | v2 main loop から `pmdneo_select_adpcmb_ppc_pointer:` L2901 呼出経路 literal (= ADR-0048 Draft state + ε partial complete state 完全不可触) |
+| rhythm dispatch 接続点 | v2 main loop から `pmdneo_rhythm_event_trigger::` L3535 呼出経路 literal (= ADR-0026〜0031 routine 完全不可触) |
+| sub-axis 分解 + 実装 sprint chain 計画 | verify gate strategy + audio gate strategy + 既存 ADR-0023+ baseline byte-identical 維持戦略 literal |
+
+#### β nice-to-have 反映 = 0xFD39-0xFFBF 共用 placement 上限見積もり note (= H-7 record)
+
+β Annex G-2-3 + G-2-5 で 0xFD39-0xFFBF (= 647 byte free 領域) を **PartWork 拡張 + driver_state 拡張 共用** と定めたが、 γ 段 spike では実 PartWork field 追加していない (= entry skeleton + 1 register write のみ proof)。 δ integration 段で 6ch / 3ch 拡張 + F-2-B + 軸 C/G/rhythm 接続点 literal 時に **placement 上限見積もり** を確定する:
+
+- 仮定: per-part workarea 拡張 = PART_FM3EXT_X/Y/Z (= 3 part × 64 byte = 192 byte) + F-2-B 個別 state (= 推定 32-64 byte) → 約 256 byte 上限見積もり
+- driver_state 拡張 = v2 main loop state (= 推定 16-32 byte) + sub-tick refinement (= 推定 8 byte) → 約 64 byte 上限見積もり
+- 合計上限 = 約 320 byte (= 647 byte 内、 余裕 327 byte)
+
+実 placement 分割 (= sub-region 切り分け literal) は δ integration 段で確定 (= β nice-to-have を γ Annex H で記録、 実 allocation は δ で確定の 2 段経路)。
+
+### H-8: γ 段 規律遵守確認 9 件 全 PASS
+
+γ 段で次の規律全遵守:
+
+1. ✅ driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変 (= git diff stat で確認、 Python spike + ADR + dashboard のみ追加)
+2. ✅ 軸 G ADR-0048 Draft 維持 (= Annex H 全文で literal、 Accepted 化禁止)
+3. ✅ 軸 G ζ 未着手 (= γ proof spike 範囲外、 軸 G ζ scope は軸 B 内 touch なし)
+4. ✅ 軸 G を完成扱いしない (= 「軸 G 完成」 literal 0 件)
+5. ✅ vendor wav 3 件 retain (= untracked 維持、 commit 混入なし)
+6. ✅ ADR-0044 Accepted 不可触 (= F-2-A defer 維持、 compiler 層 touch なし)
+7. ✅ F-2-A defer 解除なし (= γ proof spike は driver layer entry skeleton で compiler layer 完全不変)
+8. ✅ Python standard library only (= argparse / json / sys / dataclasses / typing のみ、 外部依存なし)
+9. ✅ register trace primary gate verify (= 3 fixture + 1 invariant、 self-test ALL PASS)
+
 ---
 
 ## 改訂履歴
@@ -863,3 +1008,4 @@ scope-in / scope-out / non-goal への追加修正 = なし (= 既 §決定 5 + 
 | 2026-05-19 | Draft 起票 | 37th session 主軸推奨 + Codex layer 2 round 1 approve 経由起票、 軸 G ζ 保留 + 他軸候補整理 + 候補 α 軸 B 採用、 ADR-0044 §F-2-B 譲渡継承 + F-2-A defer 維持 + ADR-0048 Draft state 不可触、 5 段 α/β/γ/δ/ε 構成、 doc-only filing |
 | 2026-05-19 | Draft α 完了 (= 37th session α sub-sprint) | driver archaeology + Phase 2 scope 確定 = Annex D (= driver archaeology findings 13 sub-section、 src/driver/ 9 file 6777 行 + vendor 14 file 20130 行 inventory + standalone_test.s routine map + WORKAREA SRAM layout + driver_state global field + IRQ flow + snd_command jump table + ADR-0016〜0048 routine 不可触保護対象 + FM/SSG replacement target literal + F-2-B X/Y/Z current state + MML compiler boundary + F-2-A defer 維持 + 軸 G ADR-0048 routine 不可触保護) + Annex E (= β interface 候補 12 件 + β 設計 6 原則 + β 完了 deliverable 想定) + Annex F (= α 段 scope-out 確認、 追加 scope-out なし)、 Annex B 行数訂正 (= PMD.cs 推定 8000 → actual 10748 行)、 doc-only investigation で driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 vendor wav 3 件 untracked retain 維持 |
 | 2026-05-19 | Draft β 完了 (= 37th session β sub-sprint) | 最小設計 + interface 固定 = Annex G (= G-1 12 interface 候補分類 = β 固定 7 件 + γ defer 1 件 + δ defer 4 件 + 軸 B scope 外 0 件 / G-2 β 最小設計境界 9 領域 = FM dispatch / SSG dispatch / PartWork PART_COUNT / IRQ handler / driver_state / sound command jump table / MML compiler / F-2-B integration / 軸 C 軸 G rhythm 接続点 / G-3 γ/δ/ε 橋渡し成果物 = γ proof / δ integration / ε Accepted 判断 / G-4 β 段 規律遵守確認 9 件 全 PASS)、 doc-only design sprint で driver / runtime / compiler / vendor / vromtool.py / verify script / fixture data 完全不変、 vendor wav 3 件 untracked retain 維持、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 不可触維持、 ADR-0044 Accepted + F-2-A defer 不可触維持 |
+| 2026-05-20 | Draft γ 完了 (= 37th session γ sub-sprint) | proof spike target (c) v2 entry skeleton + 1 register write = Annex H (= H-1 β retrospective review confirm = ADR-0041 §決定 6 fallback approve 妥当 / H-2 γ target 選定 = Codex layer 2 approve + 主軸推奨理由 4 件 + 評価軸 8 件全 PASS / H-3 spike script `scripts/axis-b-v2-entry-spike.py` 約 270 行 Python standard library only / H-4 v2 entry routine skeleton boundary contract = 入力 PartCtx + 出力 list[RegisterWrite] + pure function / H-5 register trace primary gate spec = 3 fixture (CH1_OP1_TL/CH4_OP1_TL/CH3_OP2_TL) + 1 invariant (register_write_count = 1) / H-6 spike self-test ALL PASS = 4/4 / H-7 γ → δ 橋渡し literal + β nice-to-have 反映 = 0xFD39-0xFFBF 共用 placement 上限見積もり 約 320 byte / 647 byte / H-8 γ 段 規律遵守確認 9 件 全 PASS)、 Python spike script 追加 + ADR-0045 + dashboard のみ変更で driver / runtime / compiler / vendor / vromtool.py / verify fixture data 完全不変、 vendor wav 3 件 untracked retain 維持、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 完全不可触、 ADR-0044 Accepted + F-2-A defer 完全不可触 |
