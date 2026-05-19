@@ -200,14 +200,90 @@ PMDDotNET は **PC-98 OPNA ADPCM RAM 経路** (= 32K-256KB ADPCM RAM、 sample b
 
 各 sub-sprint 完了で dashboard `docs/parallel-axes-dashboard.md` § 軸別進捗 details § 軸 G 表 + § escalation 履歴 を主軸 write で update (= sub-agent read のみ)、 ADR-0048 §sub-sprint 完了 section に literal 反映、 1 sub = 1 commit + 1 PR + 1 merge + 1 dashboard update。
 
+### 決定 8: 軸 G γ V-ROM mapping 確定 = mapping-B (= offset 加算) + selection key δ defer
+
+軸 G γ sub-sprint で V-ROM 直結 mapping を **mapping-B (= offset 加算)** に literal 確定する。 mapping-A (= identity) + mapping-C (= scaled × k) は reject。 selection key (= `.PPC` source vs yaml passthrough source 判定軸) は δ で literal 確定 (= γ では候補列挙のみ)。
+
+#### mapping-B 採用 (= 確定式)
+
+```
+v_rom_word = ppc_word + v_rom_base_offset_word
+reg 0x12 = v_rom_word & 0xFF       (= START LSB)
+reg 0x13 = (v_rom_word >> 8) & 0xFF (= START MSB)
+reg 0x14 = v_rom_stop_word & 0xFF       (= STOP LSB)
+reg 0x15 = (v_rom_stop_word >> 8) & 0xFF (= STOP MSB)
+where v_rom_stop_word = ppc_stop_word + v_rom_base_offset_word
+```
+
+- `ppc_word` = `.PPC` directory entry の START / STOP word (= LE 16-bit、 Annex A-3 literal)
+- `v_rom_base_offset_word` = build-time literal symbol (= 仮称 `PPC_VROM_BASE_OFFSET_WORD`、 driver source + samples.inc literal、 値は δ で vromtool.py 拡張時に確定)
+- YM2610(B) ADPCM-B reg 0x12-0x15 = 16-bit register × 256 = byte addr (= V-ROM 上 byte addr、 256 byte aligned granularity、 ADR-0043 Annex A reference)
+
+#### mapping-A reject 根拠
+
+| reject 軸 | 根拠 |
+|---|---|
+| V-ROM base = 0 固定衝突 | 既存 yaml passthrough sample 領域 (= ADR-0043 `adpcmb_sample_beat` + γ-2 silence_b + γ-2 sample B) と addr 衝突、 共存困難 |
+| 設計言語統一性 | ADR-0021 §c1 + ADR-0043 §決定 4 `samples.inc` build-time embed pattern が「sample 群を V-ROM 上 free area にまとめて配置」 を前提、 base = 0 固定は逸脱 |
+| 拡張性 | 将来 `.PPC` 複数 file 取り込み時に base offset 切替で配置領域分離可能、 base = 0 固定では対応不能 |
+
+#### mapping-C reject 根拠
+
+| reject 軸 | 根拠 (= γ revise round 1 must-fix #1 反映済) |
+|---|---|
+| YM2610 register unit 確認済 + 直結経路 | (1) `src/driver/PMD_Z80.inc` L2186 literal `byte 0-1: start address LSB/MSB (= 256 byte unit)` (= PMDNEO driver source で 256 byte unit 確定) + (2) `src/driver/standalone_test.s` L2712-2734 (= ADR-0043 既存 `adpcmb_keyon_have_sample` routine、 reg 0x12/0x13/0x14/0x15 直接書込 + 16-bit value で 256 byte boundary literal) + (3) YM2610 datasheet ADPCM-B section (= 外部 reference、 register × 256 = byte addr) で literal 確認済 |
+| OPNA 側は mapping-B 採用下で **unit 確定不要** | PMDDotNET `PCMDRV.cs` L673-684 (= 軸 G runtime selection 主軸 reference、 Annex A-6 literal) は voicenum × 4 byte offset → `pw.pcmWk[r.bx] + pw.pcmWk[r.bx+1]*0x100` (= LE 16-bit decode) → `pw.pcmstart` / `pw.pcmstop` set = directory entry word を **OPNA ADPCM-B register に直接書込まれる pcmstart/pcmstop word として decode**。 PMDDotNET 解釈で directory entry word の OPNA register 単位 conversion は **不在** (= 直結経路)。 mapping-B 採用下では PMDNEO YM2610 V-ROM 直結のため OPNA PCMRAM 概念非適用 = OPNA 側 granularity 確定そのものが不要、 mapping-C scale factor `k` ≠ 0 の必要性なし |
+| PMDDotNET × 32 解釈訂正済 (= mapping-C 採用根拠の不在裏付け) | PCMLOAD.cs L630-634 の `r.bx += r.bx` × 5 (= × 32) は **PCM data transfer stride 計算** (= 0x400 byte block × 32 stride = 0x8000 byte 一括 store unit) であり、 directory entry word の byte unit 変換ではない (= Annex A-1 source attribution literal、 α revise round 1 must-fix #3 反映済)。 mapping-C 採用根拠として誤帰属しがちな × 32 は transfer stride に属する |
+| 不要な複雑性 | scale factor 確定根拠が不在 (= mapping-C scale factor `k` の datasheet/source 裏付け不在) + mapping-B (= offset 加算) で sufficient (= V-ROM 配置領域分離 + 既存 yaml passthrough 並走可能)、 mapping-C 採用は不要な実装複雑性 |
+
+#### `v_rom_base_offset_word` 配置設計 (= δ scope literal、 γ では設計のみ)
+
+- 値は `samples.inc` 生成時に **既存 yaml passthrough sample 配置領域 size から計算**
+- 既存 yaml 領域は不可触 (= ADR-0043 production-ready 経路保護)、 `.PPC` sample 群は **後方** 配置
+- vromtool.py 拡張で `.PPC` file 取り込み + symbol emit + offset 計算 (= δ で literal 実装、 γ では設計のみ)
+- driver runtime で `PPC_VROM_BASE_OFFSET_WORD` symbol 参照 (= δ で driver routine 実装)
+
+#### selection key 候補列挙 (= δ で literal 確定、 γ では候補のみ)
+
+`.PPC` source vs yaml passthrough source の判定 key は δ で literal 確定。 γ scope では候補列挙のみ:
+
+| 候補 | 判定軸 | 利点 | 欠点 (= γ revise round 1 must-fix #2 反映済 = 表記矛盾解消) |
+|---|---|---|---|
+| 候補-1 | `sample_table_id` (= 0xFD32) 上位 1 bit (= bit7 set / clear で source 判別) | 既存 SRAM 領域共用、 ADR-0043 §決定 3 整合 | id range **0-127 (= bit7 clear) = 既存 yaml passthrough / ADR-0043 id 範囲 (= id 0x00 yaml beat + id 0x01 yaml silence_b 等)** / **128-255 (= bit7 set) = `.PPC` source 経路 (= 新規)**、 selection arch 上位 1 bit 拡張 |
+| 候補-2 | 別 SRAM 1 byte 領域 (= 仮称 0xFD33 等) で source switch | source switch 明確、 既存 id 経路と独立 | SRAM 領域追加、 ADR-0043 §決定 3 整合確認 |
+| 候補-3 | voicenum range (= 0-127 yaml / 128-255 `.PPC`) で implicit switch | 既存 selection key 不変、 voicenum 直結 | voicenum range 分割の固定 literal 化、 拡張性低 |
+| 候補-4 | MML directive (= e.g. `#PPCFile` 等) で source switch | source switch を MML 側で明示 | MML compiler 拡張 (= 軸 F 完成扱い、 F-2-A defer と矛盾 risk) |
+
+δ で literal 確定軸: ADR-0043 §決定 3 整合 + 既存 SRAM 領域経済性 + selection arch 拡張性 + MML compiler touch なし (= 軸 F defer 維持) の 4 軸で評価、 候補-1 (= sample_table_id 上位 1 bit、 bit7 set = `.PPC` source / bit7 clear = 既存 yaml passthrough) を **δ 第一候補** (= γ で literal 確定ではなく δ で確定軸として明示)。
+
+#### ADR-0043 production-ready 経路保護 literal
+
+mapping-B 確定下で既存 ADR-0043 routine 経路は完全不可触:
+
+- `pmdneo_select_adpcmb_sample_pointer` (= routine 定義) = 不可触
+- `adpcmb_sample_beat` literal table (= 4 byte BEAT_START_LSB/MSB + BEAT_STOP_LSB/MSB) = 不可触
+- voice index → sample id lookup table (= 2 entry sample table) = 不可触
+- `sample_table_id` (= 0xFD32) ADPCM-A / ADPCM-B 軸共用方針 = 維持 (= ADR-0043 §決定 3 literal)
+- 軸 G `.PPC` 経路は **新規 routine 追加 only** (= δ で `pmdneo_select_adpcmb_ppc_pointer` 等新規追加、 既存 selector と並走、 selection key で分岐)
+- byte-identical 維持 (= 既存 ADR-0043 fixture register write sequence 不変、 δ verify gate)
+
+#### δ verify gate 推奨 (= γ revise round 1 nice-to-have #2 反映、 unit / offset 誤り早期検出)
+
+δ runtime selection proof 段階で、 mapping-B 式の unit / offset 誤り早期検出のため次の literal assert fixture を verify gate に組込推奨:
+
+- fixture 条件: `ppc_word != 0` かつ `PPC_VROM_BASE_OFFSET_WORD != 0` (= 両者 nonzero で identity と offset 加算の差を明確化)
+- expected: reg 0x12-0x15 書込 value = `(ppc_start_word + PPC_VROM_BASE_OFFSET_WORD)` LSB/MSB / `(ppc_stop_word + PPC_VROM_BASE_OFFSET_WORD)` LSB/MSB を **literal value で assert** (= 0xFF mask + 8-bit shift 整合確認)
+- ymfm-trace primary gate (= 既存 verify-j-part-fixture-driven.sh 経路拡張): 既存 ADR-0043 fixture (= ppc 経路に流れない = bit7 clear id) byte-identical 維持 + 新規 `.PPC` fixture (= bit7 set id) で reg 0x12-0x15 期待 literal 一致確認
+- 両 fixture 並走で「mapping-B 採用 + selection key 候補-1 bit7 分岐 + ADR-0043 既存経路保護」 を 1 set の trace で完全確認
+
 ## sub-sprint chain 進捗 (= 起票時 literal、 後続 sub-sprint 完了で update)
 
 | sub-sprint | 状態 | commit |
 |---|---|---|
 | α | **完了** (= ADR-0048 PR #39 MERGED 9b52af3、 Annex A literal 化 + §決定 2 補正、 doc-only) | 80fd219 |
-| β | **完了** (= 本 commit、 `scripts/ppc-parser-spike.py` 新規 + 6/6 test PASS、 doc + spike script) | (= 本 commit hash) |
-| γ | **次** (= integration design 接続設計、 V-ROM mapping 候補 3 種から確定) | - |
-| δ | 未着手 (= runtime selection proof driver touch 最小、 既存 routine 不可触) | - |
+| β | **完了** (= PR #41 MERGED f79f5e5、 `scripts/ppc-parser-spike.py` 新規 + 6/6 test PASS、 doc + spike script) | bd9401a |
+| γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 確定 update + integration design literal、 doc-only) | (= 本 commit hash) |
+| δ | **次** (= runtime selection proof driver touch 最小、 既存 routine 不可触、 mapping-B 実装 + selection key 候補-1 第一候補 + vromtool.py 拡張) | - |
 | ε | 未着手 (= integration + audition gate、 必要時 user audition) | - |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
@@ -219,6 +295,8 @@ PMDDotNET は **PC-98 OPNA ADPCM RAM 経路** (= 32K-256KB ADPCM RAM、 sample b
 - **解釈**: ADR-0043 ADPCM-B native path 完成段階の自然な後続として、 PMD V4.8s `.PPC` driver runtime parse + sample bank 動的供給を軸 G で実現する。 ADPCM-A multi-table proof (= ADR-0025) pattern + ADPCM-B sample_table_id integration (= ADR-0043 γ) pattern を継承しつつ、 PMDPPZ 流儀 (= PMDDotNET `PCMDRV.cs` 1063 行) を ground truth source として byte-level parser spec を α で確定、 β で spike proof、 γ で integration design、 δ で runtime selection proof、 ε で audition gate と段階的に進める。 5 段化は format/parser/integration/runtime/audition 軸分離 (= Codex 推奨) + ADR-0043 4 段 ch 軸不要構成からの 1 段増。
 - **次の step (= 起票時 = α 着手予定)**: sub-sprint α 着手 = `.PPC` format archaeology + fixture contract 確定 = PMDDotNET `PCMLOAD.cs` (= 1256 行、 byte-level format parser ground truth) + `PCMDRV.cs` (= 1063 行、 runtime selection reference) grep + byte-level parser spec literal + 最小 fixture (= 1-2 entry) imagined byte sequence ADR Annex 化 + Codex layer 2 review。 本 ADR-0048 起票 (= 軸 G α task の前段 = ADR doc 起票そのもの) と sub-sprint α (= format archaeology) は **別 step** である点に注意 (= ADR-0043 同形 pattern)。
 - **α 完了後 次の step (= α 完了 commit reflect)**: sub-sprint β 着手 = parser / validator proof spike + minimum fixture **生成** (= α では imagined byte sequence only、 β で実 fixture spike emit + reject 条件 literal 検証)、 driver / runtime / vendor 完全不変、 Annex A-7 β validator 候補 reject 条件 table から β default 採用 4 件 + γ 確定 1 件選定。
+- **β 完了後 次の step (= β 完了 commit reflect)**: sub-sprint γ 着手 = integration design + V-ROM mapping 確定 (= Annex A-5 候補 3 種から確定) + samples.inc / sample_table_id / yaml passthrough 接続方針確定 + ADR-0043 production-ready 経路保護 literal、 driver / runtime / vendor 完全不変 (= 設計のみ doc-only)。
+- **γ 完了後 次の step (= γ 完了 commit reflect = 本 commit)**: sub-sprint δ 着手 = runtime selection proof = mapping-B 実装 (= driver source `standalone_test.s` 新規 routine 追加 only、 既存 ADR-0043 routine 不可触) + selection key 候補-1 第一候補 確定 + vromtool.py 拡張 (= `.PPC` file 取り込み + samples.inc symbol emit + offset 計算) + 実 `.PPC` minimum fixture 1-2 entry 生成 (= scripts/ppc-parser-spike.py emit を Python で `.PPC` file 出力) + verify gate (= ymfm-trace primary gate + driver byte-identical + 既存 ADR-0043 fixture regression)、 最小 driver touch、 ADR-0043 既存 routine 完全不可触。
 
 ## Annex A: `.PPC` format archaeology (= sub-sprint α 完了 literal、 PMDDotNET PCMLOAD.cs reference)
 
@@ -273,7 +351,10 @@ per entry (= 4 byte):
 | 先頭 6 byte != `"ADPCM "` | L512-515 | **採用** (= magic mismatch = malformed) |
 | 先頭 4 byte == `"PVI2"` + offset 10 == 2 | L503-510 | **scope-out** (= `.PVI` 別 format 別 path、 軸 G `.PPC` 専用) |
 
-### A-5: PMDNEO YM2610(B) V-ROM 直結 mapping (= γ integration design で確定、 α では候補列挙)
+### A-5: PMDNEO YM2610(B) V-ROM 直結 mapping (= γ で確定 = mapping-B、 α では候補列挙)
+
+> **γ 確定**: mapping-B (= offset 加算) **採用確定** (= ADR-0048 §決定 8 literal)、 mapping-A / mapping-C **reject**。 詳細式 + reject 根拠 + selection key δ defer 規律は §決定 8 参照。 本 section は α 段階の候補列挙 literal を歴史保存。
+
 
 YM2610(B) ADPCM-B register layout (= ADR-0043 Annex A reference):
 - reg 0x12 = START addr LSB / 0x13 = START addr MSB
@@ -290,7 +371,9 @@ YM2610(B) ADPCM-B register layout (= ADR-0043 Annex A reference):
 
 **γ の第一候補 (= α 推奨、 γ で literal 確定)**: **mapping-B (= offset 加算)** = 既存 `samples.inc` build-time embed pattern (= ADR-0021 §c1 + ADR-0043 §決定 4 踏襲) との整合が良く、 軸 G `.PPC` sample 群を V-ROM 上の free area にまとめて配置 + base offset で reg 書込が clean。 mapping-A は識別容易性で β fixture proof 段階の選択肢、 mapping-C は OPNA 互換性検証用 (= γ で OPNA PCMRAM word と YM2610 V-ROM register unit の対応を datasheet + fixture で確定後、 scale factor `k` 確定すれば採用可)。 γ で literal 確定 + δ で driver routine 実装。
 
-**規律違反 risk 防止 (= Codex α review 指摘)**: mapping-B を γ 確定前に δ 実装へ持ち込まないこと (= γ V-ROM register unit 確定 / 既存 yaml passthrough sample との共存配置 確定後の δ 実装)。
+> **γ 確定 result (= §決定 8 literal、 γ revise round 2 同期反映済)**: mapping-B 採用 = `v_rom_word = ppc_word + v_rom_base_offset_word` + `v_rom_base_offset_word` は build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で vromtool.py 拡張時に値確定)。 mapping-A reject = V-ROM base = 0 固定で既存 yaml passthrough sample 衝突。 **mapping-C reject = (1) YM2610 register unit 256 byte aligned 確認済 (= `src/driver/PMD_Z80.inc` L2186 + `standalone_test.s` L2712-2734 + YM2610 datasheet) + (2) OPNA 側 unit 確定不要 (= mapping-B 採用下で V-ROM 直結のため OPNA PCMRAM 概念非適用、 PMDDotNET 解釈で directory entry word は OPNA register 直結 = PCMDRV.cs L673-684) + (3) PMDDotNET × 32 解釈訂正済 (= transfer stride、 directory parse ではない) + (4) 不要複雑性 (= mapping-B で sufficient)** = scale factor `k` ≠ 0 不要、 §決定 8 4-row reject table 参照。
+
+**規律違反 risk 防止 (= Codex α review 指摘)**: mapping-B を γ 確定前に δ 実装へ持ち込まないこと (= γ V-ROM register unit 確定 / 既存 yaml passthrough sample との共存配置 確定後の δ 実装)。 γ 確定後 (= 本 §決定 8) は δ で driver routine 実装可。
 
 ### A-6: PMDDotNET source reference (= literal line numbers、 軸 G grep 結果)
 
@@ -309,6 +392,9 @@ YM2610(B) ADPCM-B register layout (= ADR-0043 Annex A reference):
 | driver.cs `.PPC` 拡張子 list | `vendor/PMDDotNET/PMDDotNETDriver/driver.cs` | L462 | `string[] ppcExtTbl = new string[] { ".PPC", ".P86", ".PVI" }` literal |
 | driver.cs `.PPC` header check | 同 | L427 | `addtionalPMDDotNETOption.PPCHeader = CheckPPC(...)` 経路 |
 | PW.cs `ppcFile` field | `vendor/PMDDotNET/PMDDotNETDriver/PW.cs` | L37 | `public string ppcFile = ""` runtime state |
+| **YM2610 ADPCM-B reg unit 256 byte literal (= γ revise round 1 nice-to-have #1 反映 datasheet citation 内部 source)** | `src/driver/PMD_Z80.inc` | L2186 | コメント literal `byte 0-1: start address LSB/MSB (= 256 byte unit)` (= PMDNEO driver source 内 datasheet integration、 γ §決定 8 mapping-C reject 根拠 a 補強 source) |
+| YM2610 ADPCM-B reg 直接書込 routine | `src/driver/standalone_test.s` | L2712-2734 (`adpcmb_keyon_have_sample`) | ADR-0043 既存 routine、 reg 0x12/0x13/0x14/0x15 直接書込 + 16-bit value で 256 byte boundary literal (= γ §決定 8 mapping-B 採用式の driver source 整合確認) |
+| YM2610 ADPCM-B reg datasheet citation (= 外部 reference) | YM2610 Application Manual ADPCM-B section | external | reg 0x12/0x13 = Start Address / 256 (= 256 byte aligned)、 reg 0x14/0x15 = End Address / 256 (= 同上)、 §決定 8 mapping-C reject 根拠 a 外部裏付け |
 
 ### A-7: 最小 fixture 期待値 (= 1-2 entry imagined byte sequence、 β で実 fixture 生成、 α では imagined byte sequence only)
 
@@ -486,6 +572,64 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 |---|---|---|
 | α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
 | β | **完了** (= 本 commit、 spike script + 6/6 PASS、 doc + spike script) | (= 本 commit hash) |
-| γ | **次** (= integration design + V-ROM mapping 候補 3 種から確定) | - |
-| δ | 未着手 (= runtime selection proof driver touch 最小) | - |
+| γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 確定 update + integration design literal) | (= 本 commit hash) |
+| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 + vromtool.py 拡張) | - |
+| ε | 未着手 (= integration + audition gate) | - |
+
+## sub-sprint γ 完了 (= 34th session、 主軸単独実装 + Codex layer 2 review 経由)
+
+### 実装 deliverable (= doc-only)
+
+`docs/adr/0048-pmdneo-axis-g-ppc-parser-and-runtime-dynamic-sample-supply.md` 更新:
+
+1. **§決定 8 新規追加** = 軸 G γ V-ROM mapping 確定 = **mapping-B (= offset 加算) 採用** + mapping-A / mapping-C reject literal (= γ revise round 2 must-fix 2 件反映済、 §決定 8 4-row reject table と同期):
+   - 確定式: `v_rom_word = ppc_word + v_rom_base_offset_word` + reg 0x12-0x15 書込経路
+   - `v_rom_base_offset_word` = build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で vromtool.py 拡張時に値確定)
+   - mapping-A reject 根拠 3 件 (= V-ROM base = 0 固定衝突 + 設計言語逸脱 + 拡張性低)
+   - **mapping-C reject 根拠 4 件 (= §決定 8 table 4-row)**: (1) YM2610 register unit 256 byte aligned 確認済 (= `src/driver/PMD_Z80.inc` L2186 + `standalone_test.s` L2712-2734 + YM2610 datasheet) + (2) OPNA 側 unit 確定不要 (= mapping-B 採用下で V-ROM 直結のため OPNA PCMRAM 概念非適用、 PMDDotNET 解釈で directory entry word は OPNA register 直結 = PCMDRV.cs L673-684) + (3) PMDDotNET × 32 解釈訂正済 (= transfer stride、 directory parse ではない) + (4) 不要複雑性 (= scale factor `k` 根拠不在 + mapping-B で sufficient)
+   - selection key 候補 4 件列挙 (= δ で literal 確定、 第一候補 = 候補-1 sample_table_id 上位 1 bit、 bit7 set = `.PPC` source / bit7 clear = 既存 yaml passthrough)
+   - ADR-0043 production-ready 経路保護 literal (= 既存 routine 不可触 + 新規 routine 並設 + byte-identical 維持)
+   - δ verify gate 推奨 (= `ppc_word != 0` かつ `offset != 0` fixture で reg 0x12-0x15 literal value assert、 unit/offset 誤り早期検出)
+2. **Annex A-5 update** = γ 確定 status reflect literal:
+   - section heading 「γ で確定 = mapping-B、 α では候補列挙」
+   - γ 確定 result literal block (= mapping-B 採用式 + mapping-A/C reject 1 行 summary + §決定 8 参照)
+   - 規律違反 risk 防止 補強 (= γ 確定後 δ 実装可)
+3. **sub-sprint chain 表 update** (= ADR 内 2 箇所): γ 完了 + δ 次 + δ 第一候補 selection key (= 候補-1) literal
+
+### 採用判断 経路 (= ADR-0041 §決定 4-2 Codex rescue 化 default 永続化)
+
+- **layer 2 review chain** (= session 019e3b50-... 流用、 γ sprint):
+  - round 1 = γ integration design + V-ROM mapping 確定 + selection key δ defer review = **revise** (= must-fix 2 件 = mapping-C reject 根拠 a 補強 + selection key 候補-1 表記矛盾解消、 nice-to-have 2 件 = YM2610 datasheet citation + δ verify gate literal assert)
+  - round 2 = revise round 1 反映後 = **revise** (= 追加 must-fix 2 件 = Annex A-5 γ result block + γ 完了 deliverable summary を §決定 8 4-row reject table と同期反映、 stale テキスト解消、 nice-to-have 0 件)
+  - round 3 = revise round 2 反映後 = **approve** (= 追加 must-fix 0 件 + 追加 nice-to-have 0 件 + 規律違反 risk 0 件、 γ 完了 commit GO + sub-sprint δ 着手 GO、 stale 全解消 + 「OPNA 側 unit 確定不要」 論理 3 箇所統一確認)
+- **主軸 fallback regime** (= sub-agent isolation 5 連続 fail 経験踏襲、 主軸単独実装 default)
+- **Codex layer 1 不要** (= doc-only sprint、 driver / runtime touch なし、 layer 2 review のみで sufficient)
+
+### verify gate (= γ は doc-only、 doc consistency + spike spec consistency + source attribution consistency)
+
+- ADR-0048 §決定 8 mapping-B 式 と Annex A-3 directory entry layout 整合 (= ppc_word LE 16-bit decode + offset 加算 + reg 256 byte aligned write 経路)
+- ADR-0048 §決定 8 mapping-C reject 根拠 と Annex A-1 source attribution 整合 (= PMDDotNET × 32 解釈訂正済 literal、 α revise round 1 must-fix #3 反映 reflect)
+- ADR-0048 §決定 8 selection key 候補-1 と ADR-0043 §決定 3 sample_table_id 共用方針整合 (= 0xFD32 上位 1 bit = `.PPC` source、 lower 7 bit = voicenum direct lookup、 既存 ADR-0043 id 0x00/0x01 範囲 (= lower 7 bit) と衝突なし)
+- ADR-0048 §決定 8 ADR-0043 production-ready 保護 literal と §決定 3 + §決定 5 non-goal 整合 (= 軸 C 再オープン継続 skip user 明示永続 scope-out 維持、 既存 routine 不可触 + 新規 routine 並設方針)
+- driver / runtime / vendor / 実 `.PPC` file / spike script `scripts/ppc-parser-spike.py` 完全不変 (= ADR file 更新 only、 stage = ADR file 単独 + vendor wav 3 件 untracked retain 維持)
+
+### scope-out 確認 (= ADR §決定 4 doc-only sprint 規律 + §決定 5 non-goal list + Annex A-8 別 format 全 完全遵守)
+
+- driver source touch なし (= δ sub-sprint で起動)
+- vendor source touch なし
+- 実 `.PPC` fixture file 追加なし (= δ で生成、 minimum valid fixture)
+- vromtool.py 拡張なし (= δ scope)
+- selection key literal 確定なし (= δ scope、 γ では候補 4 件列挙のみ + 第一候補 literal)
+- `v_rom_base_offset_word` 値の literal 確定なし (= δ scope、 γ では symbol 配置設計のみ)
+- `.PVI` / `.P86` / `.PPS` / `.PPZ` parser 未実装 (= A-8 scope-out 維持)
+- 軸 C 再オープン / Surge XT / vendor wav cleanup / 軸 B / 軸 F MML compiler すべて非 touch
+
+### sub-sprint chain 進捗 update (= sub-sprint chain 表 reflect)
+
+| sub-sprint | 状態 | commit |
+|---|---|---|
+| α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
+| β | **完了** (= PR #41 MERGED f79f5e5、 spike script + 6/6 PASS) | bd9401a |
+| γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 update + integration design literal) | (= 本 commit hash) |
+| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 第一候補 + vromtool.py 拡張) | - |
 | ε | 未着手 (= integration + audition gate) | - |
