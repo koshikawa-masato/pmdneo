@@ -214,6 +214,66 @@ nmi_clear_driver_state:
         inc     hl
         djnz    nmi_clear_driver_state
 
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 36th session ε round 3 fix):
+        ;; init 経路で 1 度だけ強制 ADPCM-B keyon trigger (= .PPC 経路 entry 0 sample で発音)。
+        ;; ε round 2 fix では IRQ handler 内に counter + 1 秒後 trigger を配置したが、
+        ;; 切り分けで IRQ tick が 6 秒で 2 回しか発火していないと判明 (= z80-mem-trace 0xF816
+        ;; への write 件数 literal、 既存 driver の TIMER-B 構造で別 sprint 改修 scope)。
+        ;; 案 A 採用 = cold boot 直後 1 度 trigger で sample 再生 (= IRQ counter 不要)。
+        ;; production build (= TEST_MODE_AXIS_G_INT=0) では本 block 全 skip (= 既存 init 処理に
+        ;; 影響なし、 sed pre-process で除外)。
+        .if TEST_MODE_AXIS_G_INT
+        ;; (1) sample_table_id = 0x80 (= bit7 set + entry index 0、 .PPC 経路選択)
+        ld      a, #0x80
+        ld      (driver_pne_sample_table_id), a
+        ;; (2) reg 0x10 = 0x00 (= keyon clear、 既存 adpcmb_keyon と同順)
+        ld      b, #0x10
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; (3) ppc selector で sample addr 取得 (= entry index 0、 DE = ppc_scratch_start_lsb addr)
+        ld      a, #0x00
+        call    pmdneo_select_adpcmb_ppc_pointer
+        ;; (4-7) reg 0x12-0x15 = sample addr (DE = scratch 4 byte read)
+        ld      b, #0x12
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x13
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x14
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x15
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        ;; (8-9) reg 0x19/0x1A = delta-N (= default ADPCM-B playback rate、 0x9C40 ≒ 18.5 kHz)
+        ld      b, #0x19
+        ld      c, #0x40
+        call    ym2610_write_port_a
+        ld      b, #0x1A
+        ld      c, #0x9C
+        call    ym2610_write_port_a
+        ;; (10) reg 0x1B = volume max (= 0xFF)
+        ld      b, #0x1B
+        ld      c, #0xFF
+        call    ym2610_write_port_a
+        ;; (11) reg 0x11 = pan center (= 0xC0 both)
+        ld      b, #0x11
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+        ;; (12) reg 0x10 = 0x80 keyon trigger (= .PPC 経路 entry 0 sample で発音)
+        ld      b, #0x10
+        ld      c, #0x80
+        call    ym2610_write_port_a
+        .endif
+
         ld      a, #16
         ld      (driver_fade_speed), a
 
@@ -417,21 +477,11 @@ irq_handler_body:
         ;;   で .if が conditional に外れる、 既存 IRQ 処理に影響なし)
         ;;   =1 build で 16-bit IRQ counter inc + 1000 ms 到達時 sample_table_id=0x80 に
         ;;   上書き (= .PPC 経路に切替、 J part 以降の ADPCM-B keyon は .PPC で鳴る)
-        .if TEST_MODE_AXIS_G_INT
-        ld      hl, (audition_frame_counter_lsb)
-        inc     hl
-        ld      (audition_frame_counter_lsb), hl
-        ;; HL == 0x03E8 (= 1000 = 1 秒) のとき sample_table_id を 0x80 に切替
-        ld      a, h
-        cp      #0x03
-        jr      nz, audition_skip
-        ld      a, l
-        cp      #0xE8
-        jr      nz, audition_skip
-        ld      a, #0x80
-        ld      (driver_pne_sample_table_id), a
-audition_skip:
-        .endif
+        ;; ADR-0048 §決定 8 案 C ε integration test mode IRQ block (= 36th session ε round 3 fix で削除)
+        ;; 旧 round 2 fix では IRQ counter + 1 秒後 trigger を配置したが、 切り分けで既存 driver の
+        ;; TIMER-B IRQ が 6 秒で 2 回しか発火しない (= z80-mem-trace 0xF816 literal) と判明、 IRQ
+        ;; counter は 0x03E8 (= 1000) に到達不能。 強制 keyon を init 経路に移動 (= cold boot 直後
+        ;; 1 度 trigger) で audition functional 化。 IRQ handler 内 test mode block は不要、 削除済。
 
         ;; IRQ fade processing (= default speed 16, ~1 sec fade)
         ld      a, (driver_fade_state)

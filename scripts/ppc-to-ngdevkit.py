@@ -186,7 +186,7 @@ def emit_symbols_inc(blob_symbol: str) -> str:
 
 def make_minimum_fixture_bytes(base_offset_pad_words: int = 0x002A) -> bytes:
     """
-    minimum .PPC fixture (= 2 entry):
+    minimum .PPC fixture (= 2 entry、 filler 用 spike output):
       entry 0: START=0x0400, STOP=0x0480 (= identity 誤実装 trace 用 nonzero word)
       entry 1: START=0x0480, STOP=0x0500
 
@@ -194,6 +194,11 @@ def make_minimum_fixture_bytes(base_offset_pad_words: int = 0x002A) -> bytes:
     vromtool 配置時の base offset は runtime resolve)。 引数は documentation 用。
 
     pcm data = 0x100 byte filler (= deterministic byte pattern、 audio gate は ε scope)。
+
+    注意 (= ε reject 1 回目 fix 反映): 本 関数は filler emit 用で、 audible audition には
+    使えない (= entry word が blob 範囲外 + filler byte は ADPCM-B として非可聴)。
+    commit 済 audible fixture (= src/test-fixtures/axis-g/minimum.PPC) は別経路で生成済、
+    regenerate 手順は src/test-fixtures/axis-g/audition-request.md §regenerate 参照。
     """
     entries = [
         DirectoryEntry(start=0x0400, stop=0x0480),
