@@ -949,3 +949,74 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 - 軸 G を「完了」 と記述しない (= Codex layer 2 規律違反 risk 反映)
 - 同居未達事実を隠蔽しない (= Codex layer 2 規律違反 risk 反映)
 - ζ 着手 trigger を user 明示 GO のみに限定 (= 別 sprint との衝突 risk 回避)
+
+## sub-sprint ζ 着手準備: 3 案比較表 (= 36th session 末、 主軸単独実装 + Codex layer 2 3 round chain approve、 実装はまだ入らない)
+
+ε partial complete を受けて、 ζ 着手判断のための 3 案比較表を作成。 ζ 着手 + 案選定は user 明示 GO 後 (= 別 sprint scope)。 本 section は ADR-0048 内に「ζ 着手判断材料」 を literal 化する doc-only sprint。
+
+### 3 案の中身
+
+#### 案 X: 既存 driver の TIMER-B IRQ rate 構造改修
+
+TIMER-B init + IRQ handler を改修して IRQ rate を 1 ms 想定に復旧 (= 切り分け 5 finding 根本解決)。 IRQ counter 経路が functional になり、 1 秒後 sample_table_id 切替 + J part keyon が PPC 経路で鳴る。 既存 driver 全 part 駆動 timing 変更を伴う。
+
+#### 案 Y: MML 拡張で J part に PPC 経路 keyon を追加
+
+軸 F (= MML compiler 拡張) defer 解除 (= ADR-0044 改訂)。 compiler 経路 (= 改造 PMDDotNET compiler 触接含む可能性、 compile.py + driver の両方 or 片方) + driver 改修。 新 MML 命令 (= 例 `\@128` for PPC entry 0) 追加で MML で記述する song の中で yaml → PPC 切替可能。
+
+#### 案 Z: init 経路の強制 keyon を拡張し、 yaml → PPC 順次発火
+
+ε round 2 fix で実装した init 経路の強制 keyon を拡張。 ADPCM-B 終了 flag (= YM2610 status register polling、 上限 N 回 / 例 0xFFFF cycle 到達で sentinel 確定 = polling loop 暴走防止) で yaml → PPC 順次発火。 driver init 経路だけ拡張 = 既存 driver 全体への影響なし。 **audition fixture としての同居証明** (= 最終曲中 runtime selection そのものではない)。
+
+### final revised 比較表 (= 11 評価軸、 Codex layer 2 round 3 approve)
+
+| 評価軸 | 案 X (TIMER-B) | 案 Y (MML 拡張) | 案 Z (init 経路拡張) |
+|---|---|---|---|
+| 1. ADR-0048 現行 goal 一致度 | ◎ (= 既存 song 中 production 経路、 最終 runtime selection そのもの) | ◎ (= MML 中 production 経路、 最終 runtime selection そのもの) | △ (= 現行 goal 未達、 goal 再定義必要) |
+| 2. ADR-0043 production-ready 経路への影響 | 中 (= IRQ rate 改修で全 part 駆動 timing 変更 = regression risk) | 低 (= compiler 経路改修主体、 driver 側 keyon は既存 routine 利用) | 最小 (= init 経路追加のみ、 TEST_MODE guard 下で既存 IRQ + song player に touch せず) |
+| 3. driver 改修範囲 | 大 (= TIMER-B init + IRQ handler 全面改修、 既存 driver 構造変更) | 中 (= MML cmd 追加 = byte stream 新 opcode + handler、 sample_table_id write 1 箇所追加) | 小 (= init 経路の強制 keyon 拡張、 status polling 追加) |
+| 4. compiler / 軸 F defer 解除の要否 | 不要 | 必要 (= ADR-0044 改訂 + 軸 F defer 解除、 compile.py + 改造 PMDDotNET 両方触接の可能性、 sprint scope 拡大) | 不要 |
+| 5. audition fixture 十分性 | ◎ (= 既存 song 中で PPC 鳴る、 真の同居 audition) | ◎ (= MML 中で PPC 鳴る、 真の同居 audition) | ○ (= 順次発火 fixture OK、 同居は時系列分離) |
+| 6a. Accepted 移行の根拠 (= 真の integration audition approve として十分か) | ◎ | ◎ (= 軸 F defer 解除整合性確認必要) | **要 user 判断** (= test mode proof で Accepted 化の十分性は user 判断 gate、 自動 trigger ではない) |
+| 6b. ζ fixture proof としての十分性 | ◎ | ◎ | ○ (= test mode 同居 audition fixture proof として完結、 限定 scope の fixture proof は十分) |
+| 7. regression risk | **高** (= TIMER-B 改修で全 part 駆動 timing 変更、 既存 ADR-0043 / 軸 C / step4 baseline 等全 fixture 影響可能性) | 中 (= MML cmd 追加で byte stream 互換性 risk、 既存 fixture の MML 解釈影響可能性) | **低** (= init 経路追加のみ、 production build (= TEST_MODE_AXIS_G_INT=0) で既存 fixture 完全不変 = byte-identical 維持) |
+| 8. PR 境界 | 多 PR 分割必要 | 多 PR 分割必要 (= ADR-0044 改訂 + compiler 改修 + driver keyon 改修 + verify gate + audition + Accepted 判断) | 少 PR (= 1-2 PR で完結) |
+| 9. verify gate | 大 (= 既存 fixture 全 regression + 新 TIMER-B IRQ rate verify + 同居 audition + audio gate) | 大 (= 既存 fixture regression + MML cmd 互換 verify + 同居 audition + audio gate) | 中 (= production build byte/trace 不変 + test mode で yaml→B 終了→PPC 順序 trace + **status polling timeout fail (= cycle 数上限 N 回 / 例 0xFFFF cycle 到達で sentinel 確定)** + 同居 audition fixture audio gate) |
+| 10. user audition 必要箇所 | 1 箇所 (= 同居 audition) | 1 箇所 (= 同居 audition) | **2 箇所** (= 順次発火 audition + 「test mode proof で ADR-0048 sufficient か」 user 判断 gate) |
+| 11. production runtime semantics 到達度 | ◎ (= 既存 song 中 production 経路で発火) | ◎ (= MML 中 production 経路で発火) | **×** (= test mode 専用、 production runtime semantics 到達度ゼロ) |
+
+### 主軸推奨 (= 弱め表現、 user 仮判断と一致、 Codex round 3 approve)
+
+**案 Z を ζ 第一候補** として推奨。
+
+| 項目 | 推奨表現 |
+|---|---|
+| 採用理由 | 最小リスクで integration audition fixture を作るため、 ε scope 内拡張で完結する案 Z が第一候補 |
+| 完了定義 | ζ 完了 = ADR-0048 §決定 1 sub-sprint chain は **test mode 同居 audition fixture proof まで完了**、 「軸 G 完成」 とは表現しない |
+| Accepted 化 | ζ 完了で自動 Accepted ではなく、 **user が test mode proof を ADR-0048 sufficient と判断した場合のみ** Draft → Accepted 移行 |
+| 後続予約 | production 経路同居 (= 真の integration audition) は **ADR-0049 候補 or ADR-0044 revision 候補** (= 軸 F defer 解除路線、 軸 G の後続軸として別 ADR で扱う) |
+
+### ζ section literal 化規律 6 件 (= Codex layer 2 round 3 approve)
+
+ζ 着手時に ADR-0048 ζ section に literal 化する規律:
+
+1. **ζ scope = test mode 同居 audition fixture proof** (= 順次発火 + production 経路ではない)
+2. **「軸 G 完成」 表現禁止** (= ε reject 1 回目越川氏 literal 「既存再生と同居して軸 G 完成はまだ NG」 遵守、 「sub-sprint chain test mode fixture proof 完了」 と表現)
+3. **ADR-0048 Draft → Accepted 移行は user 判断 gate** (= ζ 完了で自動 trigger しない)
+4. **案 Z verify gate**: production build byte/trace 不変 + 順序 trace + **status polling timeout fail (= 上限 N 回 / 例 0xFFFF cycle 到達で sentinel 確定、 polling loop 暴走防止 literal)**
+5. **ADR-0048 末尾予約 literal**: production 経路同居は **ADR-0049 候補 or ADR-0044 revision 候補** (= 軸 F defer 解除路線、 軸 G の後続軸として別 ADR で扱う)
+6. **§決定 5 non-goal 拡張**: production 経路での MML 中 PPC 経路 keyon を non-goal に literal 追加
+
+### Codex layer 2 3 round chain 経過 literal (= 36th session ζ 着手準備)
+
+- **round 1** = **revise** (= must-fix 4 件 = Accepted 自動 trigger 禁止 + 評価軸 6 分割 + 「軸 G 完成」 弱め + verify gate 不足、 nice-to-have 3 件 = 新評価軸 11 production runtime semantics 追加 + 案 Y compiler 経路広げ + ADR-0048 末尾予約 literal、 規律違反 risk 0 件)
+- **round 2** = **revise** (= 追加 must-fix 1 件 = cycle 数上限 literal 欠落、 round 1 must-fix #4 partial 反映、 規律違反 risk 0 件)
+- **round 3** = **approve** (= revised 比較表 + 弱め主軸推奨 + ζ literal 6 件 全 GO、 着手は user 明示 GO 後 / 別 sprint scope 維持)
+
+### ζ 着手判断 (= user 判断仰ぎ、 主軸進行禁止)
+
+- **ζ 着手 GO** = user 明示後、 主軸が案 Z 経路で ζ implementation sprint 開始 (= 新 PR + driver 拡張 + verify gate 拡張 + audition + Accepted 化判断)
+- **session 閉じる** = ζ 着手は次 session or 他軸との優先順位 user 判断後
+- **他軸へ戻る** = 軸 B (= Phase 2 FM/SSG driver) / 軸 D (= WebApp) / 軸 E (= IPL) 等の優先順位仰ぎ
+
+本 sub-section (= ζ 着手準備) は **doc-only sprint** で、 driver / runtime / vendor / 既存 fixture / 既存 yaml 全完全不変。 ADR-0048 Draft 維持 + 軸 G ε partial complete 状態維持。
