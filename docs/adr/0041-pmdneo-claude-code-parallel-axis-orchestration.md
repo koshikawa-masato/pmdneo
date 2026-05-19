@@ -157,6 +157,30 @@ Codex 内部 runtime は **同時 1 task 制限**。 layer 1 (= sub-agent 内 Co
 | 軸間衝突検知 | 例 ADR 番号衝突 / 規律解釈衝突 / file 領域衝突を Codex が systematic check |
 | user 上げ判断 | Codex が「user 判断必要」 と提案 → 主軸が escalate `design_judgment_needed` 経由 user 上げ |
 
+#### 起動条件 拡張 (= 「Codex rescue 化」 規律、 31st session 末 user 「同じ事をやってる」 + 「その意思指示を Codex に委譲」 経路、 memory `feedback_codex_layer2_implementation_review_delegation.md` literal)
+
+主軸の **user 確認質問 自体**を Codex layer 2 経由化 default 化する規律。 user 負担削減 + 主軸自律進行加速 + 機械的 review 可能項目を user から外す。
+
+| 主軸 action | Codex layer 2 review 起動 | user 介入 |
+|---|---|---|
+| driver / runtime 改修方針提示 | **必須** | escalate or 最終確認のみ |
+| 実装方針提示 (= source / spike / fixture 新規 or 重要 update) | **必須** | 同上 |
+| 配置判定 / 即時実装 GO 判定 | **必須** | 同上 |
+| ADR 大型更新 (= §決定 追加 / 削除) | **必須** | 同上 |
+| user 確認質問「a/b/c のどれ?」 type | **必須** (= 主軸が user に直接聞く前に Codex に委譲) | 同上 |
+| commit message 案 / PR description 案 | 任意 | - |
+| simple status report (= 進捗報告) | 不要 | - |
+
+##### 例外 (= user 直接判断必須、 escalate 経由)
+
+- **aesthetic / audio audition 関連** (= 越川氏 final 判断 scope、 永久 user)
+- **一般 user 判断 scope** (= 設計トレードオフ、 越川氏 directive / preference / mission 軸)
+- **規律違反 risk 重大** (= driver source touch + 越境 / vendor 不可触 違反 / main 直接 commit / 機密情報露出 等)
+
+##### 31st session 機能実証
+
+Codex layer 2 session 019e3b50-8f23-7803-af9e-903d6587f891 で **計 6+ round 全 approve** = 軸 A/F 採用案決定 + 5 step 計画 review + 配置 + GO + 規律確立 + verify gate 経路 + 軸 C sub-sprint α layer 1 reflect + 本規律実装方針 review (= 自己参照例)。 Codex 1 task 同時制限 + 4 連続 hang + cancel 経由解放経験も literal 記録 (= memory `feedback_subagent_isolation_worktree_base_ref_mismatch.md` + dashboard escalation 履歴)。
+
 ### 決定 4-3: Codex unavailable 時の主軸単独 fallback + retrospective review 必須 (= 30th session 末 layer 2 試行第 1 例で Codex runtime hang に直面、 fallback regime 確立)
 
 §決定 4 + §決定 4-2 で確立した 2 段 Codex 壁打ち構造は、 Codex 内部 runtime の 1 task 同時制限と hang 可能性により unavailable 状態に陥る場合がある。 fallback 規律を確立:
