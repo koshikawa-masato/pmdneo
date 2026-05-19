@@ -81,12 +81,14 @@ echo
 echo "--- gate 5: mapping-B literal 期待値 + samples.inc PPC_PCM_BLOB_START verify ---"
 SAMPLES_INC="$PMDNEO_ROOT/vendor/ngdevkit-examples/00-template/build/assets/samples.inc"
 
-# 期待: fixture entry 0 = START 0x0400, STOP 0x0480
-#        entry 1 = START 0x0480, STOP 0x0500
-PPC_ENTRY0_START_WORD=0x0400
-PPC_ENTRY0_STOP_WORD=0x0480
-PPC_ENTRY1_START_WORD=0x0480
-PPC_ENTRY1_STOP_WORD=0x0500
+# 期待: fixture entry 0 = START 0x0000, STOP 0x0004 (= blob 内 1024 byte 範囲)
+#        entry 1 = START 0x0002, STOP 0x0004 (= blob 後半 512 byte)
+# ε reject 1 回目 root cause 反映: 旧 entry 0x0400/0x0480 は blob 範囲外を指していたため audible 不能。
+# blob は vromtool 配置で 1 page (= 256 byte) 単位、 audible sample (= beat slice 1024 byte) 配置で 4 word 範囲。
+PPC_ENTRY0_START_WORD=0x0000
+PPC_ENTRY0_STOP_WORD=0x0004
+PPC_ENTRY1_START_WORD=0x0002
+PPC_ENTRY1_STOP_WORD=0x0004
 
 # samples.inc から PPC_PCM_BLOB_START_LSB/MSB 抽出
 BLOB_LSB_HEX=$(grep "PPC_PCM_BLOB_START_LSB" "$SAMPLES_INC" | head -1 | awk '{print $NF}')
@@ -120,10 +122,14 @@ else
     EXP_R14_1=$((ENTRY1_STOP_WORD & 0xFF))
     EXP_R15_1=$(((ENTRY1_STOP_WORD >> 8) & 0xFF))
     ok "mapping-B 期待 reg 0x12/0x13/0x14/0x15 for entry 1 = 0x$(printf '%02X' $EXP_R12_1)/0x$(printf '%02X' $EXP_R13_1)/0x$(printf '%02X' $EXP_R14_1)/0x$(printf '%02X' $EXP_R15_1)"
-    # identity 誤実装の判別: identity だと reg 0x12-0x15 = (0x00, 0x04, 0x80, 0x04) になるはず (= entry 0)
-    # mapping-B 正しい実装だと nonzero offset を足した値になる (= base ≠ 0 で異なる)
-    if [ "$EXP_R12" = "0" ] && [ "$EXP_R13" = "4" ]; then
-        ng "expected reg matches identity mapping (= mapping-B が identity に縮退、 nice-to-have #1 違反)"
+    # identity 誤実装の判別: identity だと reg 0x12 = entry 0 START LSB = 0x00 (= 旧 fixture とは別 pattern)。
+    # mapping-B 適用で reg 0x12 = (entry 0 START + blob base) & 0xFF。 blob base ≠ 0 なら identity と区別可。
+    # 新 fixture (= ε reject 1 回目 fix) は entry 0 START = 0x0000 なので、 identity だと reg 0x12 = 0x00、
+    # mapping-B 適用だと reg 0x12 = blob_base_lsb (= 0x00 以外)。
+    if [ "$EXP_R12" = "$BLOB_LSB" ] && [ "$BLOB_LSB" != "0" ]; then
+        ok "expected reg matches mapping-B (= reg 0x12 = blob_base_lsb 0x$(printf '%02X' $EXP_R12)、 identity ではない、 nice-to-have #1)"
+    elif [ "$EXP_R12" = "0" ]; then
+        ng "expected reg matches identity mapping (= reg 0x12 = 0x00、 mapping-B 適用されていない、 nice-to-have #1 違反)"
     else
         ok "expected reg differs from identity (= mapping-B 適用済 literal、 nice-to-have #1)"
     fi

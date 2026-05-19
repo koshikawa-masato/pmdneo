@@ -39,6 +39,15 @@
         ;; の env PMDNEO_USE_PMDDOTNET=1 で 1 に切替わる。
         .equ    PMDNEO_USE_PMDDOTNET, 0
 
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε、 audition build 専用)
+        ;;   0 = 既存 default (= integration test mode disable、 既存 ADR-0043 経路 + ADPCM-A 経路通常運転、 production build)
+        ;;   1 = ε integration audition mode (= 1000 ms 後 sample_table_id を 0x80 に上書き →
+        ;;       J part 以降の ADPCM-B keyon は .PPC 経路で鳴る、 越川氏 audition request 用 build)
+        ;; production 時は **必ず 0** を維持 (= Codex layer 2 ε round 1 nice-to-have #2 反映、
+        ;; audition build 専用 toggle)。 build infra (= build.mk PMDNEO_PREPROCESS_CMD) で sed 置換、
+        ;; build-poc.sh の env PMDNEO_AXIS_G_INT=1 で 1 に切替わる。
+        .equ    TEST_MODE_AXIS_G_INT, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -132,6 +141,13 @@
         .equ    ppc_scratch_stop_lsb,          0xFD35
         .equ    ppc_scratch_stop_msb,          0xFD36
 
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε): 16-bit IRQ counter
+        ;;   TEST_MODE_AXIS_G_INT=1 build で起動からの IRQ count (= 1 ms 周期) を 16-bit で track。
+        ;;   1000 (= 0x03E8) 到達時に sample_table_id を 0x80 に上書きで .PPC 経路に切替。
+        ;;   TEST_MODE_AXIS_G_INT=0 (= production default) では本領域は touch されない。
+        .equ    audition_frame_counter_lsb,    0xFD37
+        .equ    audition_frame_counter_msb,    0xFD38
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -155,7 +171,8 @@
 ;;;   0xFD30 - 0xFD31   driver_pne_filename_adr_word (= 2 bytes、ADR-0022 §決定 4)
 ;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
 ;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
-;;;   0xFD37 - 0xFFBF   free / 後続 phase 用 (= 649 bytes 余裕)
+;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
+;;;   0xFD39 - 0xFFBF   free / 後続 phase 用 (= 647 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -196,6 +213,66 @@ nmi_clear_driver_state:
         ld      (hl), a
         inc     hl
         djnz    nmi_clear_driver_state
+
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 36th session ε round 3 fix):
+        ;; init 経路で 1 度だけ強制 ADPCM-B keyon trigger (= .PPC 経路 entry 0 sample で発音)。
+        ;; ε round 2 fix では IRQ handler 内に counter + 1 秒後 trigger を配置したが、
+        ;; 切り分けで IRQ tick が 6 秒で 2 回しか発火していないと判明 (= z80-mem-trace 0xF816
+        ;; への write 件数 literal、 既存 driver の TIMER-B 構造で別 sprint 改修 scope)。
+        ;; 案 A 採用 = cold boot 直後 1 度 trigger で sample 再生 (= IRQ counter 不要)。
+        ;; production build (= TEST_MODE_AXIS_G_INT=0) では本 block 全 skip (= 既存 init 処理に
+        ;; 影響なし、 sed pre-process で除外)。
+        .if TEST_MODE_AXIS_G_INT
+        ;; (1) sample_table_id = 0x80 (= bit7 set + entry index 0、 .PPC 経路選択)
+        ld      a, #0x80
+        ld      (driver_pne_sample_table_id), a
+        ;; (2) reg 0x10 = 0x00 (= keyon clear、 既存 adpcmb_keyon と同順)
+        ld      b, #0x10
+        ld      c, #0x00
+        call    ym2610_write_port_a
+        ;; (3) ppc selector で sample addr 取得 (= entry index 0、 DE = ppc_scratch_start_lsb addr)
+        ld      a, #0x00
+        call    pmdneo_select_adpcmb_ppc_pointer
+        ;; (4-7) reg 0x12-0x15 = sample addr (DE = scratch 4 byte read)
+        ld      b, #0x12
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x13
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x14
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        inc     de
+        ld      b, #0x15
+        ld      a, (de)
+        ld      c, a
+        call    ym2610_write_port_a
+        ;; (8-9) reg 0x19/0x1A = delta-N (= default ADPCM-B playback rate、 0x9C40 ≒ 18.5 kHz)
+        ld      b, #0x19
+        ld      c, #0x40
+        call    ym2610_write_port_a
+        ld      b, #0x1A
+        ld      c, #0x9C
+        call    ym2610_write_port_a
+        ;; (10) reg 0x1B = volume max (= 0xFF)
+        ld      b, #0x1B
+        ld      c, #0xFF
+        call    ym2610_write_port_a
+        ;; (11) reg 0x11 = pan center (= 0xC0 both)
+        ld      b, #0x11
+        ld      c, #0xC0
+        call    ym2610_write_port_a
+        ;; (12) reg 0x10 = 0x80 keyon trigger (= .PPC 経路 entry 0 sample で発音)
+        ld      b, #0x10
+        ld      c, #0x80
+        call    ym2610_write_port_a
+        .endif
 
         ld      a, #16
         ld      (driver_fade_speed), a
@@ -394,6 +471,17 @@ irq_handler_body:
         ld      a, (pmdneo_irq_count)
         inc     a
         ld      (pmdneo_irq_count), a
+
+        ;; ADR-0048 §決定 8 案 C ε integration test mode (= 35th session ε、 audition build 専用)
+        ;;   TEST_MODE_AXIS_G_INT=0 (= production default) では本 block 全 skip (= sed pre-process
+        ;;   で .if が conditional に外れる、 既存 IRQ 処理に影響なし)
+        ;;   =1 build で 16-bit IRQ counter inc + 1000 ms 到達時 sample_table_id=0x80 に
+        ;;   上書き (= .PPC 経路に切替、 J part 以降の ADPCM-B keyon は .PPC で鳴る)
+        ;; ADR-0048 §決定 8 案 C ε integration test mode IRQ block (= 36th session ε round 3 fix で削除)
+        ;; 旧 round 2 fix では IRQ counter + 1 秒後 trigger を配置したが、 切り分けで既存 driver の
+        ;; TIMER-B IRQ が 6 秒で 2 回しか発火しない (= z80-mem-trace 0xF816 literal) と判明、 IRQ
+        ;; counter は 0x03E8 (= 1000) に到達不能。 強制 keyon を init 経路に移動 (= cold boot 直後
+        ;; 1 度 trigger) で audition functional 化。 IRQ handler 内 test mode block は不要、 削除済。
 
         ;; IRQ fade processing (= default speed 16, ~1 sec fade)
         ld      a, (driver_fade_state)

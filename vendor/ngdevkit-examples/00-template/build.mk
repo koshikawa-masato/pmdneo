@@ -137,12 +137,17 @@ STANDALONE_Z80_PREPROCESSED?=$(BUILDDIR)/standalone_test.preprocessed.s
 # (= 空 sed expression は BSD sed が file 名を expr と誤認するため、 cp / sed を切替える)
 PMDNEO_CHIP?=ym2610
 PMDNEO_USE_PMDDOTNET?=0
+TEST_MODE_AXIS_G_INT?=0
 PMDNEO_SED_EXPRS=
 ifeq ($(PMDNEO_CHIP),ym2610b)
 PMDNEO_SED_EXPRS+=-e 's/PMDNEO_TARGET_CHIP_YM2610B, 0/PMDNEO_TARGET_CHIP_YM2610B, 1/'
 endif
 ifeq ($(PMDNEO_USE_PMDDOTNET),1)
 PMDNEO_SED_EXPRS+=-e 's/PMDNEO_USE_PMDDOTNET, 0/PMDNEO_USE_PMDDOTNET, 1/'
+endif
+# ADR-0048 §決定 8 案 C ε integration test mode (= audition build 専用、 production は必ず =0)
+ifeq ($(TEST_MODE_AXIS_G_INT),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_INT, 0/TEST_MODE_AXIS_G_INT, 1/'
 endif
 ifeq ($(strip $(PMDNEO_SED_EXPRS)),)
 PMDNEO_PREPROCESS_CMD=cp $< $@
