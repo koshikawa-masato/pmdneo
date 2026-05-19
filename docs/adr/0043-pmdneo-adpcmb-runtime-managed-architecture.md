@@ -1,6 +1,6 @@
 # ADR-0043: PMDNEO ADPCM-B 1ch runtime-managed architecture 設計 (= 軸 C α、 4 sub-sprint 構成)
 
-- 状態: **Draft** (= 2026-05-18、 軸 C α、 ADR-0041 併走運用下)
+- 状態: **Accepted** (= 2026-05-19、 32nd session 末、 軸 C γ 全体 complete + δ statement audio gate 越川氏 audition approve)
 - 起票日: 2026-05-18
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由 sub-agent C による起票、 ADR-0041 §決定 4 規律遵守)
 - 関連 ADR:
@@ -634,4 +634,73 @@ ADR-0043 §sub-sprint chain γ 全体 = γ-1 (= actual silence sample) + γ-2 (=
 | γ complete 宣言 | (= 本 PR γ complete 別 commit hash) | (= 本 PR、 別 commit) | n/a (= 宣言のみ) |
 
 **次の step**: δ statement audio gate (= 越川氏 audition、 永久 user scope) → δ 完了後 ADR-0043 Draft → Accepted 移行 (= Codex layer 2 round 1 approve item 7 literal「δ 完了時が安全」)。
+
+## sub-sprint δ 完了 (= 32nd session 末、 越川氏 audition approve、 ADR Draft → Accepted 移行)
+
+### audition 経路 (= 永久 user scope、 主軸自律進行不可)
+
+32nd session γ-3 完了直後、 越川氏が `afplay` で γ-2 + γ-3 wav artifact 計 4 件を audition 確認:
+
+| # | wav | 期待音 | audition 結果 |
+|---|---|---|---|
+| 1 | `/tmp/pmdneo-axis-c-gamma-2/id-zero.wav` | J part voice 0 → BEAT 単独 | ADPCM-B BEAT 音 確認 |
+| 2 | `/tmp/pmdneo-axis-c-gamma-2/id-one.wav` | J part voice 0 → SILENCE_B (= 無音) | silence 確認 (= 明示報告なし、 #4 で同経路 silence 確認) |
+| 3 | `/tmp/pmdneo-axis-c-gamma-3/id-zero.wav` | J BEAT + L-Q ADPCM-A 6 ch step5 carrier | ADPCM-A 複数 ch 鳴る + ADPCM-B BEAT 同居確認 |
+| 4 | `/tmp/pmdneo-axis-c-gamma-3/id-one.wav` | J SILENCE_B (= 無音) + L-Q ADPCM-A 6 ch step5b carrier | ADPCM-A 複数 ch 鳴る、 ADPCM-B 無音 (= 期待通り) |
+
+### 越川氏 literal 判断 (= 2026-05-19、 主軸 audition request 後)
+
+> 「テンポが速いが確かに複数の ADPCM-A が鳴っている。 ADPCM-B があるときはそのビート音が聞こえた。 1〜4 の内容に問題無いと思われる」
+
+approve 判定 = ADR-0043 §決定 1 γ「sample 切替 observable proof」 が audition でも literal 確認、 ADPCM-A + ADPCM-B 同居演奏破綻なし、 軸間独立性 audition 確認。
+
+### finding (= 越川氏 audition 中、 scope-out 残)
+
+「テンポが速い」 = aesthetic / MML interpretation 観点の finding (= driver / runtime layer の問題ではなく、 fixture MML body の `l1` (= 全音符) + default tempo が予想より速い可能性)。 軸 C δ scope-out 維持 (= driver functional verify は audition approve、 aesthetic tempo 調整は future sprint 候補 = δ tempo refinement or MML compiler 軸 (= ADR-0044 §scope-out 確定済) のいずれか)。
+
+### ADR-0043 Draft → Accepted 移行
+
+ADR-0043 状態 = Draft → Accepted (= 本 commit 1 行修正)、 軸 C 軸自体 完了。
+
+| 軸 C sub-sprint | 完了 commit | PR | merge commit |
+|---|---|---|---|
+| α (= ADR 起票) | a3a162d | #18 | (= 30th session merged) |
+| α (= 実装) | 588a11c | #22 | (= 30th session merged) |
+| β | dfc9774 | #28 | (= 31st session merged) |
+| γ-1 (= actual silence) | 766fca4 | #30 | beee2b14 |
+| γ-2 (= sample_table_id integration) | 40d0a00 | #31 | 7bd724bc |
+| γ-3 (= ADPCM-A 独立性 trace) + γ complete 宣言 | b18cfb5 | #33 | 084e069e |
+| dashboard final (= γ-1/γ-2 完了) | 0f4550c | #32 | 1f32c3c |
+| dashboard final 拡張完走 (= γ complete 達成) | c60e452 | #34 | e757e78d |
+| **δ (= audition approve + ADR Accepted 移行)** | **本 commit** | **本 PR** | **(= 本 PR merge commit)** |
+
+### 軸 C 完了 + 後続軸候補
+
+ADR-0043 §決定 8 後続軸候補 literal:
+- `.PPC` format driver parse (= 候補 ADR-0048): PMD V4.8s `.PPC` format runtime parse + multi-sample 切替 UI 経路
+- ADPCM-A / ADPCM-B sample selection routine 共有化 (= γ 完了後 refactor 判断、 早すぎる抽象化回避規律下)
+- WebApp ADPCM-B sample management UI (= Phase 4 軸 D 候補、 yaml 自動生成)
+- delta-N envelope / LFO (= 不要、 chip 仕様外、 scope-out 維持)
+
+軸 C 軸自体は完了、 driver runtime ADPCM-B 1 ch + sample_table_id integration + multi-table architecture が production-ready 段階到達。 audition で「ADPCM-A 6 ch + ADPCM-B 1 ch 同居演奏 + sample 切替」 が機能完全実証。
+
+### 共通規律遵守確認 (= ADR-0043 §決定 1 共通規律 + ADR-0041 §決定 4 規律)
+
+- **各 sub = 1 commit + 1 push** (= δ 単独 commit、 ADR Accepted 移行 + δ 完了 section 1 commit 統合) ✅
+- **primary gate = ADPCM-B register trace / ymfm-trace** (= γ-1/γ-2/γ-3 で完了済、 δ は audition gate のみ scope) ✅
+- **wav sha256 = timing-sensitive reference** (= δ で audition 経由直接判断、 wav sha256 は副次) ✅
+- **越川氏 audition approve** = CLAUDE.md §動作確認義務「driver / runtime 層 touch commit は emulator (MAME) で起動・動作確認」 完全充足 ✅
+- **ADR-0041 §決定 4 規律 = 3 重 zero-trust review** (= 主軸 audition request + 越川氏 audition 判断 + Codex layer 2 review なし、 user 最終確認 scope = §決定 4-2 例外「user 介入は escalate or 最終確認のみ」 literal) ✅
+
+### scope-out 維持 (= ADR-0041 §forbidden write set + ADR-0043 §決定 5)
+
+- 「テンポが速い」 finding (= aesthetic / MML interpretation 観点、 driver / runtime layer 問題ではない、 future sprint 候補 = δ tempo refinement or MML compiler 軸)
+- `.PPC` format driver parse (= 別 ADR ADR-0048 候補、 後続軸)
+- 改造 PMDDotNET /B mode J emit 不在 bug 修正 (= ADR-0044 §軸 F 全体 scope-out 確定済、 将来 sprint)
+- driver source touch なし (= δ は doc + dashboard update のみ)
+- driver 他軸領域 (= ADPCM-A / FM/SSG / IR runtime) touch なし
+- vendor 配下 touch なし
+- 未追跡 vendor wav 3 件 (= lefthook/lightbulbbreaking/woosh、 軸 A scope、 触らない)
+- main 直接 push / wip-pmddotnet-opnb-extension 直接 commit (= ADR-0041 §決定 3、 wip-axis-c-delta-audition-accept branch 経由)
+- MEMORY.md / CLAUDE.md / 他軸専用 file touch なし
 
