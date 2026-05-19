@@ -181,6 +181,21 @@ Codex 内部 runtime は **同時 1 task 制限**。 layer 1 (= sub-agent 内 Co
 
 Codex layer 2 session 019e3b50-8f23-7803-af9e-903d6587f891 で **計 6+ round 全 approve** = 軸 A/F 採用案決定 + 5 step 計画 review + 配置 + GO + 規律確立 + verify gate 経路 + 軸 C sub-sprint α layer 1 reflect + 本規律実装方針 review (= 自己参照例)。 Codex 1 task 同時制限 + 4 連続 hang + cancel 経由解放経験も literal 記録 (= memory `feedback_subagent_isolation_worktree_base_ref_mismatch.md` + dashboard escalation 履歴)。
 
+##### default 永続化 + 毎回 user 確認禁止 (= 31st session 末 user 「毎回聞かないで。 常に Code resque 化で作業終わるまで継続」 literal 反映)
+
+user 明示指示 = 「Codex rescue 化」 を主軸 default 動作とし、 起動条件 table 該当 action の度に user に「Codex rescue 化を使いますか？」 と確認する経路を **永続停止**。 主軸は本 §決定 4-2 起動条件 table に基づき **自律的に Codex layer 2 起動 + approve 受け commit + push + PR + merge** を進める。 user 介入経路は §例外 + escalate の 6 種 (= ADR-0041 §決定 4-1 末尾) のみ。
+
+具体的禁止 pattern:
+- 「Codex rescue 化を使いますか?」 を起動条件 table 該当 action 毎に問う
+- 「user 判断 a/b/c?」 を起動条件 table 該当 action 毎に問う
+- 「即時 GO で良いか?」 を Codex layer 2 approve 後に問う (= approve 自体が GO sentinel)
+- 主軸が次 action 候補を user に列挙して選ばせる (= Codex layer 2 に投入して判断委譲)
+
+具体的継続 pattern:
+- 主軸 → Codex layer 2 投入 → approve → 主軸自律進行 (= commit + push + PR + merge + 次 step) を **作業終わるまで継続**
+- user 介入は §例外 + escalate 6 種に該当する場合のみ self-judgment で停止 + user 報告
+- session 終了は (1) 全 OPEN PR 0 件 + 全進行可能 sprint 完走、 (2) escalate 発生、 (3) user 明示停止指示、 のいずれかで判定
+
 ### 決定 4-3: Codex unavailable 時の主軸単独 fallback + retrospective review 必須 (= 30th session 末 layer 2 試行第 1 例で Codex runtime hang に直面、 fallback regime 確立)
 
 §決定 4 + §決定 4-2 で確立した 2 段 Codex 壁打ち構造は、 Codex 内部 runtime の 1 task 同時制限と hang 可能性により unavailable 状態に陥る場合がある。 fallback 規律を確立:
