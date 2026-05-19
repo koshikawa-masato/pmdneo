@@ -62,12 +62,13 @@ ADR-0043 §決定 2 literal 「`.PPC` の WebApp 経由 ADPCM-B 管理 UI / conv
 ### 軸 G 命名 + scope 定義
 
 - **軸名**: 軸 G (= ADPCM 動的 sample 供給)
-- **scope-in**:
-  - `.PPC` format driver parse (= header / directory / sample entry 解析)
-  - `.PPC` runtime sample selection (= directory 引き、 sample addr 動的解決)
-  - PMDPPZ 流儀 reference → YM2610(B) V-ROM 直結 mapping 設計
+- **scope-in** (= 35th session γ revise must-fix #3 反映、 案 C 部分 runtime parse 経路 literal 明確化):
+  - `.PPC` **runtime directory lookup** (= directory entry index → START/STOP word decode、 ROM 内 embed directory binary を driver runtime で参照) ← 旧記述「`.PPC` format driver parse (= header / directory / sample entry 解析)」 は full binary parse と読めるため明確化
+  - `.PPC` runtime sample selection (= mapping-B + selection key bit7、 sample addr 動的解決)
+  - PMDPPZ 流儀 reference → YM2610(B) V-ROM 直結 mapping 設計 (= 案 C 経路: directory 部分のみ ROM embed + sample data は既存 vromtool 経路継続)
   - 既存 sample_table_id selection arch (= ADR-0023/0024/0025) との integration design
-  - ADPCM-B 軸 (= ADR-0043) production-ready 保護 (= 既存 yaml passthrough 並走)
+  - ADPCM-B 軸 (= ADR-0043) production-ready 保護 (= 既存 yaml passthrough 並走 + 既存 vromtool 経路保護)
+  - 新規 generator script (= 仮称 `scripts/ppc-to-ngdevkit.py`、 vromtool 外側、 `.PPC` → directory binary embed + sample data 既存 vromtool 経路へ渡す)
   - asset converter (= WAV → `.PPC`) 接続点予約 (= 別軸 D Phase 4 WebApp 委譲予約)
 - **scope-out (= 別 ADR / 別軸 / future sprint)**:
   - WebApp UI (= Phase 4 軸 D 範囲、 ADR-0046 候補)
@@ -200,9 +201,11 @@ PMDDotNET は **PC-98 OPNA ADPCM RAM 経路** (= 32K-256KB ADPCM RAM、 sample b
 
 各 sub-sprint 完了で dashboard `docs/parallel-axes-dashboard.md` § 軸別進捗 details § 軸 G 表 + § escalation 履歴 を主軸 write で update (= sub-agent read のみ)、 ADR-0048 §sub-sprint 完了 section に literal 反映、 1 sub = 1 commit + 1 PR + 1 merge + 1 dashboard update。
 
-### 決定 8: 軸 G γ V-ROM mapping 確定 = mapping-B (= offset 加算) + selection key δ defer
+### 決定 8: 軸 G γ V-ROM mapping 確定 = mapping-B (= offset 加算) + selection key δ defer + δ 経路 = 案 C (= 部分 runtime parse)
 
 軸 G γ sub-sprint で V-ROM 直結 mapping を **mapping-B (= offset 加算)** に literal 確定する。 mapping-A (= identity) + mapping-C (= scaled × k) は reject。 selection key (= `.PPC` source vs yaml passthrough source 判定軸) は δ で literal 確定 (= γ では候補列挙のみ)。
+
+**35th session vromtool finding 反映**: `vromtool` は ngdevkit 外部 tool (= brew install ngdevkit 配布 binary、 repo 内に source なし、 PMDNEO 側で **拡張不能**)。 旧 literal「vromtool.py 拡張で `.PPC` file 取り込み」 は **stale** = vromtool 自体は拡張不能、 .PPC 取り込み経路は **vromtool 外側で実装** する形に修正。 §決定 8 末尾「δ 経路 = 案 C (= 部分 runtime parse) 採用」 を新規追加 (= Codex layer 2 35th session 開始時 round 1 approve)、 mapping-B 式は維持 (= resolution timing が runtime directory lookup 側になる点を明記)。
 
 #### mapping-B 採用 (= 確定式)
 
@@ -216,7 +219,7 @@ where v_rom_stop_word = ppc_stop_word + v_rom_base_offset_word
 ```
 
 - `ppc_word` = `.PPC` directory entry の START / STOP word (= LE 16-bit、 Annex A-3 literal)
-- `v_rom_base_offset_word` = build-time literal symbol (= 仮称 `PPC_VROM_BASE_OFFSET_WORD`、 driver source + samples.inc literal、 値は δ で vromtool.py 拡張時に確定)
+- `v_rom_base_offset_word` = build-time literal symbol (= 仮称 `PPC_VROM_BASE_OFFSET_WORD`、 driver source + samples.inc literal、 値は δ で `scripts/ppc-to-ngdevkit.py` (= vromtool 外側 新規 generator) 生成時に確定)
 - YM2610(B) ADPCM-B reg 0x12-0x15 = 16-bit register × 256 = byte addr (= V-ROM 上 byte addr、 256 byte aligned granularity、 ADR-0043 Annex A reference)
 
 #### mapping-A reject 根拠
@@ -236,12 +239,15 @@ where v_rom_stop_word = ppc_stop_word + v_rom_base_offset_word
 | PMDDotNET × 32 解釈訂正済 (= mapping-C 採用根拠の不在裏付け) | PCMLOAD.cs L630-634 の `r.bx += r.bx` × 5 (= × 32) は **PCM data transfer stride 計算** (= 0x400 byte block × 32 stride = 0x8000 byte 一括 store unit) であり、 directory entry word の byte unit 変換ではない (= Annex A-1 source attribution literal、 α revise round 1 must-fix #3 反映済)。 mapping-C 採用根拠として誤帰属しがちな × 32 は transfer stride に属する |
 | 不要な複雑性 | scale factor 確定根拠が不在 (= mapping-C scale factor `k` の datasheet/source 裏付け不在) + mapping-B (= offset 加算) で sufficient (= V-ROM 配置領域分離 + 既存 yaml passthrough 並走可能)、 mapping-C 採用は不要な実装複雑性 |
 
-#### `v_rom_base_offset_word` 配置設計 (= δ scope literal、 γ では設計のみ)
+#### `v_rom_base_offset_word` 配置設計 (= δ scope literal、 案 C 部分 runtime parse 経路、 γ では設計のみ)
 
-- 値は `samples.inc` 生成時に **既存 yaml passthrough sample 配置領域 size から計算**
+- 値は **新規 generator script (= 仮称 `scripts/ppc-to-ngdevkit.py` 等、 vromtool 外側)** で生成、 既存 yaml passthrough sample 配置領域 size から計算
 - 既存 yaml 領域は不可触 (= ADR-0043 production-ready 経路保護)、 `.PPC` sample 群は **後方** 配置
-- vromtool.py 拡張で `.PPC` file 取り込み + symbol emit + offset 計算 (= δ で literal 実装、 γ では設計のみ)
-- driver runtime で `PPC_VROM_BASE_OFFSET_WORD` symbol 参照 (= δ で driver routine 実装)
+- **vromtool は外部 tool で拡張不能** (= 35th session finding) のため、 案 C 経路で実装:
+  - **sample data**: `.PPC` から ADPCM-B raw byte stream を抽出 → wav 経由 or 直接 ngdevkit-tool に渡す既存経路で V-ROM 焼き込み (= 既存 vromtool 経路継続、 sample data 配置不変)
+  - **directory binary**: `.PPC` directory (= 256 entries × 4 byte = 1024 byte) を **ROM 内別領域に embed** (= 仮称 `PPC_DIRECTORY_BASE` symbol、 新規 generator で directory binary 生成 + linker exposure)
+  - **offset 計算**: `PPC_VROM_BASE_OFFSET_WORD` = vromtool 自動 layout 後の `.PPC` sample 配置 base addr (= 既存 yaml sample 配置領域後方、 generator が samples.inc 解析 or vromtool log 解析で算出)
+- driver runtime で `PPC_VROM_BASE_OFFSET_WORD` symbol 参照 + `PPC_DIRECTORY_BASE` symbol 経由 directory entry index → START/STOP word decode (= δ で driver routine 実装)
 
 #### selection key 候補列挙 (= δ で literal 確定、 γ では候補のみ)
 
@@ -276,6 +282,39 @@ mapping-B 確定下で既存 ADR-0043 routine 経路は完全不可触:
 - ymfm-trace primary gate (= 既存 verify-j-part-fixture-driven.sh 経路拡張): 既存 ADR-0043 fixture (= ppc 経路に流れない = bit7 clear id) byte-identical 維持 + 新規 `.PPC` fixture (= bit7 set id) で reg 0x12-0x15 期待 literal 一致確認
 - 両 fixture 並走で「mapping-B 採用 + selection key 候補-1 bit7 分岐 + ADR-0043 既存経路保護」 を 1 set の trace で完全確認
 
+#### δ 実装経路 = 案 C (= 部分 runtime parse) 採用 (= 35th session 開始時 Codex layer 2 round 1 approve、 vromtool finding 反映)
+
+vromtool 拡張不能 finding (= 35th session 開始時) を踏まえ、 δ 実装経路を **案 C (= 部分 runtime parse)** に literal 確定する。 案 A (= build-time emit) + 案 B (= 真の runtime parse、 full .PPC binary embed) は reject。
+
+##### 案 C (= 部分 runtime parse) 採用 (= 確定)
+
+- **sample data**: `.PPC` から ADPCM-B raw byte stream を抽出 → 既存 vromtool 経路 (= yaml + adpcm_b passthrough) で V-ROM 焼き込み (= 既存経路継続、 ADR-0043 §決定 4 yaml + adpcm_b 経路と同型、 vromtool 外側の新規 generator が .PPC → 個別 sample file or yaml entry に展開)
+- **directory binary**: `.PPC` directory (= 256 entries × 4 byte = 1024 byte、 Annex A-3 layout literal) を **ROM 内別領域に embed** (= 仮称 `PPC_DIRECTORY_BASE` symbol、 新規 generator が directory binary 生成 + assembler `.incbin` or `.db` literal emit + linker exposure)
+- **driver runtime**: `pmdneo_select_adpcmb_ppc_pointer` (= 新規 routine) で voicenum × 4 byte offset → `PPC_DIRECTORY_BASE` から START/STOP word decode (= mapping-B mapping_B 式 + `PPC_VROM_BASE_OFFSET_WORD` 加算) → reg 0x12-0x15 書込
+- **selection key**: 候補-1 (= sample_table_id bit7 set/clear) で source 分岐 (= bit7 clear = 既存 ADR-0043 `pmdneo_select_adpcmb_sample_pointer` 経路 / bit7 set = 新規 `pmdneo_select_adpcmb_ppc_pointer` 経路)
+- **新規 generator script**: 仮称 `scripts/ppc-to-ngdevkit.py` (= vromtool 外側、 `.PPC` 取り込み + directory binary 生成 + adpcm_b raw byte 展開 + yaml entry 生成 or 既存 yaml に追記)
+- **mapping-B 式は維持** (= resolution timing が runtime directory lookup 側、 driver runtime で `ppc_word + base_offset_word` 計算)
+
+##### 案 A (= build-time emit) reject 根拠
+
+- 軸 G **runtime parse scope を捨てる** = ADR-0048 §軸 G scope-in literal (= `.PPC` runtime sample selection / directory 引き) 違反
+- runtime selection (= bit7 分岐) のみ実装するが、 directory 動的解決は build-time に展開 = 軸 G の本来意義 (= runtime parse) 縮小
+- **設計根本分岐 risk** = 軸 G scope-in literal 変更必要、 user escalate 候補
+
+##### 案 B (= 真の runtime parse、 full .PPC binary embed) reject 根拠
+
+- ROM 領域 layout 新設 + vromtool 完全 bypass + 別 generator + driver 完全 runtime parse 実装 = scope 最大
+- 既存 vromtool 経路 (= ADR-0043 production-ready 経路) を破壊する設計判断 = **ADR-0043 production-ready 経路保護違反 risk**
+- sample data 抽出も独自経路 (= vromtool 経由しない) = ngdevkit 標準 build pipeline 逸脱
+
+##### ROM directory region 設計 (= 案 C、 δ で literal 確定)
+
+- format: `.PPC` directory 1024 byte (= 256 entries × 4 byte) を `.incbin` 経由 ROM embed or `.db` literal emit
+- alignment: 4 byte 境界 (= directory entry 単位)、 ngdevkit linker section に新規 region 追加 or 既存 PROM section の末尾 append
+- symbol naming: `PPC_DIRECTORY_BASE` (= 仮称、 driver source / generator script literal)
+- linker exposure: ngdevkit `vendor/ngdevkit-examples/00-template/Makefile` 経路で directory binary を Z80 source に include (= `scripts/ppc-to-ngdevkit.py` が `assets/samples.inc` 末尾 or 別 inc file に append、 driver source は `.include` で取り込み)
+- δ で literal 確定 (= γ では設計概要のみ)
+
 ## sub-sprint chain 進捗 (= 起票時 literal、 後続 sub-sprint 完了で update)
 
 | sub-sprint | 状態 | commit |
@@ -283,7 +322,7 @@ mapping-B 確定下で既存 ADR-0043 routine 経路は完全不可触:
 | α | **完了** (= ADR-0048 PR #39 MERGED 9b52af3、 Annex A literal 化 + §決定 2 補正、 doc-only) | 80fd219 |
 | β | **完了** (= PR #41 MERGED f79f5e5、 `scripts/ppc-parser-spike.py` 新規 + 6/6 test PASS、 doc + spike script) | bd9401a |
 | γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 確定 update + integration design literal、 doc-only) | (= 本 commit hash) |
-| δ | **次** (= runtime selection proof driver touch 最小、 既存 routine 不可触、 mapping-B 実装 + selection key 候補-1 第一候補 + vromtool.py 拡張) | - |
+| δ | **次** (= runtime selection proof driver touch 最小、 既存 routine 不可触、 mapping-B 実装 + selection key 候補-1 第一候補 + **案 C 部分 runtime parse + ppc-to-ngdevkit.py 新規 generator (= vromtool 外側) + ROM 内 directory binary embed**) | - |
 | ε | 未着手 (= integration + audition gate、 必要時 user audition) | - |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
@@ -296,7 +335,7 @@ mapping-B 確定下で既存 ADR-0043 routine 経路は完全不可触:
 - **次の step (= 起票時 = α 着手予定)**: sub-sprint α 着手 = `.PPC` format archaeology + fixture contract 確定 = PMDDotNET `PCMLOAD.cs` (= 1256 行、 byte-level format parser ground truth) + `PCMDRV.cs` (= 1063 行、 runtime selection reference) grep + byte-level parser spec literal + 最小 fixture (= 1-2 entry) imagined byte sequence ADR Annex 化 + Codex layer 2 review。 本 ADR-0048 起票 (= 軸 G α task の前段 = ADR doc 起票そのもの) と sub-sprint α (= format archaeology) は **別 step** である点に注意 (= ADR-0043 同形 pattern)。
 - **α 完了後 次の step (= α 完了 commit reflect)**: sub-sprint β 着手 = parser / validator proof spike + minimum fixture **生成** (= α では imagined byte sequence only、 β で実 fixture spike emit + reject 条件 literal 検証)、 driver / runtime / vendor 完全不変、 Annex A-7 β validator 候補 reject 条件 table から β default 採用 4 件 + γ 確定 1 件選定。
 - **β 完了後 次の step (= β 完了 commit reflect)**: sub-sprint γ 着手 = integration design + V-ROM mapping 確定 (= Annex A-5 候補 3 種から確定) + samples.inc / sample_table_id / yaml passthrough 接続方針確定 + ADR-0043 production-ready 経路保護 literal、 driver / runtime / vendor 完全不変 (= 設計のみ doc-only)。
-- **γ 完了後 次の step (= γ 完了 commit reflect = 本 commit)**: sub-sprint δ 着手 = runtime selection proof = mapping-B 実装 (= driver source `standalone_test.s` 新規 routine 追加 only、 既存 ADR-0043 routine 不可触) + selection key 候補-1 第一候補 確定 + vromtool.py 拡張 (= `.PPC` file 取り込み + samples.inc symbol emit + offset 計算) + 実 `.PPC` minimum fixture 1-2 entry 生成 (= scripts/ppc-parser-spike.py emit を Python で `.PPC` file 出力) + verify gate (= ymfm-trace primary gate + driver byte-identical + 既存 ADR-0043 fixture regression)、 最小 driver touch、 ADR-0043 既存 routine 完全不可触。
+- **γ 完了後 次の step (= γ 完了 commit reflect、 35th session 開始時 vromtool finding 反映済)**: sub-sprint δ 着手 = runtime selection proof = mapping-B 実装 (= driver source `standalone_test.s` 新規 routine 追加 only、 既存 ADR-0043 routine 不可触) + selection key 候補-1 第一候補 確定 (= sample_table_id bit7) + **案 C (= 部分 runtime parse) 経路**: 新規 generator script `scripts/ppc-to-ngdevkit.py` (= vromtool 外側、 `.PPC` → directory binary embed + sample data 既存 vromtool 経路へ渡す) + ROM 内 directory 別領域 embed (= `PPC_DIRECTORY_BASE` symbol) + driver runtime で directory 引き + 実 `.PPC` minimum fixture 1-2 entry 生成 + verify gate (= ymfm-trace primary gate + driver byte-identical + 既存 ADR-0043 fixture regression + 新規 .PPC fixture reg 0x12-0x15 literal assert)、 最小 driver touch、 ADR-0043 既存 routine 完全不可触、 既存 vromtool 経路保護。
 
 ## Annex A: `.PPC` format archaeology (= sub-sprint α 完了 literal、 PMDDotNET PCMLOAD.cs reference)
 
@@ -371,7 +410,7 @@ YM2610(B) ADPCM-B register layout (= ADR-0043 Annex A reference):
 
 **γ の第一候補 (= α 推奨、 γ で literal 確定)**: **mapping-B (= offset 加算)** = 既存 `samples.inc` build-time embed pattern (= ADR-0021 §c1 + ADR-0043 §決定 4 踏襲) との整合が良く、 軸 G `.PPC` sample 群を V-ROM 上の free area にまとめて配置 + base offset で reg 書込が clean。 mapping-A は識別容易性で β fixture proof 段階の選択肢、 mapping-C は OPNA 互換性検証用 (= γ で OPNA PCMRAM word と YM2610 V-ROM register unit の対応を datasheet + fixture で確定後、 scale factor `k` 確定すれば採用可)。 γ で literal 確定 + δ で driver routine 実装。
 
-> **γ 確定 result (= §決定 8 literal、 γ revise round 2 同期反映済)**: mapping-B 採用 = `v_rom_word = ppc_word + v_rom_base_offset_word` + `v_rom_base_offset_word` は build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で vromtool.py 拡張時に値確定)。 mapping-A reject = V-ROM base = 0 固定で既存 yaml passthrough sample 衝突。 **mapping-C reject = (1) YM2610 register unit 256 byte aligned 確認済 (= `src/driver/PMD_Z80.inc` L2186 + `standalone_test.s` L2712-2734 + YM2610 datasheet) + (2) OPNA 側 unit 確定不要 (= mapping-B 採用下で V-ROM 直結のため OPNA PCMRAM 概念非適用、 PMDDotNET 解釈で directory entry word は OPNA register 直結 = PCMDRV.cs L673-684) + (3) PMDDotNET × 32 解釈訂正済 (= transfer stride、 directory parse ではない) + (4) 不要複雑性 (= mapping-B で sufficient)** = scale factor `k` ≠ 0 不要、 §決定 8 4-row reject table 参照。
+> **γ 確定 result (= §決定 8 literal、 γ revise round 2 + 35th session vromtool finding 反映済)**: mapping-B 採用 = `v_rom_word = ppc_word + v_rom_base_offset_word` + `v_rom_base_offset_word` は build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で `scripts/ppc-to-ngdevkit.py` (= vromtool 外側 新規 generator、 35th session 採用 案 C 経路) 生成時に値確定)。 mapping-A reject = V-ROM base = 0 固定で既存 yaml passthrough sample 衝突。 **mapping-C reject = (1) YM2610 register unit 256 byte aligned 確認済 (= `src/driver/PMD_Z80.inc` L2186 + `standalone_test.s` L2712-2734 + YM2610 datasheet) + (2) OPNA 側 unit 確定不要 (= mapping-B 採用下で V-ROM 直結のため OPNA PCMRAM 概念非適用、 PMDDotNET 解釈で directory entry word は OPNA register 直結 = PCMDRV.cs L673-684) + (3) PMDDotNET × 32 解釈訂正済 (= transfer stride、 directory parse ではない) + (4) 不要複雑性 (= mapping-B で sufficient)** = scale factor `k` ≠ 0 不要、 §決定 8 4-row reject table 参照。
 
 **規律違反 risk 防止 (= Codex α review 指摘)**: mapping-B を γ 確定前に δ 実装へ持ち込まないこと (= γ V-ROM register unit 確定 / 既存 yaml passthrough sample との共存配置 確定後の δ 実装)。 γ 確定後 (= 本 §決定 8) は δ で driver routine 実装可。
 
@@ -573,7 +612,7 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 | α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
 | β | **完了** (= 本 commit、 spike script + 6/6 PASS、 doc + spike script) | (= 本 commit hash) |
 | γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 確定 update + integration design literal) | (= 本 commit hash) |
-| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 + vromtool.py 拡張) | - |
+| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 + **案 C 部分 runtime parse + ppc-to-ngdevkit.py 新規 generator (= vromtool 外側)**) | - |
 | ε | 未着手 (= integration + audition gate) | - |
 
 ## sub-sprint γ 完了 (= 34th session、 主軸単独実装 + Codex layer 2 review 経由)
@@ -584,7 +623,7 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 
 1. **§決定 8 新規追加** = 軸 G γ V-ROM mapping 確定 = **mapping-B (= offset 加算) 採用** + mapping-A / mapping-C reject literal (= γ revise round 2 must-fix 2 件反映済、 §決定 8 4-row reject table と同期):
    - 確定式: `v_rom_word = ppc_word + v_rom_base_offset_word` + reg 0x12-0x15 書込経路
-   - `v_rom_base_offset_word` = build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で vromtool.py 拡張時に値確定)
+   - `v_rom_base_offset_word` = build-time literal symbol `PPC_VROM_BASE_OFFSET_WORD` (= δ で `scripts/ppc-to-ngdevkit.py` (= vromtool 外側 新規 generator、 35th session 採用 案 C 経路) 生成時に値確定)
    - mapping-A reject 根拠 3 件 (= V-ROM base = 0 固定衝突 + 設計言語逸脱 + 拡張性低)
    - **mapping-C reject 根拠 4 件 (= §決定 8 table 4-row)**: (1) YM2610 register unit 256 byte aligned 確認済 (= `src/driver/PMD_Z80.inc` L2186 + `standalone_test.s` L2712-2734 + YM2610 datasheet) + (2) OPNA 側 unit 確定不要 (= mapping-B 採用下で V-ROM 直結のため OPNA PCMRAM 概念非適用、 PMDDotNET 解釈で directory entry word は OPNA register 直結 = PCMDRV.cs L673-684) + (3) PMDDotNET × 32 解釈訂正済 (= transfer stride、 directory parse ではない) + (4) 不要複雑性 (= scale factor `k` 根拠不在 + mapping-B で sufficient)
    - selection key 候補 4 件列挙 (= δ で literal 確定、 第一候補 = 候補-1 sample_table_id 上位 1 bit、 bit7 set = `.PPC` source / bit7 clear = 既存 yaml passthrough)
@@ -618,7 +657,7 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 - driver source touch なし (= δ sub-sprint で起動)
 - vendor source touch なし
 - 実 `.PPC` fixture file 追加なし (= δ で生成、 minimum valid fixture)
-- vromtool.py 拡張なし (= δ scope)
+- 新規 generator script `scripts/ppc-to-ngdevkit.py` (= vromtool 外側、 案 C 経路) 実装なし (= δ scope)
 - selection key literal 確定なし (= δ scope、 γ では候補 4 件列挙のみ + 第一候補 literal)
 - `v_rom_base_offset_word` 値の literal 確定なし (= δ scope、 γ では symbol 配置設計のみ)
 - `.PVI` / `.P86` / `.PPS` / `.PPZ` parser 未実装 (= A-8 scope-out 維持)
@@ -630,6 +669,64 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 |---|---|---|
 | α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
 | β | **完了** (= PR #41 MERGED f79f5e5、 spike script + 6/6 PASS) | bd9401a |
-| γ | **完了** (= 本 commit、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 update + integration design literal) | (= 本 commit hash) |
-| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 第一候補 + vromtool.py 拡張) | - |
+| γ | **完了** (= PR #43 MERGED 2923c3a、 §決定 8 V-ROM mapping mapping-B 確定 + Annex A-5 update + integration design literal) | 12fcf69 |
+| **γ revision (= 35th session vromtool finding 反映)** | **本 commit** (= ADR-0048 §決定 8 + §軸 G scope-in + §決定 8 末尾 案 C 経路 + 各 stale literal 修正) | (= 本 commit hash) |
+| δ | **次** (= runtime selection proof driver touch 最小、 mapping-B 実装 + selection key 候補-1 第一候補 + **案 C 部分 runtime parse + ppc-to-ngdevkit.py 新規 generator (= vromtool 外側)**) | - |
 | ε | 未着手 (= integration + audition gate) | - |
+
+## sub-sprint γ revision (= 35th session 開始時、 vromtool finding 反映、 主軸単独実装 + Codex layer 2 round 1 approve)
+
+### 実装 deliverable (= doc-only)
+
+`docs/adr/0048-pmdneo-axis-g-ppc-parser-and-runtime-dynamic-sample-supply.md` 更新:
+
+1. **§決定 8 heading update** = 「+ δ 経路 = 案 C (= 部分 runtime parse)」 追加、 「35th session vromtool finding 反映」 1 段落新規 (= vromtool 拡張不能 + 旧 literal stale + 案 C 採用 + mapping-B 式維持 literal)
+2. **§決定 8 `v_rom_base_offset_word` 配置設計** update = 「vromtool.py 拡張」 → 「新規 generator script (= 仮称 `scripts/ppc-to-ngdevkit.py`、 vromtool 外側)」 literal、 案 C 経路 sample data / directory binary / offset 計算の 3 軸分離
+3. **§決定 8 末尾 `δ 実装経路 = 案 C (= 部分 runtime parse) 採用` section 新規追加**:
+   - 案 C 採用確定 literal (= sample data + directory binary + driver runtime + selection key + 新規 generator + mapping-B 式維持 の 6 軸)
+   - 案 A (= build-time emit) reject 根拠 3 件 (= runtime parse scope drop + 設計根本分岐 risk)
+   - 案 B (= 真の runtime parse、 full .PPC binary embed) reject 根拠 3 件 (= scope 最大 + vromtool bypass + ADR-0043 production-ready 破壊 risk)
+   - ROM directory region 設計 5 軸 (= format / alignment / symbol naming / linker exposure / δ 確定)
+4. **§軸 G scope-in literal 明確化** = 「`.PPC` format driver parse (= header / directory / sample entry 解析)」 → 「`.PPC` **runtime directory lookup** (= directory entry index → START/STOP word decode、 ROM 内 embed directory binary)」 literal 修正、 新規 generator script 1 行追加
+5. **平易日本語要約 `γ 完了後 次の step`** update = 案 C 経路 + ppc-to-ngdevkit.py + ROM directory embed literal 反映
+
+### 採用判断 経路 (= ADR-0041 §決定 4-2 Codex rescue 化 default 永続化)
+
+- **layer 2 review chain** (= session 019e3b50-... 流用、 35th session γ revision sprint):
+  - round 1 = 35th session vromtool finding 反映 + δ scope 経路選定 3 案 = **approve** (= 案 C 採用、 設計根本分岐対象外、 must-fix 5 件、 nice-to-have 3 件、 規律違反 risk 3 件、 ADR 修正 PR → δ 実装 PR の順)
+  - round 2 = round 1 must-fix 5 + nice-to-have 3 反映後 = **revise** (= 追加 must-fix 5 件 = stale `vromtool.py 拡張` literal 5 箇所残存 L222/L325/L413/L615/L626、 規律違反 risk 2 件 = stale 残存で δ 実装時誤違反 risk + factual drift risk)
+  - round 3 = round 2 追加 must-fix 5 件 反映後 = **approve** (= 6 箇所 stale literal 修正 + literal quotation 3 箇所維持 OK 確認、 factual drift 解消、 案 C 経路 literal 統一、 追加 must-fix 0 件 + 追加 nice-to-have 0 件 + 規律違反 risk 0 件、 γ revision commit GO + dashboard sync PR + δ 実装 PR 着手 GO)
+- **主軸 fallback regime** (= 主軸単独実装 default)
+- **Codex layer 1 不要** (= doc-only sprint、 driver / runtime touch なし、 layer 2 review のみで sufficient)
+
+### Codex layer 2 round 1 must-fix 反映 (= 5 件 全反映)
+
+1. ADR-0043 / ADR-0048 の stale literal 修正: `vromtool.py 拡張` は不可として明記 → §決定 8 「35th session vromtool finding 反映」 1 段落 literal、 旧経路 reference を「stale」 + 「修正済」 と明示
+2. ADR-0048 §決定 8 を案 C ルートへ更新: `.PPC directory binary` を別 ROM region に embed、 sample data は既存 vromtool route 継続 → §決定 8 末尾 `δ 実装経路 = 案 C` section 新規 literal
+3. ADR-0048 §軸 G scope-in literal を明確化: full `.PPC` binary parse ではなく、 runtime directory lookup + runtime sample selection として扱う → §軸 G scope-in literal 明確化 (= 「runtime directory lookup」 明記)
+4. mapping-B formula は維持し、 resolution timing が runtime directory lookup 側になる点を明記 → §決定 8 「35th session vromtool finding 反映」 末尾 + 案 C 採用 section に literal
+5. δ 実装 PR 前に ADR fix PR を先行させる → 本 commit が ADR fix PR (= 35th session 候補 1)、 後続別 PR で δ 実装着手
+
+### Codex layer 2 round 1 nice-to-have 反映 (= 3 件 全反映)
+
+- 案 A (= build-time emit) を ADR rejected option として記録 → §決定 8 末尾 案 A reject 根拠 section
+- 案 B (= 真の runtime parse) を ADR rejected option として記録 → §決定 8 末尾 案 B reject 根拠 section
+- 新 ROM directory region の format / alignment / symbol naming / linker exposure 追記 → §決定 8 末尾 ROM directory region 設計 section 5 軸 literal
+
+### verify gate (= γ revision は doc-only、 doc consistency 整合)
+
+- ADR-0048 §決定 8 案 C 経路 と §軸 G scope-in literal 整合 (= 「runtime directory lookup」 明記、 full binary parse 削除)
+- §決定 8 mapping-B 式は維持 (= resolution timing 明記、 式自体は不変)
+- §決定 8 案 A / 案 B reject 根拠 + 案 C 採用根拠 の整合
+- ADR-0043 production-ready 経路保護 literal 維持 (= 既存 routine 不可触 + 既存 vromtool 経路継続)
+- driver / runtime / vendor / 実 .PPC file / spike script / vromtool 完全不変 (= ADR file 更新 only、 stage = ADR file 単独 + vendor wav 3 件 untracked retain 維持)
+
+### scope-out 確認 (= ADR §決定 4 doc-only sprint 規律 + §決定 5 non-goal list 全完全遵守)
+
+- driver source touch なし (= δ sub-sprint で起動)
+- vendor source touch なし
+- 実 `.PPC` fixture file 追加なし (= δ で生成)
+- 新規 generator script (= ppc-to-ngdevkit.py) 実装なし (= δ scope、 γ revision では設計 literal のみ)
+- ADR-0043 既存 routine 不可触
+- 既存 vromtool 経路保護
+- 軸 C 再オープン / Surge XT / vendor wav cleanup / 軸 B / 軸 F MML compiler すべて非 touch
