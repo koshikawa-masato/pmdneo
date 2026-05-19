@@ -204,9 +204,9 @@ PMDDotNET は **PC-98 OPNA ADPCM RAM 経路** (= 32K-256KB ADPCM RAM、 sample b
 
 | sub-sprint | 状態 | commit |
 |---|---|---|
-| α | **完了** (= 本 commit、 Annex A literal 化 + §決定 2 補正、 doc-only) | (= 本 commit hash) |
-| β | **次** (= parser / validator proof spike + minimum fixture 生成) | - |
-| γ | 未着手 (= integration design 接続設計、 V-ROM mapping 候補 3 種から確定) | - |
+| α | **完了** (= ADR-0048 PR #39 MERGED 9b52af3、 Annex A literal 化 + §決定 2 補正、 doc-only) | 80fd219 |
+| β | **完了** (= 本 commit、 `scripts/ppc-parser-spike.py` 新規 + 6/6 test PASS、 doc + spike script) | (= 本 commit hash) |
+| γ | **次** (= integration design 接続設計、 V-ROM mapping 候補 3 種から確定) | - |
 | δ | 未着手 (= runtime selection proof driver touch 最小、 既存 routine 不可触) | - |
 | ε | 未着手 (= integration + audition gate、 必要時 user audition) | - |
 
@@ -317,7 +317,7 @@ YM2610(B) ADPCM-B register layout (= ADR-0043 Annex A reference):
 ```
 offset  byte sequence                                      意図
 0x000   41 44 50 43 4D 20 ... (24 byte 任意)              "ADPCM " magic + 24 byte metadata
-0x01E   00 04                                              Next START Address = 0x0400 (= 例)
+0x01E   00 05                                              Next START Address = 0x0500 (= 例、 spike round-trip self-test 整合)
 0x020   00 04 80 04                                        entry 0 = START 0x0400 / STOP 0x0480
 0x024   80 04 00 05                                        entry 1 = START 0x0480 / STOP 0x0500
 0x028-0x41F: 254 × 4 byte = 0xFFFF (= sentinel) or 0x0000 未使用 entry
@@ -427,8 +427,65 @@ ADR-0041 §決定 1 (= 軸間衝突回避) に従い、 本軸 G と他軸の触
 
 | sub-sprint | 状態 | commit |
 |---|---|---|
-| α | **完了** (= 本 commit、 Annex A literal + §決定 2 補正) | (= 本 commit hash) |
-| β | **次** (= parser / validator proof spike + minimum fixture 生成) | - |
-| γ | 未着手 (= integration design + V-ROM mapping 確定) | - |
+| α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
+| β | **完了** (= 本 commit、 spike script + 6/6 PASS) | (= 本 commit hash) |
+| γ | **次** (= integration design + V-ROM mapping 確定) | - |
+| δ | 未着手 (= runtime selection proof driver touch 最小) | - |
+| ε | 未着手 (= integration + audition gate) | - |
+
+## sub-sprint β 完了 (= 33rd session、 主軸単独実装 + spike script self-verify)
+
+### 実装 deliverable
+
+`scripts/ppc-parser-spike.py` 新規 (= 約 240 行、 standard library only、 doc + spike script sprint):
+
+1. **constant literal** (= ADR-0048 Annex A spec literal の Python 実体化)
+   - `PPC_SIGNATURE_FULL = b"ADPCM DATA for  PMD ver.4.4-  "` (= A-2)
+   - `PPC_MAGIC_PREFIX = b"ADPCM "` (= A-2 parser check)
+   - `PPC_HEADER_SIZE = 30` / `PPC_NEXT_START_OFS = 0x1E` / `PPC_DIRECTORY_OFS = 0x20` / `PPC_DIRECTORY_ENTRIES = 256` / `PPC_DIRECTORY_ENTRY_SIZE = 4` / `PPC_PCM_DATA_OFS = 0x420` (= A-1 header layout)
+   - `PPC_PVI_MAGIC = b"PVI2"` (= A-8 scope-out detect)
+2. **`DirectoryEntry` dataclass** + `is_unused` / `is_valid_range` properties (= A-3 + A-7 reject 条件)
+3. **`PpcImage` dataclass** (= signature / next_start / entries[256] / pcm_data)
+4. **`emit_minimum_fixture()` emitter** (= A-7 imagined byte sequence の literal 実装、 任意 entries + pcm_data + next_start で valid `.PPC` byte sequence emit)
+5. **`parse_ppc()` parser** + **`PpcRejectError`** exception (= A-4 malformed reject 4 種 + A-8 PVI2 scope-out detect)
+6. **`validate_ppc()` validator** + **`ValidationReport` dataclass** (= A-7 β reject 条件 5 件 = invalid_range / stop_exceeds_next_start / skip_unused / warn_aliasing / next_start_scale_pending)
+7. **6 self-test case** (= `CASES` list 全 PASS で `exit 0`):
+   - `minimum_fixture_round_trip` (= emit → parse 完全一致)
+   - `reject_too_short` (= size < 30 reject)
+   - `reject_wrong_magic` (= 先頭 6 byte != "ADPCM " reject)
+   - `reject_under_directory` (= size < 0x420 reject)
+   - `reject_pvi2_scope_out` (= PVI2 magic + offset 10 == 2 reject)
+   - `validator_invalid_range_and_aliasing` (= 全 5 件 validator 動作確認 = START > STOP / aliasing / STOP > next_start / unused / next_start scale pending)
+
+### 採用判断 経路 (= ADR-0041 §決定 4-2 Codex rescue 化 default 永続化)
+
+- **layer 2 review chain** (= session 019e3b50-... 流用、 β sprint):
+  - round 1 = β parser / validator proof spike + 6 test cases + ADR sub-sprint β 完了 section literal 化 review = (= 本 commit が round 1 反映、 review 完了後 approve / revise 取得予定)
+- **主軸 fallback regime** (= sub-agent isolation 5 連続 fail 経験踏襲、 主軸単独実装 default)
+- **Codex layer 1 不要** (= driver / runtime touch なし、 spike script + ADR doc 更新 only、 layer 2 review のみで sufficient)
+
+### verify gate (= β は spike script self-verify + driver/runtime/vendor 不変)
+
+- `python3 scripts/ppc-parser-spike.py` 実行 = `summary: 6/6 PASS` + exit code 0 (= 本 commit 前 主軸試行で確認済)
+- spike script は standard library only (= struct / dataclasses / sys、 dependency なし)
+- driver / runtime / vendor / fixture 完全不変 (= ADR file + spike script 新規 only、 stage = 2 file only + vendor wav 3 件 untracked retain 維持)
+- ADR-0048 Annex A spec literal と spike script 定数 完全整合 (= PPC_HEADER_SIZE = 30 + 0x420 = 0x20 + 1024 等)
+
+### scope-out 確認 (= ADR §決定 4 doc-only sprint 規律 + §決定 5 non-goal list + Annex A-8 別 format 全 完全遵守)
+
+- driver source touch なし (= δ sub-sprint で起動)
+- vendor source touch なし
+- 実 `.PPC` fixture 生成は spike emitter で在 memory のみ (= file 出力なし、 `.PPC` file 新規追加なし)
+- `.PVI` / `.P86` / `.PPS` / `.PPZ` parser 未実装 (= A-8 scope-out 維持、 spike も `.PPC` 専用)
+- V-ROM mapping 実装なし (= γ で確定 + δ で driver routine 実装、 β は parser / validator のみ)
+- 軸 C 再オープン / Surge XT / vendor wav cleanup / 軸 B / 軸 F MML compiler すべて非 touch
+
+### sub-sprint chain 進捗 update (= sub-sprint chain 表 reflect)
+
+| sub-sprint | 状態 | commit |
+|---|---|---|
+| α | **完了** (= PR #39 MERGED 9b52af3、 Annex A literal + §決定 2 補正) | 80fd219 |
+| β | **完了** (= 本 commit、 spike script + 6/6 PASS、 doc + spike script) | (= 本 commit hash) |
+| γ | **次** (= integration design + V-ROM mapping 候補 3 種から確定) | - |
 | δ | 未着手 (= runtime selection proof driver touch 最小) | - |
 | ε | 未着手 (= integration + audition gate) | - |
