@@ -9,9 +9,9 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 軸 | branch | 予約 ADR 番号 | 状態 | 直近 commit | 直近 Codex review | 次の user 関与 |
 |---|---|---|---|---|---|---|
 | **0 (= orchestration setup)** | `wip-orchestration-setup` (= MERGED) + `wip-orchestration-retrospective-fix` (= 本修正 commit) | 0041 | **完了** (= α/β/γ/δ + retrospective fix) | 82b9378 (= γ dashboard) + PR #14 MERGED 8d36113 + 本 retrospective fix commit | round 1 revise → must-fix 反映 → round 2-4 fallback approve → **round 5 Codex retrospective revise (= dashboard lifecycle 更新漏れ 1 件) → 本 commit で fix** | (= 完了、 軸 A/C/F sub-agent 並走起動済) |
-| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= sub-agent A 経由作成 + push 済) | 0042 | **α 完了** + escalate `design_judgment_needed` pending user 判断 (= 2 案 mixer 構造 vs .fxp gain) | b6dbc0d (= ADR-0042 起票 349 行) | session 019e3b57-...、 round 1 revise → round 2 approve | **2 案判断必須** → 後段 audition gate |
+| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= sub-agent A 経由作成 + push 済) | 0042 | **α 完了** + **採用案 A mixer 構造 6 levers** (= Codex 判断 session 019e3b50 147s、 主軸推奨と一致)、 β-1 sub-agent 起動準備 | b6dbc0d (= ADR-0042 起票 349 行) | layer 1 session 019e3b57-... round 2 approve + **layer 2 session 019e3b50 案 A 採用 approve** | audition gate (= β-2 spike PASS 後) |
 | **C (= ADPCM-B 軸)** | `wip-axis-c-adpcmb` (= sub-agent C 経由作成 + push 済) | 0043 | **α 完了** (= approve、 設計判断単一明確、 β sub-sprint 起動可) | a3a162d (= ADR-0043 起票 254 行) | session 019e3b56-...、 round 1 revise → round 2 revise → round 3 approve | β sub-sprint で audition gate + machine verify |
-| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 経由作成 + push 済) | 0044 | **α 完了** + escalate `design_judgment_needed` pending user 判断 (= 3 案 F-2-A / 全体 scope-out / F-2-A+F-2-B 統合)、 重要 finding = F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | session 019e3b57-f438-...、 round 1-2 revise → round 3 approve | **3 案判断必須** (= 主軸推奨 案 ii 全体 scope-out) |
+| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 経由作成 + push 済) | 0044 | **α 完了** + **採用案 (ii) 軸 F 全体 scope-out** (= Codex 判断 session 019e3b50 147s、 主軸推奨と一致)、 ADR-0044 Accepted 移行予定 (= F-2-A 将来 defer + F-2-B 軸 B 譲渡)、 F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | layer 1 session 019e3b57-f438-... round 3 approve + **layer 2 session 019e3b50 案 ii 採用 approve** | (= 軸 F 完成扱い、 F-2-A は将来 sprint defer) |
 
 ## 後続軸 候補 (= ADR 0045+ 予約候補)
 
@@ -53,6 +53,8 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 2026-05-18 | 軸 C α | approve (= sub-agent C return、 設計判断単一明確) | Codex 経由 (= layer 1 session 019e3b56-... round 3 approve) | β sub-sprint 起動可 (= 主軸経由 user GO 待ち or 即時 sub-agent 起動) | n/a (= approve、 retrospective 不要) |
 | 2026-05-18 | 主軸 cwd 干渉 | worktree isolation 副作用 (= sub-agent isolation worktree 起動で本 worktree cwd が agent-ad71e73589d7ac9a7/ に切り替わり、 ADR-0042 file が本 worktree に重複展開) | 主軸単独復旧 (= cd 本 worktree + 重複 file rm + branch 状態確認) | 復旧完了、 軸 A/C/F 影響なし | unexpected_finding として memory に追加候補 |
 | 2026-05-18 | 軸 F α | design_judgment_needed (= sub-agent F return、 3 案 F-2-A 着手 / 軸 F 全体 scope-out / F-2-A+F-2-B 統合、 主軸推奨 案 ii 全体 scope-out) | Codex 経由 (= layer 1 session 019e3b57-f438-... round 3 approve、 1 案決定禁止規律遵守) | 主軸経由 user 上げ pending = 越川氏に 3 案 + F-3 完了済 finding + 主軸推奨理由 6 件提示 + 判断仰ぎ、 重要 finding = F-3 chip target flag は ADR-0016 step 1 で 9 commit chain literal 実装済 (= sub-agent F が vendor grep で発見、 軸 F 状態認識更新) | n/a (= user 判断後に進行) |
+| 2026-05-19 | 軸 A/F 採用案決定 | Codex layer 2 統合判断 (= user 「Codex 確認後 GO」 委譲、 task-mpb6938b cancel + queue 解放後 147s で正常 response、 軸 A=A mixer 構造 + 軸 F=ii scope-out 採用) | Codex 経由 (= layer 2 session 019e3b50-8f23-...) | 軸 A β-1 sub-agent 起動準備 (= 案 A literal + individual sweep + clipping gate) + 軸 F ADR-0044 Accepted 移行 (= F-2-A defer + F-2-B 軸 B 譲渡) | n/a (= 採用案確定、 進行中) |
+| 2026-05-19 | 5 step 計画 review | revise → 修正 (= must-fix 3 件 = mergeability gate + Accepted commit 先 + 並列 NG) → approve (= 70s) | Codex 経由 (= layer 2 session 019e3b50-...) | 修正版 7 sub-step 計画で即時 GO | n/a (= approve、 進行中) |
 
 ## 軸別進捗 details
 
