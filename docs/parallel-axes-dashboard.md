@@ -8,18 +8,35 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 
 | 軸 | branch | 予約 ADR 番号 | 状態 | 直近 commit | 直近 Codex review | 次の user 関与 |
 |---|---|---|---|---|---|---|
-| **0 (= orchestration setup)** | `wip-orchestration-setup` (= MERGED) + `wip-orchestration-retrospective-fix` (= 本修正 commit) | 0041 | **完了** (= α/β/γ/δ + retrospective fix) | 82b9378 (= γ dashboard) + PR #14 MERGED 8d36113 + 本 retrospective fix commit | round 1 revise → must-fix 反映 → round 2-4 fallback approve → **round 5 Codex retrospective revise (= dashboard lifecycle 更新漏れ 1 件) → 本 commit で fix** | (= 完了、 軸 A/C/F sub-agent 並走起動済) |
-| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= α/β-1/β-2 commit、 PR #17/#20/#25 全 MERGED) | 0042 | **β-2 完了 MERGED** (= 7c5ec0f PR #25、 scripts/audible-level-sweep-spike.py 新規 ~210 行 + ADR β-2 完了、 主軸 fallback 経由 = sub-agent isolation 4 連続 fail + guard 9 件機能ゼロ越境) | 7c5ec0f (= β-2 248 ins + 1 del) | layer 1 β-2 round 2 approve + layer 2 起動方針 + fallback 即時 GO approve | β-3 actual render (= 環境依存) + β-4 audit_gate (= aesthetic 永久 user) |
-| **C (= ADPCM-B 軸)** | `wip-axis-c-adpcmb` + `wip-axis-c-beta-multi-sample` + `wip-axis-c-gamma-1-actual-silence` + `wip-axis-c-gamma-2-multi-table` + `wip-axis-c-gamma-3-axis-independence` + `wip-axis-c-delta-audition-accept` (= 32nd session 末 軸 C 完了 branch)、 PR #18/#22/#28/#30-#34 全 MERGED + δ PR pending | 0043 | **軸 C 完了 (= ADR-0043 Accepted、 軸 C 軸自体完了)** = γ 全体 complete + δ statement audio gate 越川氏 audition approve (= 32nd session 末 literal、 「テンポが速いが確かに複数の ADPCM-A が鳴っている。 ADPCM-B があるときはそのビート音が聞こえた。 1〜4 の内容に問題無いと思われる」 literal 引用) | (= 本 commit hash δ) | layer 2 計 6+ round (= γ-1 round 1-3 + γ-2 round 1-2 + γ-3 round 1 approve)、 δ は永久 user scope = 越川氏 audition 直接判断、 ADR-0041 §決定 4-2 機能完全実証 | n/a (= 軸 C 完了) |
-| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 経由作成 + push 済) | 0044 | **α 完了** + **採用案 (ii) 軸 F 全体 scope-out** (= Codex 判断 session 019e3b50 147s、 主軸推奨と一致)、 ADR-0044 Accepted 移行予定 (= F-2-A 将来 defer + F-2-B 軸 B 譲渡)、 F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | layer 1 session 019e3b57-f438-... round 3 approve + **layer 2 session 019e3b50 案 ii 採用 approve** | (= 軸 F 完成扱い、 F-2-A は将来 sprint defer) |
+| **0 (= orchestration setup)** | `wip-orchestration-setup` (= MERGED) + `wip-orchestration-retrospective-fix` (= MERGED) | 0041 | **完了** (= α/β/γ/δ + retrospective fix) | 82b9378 (= γ dashboard) + PR #14 MERGED 8d36113 | round 1 revise → must-fix 反映 → round 2-4 fallback approve → **round 5 Codex retrospective revise → fix** | (= 完了) |
+| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= α/β-1/β-2 commit、 PR #17/#20/#25 全 MERGED) | 0042 | **β-2 完了 MERGED**、 β-3 (= actual render) **永続 skip (= user 明示)** + β-4 (= audit_gate aesthetic) 永久 user scope | 7c5ec0f (= β-2 248 ins + 1 del) | layer 1 β-2 round 2 approve + layer 2 起動方針 + fallback 即時 GO approve | n/a (= user 明示再開なし、 永続 skip 維持) |
+| **C (= ADPCM-B 軸)** | `wip-axis-c-adpcmb` 系 6 branch (= α/β/γ-1/γ-2/γ-3/δ)、 PR #18/#22/#28/#30-#35 全 MERGED | 0043 | **軸 C 完了 (= ADR-0043 Accepted、 軸 C 軸自体完了)** = γ 全体 complete + δ 越川氏 audition approve (= 「テンポが速いが確かに複数の ADPCM-A が鳴っている。 ADPCM-B があるときはそのビート音が聞こえた。 1〜4 の内容に問題無いと思われる」 literal 引用、 「テンポが速い」 は aesthetic future sprint 候補 scope-out) | 2d3181f (= Merge PR #35) | layer 2 計 6+ round (= γ-1 round 1-3 + γ-2 round 1-2 + γ-3 round 1 approve) | n/a (= 軸 C 完了、 user 明示「軸 C 再オープン継続 skip」 維持) |
+| **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= MERGED) | 0044 | **完成扱い** (= ADR-0044 Accepted、 採用案 (ii) 軸 F 全体 scope-out、 F-2-A 将来 sprint defer + F-2-B 軸 B 譲渡)、 F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | layer 1 round 3 approve + layer 2 案 ii 採用 approve | (= 軸 F 完成扱い、 F-2-A は将来 sprint defer) |
+| **G (= ADPCM 動的 sample 供給)** | `wip-axis-g-ppc-parser-*` (= 33rd session 候補 3 採用、 起票 sprint 進行中) | 0048 | **起票準備中** (= 33rd session 主軸方針 = Codex layer 2 approve 取得済、 候補 4 dashboard/memory 整理 → 候補 3 ADR-0048 doc-only 起票 5 段 α/β/γ/δ/ε) | (= 本 commit hash、 dashboard/memory 整理 commit) | layer 2 round 1 approve (= 33rd session 起点) | n/a (= doc-only filing、 user 介入は escalate or 最終確認 PR merge のみ) |
 
 ## 後続軸 候補 (= ADR 0045+ 予約候補)
 
 | 軸 | 内容 | 予約 ADR | 開始予定 |
 |---|---|---|---|
-| B (= Phase 2 FM/SSG driver フルスクラッチ) | scope 最大、 軸 F MML 文法拡張に依存 | 0045 候補 | 軸 F 進行後 |
-| D (= WebApp 最小骨格) | 別 stack 軸、 backend で軸 C/F に依存 | 0046 候補 | 軸 C/F 安定後 |
+| B (= Phase 2 FM/SSG driver フルスクラッチ) | scope 最大、 ADR-0044 §F-2-B 譲渡軸 (= driver ch3 4-op FM3 拡張) を含む | 0045 候補 | 軸 G 進行後 候補 |
+| D (= WebApp 最小骨格) | 別 stack 軸、 backend で軸 C/F/G に依存 | 0046 候補 | 軸 C/F/G 安定後 |
 | E (= IPL / プレイヤー V1) | 単独 binary、 driver 完成後 | 0047 候補 | リリース直前 |
+
+## user 明示永続 scope-out 項目 (= 33rd session 開始時 user literal、 以後 session 含む継続的 scope-out)
+
+| 項目 | 状態 | 解除条件 |
+|---|---|---|
+| Surge XT install | 永続 skip | user 明示再開指示のみ |
+| .fxp render | 永続 skip | 同上 |
+| actual render | 永続 skip | 同上 |
+| 軸 A β-3 (= actual render 環境依存) | 永続 skip | 同上 |
+| 軸 A β-4 (= audit_gate aesthetic) | 永久 user scope | user 明示 audition のみ |
+| vendor wav 3 件 (= `vendor/ngdevkit-examples/06-sound-adpcma/assets/{lefthook,lightbulbbreaking,woosh}.wav`) 削除 | 永続 skip = retain (= untracked 状態維持) | user 明示削除指示のみ |
+| vendor wav 3 件 provenance 判断 | 永続 skip | user 明示 audit 指示のみ |
+| 軸 C 再オープン | 永続 skip | user 明示再開指示のみ |
+| 軸 C δ tempo refinement (= ADR-0043 §δ「テンポが速い」 finding aesthetic) | defer (= 軸 C 完了に伴い別 sprint 新規 ADR 起票時に user 明示 GO 待ち) | 別 sprint 起票時 user 明示 GO |
+
+**重要**: 「今回は skip」 ではなく **継続的 scope-out**。 以後 session でも user 明示再開なしに入らない。 memory `project_pmdneo_33rd_session_initiated.md` と同期。
 
 ## Codex session ID 一覧
 
@@ -35,11 +52,14 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 
 | 番号 | 軸 | 状態 | 備考 |
 |---|---|---|---|
-| 0041 | 軸 0 (= orchestration setup) | **起票済** (= b205716) | Claude Code 併走運用 ADR (= 主軸 + sub-agent + Codex 2 段壁打ち + fallback 規律) |
-| 0042 | 軸 A (= sample provenance β) | 予約 | ADR-0033 β sub-sprint 設計 ADR (= mixer 構造 or .fxp gain) |
-| 0043 | 軸 C (= ADPCM-B 軸) | 予約 | ADPCM-B 新規軸 設計 ADR (= Step 4 の上に立つ runtime-managed architecture) |
-| 0044 | 軸 F (= MML compiler 拡張) | 予約 | MML 拡張 sub-軸 設計 ADR (= F-1 voice buffer / F-2 X/Y/Z 文法 / F-3 chip target flag) |
-| 0045+ | B / D / E 候補 | 予約候補 | 後続軸用 |
+| 0041 | 軸 0 (= orchestration setup) | **起票済 + Accepted** (= b205716) | Claude Code 併走運用 ADR (= 主軸 + sub-agent + Codex 2 段壁打ち + fallback 規律) |
+| 0042 | 軸 A (= sample provenance β) | **起票済** | β-2 完了 (= PR #25 MERGED)、 β-3/β-4 user 明示永続 skip |
+| 0043 | 軸 C (= ADPCM-B 軸) | **起票済 + Accepted** | 軸 C 軸自体完了 (= 32nd session 末、 越川氏 audition approve) |
+| 0044 | 軸 F (= MML compiler 拡張) | **起票済 + Accepted** | 採用案 (ii) 軸 F 全体 scope-out、 F-2-A 将来 sprint defer + F-2-B 軸 B 譲渡 |
+| 0045 | 軸 B 候補 (= Phase 2 FM/SSG driver フルスクラッチ) | 予約候補 | F-2-B driver ch3 4-op FM3 拡張を含む |
+| 0046 | 軸 D 候補 (= WebApp 最小骨格) | 予約候補 | backend で軸 C/F/G に依存 |
+| 0047 | 軸 E 候補 (= IPL / プレイヤー V1) | 予約候補 | 単独 binary、 driver 完成後 |
+| 0048 | **軸 G (= ADPCM 動的 sample 供給)** | **予約 (= 33rd session)** | `.PPC` parser + driver runtime selection + asset converter 接続 (= ADR-0043 §決定 2 literal 後続 ADR)、 5 段 α/β/γ/δ/ε 構成 (= Codex layer 2 推奨)、 33rd session 候補 3 採用 |
 
 ## escalation 履歴
 
@@ -78,6 +98,7 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 2026-05-19 | 32nd session 末 拡張完走 (= γ-3 まで完走、 軸 C γ 全体 complete 達成): 全 OPEN PR 0 + γ-1/γ-2/γ-3 全 sub-sprint 完了 + δ のみ残 state | n/a (= ADR-0041 §決定 4-2「session 終了判定」 (1) 該当 = 全 OPEN PR 0 + 全進行可能 sprint 完走、 user「γ-3 まで Codex 委譲で non-stop 進めて」 指示完全充足) | PR #30/#31/#32/#33 全 MERGED chain (= 4 PR = 軸 C γ-1 + γ-2 + dashboard final + γ-3 + γ complete、 base = 31st session 末 PR #14-#29 全 MERGED) | 32nd session 末 拡張完走、 軸 C γ 全体 complete 達成、 後続 33rd session で δ statement audio gate (= 越川氏 audition、 永久 user scope、 ADR-0043 Draft → Accepted 移行 trigger) + 軸 A β-3 (= 環境依存) + 軸 B (= F-2-B 譲渡候補) 等を新規起票候補 | n/a |
 | 2026-05-19 | 32nd session δ audition approve (= 越川氏 afplay audition で γ-2 + γ-3 wav 4 件確認、 user audition approve) | n/a (= 永久 user scope、 主軸 audition request + 越川氏 audition 判断、 ADR-0041 §決定 4-2 例外「user 最終確認」 経路) | user audition literal 「テンポが速いが確かに複数の ADPCM-A が鳴っている。 ADPCM-B があるときはそのビート音が聞こえた。 1〜4 の内容に問題無いと思われる」 + finding「テンポが速い」 (= aesthetic、 future sprint 候補 scope-out) | ADR-0043 Draft → Accepted 移行 + δ 完了 section 追加 + 軸 C 完了 dashboard update + 1 PR merge | reviewed: approve (= 越川氏 user 最終確認、 主軸 commit chain 進行) |
 | 2026-05-19 | 32nd session 軸 C 完了 (= ADR-0043 Accepted、 軸 C 軸自体完了) | n/a (= 主軸単独実装、 ADR 1 行 Draft → Accepted + δ section + dashboard 軸 C 完了 update) | 越川氏 audition approve + 主軸 doc update + 1 PR | 本 PR 作成 + merge、 軸 C 完了 | n/a |
+| 2026-05-19 | 33rd session 起点 Codex layer 2 round 1 = 33rd session 主軸方針 (= 4 候補比較 + 主軸推奨 候補 4 → 候補 3) | **approve** (= 主軸推奨と完全一致、 候補 4 dashboard/memory 整理 → 候補 3 ADR-0048 .PPC parser doc-only 起票 5 段 α/β/γ/δ/ε、 候補 1 δ tempo refinement = defer (= 軸 C 再オープン risk)、 候補 2 軸 B = defer (= 前提整備未了)) | Codex 経由 (= layer 2 session 019e3b50-... 流用 機能継続実証) = must-fix 4 件 (= vendor wav retain literal 化 + dashboard stale 記述修正 + ADR-0048 doc-only 厳守 + 候補 1 後続時 ADR-0043 edit 不可) + nice-to-have 3 件 (= ADR-0048 番号予約 + why now 節 + non-goal list literal) | 主軸即時 候補 4 着手 (= 本 commit) = dashboard 軸予約表 + ADR 番号予約簿 + §user 明示永続 scope-out 節 + 軸別進捗 details (= 軸 G 起票準備中) + escalation 履歴 33rd session round 1 literal 追加 + memory `project_pmdneo_33rd_session_initiated.md` 新規 + MEMORY.md 1 行追加、 次 候補 3 ADR-0048 起票 sprint | reviewed: approve (= Codex layer 2 approve + 主軸推奨完全一致、 user 明示永続 scope-out + ADR-0041 §決定 4-2 経路完全踏襲) |
 
 ## 軸別進捗 details
 
@@ -119,8 +140,16 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | sprint | 状態 | commit | 内容 |
 |---|---|---|---|
 | context 調査 | 完了 (= sub-agent F) | - | 現役 PMDDotNETConsole (= .mml→.M 1 本化) + sub-軸 F-1/F-2/F-3 候補 + 自前 compile.py 凍結 (= ADR-0014 §B) |
-| α | **完了** (= sub-agent F return、 escalate `design_judgment_needed` pending user 判断) | 5317de1 | ADR-0044 起票 382 行 (= 軸 F 3 案併記 = (i) F-2-A 着手 / (ii) 全体 scope-out / (iii) F-2-A+F-2-B 統合、 重要 finding = F-3 は ADR-0016 step 1 で 9 commit chain literal 実装済 sub-agent F vendor grep 発見、 F-1 は scope-out 推奨 256 voice 実用十分、 F-2 は compiler 側 F-2-A + driver 側 F-2-B = ADR-0008 候補軸 B 範囲に分離可能、 主軸推奨 案 ii 全体 scope-out 6 根拠、 Codex round 3 approve) |
-| β/γ/δ | user 判断後 | - | 案 (i) 採用なら F-2-A compiler 側 X/Y/Z 強制 / 案 (ii) なら ADR-0044 = 軸 F 状態整理 ADR として軸 F 完成扱い / 案 (iii) なら F-2-A+F-2-B 統合 sub-sprint (= 軸 F + 軸 B 兼用、 user 明示許可必要) |
+| α | **完了** (= ADR-0044 Accepted 移行済、 採用案 (ii) 軸 F 全体 scope-out 確定) | 5317de1 | ADR-0044 起票 382 行 + 採用案 (ii) Accepted (= Codex layer 2 session 019e3b50-... 147s approve)、 F-3 は ADR-0016 step 1 で 9 commit chain 完了済 |
+| β/γ/δ | 軸 F 完成扱い (= defer + 譲渡) | - | F-2-A 改造 PMDDotNET compiler X/Y/Z 強制は将来 sprint defer (= 新規 ADR 起票時に再着手判断)、 F-2-B driver ch3 4-op FM3 拡張は軸 B 譲渡 (= ADR-0045 候補) |
+
+### 軸 G (= ADPCM 動的 sample 供給) — 33rd session 新規軸
+
+| sprint | 状態 | commit | 内容 |
+|---|---|---|---|
+| **起票準備** | **進行中** (= 本 commit、 33rd session 候補 4 = dashboard/memory 整理) | (= 本 commit hash) | Surge XT 永続 skip + vendor wav retain + ADR-0048 番号予約 + 軸 G 命名 literal 化、 33rd session 起点 memory + dashboard 軸予約表/ADR 番号予約簿/escalation 履歴 update |
+| **ADR-0048 起票** (= 候補 3、 doc-only) | **次** | - | 5 段 α/β/γ/δ/ε (= Codex layer 2 推奨): α format archaeology + fixture / β parser proof / γ integration design / δ runtime selection / ε integration audition、 non-goal list literal (= WebApp UI / Surge XT / vendor wav / tempo / 軸 B FM3 4-op) + why now 節 (= ADR-0043 §決定 2/8 reference)、 doc-only 厳守 (= parser 実装 / driver touch / vendor touch 禁止) |
+| α/β/γ/δ/ε | 未着手 | - | ADR-0048 Accepted 後の sub-sprint chain、 各 1 commit + 1 PR + verify gate + 必要時 audition、 ADR-0043 ADPCM-B production-ready 保護 |
 
 ## 主軸介入手順 (= ADR-0041 §決定 5 + §決定 4-3 fallback)
 
