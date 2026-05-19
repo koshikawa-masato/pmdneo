@@ -1,6 +1,6 @@
-# ADR-0042: 軸 A = sample provenance β sub-sprint 設計 = audible-level structural dependency investigation (= ADR-0033 §π15.14 Plan A reject 経緯踏襲、 normalize に逃げず .fxp 側 gain / mixer 構造で解く 2 案併記 ADR、 越川氏 directive literal 拘束)
+# ADR-0042: 軸 A = sample provenance β sub-sprint 設計 = audible-level structural dependency investigation (= ADR-0033 §π15.14 Plan A reject 経緯踏襲、 normalize に逃げず .fxp 側 gain / mixer 構造で解く、 31st session β-1 で **採用案 = A mixer 構造 6 levers** literal 化済、 越川氏 directive literal 拘束)
 
-- 状態: **Draft** (= 2026-05-18 31st session 起票、 軸 A α task = ADR-0042 設計先行 ADR、 ADR-0041 §決定 1-10 規律踏襲、 sub-agent 内で 1 案決定せず main で user 判断 escalate、 driver / runtime / 既存 schema / 既存 spike / 既存 fixture / 既存 ADR / 既存 handoff doc 完全不変 doc-only ADR、 Accepted 移行は β/γ/δ sub-sprint 完走 + 越川氏 audition gate accept + 主軸最終確認時)
+- 状態: **Draft** (= 2026-05-18 31st session α 起票 + 2026-05-19 β-1 update commit で §決定 2 採用案 A mixer 構造 6 levers literal 化 + Codex layer 2 統合判断 session 019e3b50-... 147s response 引用 + 案 B reject 経緯記載、 ADR-0041 §決定 1-10 規律踏襲、 driver / runtime / 既存 schema / 既存 spike / 既存 fixture / 既存 ADR / 既存 handoff doc 完全不変 doc-only ADR update、 Accepted 移行は β-2/β-3/β-4/γ/δ sub-sprint 完走 + 越川氏 audition gate accept + 主軸最終確認時)
 - 起票日: 2026-05-18
 - 起票者: 越川将人 (M.Koshikawa.)
 - 関連 ADR:
@@ -83,11 +83,11 @@ ADR-0041 §決定 1-10 + Annex A-4 で軸 A = ADR-0033 β sub-sprint 再開を s
 
 β sub-sprint 完了判定 = audible-level gate (= peak -6〜-3 dBFS + clipping 0 + rms_dbfs target ± 6 dB) を通る .fxp baseline candidate が **少なくとも 1 件**生成され、 越川氏 audition gate (= aesthetic acceptance、 final gate) に進める state に至ること。
 
-### 決定 2: 設計案 2 案併記 = mixer 構造案 vs .fxp gain 案 (= user 判断 scope、 sub-agent 内で 1 案決定しない)
+### 決定 2: 採用案 = A mixer 構造 6 levers 確定 (= 31st session β-1 sub-sprint で literal 化、 案 B reject 経緯記載)
 
-β sub-sprint の structural lever 候補は **2 案** を併記し、 越川氏が選択する:
+**採用案 = A mixer 構造 6 levers** (= 越川氏 user 判断委譲 → Codex layer 2 統合判断確定 → 主軸推奨と完全一致 → 本 ADR §決定 2 update commit で literal 化)。 案 B (= .fxp gain 単一軸) は **reject** (= 31st session β-1 で確定、 経緯下記)。
 
-#### 案 A: mixer 構造案 (= OSC mixer level + scene volume / master volume の構造 levers 中心)
+#### 採用案 A literal: mixer 構造 6 levers
 
 **内容 literal**:
 
@@ -96,48 +96,54 @@ ADR-0041 §決定 1-10 + Annex A-4 で軸 A = ADR-0033 β sub-sprint 再開を s
 - 期待効果:
   - mixer routing 軸での gain stage 設計 = 「どの OSC を何割で混ぜるか」 + 「scene 単位 master gain」 + 「output volume」 の **3 段 cascade** で peak / RMS / clipping を制御可能
   - level distribution が semantically 説明可能 (= OSC1=body 主、 OSC2=harmonic、 noise=click 等の musical narrative 維持)
-  - 越川氏が「mixer 構造として解く」 directive (= §π15.14 § 10.4) と literal match
-- risk:
-  - lever 数が多い (= 6 件 candidate) ため sensitivity sweep の dimensionality が増える (= 1 軸 sweep × 6 = 6 trial round、 v2 v0.2.0 chain 同様)
-  - mixer level と scene/master volume の cascade 効果が線形ではない可能性 (= waveshaper drive / filter envmod 経由で gain stage が non-linear、 23rd session π15.9 structural routing 軸の延長)
-  - clipping 0 維持には mixer level 上げで波形 sum が clip しないか sweep で個別確認要 (= waveshaper drive 前段で sum overflow リスク)
+  - 越川氏 directive 「mixer 構造として解く」 (= §π15.14 § 10.4 literal) と literal match 最大
+  - 6 drum 横展開時 (= SD/CYM/HH/TOM/RIM) に drum 種ごとの mixer balance 調整可能性 = 汎化能力高
+- known risk + β-2 で扱う mitigation:
+  - lever 数が多い (= 6 件 candidate) ため sensitivity sweep の dimensionality が増える → β-2 戦略で **6 lever 総当たりではなく individual sweep → 最小 cascade verify** で dimensionality 抑制
+  - mixer level と scene/master volume の cascade 効果が線形ではない可能性 (= waveshaper drive / filter envmod 経由で gain stage が non-linear、 23rd session π15.9 structural routing 軸の延長) → individual sweep で各軸の literal effect curve 観察 + cascade 時の non-linear interaction を最小 step で literal 記録
+  - clipping 0 維持には mixer level 上げで波形 sum が clip しないか sweep で個別確認要 (= waveshaper drive 前段で sum overflow リスク) → **clipping gate (= clipping_count == 0)** を sweep 毎軸の hard gate として β-2 spike script に組み込み
 - 退避 4 artifact 適用範囲:
   - `2608_bd-plan-a.patch-spec.yaml` = `a_env1_release +3` 修正のみ含む = mixer 構造案には適用しない (= Plan A は env release 軸、 本案は mixer 軸で独立)
   - `2608_bd-plan-a.fxp` + `.wav` + `.analysis-summary.yaml` = mixer 構造案 baseline render evidence ではないが、 **peak -25 dBFS の literal evidence** として再利用 (= β sub-sprint 内 sweep の比較 baseline data point として参照、 repo 投入なし `/private/tmp` retain 維持)
 
-#### 案 B: .fxp gain 案 (= 単一 levers = a_volume or volume を中心とした gain stage 集中設計)
+#### Codex layer 2 統合判断引用 (= 採用根拠 literal)
 
-**内容 literal**:
+採用案確定は **Codex layer 2 統合判断** session `019e3b50-8f23-7803-af9e-903d6587f891` 147 秒 response で確定 (= 主軸推奨と完全一致、 ADR-0041 §決定 4-2 layer 2 統合判断機能実証完了)。 越川氏 directive 「Codex 確認後 GO」 委譲経路で 8 軸 trade-off を Codex に提示し、 layer 2 結論として次の根拠で案 A 採用が approve された:
 
-- 中核 levers = `a_volume` (= Scene A master volume、 単一軸) + `volume` (= Master output volume in dB、 確認軸) の 2 軸先行
-- structural narrative = 「single-axis clean lever 規律踏襲」 (= ADR-0033 §π15.13 Plan A 認定根拠 = 「a_env1_release +3 = single-axis clean lever」 literal を gain 軸に再適用)
-- 期待効果:
-  - lever 数最小 (= 主 1 軸 + 確認 1 軸) で sweep dimensionality 最小化
-  - 「scene/master volume 軸で gain を上げる」 という最 minimal structural change として越川氏 directive の literal 解釈
-  - 副次効果軸 (= attack / decay / tail / band 等) への影響が最小予想 (= Plan A 認定根拠 = side-effect minimal 規律踏襲)
-  - β sub-sprint 完了が早期に達成可能 (= 1-2 round sweep で audible level 到達可能性高)
-- risk:
-  - a_volume / volume の単一上げで clipping が発生する可能性 (= waveshaper drive 等の non-linear stage 経由で peak が突き抜ける、 v2 baseline 自体 peak -25 dBFS の根本原因が mixer 段にあれば scene gain 上げで解消しない可能性)
-  - structural narrative が薄い (= 「mixer 構造として解く」 directive の literal match は mixer 案より弱い、 single-axis なため「構造として」 wording に対する説明力低下)
-  - 6 drum 横展開時 (= SD/CYM/HH/TOM/RIM) に同じ単一軸戦略が再利用可能か未保証 (= drum 種ごとに mixer balance が異なる可能性、 mixer 案の方が一般化能力高)
-- 退避 4 artifact 適用範囲:
-  - `2608_bd-plan-a.patch-spec.yaml` = `a_env1_release +3` 修正含む = .fxp gain 案では env release 軸を retain + gain 軸を追加する 2 axis 修正に拡張する候補 (= Plan A の env release 修正は audible-level gate 不通過時の reject なので、 gain 軸を gate 通過後に env release 修正と組合せて Plan A' candidate として再評価可能)
-  - `2608_bd-plan-a.fxp` + `.wav` + `.analysis-summary.yaml` = .fxp gain 案 baseline render evidence ではないが、 **peak -25 dBFS の literal evidence** として再利用 (= β sub-sprint 内 sweep の比較 baseline data point として参照、 repo 投入なし `/private/tmp` retain 維持)
+- **案 A 優位 4 軸**: structural narrative 強度 (= 「mixer 構造として解く」 directive literal match 最大) / 越川氏 directive literal match / 6 drum 横展開時の汎化能力 / clipping risk が sweep gate で明示制御可能
+- **案 B 優位 4 軸**: sweep dimensionality 低 (= 2 軸先行) / β sub-sprint 早期完了予想 / 退避 artifact (= patch-spec.yaml env release 修正) 直接適用可能 / 副次効果軸への影響最小予想
+- **layer 2 結論**: 越川氏 directive 「mixer 構造として解く」 literal match を最重視で 案 A 採用、 案 A 唯一の弱点 (= sweep dimensionality) は β-2 戦略 (= individual sweep + 最小 cascade verify) で mitigation 可能
 
-#### 2 案併記の判断軸 (= user 判断材料)
+#### 案 B reject 経緯 literal (= 31st session β-1 確定)
 
-| 判断軸 | 案 A: mixer 構造 | 案 B: .fxp gain |
-|---|---|---|
-| structural narrative 強度 | 高 (= 「mixer 構造として解く」 directive の literal match 最大) | 中 (= single-axis 解釈は narrative 薄め) |
-| lever 数 | 6 (= o1/o2/o3/noise/a_volume/volume) | 2 (= a_volume + volume 確認) |
-| sweep dimensionality | 高 (= 6 軸 individual sweep + cascade verify) | 低 (= 2 軸先行 + 副次効果軸確認) |
-| 副次効果軸への影響 | 中 (= mixer balance 変化で attack / decay / band 副次変化可能性) | 低 (= single-axis clean lever 規律踏襲、 Plan A 認定根拠と同型) |
-| β sub-sprint 完了予想時間 | 長 (= 6 軸 sweep + cascade 検証) | 短 (= 1-2 round sweep で gate 到達可能性高) |
-| 6 drum 横展開時の汎化 | 高 (= mixer balance 軸は drum 種ごと調整可能) | 中 (= 単一 a_volume で全 drum gate 通過は未保証) |
-| 退避 artifact 直接適用 | 評価 baseline data point のみ | env release 修正 retain + gain 修正追加で Plan A' candidate 再評価可能 |
-| 越川氏 directive 解釈整合 | 「mixer 構造として解く」 literal match 最大 | 「.fxp 側 gain / mixer 構造」 のうち gain 側 literal match |
+案 B (= .fxp gain 単一軸 = a_volume + volume 2 軸先行) は次の根拠で **reject**:
 
-**user 判断 scope** = 上記 8 軸 trade-off を踏まえて越川氏が選択する。 sub-agent 内では 1 案決定せず、 主軸経由 user 判断仰ぎ escalate `design_judgment_needed` で本 ADR 起票後に提示。
+- **π15.13 Plan A 認定根拠と同型 reject 構造**: ADR-0033 §π15.13 で Plan A = 「a_env1_release +3 = single-axis clean lever」 として認定したが、 π15.14 で audible-level gate 未通過により越川氏 audition で reject 済。 案 B も同じ「single-axis clean lever」 規律を gain 軸に再適用するもので、 audible-level gate を通過しても **「single-axis では mixer 構造として解いていない」** 越川氏 directive literal mismatch の risk を継承
+- **6 drum 横展開汎化未保証**: SD/CYM/HH/TOM/RIM の drum 種ごと mixer balance が異なる可能性が高く、 単一 a_volume / volume で全 drum gate 通過する保証なし。 案 A の mixer balance 軸は drum 種ごと調整可能で、 BD 1 音先行 + 5 音横展開 pattern (= memory `feedback_reproducible_workflow_first_aesthetic_second` 踏襲) に対する汎化能力が高い
+- **越川氏 directive literal match 弱**: 「.fxp 側 gain / mixer 構造」 のうち gain 側 literal match のみで、 「mixer 構造として解く」 wording に対する説明力低下。 single-axis なため structural narrative 強度が中
+- **案 A 採用に伴い defer**: 案 B 自体は技術的に invalid ではないが、 案 A 採用 = β sub-sprint primary lever sequence 確定により case B は **β sub-sprint scope-out** + 将来 sub-sprint 候補として defer (= 案 A で audible-level gate 通過しても aesthetic candidate phase 3 で aesthetic gap が残る場合の 2 軸目候補等として retain、 ただし本 ADR 内 commit + spike は案 A 専用)
+
+#### β-2 戦略 literal (= Codex 提案 = individual sweep + 最小 cascade verify + clipping gate)
+
+採用案 A の sweep dimensionality 抑制策として、 β-2 sub-sprint で軸 A 専用 spike `scripts/audible-level-sweep-spike.py` を次の戦略で literal 化する:
+
+- **6 lever 総当たりではない** = full 6 軸 grid sweep (= N^6 trial round = 過大 dimensionality) を **明示禁止**
+- **individual sweep 先行** = 6 軸を 1 軸ずつ independent に sweep (= 1 軸 sweep × 6 = 6 trial round)、 各軸の literal effect curve (= peak_dbfs / rms_dbfs / clipping_count vs lever value) を観察
+- **最小 cascade verify** = individual sweep で各軸の effective range 確定後、 cascade 効果検証は最小 step (= 案件依存、 例: o1+a_volume の 2 軸 cascade を 3-5 trial point で literal 記録) に limit。 cascade 時の non-linear interaction (= waveshaper drive / filter envmod 経由) を最小 effort で literal 観察
+- **clipping gate (= hard gate)** = sweep 毎 trial で `clipping_count == 0` を hard gate として組み込み (= 越川氏 audition gate 到達前提、 ADR-0033 §π15.14 § 10.6 literal 踏襲)。 clipping 発生 trial は audible-level engineering gate FAIL として記録し candidate 化しない
+- spike output format = peak_dbfs / rms_dbfs / clipping_count 3 軸 literal record + lever value literal record + render evidence `/private/tmp` 配下 retain (= repo 投入なし、 ADR-0033 §π15.14 § 10.6 literal 踏襲)
+
+本戦略により案 A の唯一の弱点 (= sweep dimensionality 高) を 6 trial round + 最小 cascade verify で mitigation し、 β sub-sprint 完了時間を案 B 並 (= 1-2 round sweep) には届かないが reasonable round 数 (= 6 + 最小 cascade) に抑える。
+
+#### β-1 sub-sprint 開始 literal
+
+本 §決定 2 update commit が **β-1 sub-sprint** に相当 (= ADR-0041 §決定 4-2 layer 2 統合判断 + 主軸推奨と一致 + 採用案 literal 化 + β-2 戦略 literal)。 β-2 以降は本 ADR §後続 sprint 想定 table の literal に従い進行:
+
+- **β-2 (= 次 sub-sprint)** = 軸 A 専用 spike `scripts/audible-level-sweep-spike.py` 新規作成 (= 案 A 採用 = 6 軸 individual sweep + 最小 cascade verify + clipping gate)
+- **β-3** = layer 1 audible-level engineering gate PASS candidate 1 件生成 + analysis-summary.yaml literal + `/private/tmp` 配下 render evidence retain
+- **β-4** = layer 2 越川氏 audition gate (= escalate `audit_gate`) → accept なら β 完了 → γ/δ chain へ進む
+
+本 commit 範囲 = **doc-only ADR update 1 file** (= `docs/adr/0042-*.md` §決定 2 のみ書き換え)、 driver / runtime / 既存 schema / 既存 spike / 既存 fixture / vendor / main / wip-ir-trunk / 他軸専用 file / dashboard / MEMORY.md / CLAUDE.md / 退避 4 artifact 全 touch なし (= ADR-0041 §決定 6 allowed write set 軸 A β-1 範囲遵守)。
 
 ### 決定 3: 退避 4 artifact (= `/private/tmp/pmdneo-plan-a-rejected/`) 評価規律
 
@@ -203,9 +209,9 @@ repo 投入禁止 (= ADR-0033 §π15.14 § 10.3 literal 維持、 `/private/tmp`
 
 | sprint | 内容 (= 案 A / 案 B 共通 + 案別差分) |
 |---|---|
-| **α (= 本 ADR commit)** | ADR-0042 起票 (= 2 案併記 doc-only) + 退避 4 artifact 評価軸 + audition gate 規律 literal 確定 |
-| β-1 | user 採用案 (= A or B) literal 確定 + ADR-0042 §決定 2 update commit (= 採用案 literal、 不採用案は Annex 退避) |
-| β-2 | structural lever sweep spike script 設計 (= 案 A なら 6 軸 individual + cascade、 案 B なら 2 軸先行) + spike script 新規作成 `scripts/audible-level-sweep-spike.py` (= 軸 A 専用 spike、 ADR-0041 §決定 6 allowed write set 整合) |
+| **α (= ADR-0042 Draft 起票 b6dbc0d)** | ADR-0042 起票 (= 2 案併記 doc-only) + 退避 4 artifact 評価軸 + audition gate 規律 literal 確定 + escalate `design_judgment_needed` で主軸経由 user 上げ |
+| **β-1 (= 本 update commit)** | **採用案 = A mixer 構造 6 levers** literal 確定 + ADR-0042 §決定 2 update commit (= Codex layer 2 session 019e3b50-... 147s 引用 + 案 B reject 経緯記載 + β-2 戦略 literal = individual sweep + 最小 cascade verify + clipping gate) |
+| β-2 | structural lever sweep spike script 設計 (= 案 A 採用 = 6 軸 individual sweep + 最小 cascade verify + clipping gate hard gate) + spike script 新規作成 `scripts/audible-level-sweep-spike.py` (= 軸 A 専用 spike、 ADR-0041 §決定 6 allowed write set 整合) |
 | β-3 | layer 1 audible-level engineering gate PASS candidate 1 件生成 + analysis-summary literal + `/private/tmp` 配下 render evidence retain (= repo 投入なし) |
 | β-4 | layer 2 越川氏 audition gate (= escalate `audit_gate`) → accept なら β 完了、 reject なら retry 軸 user 判断仰ぎ |
 | γ | β 完了 candidate を BD authoring chain に統合 (= patch-spec.yaml literal 化 + 採用 .fxp evidence 化) + ADR-0033 §π15.14 § 10.6 next step literal 完了反映 + BD_AUTHORING_PLAN.md § 6.4 audible-level pre-audition gate 規律 update |
@@ -299,7 +305,7 @@ scope.metric_is_final_judge: false / optimizer_involved: false / human_audition_
 案 B (= .fxp gain) levers = 2 件 (= a_volume + volume)。
 全 levers は既存 allowlist 内 = β sub-sprint で新規 allowlist 拡張不要 (= ADR-0033 §決定 21 既存範囲内で完結可能、 schema 拡張なし)。
 
-### A-4. 案 A / 案 B 退避 artifact 適用 sketch (= user 判断材料の literal sketch、 採用後 β-1 sprint で literal 化)
+### A-4. 案 A / 案 B 退避 artifact 適用 sketch (= 31st session α 時点 user 判断材料 literal sketch、 β-1 update で §決定 2 採用案 = A 確定、 案 B sketch は reject 経緯 evidence として retain)
 
 #### 案 A 採用時:
 
