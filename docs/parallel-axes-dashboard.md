@@ -9,7 +9,7 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 軸 | branch | 予約 ADR 番号 | 状態 | 直近 commit | 直近 Codex review | 次の user 関与 |
 |---|---|---|---|---|---|---|
 | **0 (= orchestration setup)** | `wip-orchestration-setup` (= MERGED) + `wip-orchestration-retrospective-fix` (= 本修正 commit) | 0041 | **完了** (= α/β/γ/δ + retrospective fix) | 82b9378 (= γ dashboard) + PR #14 MERGED 8d36113 + 本 retrospective fix commit | round 1 revise → must-fix 反映 → round 2-4 fallback approve → **round 5 Codex retrospective revise (= dashboard lifecycle 更新漏れ 1 件) → 本 commit で fix** | (= 完了、 軸 A/C/F sub-agent 並走起動済) |
-| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= sub-agent A 経由作成 + push 済) | 0042 | **α 完了** + **採用案 A mixer 構造 6 levers** (= Codex 判断 session 019e3b50 147s、 主軸推奨と一致)、 β-1 sub-agent 起動準備 | b6dbc0d (= ADR-0042 起票 349 行) | layer 1 session 019e3b57-... round 2 approve + **layer 2 session 019e3b50 案 A 採用 approve** | audition gate (= β-2 spike PASS 後) |
+| **A (= sample provenance β)** | `wip-axis-a-sample-provenance` (= α + β-1 commit、 PR #17 MERGED + PR #20 OPEN) | 0042 | **β-1 完了** (= 63d3b09、 §決定 2 採用案 A mixer 構造 6 levers literal + 案 B reject 経緯 + Codex layer 2 引用 + β-2 戦略 = individual sweep + clipping gate) | 63d3b09 (= β-1 commit 90 行 diff = 48 ins + 42 del) | layer 1 session 019e3b57-... β-1 round 1 revise → approve + layer 2 session 019e3b50 採用案 A approve | β-2 spike `audible-level-sweep-spike.py` 新規作成予定 (= 主軸 or sub-agent guard 付き) |
 | **C (= ADPCM-B 軸)** | `wip-axis-c-adpcmb` (= sub-agent C 経由作成 + push 済) | 0043 | **α 完了** (= approve、 設計判断単一明確、 β sub-sprint 起動可) | a3a162d (= ADR-0043 起票 254 行) | session 019e3b56-...、 round 1 revise → round 2 revise → round 3 approve | β sub-sprint で audition gate + machine verify |
 | **F (= MML compiler 拡張)** | `wip-axis-f-mml-extension` (= sub-agent F 経由作成 + push 済) | 0044 | **α 完了** + **採用案 (ii) 軸 F 全体 scope-out** (= Codex 判断 session 019e3b50 147s、 主軸推奨と一致)、 ADR-0044 Accepted 移行予定 (= F-2-A 将来 defer + F-2-B 軸 B 譲渡)、 F-3 は ADR-0016 step 1 で完了済 | 5317de1 (= ADR-0044 起票 382 行) | layer 1 session 019e3b57-f438-... round 3 approve + **layer 2 session 019e3b50 案 ii 採用 approve** | (= 軸 F 完成扱い、 F-2-A は将来 sprint defer) |
 
@@ -55,6 +55,8 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | 2026-05-18 | 軸 F α | design_judgment_needed (= sub-agent F return、 3 案 F-2-A 着手 / 軸 F 全体 scope-out / F-2-A+F-2-B 統合、 主軸推奨 案 ii 全体 scope-out) | Codex 経由 (= layer 1 session 019e3b57-f438-... round 3 approve、 1 案決定禁止規律遵守) | 主軸経由 user 上げ pending = 越川氏に 3 案 + F-3 完了済 finding + 主軸推奨理由 6 件提示 + 判断仰ぎ、 重要 finding = F-3 chip target flag は ADR-0016 step 1 で 9 commit chain literal 実装済 (= sub-agent F が vendor grep で発見、 軸 F 状態認識更新) | n/a (= user 判断後に進行) |
 | 2026-05-19 | 軸 A/F 採用案決定 | Codex layer 2 統合判断 (= user 「Codex 確認後 GO」 委譲、 task-mpb6938b cancel + queue 解放後 147s で正常 response、 軸 A=A mixer 構造 + 軸 F=ii scope-out 採用) | Codex 経由 (= layer 2 session 019e3b50-8f23-...) | 軸 A β-1 sub-agent 起動準備 (= 案 A literal + individual sweep + clipping gate) + 軸 F ADR-0044 Accepted 移行 (= F-2-A defer + F-2-B 軸 B 譲渡) | n/a (= 採用案確定、 進行中) |
 | 2026-05-19 | 5 step 計画 review | revise → 修正 (= must-fix 3 件 = mergeability gate + Accepted commit 先 + 並列 NG) → approve (= 70s) | Codex 経由 (= layer 2 session 019e3b50-...) | 修正版 7 sub-step 計画で即時 GO | n/a (= approve、 進行中) |
+| 2026-05-19 | 軸 A β-1 isolation finding | **unexpected_finding + merge_conflict + discipline_violation_risk** = sub-agent ab197eb5b34dac35e の isolation worktree が prompt 期待 branch (= wip-axis-a-sample-provenance HEAD 07b4979) ではなく `worktree-agent-...` 自動 branch (= base HEAD 3ad1e23) で切られ、 ADR-0042 file 不存在 → sub-agent が絶対 path で本拠地 file Edit 越境 → 138 行 diff 漏れ (= commit せず) | fallback 主軸単独 (= ADR-0041 §決定 4-3) = 本拠地 diff revert + wip-axis-a- rebase 確認 + patch apply + Codex layer 1 代理 review session 019e3b57-... round 1 revise (= must-fix 2 = vendor untracked + diff stat 実測値) → approve + commit 63d3b09 + push + PR #20 作成 | reviewed: approve + memory 追加 = `feedback_subagent_isolation_worktree_base_ref_mismatch.md` (= preflight 9 件 guard、 全 sub-agent 起動 prompt で必須) |
+| 2026-05-19 | 軸 A β-1 完了 | n/a | Codex layer 1 + layer 2 両 approve (= 採用案 A + β-1 update + 主軸 fallback で復旧) | PR #20 OPEN merge 待ち、 後続 β-2 spike 新規作成 | n/a |
 
 ## 軸別進捗 details
 
@@ -73,8 +75,9 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 | sprint | 状態 | commit | 内容 |
 |---|---|---|---|
 | context 調査 | 完了 (= sub-agent A) | - | ADR-0033 §π15.14 reject 原因 (= peak -25 dBFS) + 退避 4 artifact `/private/tmp/pmdneo-plan-a-rejected/` 確認 |
-| α | **完了** (= sub-agent A return、 escalate `design_judgment_needed` pending user 判断) | b6dbc0d | ADR-0042 起票 349 行 (= 2 案併記 mixer 構造 6 levers vs .fxp gain 2 levers + 8 軸 trade-off table + 退避 4 artifact read-only forensic 規律 + audition gate 2 layer + β/γ/δ chain 想定、 Codex round 2 approve) |
-| β/γ/δ | user 判断後 | - | β-1 採用案確定 → β-2 軸 A 専用 spike scripts/audible-level-sweep-spike.py → β-3 layer 1 PASS candidate → β-4 escalate audit_gate → γ BD authoring chain integration → δ Accepted + 1 PR 本拠地 merge |
+| α | 完了 (= PR #17 MERGED) | b6dbc0d | ADR-0042 起票 349 行 (= 2 案併記、 Codex round 2 approve) |
+| **β-1** | **完了** (= 63d3b09 + PR #20 OPEN) | 63d3b09 | §決定 2 採用案 A mixer 構造 6 levers literal + 案 B reject 経緯 + Codex layer 2 引用 + β-2 戦略 literal (= individual sweep + clipping_count == 0 hard gate)、 90 行 diff = 48 ins + 42 del、 主軸 fallback 経由 (= sub-agent isolation finding 発生) |
+| β-2/β-3/β-4/γ/δ | 未着手 | - | β-2 軸 A 専用 spike scripts/audible-level-sweep-spike.py 新規作成 (= individual sweep + clipping gate) → β-3 layer 1 PASS candidate → β-4 escalate audit_gate → γ BD authoring chain integration → δ Accepted + 1 PR 本拠地 merge |
 
 ### 軸 C (= ADPCM-B 軸)
 
