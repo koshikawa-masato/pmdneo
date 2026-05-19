@@ -2770,18 +2770,34 @@ adpcmb_keyoff:
 ;;; α: single sample (= beat.wav) selector + 4 byte literal table
 ;;; β 以降: multi-sample 対応 + sample_table_id 経由 lookup + voice index table 化
 
-;; pmdneo_select_adpcmb_sample_pointer (= 軸 C 実装 sub-sprint β 拡張)
-;; voice index → sample id lookup table + range check + sample B placeholder
-;; ADR-0043 §sub-sprint chain β literal、 ADPCM-A pmdneo_select_sample_pointer 対称
-;; 入力: A = voice index (= 0..pmdneo_adpcmb_voice_table_size-1 range)
+;; pmdneo_select_adpcmb_sample_pointer (= 軸 C 実装 sub-sprint γ-2 拡張、 ADR-0043 §決定 3 + §決定 4 整合)
+;; γ-2: driver_pne_sample_table_id (= 0xFD32) lookup + table-of-tables dispatch
+;;   id=0x00 → table A (= voice → sample id → beat/silence)
+;;   id=0x01 → table B (= voice → sample id → silence_b)
+;;   id>=0x02 → sentinel (= silent reject、 既存 adpcmb_select_sample_unknown_id 経路統合)
+;; 入力: A = voice index (= 0..voice_table_size-1 range、 caller adpcmb_keyon @ L2702)
 ;; 出力: DE = sample literal table pointer (= 4 byte: START_LSB/MSB + STOP_LSB/MSB)
 ;;        DE = 0x0000 sentinel = unknown id / out-of-range (= caller silent reject)
-;; clobbers: A, HL; caller preserves note byte with push/pop af
+;; clobbers: A, HL, B; caller preserves note byte with push/pop af
 pmdneo_select_adpcmb_sample_pointer:
-        ;; range check (= A >= table_size なら sentinel 経路、 silent reject)
+        ;; B = voice index 退避 (= sample_table_id lookup で A clobber されるため)
+        ld      b, a
+        ;; driver_pne_sample_table_id (= 0xFD32) lookup = table-of-tables dispatch key
+        ld      a, (driver_pne_sample_table_id)
+        cp      #0x00
+        jr      z, adpcmb_select_table_a
+        cp      #0x01
+        jr      z, adpcmb_select_table_b
+        ;; id>=0x02 → sentinel (= unknown sample_table_id silent reject)
+        jr      adpcmb_select_sample_unknown_id
+
+adpcmb_select_table_a:
+        ;; A = voice index 復帰
+        ld      a, b
+        ;; range check (= A >= table A size なら sentinel 経路)
         cp      #pmdneo_adpcmb_voice_table_size
         jr      nc, adpcmb_select_sample_unknown_id
-        ;; A = voice index → sample id lookup (= table 1 byte read)
+        ;; HL = table A base + voice index offset
         ld      hl, #pmdneo_adpcmb_voice_to_sample_id_table
         ld      e, a
         ld      d, #0
@@ -2794,6 +2810,23 @@ pmdneo_select_adpcmb_sample_pointer:
         jr      z, adpcmb_select_sample_b
         jr      adpcmb_select_sample_unknown_id
 
+adpcmb_select_table_b:
+        ;; A = voice index 復帰
+        ld      a, b
+        ;; range check (= A >= table B size なら sentinel 経路)
+        cp      #pmdneo_adpcmb_voice_table_size_b
+        jr      nc, adpcmb_select_sample_unknown_id
+        ;; HL = table B base + voice index offset
+        ld      hl, #pmdneo_adpcmb_voice_to_sample_id_table_b
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)
+        ;; sample id dispatch (= table B 用 explicit if/jr、 sample id 2 = silence_b)
+        cp      #2
+        jr      z, adpcmb_select_sample_silence_b
+        jr      adpcmb_select_sample_unknown_id
+
 adpcmb_select_sample_a:
         ld      de, #adpcmb_sample_beat
         ret
@@ -2802,32 +2835,54 @@ adpcmb_select_sample_b:
         ld      de, #adpcmb_sample_silence
         ret
 
+adpcmb_select_sample_silence_b:
+        ld      de, #adpcmb_sample_silence_b
+        ret
+
 adpcmb_select_sample_unknown_id:
         ld      de, #0x0000
         ret
 
-;; voice index → sample id lookup table (= β multi-sample 拡張)
+;; voice index → sample id lookup table A (= id=0x00 用、 既存 β/γ-1 経路)
 ;; range = 0..pmdneo_adpcmb_voice_table_size-1 (= 2 件 multi-sample)
 ;; range 外は range check で sentinel 経由 silent reject
 pmdneo_adpcmb_voice_to_sample_id_table:
         .db     0          ;; voice 0 → sample id 0 (= sample A = beat)
-        .db     1          ;; voice 1 → sample id 1 (= sample B = placeholder)
+        .db     1          ;; voice 1 → sample id 1 (= sample B = silence、 γ-1 で確定)
 
 pmdneo_adpcmb_voice_table_size .equ 2
 
-;; adpcmb_sample_beat = sample A 4 byte literal table (= ADPCM-B sample header)
+;; voice index → sample id lookup table B (= id=0x01 用、 γ-2 新設、 ADR-0043 §決定 4 「3rd sample entry + adpcmb_sample_ptr_table_b 新設」 整合)
+;; range = 0..pmdneo_adpcmb_voice_table_size_b-1 (= 2 件 multi-sample)
+;; sample id は table A と別 namespace (= id=2 = silence_b、 table A 経路と混在しない)
+pmdneo_adpcmb_voice_to_sample_id_table_b:
+        .db     2          ;; voice 0 → sample id 2 (= sample B side = silence_b)
+        .db     2          ;; voice 1 → sample id 2 (= 同 sample、 軸間独立性 trace 簡素化)
+
+pmdneo_adpcmb_voice_table_size_b .equ 2
+
+;; adpcmb_sample_beat = sample A 4 byte literal table (= ADPCM-B sample header、 table A id=0)
 ;; layout: START_LSB, START_MSB, STOP_LSB, STOP_MSB (= samples.inc 由来 BEAT_*)
 adpcmb_sample_beat:
         .db     BEAT_START_LSB, BEAT_START_MSB, BEAT_STOP_LSB, BEAT_STOP_MSB
 
-;; adpcmb_sample_silence = sample B 4 byte literal table (= γ-1 actual silence sample)
+;; adpcmb_sample_silence = sample B 4 byte literal table (= γ-1 actual silence sample、 table A id=1)
 ;; project-owned deterministic test sample (= assets/pne/silence.wav、 16-bit 8 kHz
 ;; mono 0.1s 全 zero PCM、 sha256 c726d333dd159a31423f3480dbb1c5c4a9dfcd30efe1f7e12ade390dc92e8908)
 ;; samples.inc 経由で SILENCE_START_LSB/MSB / SILENCE_STOP_LSB/MSB 生成済
 ;; (= ADR-0043 §決定 4 vromtool 経路、 β placeholder literal addr 撤去 + 衝突自動回避)
-;; voice 1 selection 経路 register trace 実証用 (= reg 0x12-0x15 differ from beat)
 adpcmb_sample_silence:
         .db     SILENCE_START_LSB, SILENCE_START_MSB, SILENCE_STOP_LSB, SILENCE_STOP_MSB
+
+;; adpcmb_sample_silence_b = γ-2 3rd test sample 4 byte literal table (= table B id=2)
+;; project-owned 3rd deterministic test sample (= assets/pne/silence_b.wav、 16-bit
+;; 8 kHz mono 0.2s 全 zero PCM、 silence と異なる長さ = vromtool 自動別 addr 配置)
+;; sha256 4e9cc5bbce2136140462d11c5fec6e6c1ed10602c2bca874dbb58e7b9be21092
+;; samples.inc 経由で SILENCE_B_START_LSB/MSB / SILENCE_B_STOP_LSB/MSB 生成済
+;; (= ADR-0043 §決定 4 「3rd sample entry + adpcmb_sample_ptr_table_b 新設」 literal 整合)
+;; id=0x01 経路 register trace 実証用 (= reg 0x12-0x15 differ from beat + silence)
+adpcmb_sample_silence_b:
+        .db     SILENCE_B_START_LSB, SILENCE_B_START_MSB, SILENCE_B_STOP_LSB, SILENCE_B_STOP_MSB
 
 adpcma_init:
         ld      b, #0x00
