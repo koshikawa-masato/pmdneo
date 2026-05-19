@@ -2770,28 +2770,62 @@ adpcmb_keyoff:
 ;;; α: single sample (= beat.wav) selector + 4 byte literal table
 ;;; β 以降: multi-sample 対応 + sample_table_id 経由 lookup + voice index table 化
 
-;; pmdneo_select_adpcmb_sample_pointer (= 軸 C 実装 sub-sprint α 新規追加)
-;; ADPCM-B sample literal table pointer を DE で return + caller が register write
-;; 入力: A = voice index (= α では未使用、 β で voice index table 化 拡張接続点として渡す規律維持)
+;; pmdneo_select_adpcmb_sample_pointer (= 軸 C 実装 sub-sprint β 拡張)
+;; voice index → sample id lookup table + range check + sample B placeholder
+;; ADR-0043 §sub-sprint chain β literal、 ADPCM-A pmdneo_select_sample_pointer 対称
+;; 入力: A = voice index (= 0..pmdneo_adpcmb_voice_table_size-1 range)
 ;; 出力: DE = sample literal table pointer (= 4 byte: START_LSB/MSB + STOP_LSB/MSB)
-;;        DE = 0x0000 sentinel = unknown id (= caller silent reject)
-;; clobbers: A; caller preserves note byte with push/pop af
+;;        DE = 0x0000 sentinel = unknown id / out-of-range (= caller silent reject)
+;; clobbers: A, HL; caller preserves note byte with push/pop af
 pmdneo_select_adpcmb_sample_pointer:
-        ld      a, (driver_pne_sample_table_id)
-        or      a
-        jr      nz, adpcmb_select_sample_unknown_id
+        ;; range check (= A >= table_size なら sentinel 経路、 silent reject)
+        cp      #pmdneo_adpcmb_voice_table_size
+        jr      nc, adpcmb_select_sample_unknown_id
+        ;; A = voice index → sample id lookup (= table 1 byte read)
+        ld      hl, #pmdneo_adpcmb_voice_to_sample_id_table
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)
+        ;; sample id dispatch (= explicit if/jr 流儀、 ADPCM-A native path 同 pattern)
+        cp      #0
+        jr      z, adpcmb_select_sample_a
+        cp      #1
+        jr      z, adpcmb_select_sample_b
+        jr      adpcmb_select_sample_unknown_id
+
+adpcmb_select_sample_a:
         ld      de, #adpcmb_sample_beat
+        ret
+
+adpcmb_select_sample_b:
+        ld      de, #adpcmb_sample_b_placeholder
         ret
 
 adpcmb_select_sample_unknown_id:
         ld      de, #0x0000
         ret
 
-;; adpcmb_sample_beat = 4 byte literal table (= ADPCM-B sample header)
+;; voice index → sample id lookup table (= β multi-sample 拡張)
+;; range = 0..pmdneo_adpcmb_voice_table_size-1 (= 2 件 multi-sample)
+;; range 外は range check で sentinel 経由 silent reject
+pmdneo_adpcmb_voice_to_sample_id_table:
+        .db     0          ;; voice 0 → sample id 0 (= sample A = beat)
+        .db     1          ;; voice 1 → sample id 1 (= sample B = placeholder)
+
+pmdneo_adpcmb_voice_table_size .equ 2
+
+;; adpcmb_sample_beat = sample A 4 byte literal table (= ADPCM-B sample header)
 ;; layout: START_LSB, START_MSB, STOP_LSB, STOP_MSB (= samples.inc 由来 BEAT_*)
-;; β 拡張: adpcmb_sample_<id> 形式で multi-sample 化、 selector lookup table 経由
 adpcmb_sample_beat:
         .db     BEAT_START_LSB, BEAT_START_MSB, BEAT_STOP_LSB, BEAT_STOP_MSB
+
+;; adpcmb_sample_b_placeholder = sample B 4 byte literal table (= β fixture)
+;; placeholder = (start=0x1000, stop=0x2000) 16 KB offset stub、 build pass 用
+;; 後段 γ で samples.inc 生成経路 vromtool.py 拡張時に actual sample data 化
+;; (= actual wav 再生は γ scope、 本 β は selection 経路通過のみ register trace 実証)
+adpcmb_sample_b_placeholder:
+        .db     0x00, 0x10, 0x00, 0x20
 
 adpcma_init:
         ld      b, #0x00
