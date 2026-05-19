@@ -2799,7 +2799,7 @@ adpcmb_select_sample_a:
         ret
 
 adpcmb_select_sample_b:
-        ld      de, #adpcmb_sample_b_placeholder
+        ld      de, #adpcmb_sample_silence
         ret
 
 adpcmb_select_sample_unknown_id:
@@ -2820,12 +2820,14 @@ pmdneo_adpcmb_voice_table_size .equ 2
 adpcmb_sample_beat:
         .db     BEAT_START_LSB, BEAT_START_MSB, BEAT_STOP_LSB, BEAT_STOP_MSB
 
-;; adpcmb_sample_b_placeholder = sample B 4 byte literal table (= β fixture)
-;; placeholder = (start=0x1000, stop=0x2000) 16 KB offset stub、 build pass 用
-;; 後段 γ で samples.inc 生成経路 vromtool.py 拡張時に actual sample data 化
-;; (= actual wav 再生は γ scope、 本 β は selection 経路通過のみ register trace 実証)
-adpcmb_sample_b_placeholder:
-        .db     0x00, 0x10, 0x00, 0x20
+;; adpcmb_sample_silence = sample B 4 byte literal table (= γ-1 actual silence sample)
+;; project-owned deterministic test sample (= assets/pne/silence.wav、 16-bit 8 kHz
+;; mono 0.1s 全 zero PCM、 sha256 c726d333dd159a31423f3480dbb1c5c4a9dfcd30efe1f7e12ade390dc92e8908)
+;; samples.inc 経由で SILENCE_START_LSB/MSB / SILENCE_STOP_LSB/MSB 生成済
+;; (= ADR-0043 §決定 4 vromtool 経路、 β placeholder literal addr 撤去 + 衝突自動回避)
+;; voice 1 selection 経路 register trace 実証用 (= reg 0x12-0x15 differ from beat)
+adpcmb_sample_silence:
+        .db     SILENCE_START_LSB, SILENCE_START_MSB, SILENCE_STOP_LSB, SILENCE_STOP_MSB
 
 adpcma_init:
         ld      b, #0x00
