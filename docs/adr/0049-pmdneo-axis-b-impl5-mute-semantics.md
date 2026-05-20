@@ -182,7 +182,7 @@ audio gate は本 sprint 5 では要さない。 mute semantics は driver behav
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
-| α (= ground truth 調査 + ADR 起票) | **進行中** (= 38th session、 本 commit) | (= 本 PR) | 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2 = 計 5 round chain approve |
+| α (= ground truth 調査 + ADR 起票) | **完了** (= 38th session、 PR #57 MERGED 4515de5) | PR #57 | 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2 + ADR-0049 起票 round 1-2 = 計 7 round chain approve |
 | β (= 即 mute path 実装) | 未着手 | - | - |
 | γ (= unmute path 実装) | 未着手 | - | - |
 | δ (= register trace verify gate) | 未着手 | - | - |
@@ -200,7 +200,7 @@ audio gate は本 sprint 5 では要さない。 mute semantics は driver behav
 
 **解釈**: これは設計の起票であり、 mute の実装は完了していない。 後続の β/γ/δ で driver を改修し、 ε で完了判断する。
 
-**次**: Codex layer 2 review → commit / PR / merge → β sub-sprint (= 即 mute path 実装) 着手。
+**次**: β sub-sprint (= 即 mute path 実装) 着手。
 
 ## Annex A: PMD V4.8s / PMDDotNET mask 構造 ground truth
 
