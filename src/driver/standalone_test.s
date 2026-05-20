@@ -316,6 +316,10 @@ nmi_dispatch:
         ;;   O-Q ADPCM-A 4-6 = part_idx 14-16 を含めるよう cp #38 -> cp #41 拡張)
         cp      #41
         jp      c, nmi_cmd_mask_part
+        ;; ADR-0049 γ: unmask cmd range cmd 41..57 -> part_idx 0..16 (= β mask cmd
+        ;;   24..40 と対称、 17 part)。 cmd 58.. は将来 X/Y/Z unmask 用予約 (= 実装 sprint 3)
+        cp      #58
+        jp      c, nmi_cmd_unmask_part
         jp      nmi_done
 
 nmi_done:
@@ -745,6 +749,34 @@ nmi_cmd_mask_part:
         ;;   (= 0x0100 セクションは 256 byte 上限、 routine を含めると .org 0x0200 と
         ;;   overflow するため。 call は絶対アドレスで配置非依存)
         call    pmdneo_mask_immediate_keyoff
+        jp      nmi_done
+
+;; ADR-0049 γ unmask path: mask 解除 (= PART_OFF_MASK clear)
+;;   NMI command 41..57 -> part_idx 0..16 の unmask。 PART_OFF_MASK = 0 set のみ。
+;;   即 re-keyon / 即 re-sound なし = next dispatch restore (= 既存
+;;   pmdneo_part_main_note_dispatch が PART_OFF_MASK 0 を見て次 note dispatch から
+;;   通常 keyon、 unmask 時点では何もしない)。 β 即 keyoff path とも独立。
+;;   配置: 0x0100 セクション (= β で pmdneo_mask_immediate_keyoff を 0x0610 へ移し
+;;   空きあり、 build .lst で .org 0x0200 未満を確認)。
+nmi_cmd_unmask_part:
+        ;; A = cmd byte (41..57) -> part_idx = A - 41 (0..16)
+        sub     #41
+        ld      l, a
+        ld      h, #0
+        ;; HL = part_idx * 64
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ;; PART_OFF_MASK = 0 (= unmask、 next dispatch restore、 即 re-sound なし)
+        xor     a
+        ld      PART_OFF_MASK(ix), a
         jp      nmi_done
 
         .org 0x0200
@@ -1644,12 +1676,16 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      c, #0x0F
         call    pmdneo5_init_part
 
-        ;; ADR-0049 β mute fixture (= driver-embedded、 TEST_MODE_MUTE_FIXTURE=0 で全 skip)
-        ;;   全 active part 0-16 へ mask cmd core を発火、 register trace で即 keyoff verify。
-        ;;   driver_song_ready set の前に配置 (= mute fixture 実行中は song 進行 0、
-        ;;   register trace に song note write が混ざらず mute fixture sequence が clean)。
+        ;; ADR-0049 β/γ mute/unmute fixture (= driver-embedded、 TEST_MODE_MUTE_FIXTURE=0 で全 skip)
+        ;;   driver_song_ready set の前に配置 (= fixture 実行中は song 進行 0、 register
+        ;;   trace が clean)。 順序: mute (= 全 part mask + 即 keyoff) → unmute (= 全 part
+        ;;   PART_OFF_MASK clear) → driver_song_ready set (= song 進行 → next dispatch で
+        ;;   対象 part 再発音)。 γ では unmute fixture loop 中に keyon register write が
+        ;;   出ない (= 即 re-sound なし) こと + driver_song_ready 後の next dispatch で
+        ;;   再発音することを register trace で確認。
 .if TEST_MODE_MUTE_FIXTURE
         call    pmdneo_mute_fixture_run
+        call    pmdneo_unmute_fixture_run
 .endif
         ld      a, #1
         ld      (driver_song_ready), a
@@ -1723,6 +1759,36 @@ pmdneo_mute_fixture_loop:
         ld      a, c
         cp      #17                     ;; part_idx 0..16 = 17 part loop
         jp      c, pmdneo_mute_fixture_loop
+        ret
+
+;; ADR-0049 γ unmute fixture run (= driver-embedded fixture、 mute fixture の後に call)
+;;   part_idx 0..16 を loop し各 part の PART_OFF_MASK を 0 に clear (= unmask)。
+;;   即 re-keyon なし (= PART_OFF_MASK clear のみ、 keyoff routine を呼ばない =
+;;   keyon register write も出ない)。 この後 driver_song_ready set で song 進行開始
+;;   → next dispatch で対象 part が再発音 (= next dispatch restore)。
+pmdneo_unmute_fixture_run:
+        ld      c, #0                   ;; C = part_idx 0..16
+pmdneo_unmute_fixture_loop:
+        ;; IX = &part_workarea[part_idx] (= part_idx * 64 + part_workarea)
+        ld      l, c
+        ld      h, #0
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ;; PART_OFF_MASK = 0 (= unmask、 next dispatch restore、 即 re-sound なし)
+        xor     a
+        ld      PART_OFF_MASK(ix), a
+        inc     c
+        ld      a, c
+        cp      #17                     ;; part_idx 0..16 = 17 part loop
+        jp      c, pmdneo_unmute_fixture_loop
         ret
 .endif
 
