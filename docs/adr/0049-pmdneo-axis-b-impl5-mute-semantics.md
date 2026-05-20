@@ -183,8 +183,8 @@ audio gate は本 sprint 5 では要さない。 mute semantics は driver behav
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
 | α (= ground truth 調査 + ADR 起票) | **完了** (= 38th session、 PR #57 MERGED 4515de5) | PR #57 | 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2 + ADR-0049 起票 round 1-2 = 計 7 round chain approve |
-| β (= 即 mute path 実装 + driver-embedded fixture + 即 keyoff trace) | **進行中** (= 38th session、 本 commit) | (= 本 PR) | β 実装方針 round 1-2 + β driver 改修 round 3 + β trace 解析 round 4 (= .org overflow finding) |
-| γ (= unmute path 実装) | 未着手 | - | - |
+| β (= 即 mute path 実装 + driver-embedded fixture + 即 keyoff trace) | **完了** (= 38th session、 PR #59 MERGED eed9f67) | PR #59 | β 実装方針 round 1-2 + β driver 改修 round 3 + β trace 解析 round 4 (= .org overflow finding) + β 完了 round 5 = 計 5 round chain approve |
+| γ (= unmute path 実装 + unmute fixture + restore trace) | **進行中** (= 38th session、 本 commit) | (= 本 PR) | γ 実装方針 round 1 approve (= must-fix 0 + nice-to-have 2) |
 | δ (= verify script 体系化 + 6 gate 完全化) | 未着手 | - | - |
 | ε (= completion + Accepted 判断) | 未着手 | - | - |
 
@@ -429,9 +429,47 @@ mute fixture sequence は IRQ 混在なし連続 17 write (= part 10 skip)、 pr
 7. ✅ X/Y/Z (= FM3Extend、 part_idx 17-19) は mask cmd range 外 (= F-2-B 実装 sprint 3 scope、 F-2-A defer 維持)
 8. ✅ 「軸 B 完成」 表現不使用 (= β は軸 B 実装 sprint chain 6 sprint 中 sprint 5 の β 段)
 
+## Annex E: 軸 B sprint 5 γ 完了 = unmute path 実装 + unmute fixture + restore trace (= 38th session γ sub-sprint deliverable)
+
+### E-1: γ driver 改修内容 (= `src/driver/standalone_test.s`)
+
+決定 2 案 1 の unmute path = `PART_OFF_MASK` clear + next dispatch restore literal 実装。 2 箇所改修:
+
+1. **NMI dispatch 拡張**: `cp #41 jp c, nmi_cmd_mask_part` の後に `cp #58 jp c, nmi_cmd_unmask_part` を追加 = unmask cmd range cmd 41-57 (= part_idx 0-16、 β mask cmd 24-40 と対称、 17 part)。 cmd 58-60 は将来 X/Y/Z unmask 用予約 (= 実装 sprint 3)
+2. **新 routine `nmi_cmd_unmask_part`**: `sub #41` で part_idx 算出 → IX = part workarea → `xor a` + `ld PART_OFF_MASK(ix), a` で `PART_OFF_MASK = 0` set のみ。 即 keyon / 即 re-sound 処理なし (= next dispatch restore)。 配置 = 0x0100 セクション (= β で `pmdneo_mask_immediate_keyoff` を 0x0610 へ移し空きあり)、 .lst で 0x01E1-0x01FA = `.org 0x0200` 未満を検証 (= β .org overflow finding 反映、 section overlap なし)
+
+### E-2: γ unmute fixture (= driver-embedded fixture 拡張)
+
+β `pmdneo_mute_fixture_run` (= 全 part mask + 即 keyoff) は維持。 γ 用に **`pmdneo_unmute_fixture_run`** を追加 (= part_idx 0-16 loop で `PART_OFF_MASK = 0` clear、 keyoff routine を呼ばないため keyon register write も出ない)。 `nmi_cmd_5_init_mml_song` 末尾の fixture call を **mute fixture → unmute fixture → `driver_song_ready` set** の順に拡張 (= `.if TEST_MODE_MUTE_FIXTURE` 内)。 register trace + z80-mem-trace で「mute (即 keyoff) → unmask (= `PART_OFF_MASK` 1→0) → unmask 直後 keyon なし → next dispatch (= song 進行) で keyon」 の順序を確認。
+
+### E-3: register trace 実測結果 (= γ verify gate 4 件 PASS)
+
+`TEST_MODE_MUTE_FIXTURE=1` build + MAME headless trace:
+
+| # | gate | 実測結果 |
+|---|---|---|
+| 1 | 即 keyoff 維持 (= β) | mute fixture sequence で全 4 chip 即 keyoff register write (= β と同一、 ymfm-trace 238-254) ✅ |
+| 2 | unmask で `PART_OFF_MASK` clear | z80-mem-trace で part workarea `PART_OFF_MASK` (= offset 30) が init 0 → mute fixture 1 → unmute fixture 0 の遷移 ✅ |
+| 3 | unmask 直後 即 re-sound しない | mute fixture 即 keyoff (= ymfm 254) 直後 〜 song 進行開始 (= 266) の区間に keyon register write なし (= 255-265 は IRQ TIMER `27 2A` のみ、 unmute fixture は memory write のみ) ✅ |
+| 4 | next dispatch で再発音 | `driver_song_ready` set 後の song 進行 (= next dispatch) で FM keyon register write 復活 (= ymfm 270/275/280/285 で `reg 0x28 ← 0xF1/F2/F5/F6` = B/C/E/F の keyon、 init される代表 part で proof) ✅ |
+
+非対象 part 影響なし = X/Y/Z (= part_idx 17-19) は mask/unmask cmd range 外 + fixture loop 0-16 対象外で register write 触れず。 `.org` overflow / section overlap なし = E-1 .lst 検証済。 baseline = production build (= `TEST_MODE_MUTE_FIXTURE=0`) 成功。
+
+### E-4: γ 段 規律遵守確認
+
+1. ✅ γ scope = unmask cmd + next dispatch restore に限定 (= β 即 mute path 維持・無拡張、 即時 re-sound 実装せず)
+2. ✅ unmute = `PART_OFF_MASK = 0` clear のみ (= 即 keyon せず、 既存 `pmdneo_part_main_note_dispatch` が next dispatch で通常 keyon)
+3. ✅ unmask cmd 41-57 は β mask cmd 24-40 と対称、 active part 0-16 対象、 X/Y/Z 17-19 scope-out 維持、 既存 cmd 0x00-0x05 不可触
+4. ✅ PMD 3-mask 完全互換 / MML mask command は scope-out 維持
+5. ✅ 軸 G ADR-0048 / 軸 C ADR-0043 / rhythm ADR-0026〜0031 routine 完全不可触
+6. ✅ vendor `main.c` 不可触 (= driver-embedded fixture)、 vendor wav 3 件 untracked retain、 vromtool.py/compiler/vendor 不変
+7. ✅ `.org` overflow / section overlap なし (= .lst で nmi_cmd_unmask_part 0x01E1-0x01FA 検証、 β finding 反映)
+8. ✅ 「軸 B 完成」 表現不使用 (= γ は軸 B 実装 sprint chain 6 sprint 中 sprint 5 の γ 段)
+
 ## 改訂履歴
 
 | 日付 | 状態 | 内容 |
 |---|---|---|
 | 2026-05-20 | Draft 起票 (= 38th session 軸 B 実装 sprint 5 α) | ADR-0045 §J-4-5 literal 後続実装 ADR、 mute semantics = 案 1 (= 既存 1-bit mask 拡張 + 即 mute path + unmute next dispatch restore)、 5 段 α/β/γ/δ/ε 構成、 決定 1-9 (= sub-sprint 構成 / 案 1 採用 / 3-mask 互換 scope-out / 即 mute と next-keyon suppress 別 layer / 4 chip keyoff 本体直接 call / scope / verify gate 6 件 / doc-only filing / Codex rescue 化継承)、 Annex A (= PMD V4.8s/PMDDotNET mask 構造 = partmask/slotmask/neiromask/silence_fmpart/psgmsk/MML mask command) + Annex B (= 現 PMDNEO mask 経路 = PART_OFF_MASK/nmi_cmd_mask_part/next-keyon suppress/不足箇所) + Annex C (= ADPCM-A keyoff direct-call 設計判断 + 4 chip keyoff literal)、 doc-only filing で driver/runtime/compiler/vendor/vromtool.py/verify script/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 完全不可触、 ADR-0044 Accepted + F-2-A defer 維持、 ADR-0043 軸 C 完全不可触、 Codex layer 2 計 5 round chain approve (= 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2) |
+| 2026-05-20 | Draft γ 完了 (= 38th session 軸 B 実装 sprint 5 γ) | unmute path 実装 + unmute fixture + restore trace = Annex E (= E-1 γ driver 改修 2 箇所 = NMI dispatch unmask cmd range 41-57 拡張 / 新 routine nmi_cmd_unmask_part = PART_OFF_MASK clear のみ、 E-2 γ unmute fixture = pmdneo_unmute_fixture_run + fixture call を mute→unmute→song 順に拡張、 E-3 register trace 実測 = γ verify gate 4 件 PASS = 即 keyoff 維持 / PART_OFF_MASK 1→0 clear / unmask 直後 re-sound なし / next dispatch 再発音、 E-4 γ 段 規律遵守確認 8 件)、 sub-sprint chain 進捗 β 行「完了」 + γ 行「進行中」 lifecycle sync、 driver 改修 (= standalone_test.s のみ) + ADR-0049 + dashboard 変更、 runtime/compiler/vendor/vromtool.py/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 + 軸 C ADR-0043 + rhythm routine 完全不可触、 .org overflow なし (= nmi_cmd_unmask_part 0x01E1-0x01FA を .lst 検証)、 Codex layer 2 γ 実装方針 round 1 approve (= must-fix 0 + nice-to-have 2) |
 | 2026-05-20 | Draft β 完了 (= 38th session 軸 B 実装 sprint 5 β) | 即 mute path 実装 + driver-embedded fixture + 即 keyoff register trace 実測 = Annex D (= D-1 β driver 改修 3 箇所 = NMI dispatch cmd range 拡張 / nmi_cmd_mask_part 拡張 / 新 routine pmdneo_mask_immediate_keyoff、 D-2 driver-embedded mute fixture = TEST_MODE_MUTE_FIXTURE + pmdneo_mute_fixture_run、 D-3 .org overflow finding + 修正 = pmdneo_mask_immediate_keyoff を 0x0610 セクションへ移動、 D-4 register trace 実測 = 全 4 chip 即 keyoff 期待値一致 + loop 順一致、 D-5 β/δ verify 分担確定 = 案 X、 D-6 β 段 規律遵守確認 8 件)、 決定 1 sub-sprint 表 β/δ 行更新 (= β に driver-embedded fixture + 即 keyoff trace 明記、 δ を verify script 体系化 + 6 gate 完全化に役割変更)、 driver 改修 (= standalone_test.s のみ) + ADR-0049 + dashboard 変更、 runtime/compiler/vendor/vromtool.py/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 + 軸 C ADR-0043 + rhythm routine 完全不可触、 Codex layer 2 β 実装方針 round 1-2 + β driver 改修 round 3 + β trace 解析 round 4 (= .org overflow finding) |
