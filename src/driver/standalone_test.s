@@ -57,6 +57,16 @@
         ;; β verify 時のみ手動で 1 build + register trace、 δ で build infra 切替 + verify script 化。
         .equ    TEST_MODE_MUTE_FIXTURE, 0
 
+        ;; ADR-0050 β: fade-out semantics driver-embedded fixture toggle
+        ;;   0 = 既存 default (= production build、 fade fixture 無効)
+        ;;   1 = β fade fixture build (= MML song init 完了時に楽曲全体 fade-out を
+        ;;       arm、 song 進行と並行して IRQ tick 毎に FM/SSG/ADPCM-A/ADPCM-B 段階
+        ;;       減衰、 register trace で chip 別 fade decay write を観測する verify
+        ;;       専用 build)
+        ;; production 時は必ず 0 を維持 (= TEST_MODE_MUTE_FIXTURE と同 pattern)。
+        ;; β verify 時のみ手動で 1 build + register trace、 δ で build infra 切替 + verify script 化。
+        .equ    TEST_MODE_FADE_FIXTURE, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -157,6 +167,14 @@
         .equ    audition_frame_counter_lsb,    0xFD37
         .equ    audition_frame_counter_msb,    0xFD38
 
+        ;; ADR-0050 §決定 4 軸 B 実装 sprint 6 β: 楽曲全体 fade-out 減衰 factor (= 案 b)
+        ;;   1 byte、 free region 先頭 (= 0xFD39)。 64 = 無減衰 (= full volume)、
+        ;;   0 = 完全減衰 (= silent)。 fade 進行中は IRQ tick 毎に単調減少。
+        ;;   FM/SSG/ADPCM-B volume hook が pmdneo_fade_scale 経由でこの値を volume
+        ;;   計算に乗算 factor 混入する (= 案 b)。 ADPCM-A master reg 0x01 は本値
+        ;;   派生値で直接 ramp。 非 fade 時は 64 固定 = volume hook passthrough。
+        .equ    pmdneo_v2_fade_level,          0xFD39
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -181,7 +199,8 @@
 ;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
 ;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
 ;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
-;;;   0xFD39 - 0xFFBF   free / 後続 phase 用 (= 647 bytes 余裕)
+;;;   0xFD39            pmdneo_v2_fade_level (= 1 byte、ADR-0050 §決定 4 軸 B 実装 sprint 6 β fade-out 減衰 factor)
+;;;   0xFD3A - 0xFFBF   free / 後続 phase 用 (= 646 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -461,14 +480,16 @@ nmi_cmd_5_adpcmb_beat:
         jp      nmi_done
         .endif
 
-nmi_cmd_6_fade_start:
-        ld      a, #0x3F
-        ld      (driver_fade_master), a
-        xor     a
-        ld      (driver_fade_counter), a
-        ld      a, #1
-        ld      (driver_fade_state), a
-        jp      nmi_done
+        ;; ADR-0050 β finding: nmi_cmd_6_fade_start は本来この位置 (= 0x0066 NMI
+        ;; セクション末尾) にあったが、 0x0066 セクションが既に 0x0100 を越えて
+        ;; irq_handler_body と silent overlap していた (= 38th session の
+        ;; feedback_org_section_overflow_silent_bug.md と同 class の latent bug)。
+        ;; HEAD 時点で nmi_cmd_6_fade_start の body 後半が overlap 破損済 (= NMI
+        ;; command 6 = production fade trigger が動作不能だった)。 β で
+        ;; nmi_cmd_6_fade_start を 0x0610 セクション (= .org 制約なし) へ移設し
+        ;; overlap を解消する (= 楽曲全体 fade-out を正式 driver behavior 化する
+        ;; ADR-0050 sprint 6 の目的上必須、 verify gate 9)。
+        ;; nmi_dispatch の `jp z, nmi_cmd_6_fade_start` は絶対 jp で配置非依存。
 
 
         .org 0x0100
@@ -498,36 +519,12 @@ irq_handler_body:
         ;; counter は 0x03E8 (= 1000) に到達不能。 強制 keyon を init 経路に移動 (= cold boot 直後
         ;; 1 度 trigger) で audition functional 化。 IRQ handler 内 test mode block は不要、 削除済。
 
-        ;; IRQ fade processing (= default speed 16, ~1 sec fade)
-        ld      a, (driver_fade_state)
-        or      a
-        jp      z, irq_fade_done
-        ld      a, (driver_fade_counter)
-        inc     a
-        ld      hl, #driver_fade_speed
-        cp      (hl)
-        jp      c, irq_fade_save_counter
-        xor     a
-        ld      (driver_fade_counter), a
-        ld      a, (driver_fade_master)
-        or      a
-        jp      z, irq_fade_finish
-        dec     a
-        ld      (driver_fade_master), a
-        ld      b, #0x01
-        ld      c, a
-        call    ym2610_write_port_b
-        jp      irq_fade_done
-irq_fade_save_counter:
-        ld      (driver_fade_counter), a
-        jp      irq_fade_done
-irq_fade_finish:
-        xor     a
-        ld      (driver_fade_state), a
-        ld      b, #0x00
-        ld      c, #0xBF
-        call    ym2610_write_port_b
-irq_fade_done:
+        ;; ADR-0050 β: 楽曲全体 fade-out tick 処理 (= 案 b、 fade decay path)。
+        ;; routine 本体 pmdneo_v2_fade_tick は 0x0610 セクションに配置 (= 0x0100
+        ;; セクション 256 byte 上限 overflow 回避、 memory
+        ;; feedback_org_section_overflow_silent_bug)。 driver_fade_state==0 で即
+        ;; return、 IX は routine 内で push/pop save (= verify gate 5)。
+        call    pmdneo_v2_fade_tick
 
         ld      a, (driver_song_ready)
         or      a
@@ -1349,6 +1346,14 @@ init_adpcmb_beat:
 ;;; ----- Phase 5b: MML byte-stream song initialization -----
 
 nmi_cmd_5_init_mml_song:
+        ;; ADR-0050 β: 楽曲全体 fade-out 減衰 factor を song init 時に 64 (= 無減衰)
+        ;; 初期化。 これにより非 fade 時 volume hook の pmdneo_fade_scale は exact
+        ;; passthrough (= baseline byte-identical、 verify gate 8)。 driver_song_ready
+        ;; set より前 = volume hook 起動より前に確定する。 cold boot init (= 0x0066
+        ;; セクション) には置かない (= 0x0066 セクションは 0x0100 overlap edge、
+        ;; 1 byte 追加で section overflow するため = β finding)。
+        ld      a, #64
+        ld      (pmdneo_v2_fade_level), a
         ;; --- silence all chips (FM / SSG / ADPCM-B) ---
         ;; FM keyoff all 6 channels (reg 0x28, ch 0/1/2/4/5/6)
         ld      b, #0x28
@@ -1687,6 +1692,15 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         call    pmdneo_mute_fixture_run
         call    pmdneo_unmute_fixture_run
 .endif
+        ;; ADR-0050 β fade fixture (= driver-embedded、 TEST_MODE_FADE_FIXTURE=0 で skip)
+        ;;   song init 完了時に楽曲全体 fade-out を arm。 song 進行 (= driver_song_ready)
+        ;;   と並行して IRQ tick 毎に段階減衰する (= driver_fade_state は
+        ;;   standalone_test.s の song dispatch を停止しない = ADR-0050 Annex A-5-5)。
+        ;;   register trace で fade decay path (= FM/SSG/ADPCM-A/ADPCM-B 減衰) を観測。
+        ;;   production build (= TEST_MODE_FADE_FIXTURE=0) では本 call 全 skip。
+.if TEST_MODE_FADE_FIXTURE
+        call    pmdneo_fade_begin
+.endif
         ld      a, #1
         ld      (driver_song_ready), a
         ret
@@ -1791,6 +1805,166 @@ pmdneo_unmute_fixture_loop:
         jp      c, pmdneo_unmute_fixture_loop
         ret
 .endif
+
+;;; ============================================================
+;;; ADR-0050 軸 B 実装 sprint 6 β: 楽曲全体 fade-out semantics (= 案 b 確定)
+;;;   案 b = fade attenuation factor を volume hook の volume 計算に乗算混入
+;;;   (= PMD V4.8s/PMDDotNET fadeout 流儀、 ADR-0050 §決定 3 + Annex D)。
+;;;   配置: 0x0610 セクション (= 最後の .org、 制約なし、 §決定 8 + Annex E-5)。
+;;;   chip 別 fade 経路:
+;;;     ADPCM-A   = master volume reg 0x01 を pmdneo_v2_fade_level 派生値で直接 ramp
+;;;     FM/SSG/ADPCM-B = volume hook (pmdneo_fade_scale 経由) に fade factor 乗算混入
+;;; ============================================================
+
+;; nmi_cmd_6_fade_start: NMI command 6 = 楽曲全体 fade-out 開始 (= production trigger)。
+;;   元は 0x0066 NMI セクション末尾にあったが 0x0100 overlap で破損していたため
+;;   β finding として本 0x0610 セクションへ移設 (= ADR-0050 §決定 8 + verify gate 9)。
+;;   nmi_dispatch (= 0x0066 セクション) の `jp z, nmi_cmd_6_fade_start` から到達。
+nmi_cmd_6_fade_start:
+        call    pmdneo_fade_begin
+        jp      nmi_done
+
+;; pmdneo_fade_begin: 楽曲全体 fade-out 開始 (= NMI cmd 6 + fade fixture 共通)。
+;;   pmdneo_v2_fade_level = 64 (= 無減衰 = full volume)、
+;;   driver_fade_master = 0x3F (= ADPCM-A master shadow init 値)、
+;;   driver_fade_counter = 0、 driver_fade_state = 1 (= fade 進行中)。
+;;   破壊 register: AF。 IX/IY/BC/DE/HL 不変。
+pmdneo_fade_begin:
+        ld      a, #64
+        ld      (pmdneo_v2_fade_level), a
+        ld      a, #0x3F
+        ld      (driver_fade_master), a
+        xor     a
+        ld      (driver_fade_counter), a
+        ld      a, #1
+        ld      (driver_fade_state), a
+        ret
+
+;; pmdneo_v2_fade_tick: IRQ tick 毎の fade decay 処理 (= 現 irq_fade_* を 0x0610 へ
+;;   移設 + FM/SSG/ADPCM-B 拡張)。 IRQ handler body から毎 tick 無条件 call。
+;;   driver_fade_state==0 (= fade 未進行) で即 return。 driver_fade_speed tick 毎に
+;;   1 段 fade step を実行する。
+;;   fade step: pmdneo_v2_fade_level--、 ADPCM-A master reg 0x01 を level 派生値で
+;;   write、 FM/SSG/ADPCM-B は pmdneo_v2_fade_reapply で volume hook 再適用。
+;;   level 0 到達で fade finish (= state=0 + ADPCM-A 全 6ch dump、 全 chip keyoff
+;;   拡張は γ sub-sprint)。
+;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変 (= reapply が内部 push/pop、 verify gate 5)。
+pmdneo_v2_fade_tick:
+        ld      a, (driver_fade_state)
+        or      a
+        ret     z                       ; fade 未進行 -> 即 return
+        ld      a, (driver_fade_counter)
+        inc     a
+        ld      hl, #driver_fade_speed
+        cp      (hl)
+        jr      c, pmdneo_v2_fade_tick_save   ; counter < speed -> counter 保存して return
+        xor     a
+        ld      (driver_fade_counter), a      ; counter reset = fade step 実行
+        ld      a, (pmdneo_v2_fade_level)
+        or      a
+        jr      z, pmdneo_v2_fade_tick_finish ; level 0 -> fade finish
+        dec     a
+        ld      (pmdneo_v2_fade_level), a     ; level-- (= 単調減少、 trace 期待値 1)
+        ;; ADPCM-A master = pmdneo_v2_fade_level 派生値 (= level dec 後 0..63 で
+        ;;   reg 0x01 = ADPCM-A total level 6 bit 0x00-0x3F に直接対応)
+        ld      (driver_fade_master), a       ; ADPCM-A master shadow (= level 派生)
+        ld      b, #0x01
+        ld      c, a
+        call    ym2610_write_port_b           ; ADPCM-A master reg 0x01 <- level
+        ;; FM/SSG/ADPCM-B = volume hook factor 再適用 (= 案 b)
+        call    pmdneo_v2_fade_reapply
+        ret
+pmdneo_v2_fade_tick_save:
+        ld      (driver_fade_counter), a
+        ret
+pmdneo_v2_fade_tick_finish:
+        xor     a
+        ld      (driver_fade_state), a        ; state = 0 (= fade 完了)
+        ld      b, #0x00
+        ld      c, #0xBF
+        call    ym2610_write_port_b           ; ADPCM-A 全 6ch dump (= 現挙動維持、
+        ret                                   ;   全 chip keyoff 拡張は γ sub-sprint)
+
+;; pmdneo_v2_fade_reapply: fade step 毎に FM/SSG/ADPCM-B part の volume hook を
+;;   再適用 (= 案 b、 現 fade level を全 active part の volume register へ反映)。
+;;   part_idx 0-9 を loop = FM 0-5 / SSG 6-8 / ADPCM-B 9。 ADPCM-A 11-16 は master
+;;   reg 0x01 経路 (= 本 routine 対象外)、 RHYTHM 10 / X-Z 17-19 も対象外。
+;;   各 part: PART_OFF_MASK != 0 (= mute 中) は skip (= ADR-0050 §決定 7 trace
+;;   期待値 3 = mute と fade の自然分離)。 HOOK_VOLUMESET == 0 (= hook 未設定 part)
+;;   も skip (= song init 前の uninitialized part への誤 call 防止)。
+;;   破壊 register: AF/BC/DE/HL。 IX は push/pop save (= IRQ handler body 非 push、
+;;   verify gate 5)。
+pmdneo_v2_fade_reapply:
+        push    ix
+        ld      c, #0                   ; C = part_idx 0..9
+pmdneo_v2_fade_reapply_loop:
+        push    bc                      ; part_idx 退避 (= volume hook が BC 破壊)
+        ;; IX = &part_workarea[part_idx] (= part_idx * 64 + part_workarea)
+        ld      l, c
+        ld      h, #0
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ;; mute 中 part (= PART_OFF_MASK != 0) は skip
+        ld      a, PART_OFF_MASK(ix)
+        or      a
+        jr      nz, pmdneo_v2_fade_reapply_skip
+        ;; hook 未設定 part (= HOOK_VOLUMESET == 0x0000) は skip
+        ld      a, PART_OFF_HOOK_VOLUMESET(ix)
+        or      PART_OFF_HOOK_VOLUMESET+1(ix)
+        jr      z, pmdneo_v2_fade_reapply_skip
+        call    pmdneo_part_call_volume_hook  ; volume hook 再適用 (= fade factor 反映)
+pmdneo_v2_fade_reapply_skip:
+        pop     bc                      ; part_idx 復元
+        inc     c
+        ld      a, c
+        cp      #10                     ; part_idx 0..9 = 10 part loop
+        jr      c, pmdneo_v2_fade_reapply_loop
+        pop     ix
+        ret
+
+;; pmdneo_fade_scale: fade attenuation factor を raw volume 値に乗算混入する helper
+;;   (= 案 b、 PMD 本家 fm_fade_calc/psg_fade_calc の乗算 factor 流儀)。
+;;   入力 A = raw volume 値 (= 0..255)。
+;;   出力 A = (raw * pmdneo_v2_fade_level) >> 6。
+;;   pmdneo_v2_fade_level range 0..64: level=64 で exact passthrough (= raw<<6>>6
+;;   = raw、 baseline byte-identical)、 level=0 で 0 (= 完全減衰)。
+;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変 (= volume hook が IX を使うため)。
+pmdneo_fade_scale:
+        ld      c, a                    ; C = raw multiplicand (8-bit)
+        ld      a, (pmdneo_v2_fade_level)
+        or      a
+        jr      z, pmdneo_fade_scale_zero
+        ld      d, #0
+        ld      e, c                    ; DE = raw (16-bit multiplicand)
+        ld      hl, #0                  ; HL = product accumulator
+pmdneo_fade_scale_mul:
+        srl     a                       ; multiplier (= level) >>1、 LSB -> carry
+        jr      nc, pmdneo_fade_scale_noadd
+        add     hl, de                  ; bit set -> product += 現 multiplicand
+pmdneo_fade_scale_noadd:
+        sla     e
+        rl      d                       ; DE <<= 1 (= 次桁 multiplicand)
+        or      a                       ; multiplier 残桁あり?
+        jr      nz, pmdneo_fade_scale_mul
+        ;; HL = raw * level。 >>6 (= /64)
+        ld      b, #6
+pmdneo_fade_scale_shift:
+        srl     h
+        rr      l
+        djnz    pmdneo_fade_scale_shift
+        ld      a, l                    ; A = (raw * level) >> 6 (= 0..255)
+        ret
+pmdneo_fade_scale_zero:
+        xor     a                       ; level 0 -> 完全減衰
+        ret
 
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea
@@ -2779,6 +2953,7 @@ fnumset_fm_hook:
 ;; ALG 7 全 op carrier 想定、 全 op 同 TL で audible 設定
 fm_volume_hook:
         ld      a, PART_OFF_VOLUME(ix)
+        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算混入 (= 案 b)
         srl     a                       ; A = V/2 (0-127)
         ld      l, a
         ld      a, #0x7F
@@ -2854,15 +3029,19 @@ fnumsetp_ch_hook:
 ;; PART_OFF_VOLUME 値 (= 0-15、 V cmd 受領後 v→V 変換 経由) を SSG vol reg に反映
 ;; reg 0x08-0x0A (= ch1/2/3 vol、 bit 0-3 vol、 bit 4 envelope select)
 psg_volume_hook:
+        ;; ADR-0050 β: fade factor 乗算混入 (= 案 b)。 pmdneo_fade_scale が BC/DE/HL
+        ;; を破壊するため、 vol scale を先に行い faded vol を C に確定してから
+        ;; reg lookup する (= 順序入替、 level=64 で byte-identical)。
+        ld      a, PART_OFF_VOLUME(ix)
+        and     #0x0F                   ; vol 0-15
+        call    pmdneo_fade_scale       ; A = faded vol
+        ld      c, a                    ; C = faded vol
         ld      hl, #psg_volume_regs
         ld      a, PART_OFF_CH_IDX(ix)
         ld      e, a
         ld      d, #0
         add     hl, de
         ld      b, (hl)                 ; B = reg 0x08+ch
-        ld      a, PART_OFF_VOLUME(ix)
-        and     #0x0F                   ; vol 0-15
-        ld      c, a
         call    ym2610_write_port_a
         ret
 
@@ -2884,6 +3063,7 @@ adpcmb_keyoff_hook:
 ;; PART_OFF_VOLUME (= V cmd 0-255) → reg 0x1B (= ADPCM-B total level、 8 bit 直接)
 adpcmb_volume_hook:
         ld      a, PART_OFF_VOLUME(ix)
+        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算混入 (= 案 b)
         ld      c, a
         ld      b, #0x1B
         call    ym2610_write_port_a
@@ -2932,18 +3112,23 @@ noop_hook:
         ret
 
 pmdneo_psg_keyon:
-        push    bc
+        push    bc                      ; B = ch_idx 退避 (= fnumsetp_ch + fade_scale 破壊対策)
         call    fnumsetp_ch
-        pop     bc
+        ;; ADR-0050 β: SSG keyon は note 毎に volume register を書く volume write
+        ;; path のため fade factor 乗算混入が必要 (= 案 b、 scale しないと fade 中の
+        ;; SSG note が full volume に pop)。 pmdneo_fade_scale が BC 破壊するため
+        ;; faded vol を求めてから ch_idx を pop 復元する。
+        ld      a, PART_OFF_VOLUME(ix)
+        and     #0x0F                   ; vol 0-15
+        call    pmdneo_fade_scale       ; A = faded vol
+        pop     bc                      ; B = ch_idx 復元
+        ld      c, a                    ; C = faded vol
         ld      hl, #psg_volume_regs
         ld      a, b
         ld      e, a
         ld      d, #0
         add     hl, de
-        ld      b, (hl)
-        ld      a, PART_OFF_VOLUME(ix)
-        and     #0x0F
-        ld      c, a
+        ld      b, (hl)                 ; B = reg 0x08+ch
         call    ym2610_write_port_a
         ret
 
