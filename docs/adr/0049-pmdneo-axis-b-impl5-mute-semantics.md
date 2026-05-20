@@ -1,6 +1,6 @@
 # ADR-0049: PMDNEO 軸 B 実装 sprint 5 = mute semantics (= 任意 ch / 任意 part 即 mute + unmute、 PMD V4.8s mask 構造 ground truth + 案 1 = 既存 1-bit mask 拡張) 設計 (= sprint 5 α、 5 sub-sprint 構成、 doc-only filing)
 
-- 状態: **Draft** (= 2026-05-20 38th session 軸 B 実装 sprint 5 α、 ADR-0045 §J-4-5 literal 後続実装 ADR、 Codex layer 2 計 5 round chain approve = 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2)
+- 状態: **Accepted** (= 2026-05-20 38th session 軸 B 実装 sprint 5 ε completion、 α/β/γ/δ 全 sub-sprint 完了 (= PR #57-#61 MERGED) + verify gate 7 件 ALL PASS + Annex G 総点検 + Codex layer 2 ε review approve + user 最終確認 経由 Draft → Accepted 移行、 ADR-0045 §J-4-5 literal 後続実装 ADR。 **ADR-0049 Accepted = 軸 B 実装 sprint 5 mute semantics 完了 = ADR-0049 完了**。 ただし軸 B 全体は未完了 = 軸 B 実装 sprint chain 6 sprint 中 1 本目完了、 残り 5 sprint = 実装 6 fade-out + 実装 1-4、 「軸 B 完成」 表現不使用)
 - 起票日: 2026-05-20
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -186,8 +186,8 @@ audio gate は本 sprint 5 では要さない。 mute semantics は driver behav
 | α (= ground truth 調査 + ADR 起票) | **完了** (= 38th session、 PR #57 MERGED 4515de5) | PR #57 | 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2 + ADR-0049 起票 round 1-2 = 計 7 round chain approve |
 | β (= 即 mute path 実装 + driver-embedded fixture + 即 keyoff trace) | **完了** (= 38th session、 PR #59 MERGED eed9f67) | PR #59 | β 実装方針 round 1-2 + β driver 改修 round 3 + β trace 解析 round 4 (= .org overflow finding) + β 完了 round 5 = 計 5 round chain approve |
 | γ (= unmute path 実装 + unmute fixture + restore trace) | **完了** (= 38th session、 PR #60 MERGED c46622f) | PR #60 | γ 実装方針 round 1 approve + γ 完了 round 2 approve = 計 2 round chain approve |
-| δ (= verify script 体系化 + 7 gate 完全化) | **進行中** (= 38th session、 本 commit) | (= 本 PR) | δ 実装方針 round 1-3 chain approve (= round 1 revise must-fix 4 + round 2 revise must-fix 2 → round 3 approve) |
-| ε (= completion + Accepted 判断) | 未着手 | - | - |
+| δ (= verify script 体系化 + 7 gate 完全化) | **完了** (= 38th session、 PR #61 MERGED 9908d65) | PR #61 | δ 実装方針 round 1-3 + δ 完了 round 4-6 = 計 6 round chain approve |
+| ε (= completion + Accepted 判断) | **完了** (= 38th session、 本 PR、 ADR-0049 Draft → Accepted) | 本 PR | ε completion round 1 approve (= ADR-0049 Accepted 化 GO、 must-fix 0) |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
@@ -515,11 +515,69 @@ ADR-0049 決定 7 verify gate 4 の名称を「既存 next-keyon suppress 経路
 6. ✅ vendor wav 3 件 untracked retain
 7. ✅ 「mute semantics 完了」 表現不使用 (= ε 完了まで)、 「軸 B 完成」 表現不使用 (= δ は軸 B 実装 sprint chain 6 sprint 中 sprint 5 の δ 段)
 
+## Annex G: 軸 B sprint 5 ε 完了 = completion + ADR-0049 Accepted 判断 (= 38th session ε sub-sprint deliverable)
+
+### G-1: α/β/γ/δ deliverable 総点検
+
+| sub | deliverable | 状態 |
+|---|---|---|
+| α | PMD V4.8s/PMDDotNET mask 構造 ground truth (= Annex A/B/C) + ADR-0049 起票 | 完了 (= PR #57/#58) |
+| β | 即 mute path 実装 (= `nmi_cmd_mask_part` 拡張 + `pmdneo_mask_immediate_keyoff` chip 別 keyoff dispatch) + driver-embedded mute fixture + 即 keyoff register trace 実測 (= Annex D) | 完了 (= PR #59) |
+| γ | unmute path 実装 (= `nmi_cmd_unmask_part` = `PART_OFF_MASK` clear + next dispatch restore) + unmute fixture (= Annex E) | 完了 (= PR #60) |
+| δ | verify script 体系化 + 7 gate 完全化 (= `verify-mute-semantics.sh`) + build infra 切替 (= `TEST_MODE_MUTE_FIXTURE`) (= Annex F) | 完了 (= PR #61) |
+
+総点検結果: α (= PMD mask ground truth literal) → β (= 即 mute path) → γ (= unmute path) → δ (= verify script) の 4 段が一貫。 任意 ch / 任意 part の **即 mute** (= mask set 時 chip 別即 keyoff) + **unmute** (= next dispatch restore) + **7 gate verify script** が揃った。 案 1 (= 既存 1-bit `PART_OFF_MASK` 拡張) を逸脱せず、 PMD V4.8s 3-mask 完全互換 scope-out 維持。
+
+### G-2: verify gate 再実行結果 (= ε 総点検)
+
+`bash src/test-fixtures/axis-b/verify-mute-semantics.sh` = **7 gate 全 PASS** (= ε で再実行確認):
+- gate 1-5: fixture build + MAME headless trace で 即 keyoff / safe-state / next dispatch restore / suppress semantic preservation / 非対象 part 無影響
+- gate 6: baseline regression 既存 verify script 9 件 全 PASS (= bounded retry)
+- gate 7: `.org` overflow / section overlap なし + production build dead code なし
+- production build 復帰確認
+
+### G-3: ADR-0049 Draft → Accepted 移行判断 = GO
+
+Accepted 化根拠:
+
+1. α/β/γ/δ 全 sub-sprint 完了 (= PR #57-#61 MERGED)
+2. 即 mute + unmute next dispatch restore + 7 gate verify script 完備
+3. verify gate 7 件 全 PASS (= register trace primary gate、 audio gate ではなく driver behavior verify)
+4. Codex layer 2 多 round chain approve (= 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2 + α 起票 round 1-2 + β round 1-5 + γ round 1-2 + δ round 1-6 + ε)
+5. 規律遵守 (= 軸 G ADR-0048 / 軸 C ADR-0043 / rhythm / F-2-A 完全不可触、 PMD 3-mask 完全互換 scope-out、 vendor wav retain、 vendor original source 不可触)
+
+### G-4: α/β/γ/δ/ε PR chain
+
+| sub | PR | commit |
+|---|---|---|
+| α 起票 | PR #57 | 4515de5 |
+| α lifecycle sync | PR #58 | 6024130 |
+| β 即 mute path | PR #59 | eed9f67 |
+| γ unmute path | PR #60 | c46622f |
+| δ verify script | PR #61 | 9908d65 |
+| ε completion | 本 PR | (= 本 commit) |
+
+### G-5: mute semantics 完了 = ADR-0049 完了、 軸 B 全体は未完了
+
+ADR-0049 Accepted = **軸 B 実装 sprint 5 (mute semantics) 完了** = mute semantics (= 即 mute + unmute) の実装 + verify が完了し ADR-0049 が完了。
+
+ただし **軸 B 全体は未完了**。 軸 B 実装 sprint chain は 6 sprint (= ADR-0045 §J-4 = 実装 1-4 + 実装 5 mute semantics + 実装 6 fade-out semantics)。 sprint 5 mute semantics 完了 = 6 sprint 中 1 本目の完了。 残り 5 sprint (= 実装 6 fade-out + 実装 1-4)。 **「軸 B 完成」 表現は使用しない** (= memory `feedback_axis_design_adr_accepted_vs_implementation_completion.md` 規律、 ADR-0049 Accepted は sprint 5 完了であり軸 B 完成ではない)。
+
+### G-6: ε 段 規律遵守確認
+
+1. ✅ ε = doc / review / completion sprint (= driver 挙動の新規拡張なし、 `standalone_test.s` 不変)
+2. ✅ mute semantics 完了扱いは ε 総点検 + Codex layer 2 approve + user 最終確認後
+3. ✅ 軸 G ADR-0048 (= Draft + ε partial + ζ 未着手) / 軸 C ADR-0043 / rhythm ADR-0026〜0031 / F-2-A defer 完全不可触
+4. ✅ ADR-0049 Accepted = mute semantics 完了、 軸 B 全体は未完了維持 (= 「軸 B 完成」 表現不使用)
+5. ✅ PMD 3-mask 完全互換 / MML mask command / 即時 re-sound は scope-out 維持
+6. ✅ vendor wav 3 件 untracked retain、 vendor original source / vromtool.py / ngdevkit本体 不可触
+
 ## 改訂履歴
 
 | 日付 | 状態 | 内容 |
 |---|---|---|
 | 2026-05-20 | Draft 起票 (= 38th session 軸 B 実装 sprint 5 α) | ADR-0045 §J-4-5 literal 後続実装 ADR、 mute semantics = 案 1 (= 既存 1-bit mask 拡張 + 即 mute path + unmute next dispatch restore)、 5 段 α/β/γ/δ/ε 構成、 決定 1-9 (= sub-sprint 構成 / 案 1 採用 / 3-mask 互換 scope-out / 即 mute と next-keyon suppress 別 layer / 4 chip keyoff 本体直接 call / scope / verify gate 6 件 / doc-only filing / Codex rescue 化継承)、 Annex A (= PMD V4.8s/PMDDotNET mask 構造 = partmask/slotmask/neiromask/silence_fmpart/psgmsk/MML mask command) + Annex B (= 現 PMDNEO mask 経路 = PART_OFF_MASK/nmi_cmd_mask_part/next-keyon suppress/不足箇所) + Annex C (= ADPCM-A keyoff direct-call 設計判断 + 4 chip keyoff literal)、 doc-only filing で driver/runtime/compiler/vendor/vromtool.py/verify script/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 Draft + ε partial complete + ζ 未着手 完全不可触、 ADR-0044 Accepted + F-2-A defer 維持、 ADR-0043 軸 C 完全不可触、 Codex layer 2 計 5 round chain approve (= 6 sprint 比較 round 1-3 + kickoff 計画 round 1-2) |
+| 2026-05-20 | **Draft → Accepted 移行 (= 38th session 軸 B 実装 sprint 5 ε completion)** | completion + ADR-0049 Accepted 判断 = Annex G (= G-1 α/β/γ/δ deliverable 総点検 = PMD mask ground truth → 即 mute path → unmute path → verify script の 4 段一貫、 G-2 verify gate `verify-mute-semantics.sh` 7 件 ε 再実行 ALL PASS、 G-3 Draft → Accepted 移行判断 GO + 根拠 5 件、 G-4 α/β/γ/δ/ε PR chain = PR #57/#58/#59/#60/#61 + 本 PR、 G-5 mute semantics 完了 = ADR-0049 完了 / 軸 B 全体未完了 区別 literal、 G-6 ε 段 規律遵守確認 6 件)、 sub-sprint chain 進捗 δ 行「完了」 + ε 行「進行中」、 ADR-0049 header 状態 Draft → Accepted、 ε = doc/review/completion sprint で driver 挙動の新規拡張なし (= standalone_test.s 不変)、 ADR-0049 + dashboard のみ変更、 runtime/compiler/vromtool.py/ngdevkit本体/vendor original source 不可触、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 (= Draft + ε partial + ζ 未着手) + 軸 C ADR-0043 + rhythm routine + F-2-A defer 完全不可触、 **ADR-0049 Accepted = 軸 B 実装 sprint 5 mute semantics 完了、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用)**、 Codex layer 2 ε completion round 1 approve (= must-fix 0、 ADR-0049 Accepted 化 GO) |
 | 2026-05-20 | Draft δ 完了 (= 38th session 軸 B 実装 sprint 5 δ) | verify script 体系化 + 7 gate 完全化 = Annex F (= F-1 verify script `src/test-fixtures/axis-b/verify-mute-semantics.sh` 7 gate、 F-2 build infra 改修 = build.mk TEST_MODE_MUTE_FIXTURE ifeq + sed expr + build-poc.sh env wiring = PMDNEO build 設定変更 (= TEST_MODE_AXIS_G_INT cf64d60 前例同型、 vendor original source 改変ではない、 user 案 A 承認)、 F-3 7 gate 実測 ALL PASS、 F-4 gate 6 baseline regression script 9 件 literal 固定、 F-5 gate 4 名称「byte-identical」→「semantic preservation」 精緻化、 F-6 δ 段 規律遵守確認 7 件)、 sub-sprint chain 進捗 γ 行「完了」 + δ 行「進行中」、 driver 挙動の新規拡張なし (= standalone_test.s 不変)、 verify script 新規 + build.mk + build-poc.sh + ADR-0049 + dashboard 変更、 runtime/compiler/vromtool.py/ngdevkit本体/vendor original source 不可触、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 + 軸 C ADR-0043 + rhythm routine 完全不可触、 「mute semantics 完了」 表現不使用 (= ε まで)、 Codex layer 2 δ 実装方針 round 1-3 chain approve (= round 1 revise must-fix 4 + round 2 revise must-fix 2 → round 3 approve) |
 | 2026-05-20 | Draft γ 完了 (= 38th session 軸 B 実装 sprint 5 γ) | unmute path 実装 + unmute fixture + restore trace = Annex E (= E-1 γ driver 改修 2 箇所 = NMI dispatch unmask cmd range 41-57 拡張 / 新 routine nmi_cmd_unmask_part = PART_OFF_MASK clear のみ、 E-2 γ unmute fixture = pmdneo_unmute_fixture_run + fixture call を mute→unmute→song 順に拡張、 E-3 register trace 実測 = γ verify gate 4 件 PASS = 即 keyoff 維持 / PART_OFF_MASK 1→0 clear / unmask 直後 re-sound なし / next dispatch 再発音、 E-4 γ 段 規律遵守確認 8 件)、 sub-sprint chain 進捗 β 行「完了」 + γ 行「進行中」 lifecycle sync、 driver 改修 (= standalone_test.s のみ) + ADR-0049 + dashboard 変更、 runtime/compiler/vendor/vromtool.py/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 + 軸 C ADR-0043 + rhythm routine 完全不可触、 .org overflow なし (= nmi_cmd_unmask_part 0x01E1-0x01FA を .lst 検証)、 Codex layer 2 γ 実装方針 round 1 approve (= must-fix 0 + nice-to-have 2) |
 | 2026-05-20 | Draft β 完了 (= 38th session 軸 B 実装 sprint 5 β) | 即 mute path 実装 + driver-embedded fixture + 即 keyoff register trace 実測 = Annex D (= D-1 β driver 改修 3 箇所 = NMI dispatch cmd range 拡張 / nmi_cmd_mask_part 拡張 / 新 routine pmdneo_mask_immediate_keyoff、 D-2 driver-embedded mute fixture = TEST_MODE_MUTE_FIXTURE + pmdneo_mute_fixture_run、 D-3 .org overflow finding + 修正 = pmdneo_mask_immediate_keyoff を 0x0610 セクションへ移動、 D-4 register trace 実測 = 全 4 chip 即 keyoff 期待値一致 + loop 順一致、 D-5 β/δ verify 分担確定 = 案 X、 D-6 β 段 規律遵守確認 8 件)、 決定 1 sub-sprint 表 β/δ 行更新 (= β に driver-embedded fixture + 即 keyoff trace 明記、 δ を verify script 体系化 + 6 gate 完全化に役割変更)、 driver 改修 (= standalone_test.s のみ) + ADR-0049 + dashboard 変更、 runtime/compiler/vendor/vromtool.py/verify fixture data 完全不変、 vendor wav 3 件 untracked retain、 軸 G ADR-0048 + 軸 C ADR-0043 + rhythm routine 完全不可触、 Codex layer 2 β 実装方針 round 1-2 + β driver 改修 round 3 + β trace 解析 round 4 (= .org overflow finding) |
