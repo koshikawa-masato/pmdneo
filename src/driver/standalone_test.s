@@ -48,6 +48,15 @@
         ;; build-poc.sh の env PMDNEO_AXIS_G_INT=1 で 1 に切替わる。
         .equ    TEST_MODE_AXIS_G_INT, 0
 
+        ;; ADR-0049 β: mute semantics driver-embedded fixture toggle
+        ;;   0 = 既存 default (= production build、 mute fixture 無効)
+        ;;   1 = β mute fixture build (= MML song init 完了後に全 active part 0-16 へ
+        ;;       mask cmd core = PART_OFF_MASK set + 即 keyoff を発火、 register trace で
+        ;;       chip 別 即 keyoff write を観測する verify 専用 build)
+        ;; production 時は必ず 0 を維持 (= TEST_MODE_AXIS_G_INT と同 pattern)。
+        ;; β verify 時のみ手動で 1 build + register trace、 δ で build infra 切替 + verify script 化。
+        .equ    TEST_MODE_MUTE_FIXTURE, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -303,7 +312,9 @@ nmi_dispatch:
         jp      c, nmi_done
         cp      #24
         jp      c, nmi_cmd_select_song
-        cp      #38
+        ;; ADR-0049 β: mask cmd range cmd 24..40 -> part_idx 0..16 (= 旧 24..37 から
+        ;;   O-Q ADPCM-A 4-6 = part_idx 14-16 を含めるよう cp #38 -> cp #41 拡張)
+        cp      #41
         jp      c, nmi_cmd_mask_part
         jp      nmi_done
 
@@ -708,8 +719,10 @@ nmi_cmd_select_song:
         jp      nmi_done
 
 nmi_cmd_mask_part:
-        ;; A = cmd byte (24..37) -> part_idx = A - 24 (0..13)
+        ;; A = cmd byte (24..40) -> part_idx = A - 24 (0..16)
         sub     #24
+        ld      c, a                    ;; C = part_idx 保持 (= ADR-0049 β 即 mute path
+                                        ;;   の chip 分岐に使用、 nmi handler は bc push 済)
         ld      l, a
         ld      h, #0
         ;; HL = part_idx * 64
@@ -723,8 +736,15 @@ nmi_cmd_mask_part:
         add     hl, de
         push    hl
         pop     ix
+        ;; mask bit set (= 既存挙動維持 = next-keyon suppress、 L1990 dispatch 抑止経路)
         ld      a, #1
         ld      PART_OFF_MASK(ix), a
+        ;; ADR-0049 β 即 mute path: mask set 時に該 part 発音中 ch を chip 別に即 keyoff
+        ;;   (= next-keyon suppress とは別 layer、 「今鳴っている音を止める」)
+        ;;   routine 本体 pmdneo_mask_immediate_keyoff は 0x0610 セクション末尾に配置
+        ;;   (= 0x0100 セクションは 256 byte 上限、 routine を含めると .org 0x0200 と
+        ;;   overflow するため。 call は絶対アドレスで配置非依存)
+        call    pmdneo_mask_immediate_keyoff
         jp      nmi_done
 
         .org 0x0200
@@ -1624,9 +1644,87 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      c, #0x0F
         call    pmdneo5_init_part
 
+        ;; ADR-0049 β mute fixture (= driver-embedded、 TEST_MODE_MUTE_FIXTURE=0 で全 skip)
+        ;;   全 active part 0-16 へ mask cmd core を発火、 register trace で即 keyoff verify。
+        ;;   driver_song_ready set の前に配置 (= mute fixture 実行中は song 進行 0、
+        ;;   register trace に song note write が混ざらず mute fixture sequence が clean)。
+.if TEST_MODE_MUTE_FIXTURE
+        call    pmdneo_mute_fixture_run
+.endif
         ld      a, #1
         ld      (driver_song_ready), a
         ret
+
+;; ADR-0049 β 即 mute path 本体 (= mask set 時の chip 別即 keyoff)
+;;   入力: IX = part workarea pointer、 C = part_idx (0..16)
+;;   PART_OFF_CHIP_TYPE (= 0 FM / 1 SSG / 2 PCM) + part_idx で chip 別 keyoff dispatch:
+;;     chip_type 0 = FM (part_idx 0-5)       -> fm_keyoff    (B = PART_OFF_CH_IDX)
+;;     chip_type 1 = SSG (part_idx 6-8)      -> ssg_keyoff   (B = PART_OFF_CH_IDX)
+;;     chip_type 2 + part_idx 9  = ADPCM-B   -> adpcmb_keyoff
+;;     chip_type 2 + part_idx 10 = RHYTHM    -> skip (= PMDNEO 本線 no-op stub part)
+;;     chip_type 2 + part_idx 11-16 = ADPCM-A-> adpcma_keyoff (B = PART_OFF_CH_IDX)
+;;   既存 keyoff routine 本体を tail jump で直接 call (= ADR-0049 §決定 5)。
+;;   配置: 0x0100 セクション (= nmi handler) は 256 byte 上限で routine を含めると
+;;   .org 0x0200 と overflow する。 .org 制約のない 0x0610 セクション (= 最後の .org)
+;;   末尾領域に配置。 nmi_cmd_mask_part / pmdneo_mute_fixture_run から call され、
+;;   call は絶対アドレスのため配置非依存。
+pmdneo_mask_immediate_keyoff:
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        or      a
+        jr      z, pmdneo_mask_keyoff_fm        ;; chip_type 0 = FM
+        cp      #1
+        jr      z, pmdneo_mask_keyoff_ssg       ;; chip_type 1 = SSG
+        ;; chip_type 2 = PCM: part_idx で ADPCM-B / RHYTHM / ADPCM-A 分岐
+        ld      a, c
+        cp      #PART_PCM                       ;; part_idx 9 = J = ADPCM-B
+        jp      z, adpcmb_keyoff
+        cp      #PART_RHYTHM                    ;; part_idx 10 = K = RHYTHM
+        ret     z                               ;; RHYTHM = skip (= 本線 no-op stub part)
+        ;; part_idx 11..16 = L-Q = ADPCM-A 1-6
+        ld      b, PART_OFF_CH_IDX(ix)
+        jp      adpcma_keyoff
+pmdneo_mask_keyoff_fm:
+        ld      b, PART_OFF_CH_IDX(ix)
+        jp      fm_keyoff
+pmdneo_mask_keyoff_ssg:
+        ld      b, PART_OFF_CH_IDX(ix)
+        jp      ssg_keyoff
+
+;; ADR-0049 β mute fixture run (= driver-embedded fixture、 TEST_MODE_MUTE_FIXTURE=1 時のみ
+;;   定義 + nmi_cmd_5_init_mml_song 末尾から call される、 production build = 0 では routine
+;;   定義ごと skip = dead code なし)。 part_idx 0..16 (= active part 全件、 X/Y/Z = 17-19 は
+;;   β 対象外) を loop し、 各 part に mask cmd core (= PART_OFF_MASK set +
+;;   pmdneo_mask_immediate_keyoff) を発火。 register trace で chip 別 即 keyoff write を観測。
+;;   vendor main.c 不可触 (= driver-embedded fixture)。
+.if TEST_MODE_MUTE_FIXTURE
+pmdneo_mute_fixture_run:
+        ld      c, #0                   ;; C = part_idx 0..16
+pmdneo_mute_fixture_loop:
+        push    bc                      ;; part_idx 退避 (= keyoff routine が BC 破壊)
+        ;; IX = &part_workarea[part_idx] (= part_idx * 64 + part_workarea)
+        ld      l, c
+        ld      h, #0
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        add     hl, hl
+        ld      de, #part_workarea
+        add     hl, de
+        push    hl
+        pop     ix
+        ;; mask bit set + chip 別即 keyoff (= nmi_cmd_mask_part core と同経路)
+        ld      a, #1
+        ld      PART_OFF_MASK(ix), a
+        call    pmdneo_mask_immediate_keyoff
+        pop     bc                      ;; part_idx 復元
+        inc     c
+        ld      a, c
+        cp      #17                     ;; part_idx 0..16 = 17 part loop
+        jp      c, pmdneo_mute_fixture_loop
+        ret
+.endif
 
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea
