@@ -3,8 +3,8 @@
 # PMDNEO 軸 B 実装 sprint 7 γ verify gate (= ADR-0051 SSG tone-enable semantics)
 #
 # verify scope: β (= PR #67) で実装した SSG tone-enable on-demand 挙動を再現可能な
-#   12 gate verify script に体系化する。 driver / fixture の新規変更はしない
-#   (= γ = verify 整備)。
+#   15 gate verify script に体系化する。 gate 1-12 = γ (= PR #68)、 gate 13-15 =
+#   ADR-0051 Annex D-3 follow-up (= V0 SSG keyon literal trace gate)。 driver 改修なし。
 #
 #   --- trace gate (= MAME register trace、 fade-free tone-ladder build) ---
 #   gate 1: SSG tone period write       — G/H/I note dispatch で reg 0x00-0x05 write
@@ -21,14 +21,19 @@
 #   gate 10: ADR-0049 mute regression   — verify-mute-semantics.sh 7 gate + baseline 9 script
 #   gate 11: ADR-0050 fade regression   — default build に cmd 6 + fade routine 存在 (= fade audition 不破壊)
 #   gate 12: .org overflow / overlap    — pmdneo_ssg_tone_sync が 0x0610 セクション、 section overlap なし
+#   --- V0 SSG keyon trace gate (= ADR-0051 Annex D-3 follow-up、 ssg-v0-keyon.mml) ---
+#   gate 13: V0 keyon dispatch          — V0 SSG note が keyon dispatch (reg 0x00-0x05 write)
+#   gate 14: V0 volume = 0              — SSG volume reg 0x08-0x0A 全 write 0x00
+#   gate 15: V0 keyon non-enable        — mixer reg 0x07 全 write 0x3F (= tone bit enable なし)
 #
 # 注: ADR-0051 §決定 5 本来の「V0 SSG keyon で tone enable しない」 の literal trace
-#   gate は、 test-tone-ladder.mml に V0 SSG keyon が無いため γ では直接検証しない
-#   (= keyon hook の code path vol==0→disable は β 実装済、 literal trace gate 化には
-#   V0 SSG keyon fixture が必要、 ADR-0051 Annex D の follow-up)。 gate 7 は trace
-#   観測可能な leading-rest non-enable に rename。
+#   gate は、 test-tone-ladder.mml に V0 SSG keyon が無いため γ では gate 7 を trace
+#   観測可能な leading-rest non-enable に rename した。 literal な V0 keyon trace gate
+#   (= gate 13-15) は専用 fixture ssg-v0-keyon.mml で ADR-0051 Annex D-3 follow-up
+#   として追加し、 §決定 5 本来の V0 keyon non-enable 検証を closed にした。
 #
-# fixture: PMDNEO_NO_FADE=1 + test-tone-ladder.mml (= PR #65/#67)。
+# fixture: PMDNEO_NO_FADE=1 + test-tone-ladder.mml (= gate 1-9、 PR #65/#67) +
+#   PMDNEO_NO_FADE=1 + ssg-v0-keyon.mml (= gate 13-15、 V0 keyon follow-up)。
 #
 # usage: bash src/test-fixtures/axis-b/verify-ssg-tone-enable.sh
 
@@ -205,6 +210,48 @@ else
 fi
 
 # ============================================================
+# V0 SSG keyon build (= PMDNEO_NO_FADE=1 + ssg-v0-keyon.mml) + MAME trace
+#   ADR-0051 Annex D-3 follow-up = V0 SSG keyon literal trace gate。
+#   SSG G/H/I を V0 で keyon = note dispatch するが volume 0、 tone bit は enable しない。
+# ============================================================
+echo "=== V0 SSG keyon build (= PMDNEO_NO_FADE=1 + ssg-v0-keyon.mml) + MAME headless trace ==="
+rm -f "$PREPROCESSED"
+PMDNEO_NO_FADE=1 MML_INPUTS=ssg-v0-keyon.mml bash scripts/build-poc.sh >/dev/null 2>&1 \
+  || { echo "❌ V0 SSG keyon build FAIL"; exit 1; }
+bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 10 >/dev/null 2>&1 || true
+[ -f "$YMFM" ] || { echo "❌ ymfm-trace 未生成"; exit 1; }
+
+# --- gate 13: V0 SSG keyon dispatch (= tone period write 発生) ---
+# V0 でも SSG note は keyon として dispatch される (= reg 0x00-0x05 に tone period write)。
+V0TP=$(awk -F'\t' '$2=="A" && $3~/^0[0-5]$/' "$YMFM" | wc -l | tr -d ' ')
+if [ "$V0TP" -ge 6 ]; then
+  ok "gate 13: V0 keyon dispatch = SSG tone period write (reg 0x00-0x05) $V0TP 件 (= V0 でも G/H/I note keyon 成立)"
+else
+  ng "gate 13: V0 SSG tone period write 不足 (${V0TP}, 期待 >= 6)"
+fi
+
+# --- gate 14: V0 volume = 0 (= reg 0x08-0x0A 全 write 0x00) ---
+V0VOL_TOTAL=$(awk -F'\t' '$2=="A" && ($3=="08"||$3=="09"||$3=="0A")' "$YMFM" | wc -l | tr -d ' ')
+V0VOL_BAD=$(awk -F'\t' '$2=="A" && ($3=="08"||$3=="09"||$3=="0A") && $4!="00"' "$YMFM" | wc -l | tr -d ' ')
+if [ "$V0VOL_TOTAL" -ge 3 ] && [ "$V0VOL_BAD" -eq 0 ]; then
+  ok "gate 14: V0 volume = 0 = SSG volume reg 0x08-0x0A 全 write 0x00 ($V0VOL_TOTAL 件)"
+else
+  ng "gate 14: V0 SSG volume に非 0x00 write (total=$V0VOL_TOTAL non-00=$V0VOL_BAD)"
+fi
+
+# --- gate 15: V0 keyon non-enable (= mixer reg 0x07 全 write 0x3F) ---
+# V0 keyon = pmdneo_psg_keyon が tone_sync(A=0) を call = tone bit を enable しない。
+# reg 0x07 の全 write が 0x3F (= 全 tone+noise disable) のまま = tone bit enable なし
+# (= ADR-0051 §決定 5 本来の V0 keyon non-enable literal trace 証跡)。
+V0R07_TOTAL=$(awk -F'\t' '$2=="A" && $3=="07"' "$YMFM" | wc -l | tr -d ' ')
+V0R07_BAD=$(awk -F'\t' '$2=="A" && $3=="07" && $4!="3F"' "$YMFM" | wc -l | tr -d ' ')
+if [ "$V0R07_TOTAL" -ge 1 ] && [ "$V0R07_BAD" -eq 0 ]; then
+  ok "gate 15: V0 keyon non-enable = mixer reg 0x07 全 write 0x3F ($V0R07_TOTAL 件、 = tone bit enable なし)"
+else
+  ng "gate 15: V0 SSG keyon で reg 0x07 に tone enable write (total=$V0R07_TOTAL non-3F=$V0R07_BAD)"
+fi
+
+# ============================================================
 # production build 復帰 + 集計
 # ============================================================
 echo "=== production build 復帰 ==="
@@ -214,7 +261,7 @@ ok "production build 復帰完了 (= PMDNEO_NO_FADE 未指定、 default)"
 
 echo ""
 if [ "$FAIL" -eq 0 ]; then
-  echo "✅ ALL PASS (= 軸 B sprint 7 SSG tone-enable 12 gate 全 PASS)"
+  echo "✅ ALL PASS (= 軸 B sprint 7 SSG tone-enable 15 gate 全 PASS)"
   exit 0
 else
   echo "❌ $FAIL gate FAIL"
