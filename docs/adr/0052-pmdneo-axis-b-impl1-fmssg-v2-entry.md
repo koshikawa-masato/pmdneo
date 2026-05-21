@@ -208,7 +208,7 @@ verify gate の最終件数 / fixture 詳細は ε sub-sprint で確定する。
 | α (= ADR-0052 起票 + cmd 0x07 doc-correction) | **完了** (= 39th session) | 起票 PR #74 + doc-correction PR | 次着手 sprint 比較 review approve (= δ-1) + ADR-0052 起票 plan review approve (= must-fix 0) + ADR-0052 起票 review approve + cmd 0x07 doc-correction review |
 | β (= cmd 0x07 trigger path 実装) | **完了** (= 39th session、 PR #76) | PR #76 | revised β kickoff plan review = round 1 escalate (`.org 0x0066` overflow 確定) → 案 A user 判断 gate → round 2 approve + β 実装 review approve (= must-fix 0) |
 | γ (= FM 6ch v2 dispatcher 実装) | **完了** (= 39th session、 PR #77) | PR #77 | γ kickoff plan review = round 1 revise (verify gate を count-only → ch_addr 値セット一致 + A/D 不発火に強化) → round 2 approve + γ 実装 review approve |
-| δ (= SSG 3ch v2 dispatcher 実装) | 未着手 | - | - |
+| δ (= SSG 3ch v2 dispatcher 実装) | **完了** (= 39th session、 PR #78) | PR #78 | δ kickoff plan review approve (= must-fix 0、 nice-to-have = reg 0x07 gate) + δ 実装 review approve |
 | ε (= verify script 体系化 + completion + Accepted 判断) | 未着手 | - | - |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
@@ -338,6 +338,33 @@ ADR-0049 mute / ADR-0050 fade-out / ADR-0051 SSG tone-enable は Accepted 済で
 - regression: `verify-mute-semantics.sh` 7 gate + `verify-fadeout-semantics.sh` 16 gate + `verify-ssg-tone-enable.sh` 15 gate 全 PASS
 - Codex layer 2 = γ kickoff plan review (= round 1 revise verify gate 強化 → round 2 approve) + γ 実装 review approve
 
+## Annex F: δ 実装 completion record (= SSG 3ch v2 dispatcher)
+
+### F-1: δ deliverable
+
+軸 B 実装 sprint 1 δ = SSG 3ch v2 dispatcher 実装 (= 39th session、 PR #78)。 **trace proof 中心** (= audible proof / 実音再生は scope 外、 §決定 7 gate 4 = 各 SSG ch で register write 発生)。
+
+| deliverable | 内容 |
+|---|---|
+| `pmdneo_v2_ssg_dispatch` 並設 routine | SSG ch slot (= index 0-2 = G/H/I) を sequential loop、 per ch で SSG volume (reg 0x08+ch) emit。 既存 `ssg_keyon` を本体直接 call (= BC 保存で loop counter 維持)。 0x0610 セクション。 chip target 分岐なし (= SSG は YM2610 / YM2610B 共に 3ch) |
+| `pmdneo_v2_entry_skeleton` 拡張 | γ の `call pmdneo_v2_fm_dispatch` 後に `call pmdneo_v2_ssg_dispatch` を追加 |
+
+### F-2: trace proof 中心 + reg 0x07 不可触
+
+δ = register trace proof のみ。 v2 SSG dispatcher は volume (reg 0x08+ch) のみ emit し、 tone period (reg 0x00-0x05) / fnum / noise / envelope は実装しない (= 実音再生 = δ-1 dispatcher skeleton の scope 外、 後続段階)。 **reg 0x07 (= SSG mixer tone-enable) は一切 touch しない** (= ADR-0051 SSG tone-enable 契約 = reg 0x07 shadow RMW owner `pmdneo_ssg_tone_sync` を保護)。 δ dispatcher は既存 `ssg_keyon` を本体直接 call するのみで reg 0x07 を書く経路を持たない (= 契約 trivially 保護)。 chip target 分岐は不要 (= SSG は YM2610 / YM2610B 共に 3ch、 γ FM dispatcher の `.if PMDNEO_TARGET_CHIP_YM2610B` 分岐とは異なる)。
+
+### F-3: δ 検証結果
+
+- production build (= ym2610) PASS + `.lst`: `pmdneo_v2_ssg_dispatch` = 0x09B7 (= 0x0610 セクション >= 0x088D、 overflow なし) / ym2610b build = 0x09D1 (= 同セクション)、 `.org 0x0066` セクション末尾 0x00FC (= 0x0100 未満、 overlap なし、 δ は 0x0066 セクション不変)
+- V2 fixture build (= `TEST_MODE_V2_ENTRY_FIXTURE=1` + `MML_INPUTS=ssg-v0-keyon.mml` = FM-empty fixture) + MAME headless trace:
+  - **YM2610**: reg 0x08/0x09/0x0A ← 値 0x0F = SSG ch 0/1/2 volume、 各 1 write 計 3 (= idx 242/243/244 連続)。 song 由来の SSG keyon (= V0 = 値 0x00) とは値 0x0F で区別
+  - **YM2610B**: reg 0x08/0x09/0x0A ← 値 0x0F 計 3 (= idx 306/307/308)、 SSG は両 chip 3ch で同一挙動
+  - **reg 0x07** = 全 16 write 全て 0x3F (= δ dispatcher は reg 0x07 を一切 touch せず、 ADR-0051 contract 保護、 Codex δ kickoff plan nice-to-have の reg 0x07 gate)
+  - FM γ keyon (reg 0x28) 維持 = YM2610 {F1,F2,F5,F6} / YM2610B {F0,F1,F2,F4,F5,F6}、 v2 entry skeleton の fm→ssg 順序で SSG dispatch は FM dispatch 直後
+  - `pmdneo_v2_entry_marker` (0xFD3B) ← 0x07 維持 (= β gate)
+- regression: `verify-mute-semantics.sh` 7 gate + `verify-fadeout-semantics.sh` 16 gate + `verify-ssg-tone-enable.sh` 15 gate 全 PASS
+- Codex layer 2 = δ kickoff plan review approve (= must-fix 0、 nice-to-have = reg 0x07 gate) + δ 実装 review approve
+
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
@@ -346,3 +373,4 @@ ADR-0049 mute / ADR-0050 fade-out / ADR-0051 SSG tone-enable は Accepted 済で
 | 2026-05-21 | cmd 0x07 doc-correction (= 39th session、 β kickoff plan 整理 finding、 user escalate → 確定) | β kickoff plan 整理で trigger path 想定誤りを発見。 ADR-0045 §I-1-b + ADR-0052 起票第 1 版 §決定 3 の「`IRQ.inc cmd_jmptable` へ cmd 0x06 additive」 は (1) `cmd_jmptable` が live `standalone_test.s` build に不在 (= legacy nullsound 経路)、 (2) NMI dispatch command 6 = `nmi_cmd_6_fade_start` が ADR-0050 fade で使用中、 の 2 点で live driver ground truth と不一致。 §決定 3 を **cmd 0x07 + live `nmi_dispatch`** へ訂正 (= 決定 3-a override 明示 + 3-b 確定方針 + 3-c 層の違い整理)。 trigger routine 名 = `nmi_cmd_7_play_song_v2`。 ADR 全体 (= 決定 1/5/7/8/9 + Annex A/B/C + 平易要約 + 状態行) を cmd 0x07 + `nmi_dispatch` 前提へ整合。 doc-only (= ADR-0052 + dashboard、 driver 不変)。 Codex layer 2 doc-correction review 経由。 β 実装は本 doc-correction PR merge 後に着手 |
 | 2026-05-21 | γ 実装完了 (= 39th session、 PR #77) | FM 6ch v2 dispatcher 実装 (= trace proof 中心、 audible 非対象)。 `pmdneo_v2_fm_dispatch` 並設 routine 新設 (= FM ch slot 0-5 を loop、 per ch で FM keyon = reg 0x28 emit、 既存 `fm_keyon` 本体直接 call) + `pmdneo_v2_entry_skeleton` を fm_dispatch call へ拡張。 chip target 分岐 = YM2610 は A/D skip (B/C/E/F の 4 ch)、 YM2610B は全 6 ch。 Annex E 追記 (= γ completion + trace proof 中心 + sdas `.if X == N` finding + 検証結果) + sub-sprint chain γ 完了 reflect。 検証 = production build + V2 fixture trace で reg 0x28 keyon が YM2610 {F1,F2,F5,F6} / YM2610B {F0,F1,F2,F4,F5,F6} + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = γ kickoff plan review (round 1 revise verify gate 強化 → round 2 approve) + γ 実装 review approve。 fnum/TL/voice/pan は γ 非対象 (= 後続)、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
 | 2026-05-21 | β 実装完了 (= 39th session、 PR #76) | cmd 0x07 v2 entry trigger path 実装。 live `nmi_dispatch` に cmd 0x07 分岐 (`cp #7` + `jp z, nmi_cmd_7_play_song_v2`) を additive 追加 + `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` 並設 routine 新設 (= 0x0610 セクション) + `pmdneo_v2_entry_marker` (0xFD3B) + `TEST_MODE_V2_ENTRY_FIXTURE` build wiring。 `.org 0x0066` overflow 軽減 = 案 A で `nmi_cmd_5_adpcmb_beat` を 0x0610 セクションへ verbatim 移設 (= β kickoff plan で overflow 確定 finding → user escalate → 案 A 確定)。 Annex D 追記 (= β completion record + 案 A 軽減 + gate 2 register trace 等価 読み替え + 検証結果 + 案 B future cleanup 候補) + sub-sprint chain β 完了 reflect。 検証 = production build + .lst 0x0066 末尾 0x00FB (overflow なし) + V2 fixture trace で pmdneo_v2_entry_marker 0x07 write + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = revised β kickoff plan review (= round 1 escalate overflow 確定 → 案 A → round 2 approve) + β 実装 review approve。 軸 B 実装 sprint 1 = δ-1、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
+| 2026-05-21 | δ 実装完了 (= 39th session、 PR #78) | SSG 3ch v2 dispatcher 実装 (= trace proof 中心、 audible 非対象)。 `pmdneo_v2_ssg_dispatch` 並設 routine 新設 (= SSG ch slot 0-2 = G/H/I を loop、 per ch で SSG volume = reg 0x08+ch emit、 既存 `ssg_keyon` 本体直接 call、 BC 保存) + `pmdneo_v2_entry_skeleton` を `call pmdneo_v2_ssg_dispatch` 拡張 (= γ の fm_dispatch call 後)。 chip target 分岐なし (= SSG は YM2610 / YM2610B 共に 3ch)。 reg 0x07 (= SSG mixer tone-enable) は一切 touch せず (= ADR-0051 契約 trivially 保護、 `ssg_keyon` は reg 0x08+ch のみ書く)。 Annex F 追記 (= δ completion + trace proof 中心 + reg 0x07 不可触 + 検証結果) + sub-sprint chain δ 完了 reflect。 検証 = production build + .lst (`pmdneo_v2_ssg_dispatch` ym2610 0x09B7 / ym2610b 0x09D1、 0x0610 セクション overflow なし) + V2 fixture trace で reg 0x08/0x09/0x0A ← 値 0x0F 各 1 write 計 3 (両 chip) + reg 0x07 全 16 write 0x3F 維持 + FM γ keyon 維持 + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = δ kickoff plan review approve (= must-fix 0、 nice-to-have reg 0x07 gate) + δ 実装 review approve。 残 = ε (= verify script 体系化 + completion + Accepted 判断)、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
