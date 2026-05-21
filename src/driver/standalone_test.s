@@ -2091,8 +2091,8 @@ pmdneo_ssg_tone_mask:
 ;;;   既存 cmd 0x02 (= nmi_cmd_2_play_song = Phase 1 PoC base) と完全並走、
 ;;;   cmd 0x06 (= nmi_cmd_6_fade_start = ADR-0050 fade) とは別 command 番号。
 ;;;   配置: 0x0610 セクション (= .org 制約なし、 ADR-0049/0050/0051 並設 pattern)。
-;;;   β scope = trigger path + v2 entry skeleton 入口のみ。 FM 6ch / SSG 3ch
-;;;   v2 dispatcher 本体は γ/δ sub-sprint。
+;;;   β = cmd 0x07 trigger path + v2 entry skeleton。 γ = FM 6ch v2 dispatcher
+;;;   (= pmdneo_v2_fm_dispatch、 keyon trace proof)。 SSG 3ch v2 dispatcher は δ。
 ;;; ============================================================
 
 ;; nmi_cmd_5_adpcmb_beat: NMI dispatch command 5 = ADPCM-B beat。 ADR-0052 β で
@@ -2119,15 +2119,46 @@ nmi_cmd_7_play_song_v2:
         call    pmdneo_v2_entry_skeleton
         jp      nmi_done
 
-;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β、 δ-1)。
-;;   β scope = 入口到達の marker write のみ。 FM 6ch / SSG 3ch v2 dispatcher 本体は
-;;   γ/δ sub-sprint。 pmdneo_v2_entry_marker に 0x07 を write し ret (= cmd 0x07
-;;   trigger path verify gate の観測点)。 ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE
-;;   build では nmi_cmd_5_init_mml_song から本 routine を直接 call する。
-;;   破壊 register = AF。
+;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ、 δ-1)。
+;;   pmdneo_v2_entry_marker に 0x07 を write (= β、 cmd 0x07 trigger path verify
+;;   gate の観測点) + FM 6ch v2 dispatcher を call (= γ)。 SSG 3ch v2 dispatcher は δ。
+;;   ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では nmi_cmd_5_init_mml_song
+;;   から本 routine を直接 call する。 破壊 register = AF/BC/DE/HL。
 pmdneo_v2_entry_skeleton:
         ld      a, #0x07
         ld      (pmdneo_v2_entry_marker), a
+        call    pmdneo_v2_fm_dispatch
+        ret
+
+;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ、 δ-1)。
+;;   v2 entry skeleton から call。 FM ch slot (= index 0-5 = A/B/C/D/E/F) を
+;;   sequential に loop し per ch で FM keyon (reg 0x28) を emit (= 各 ch 到達 +
+;;   FM register write の trace proof)。 γ scope = keyon proof のみ = fnum/block/
+;;   TL/voice/pan は実装しない (= 実音再生 = 後続段階)。 keyon は既存 fm_keyon を
+;;   本体直接 call (= fm_keyon は BC 保存で loop counter 維持可)。
+;;   chip target: YM2610 (= PMDNEO_TARGET_CHIP_YM2610B 0) は A (index 0) / D
+;;   (index 3) を keyon skip (= A/D silent)、 B/C/E/F の 4 ch keyon。 YM2610B は
+;;   全 6 ch keyon。 破壊 register: AF/BC/DE/HL。 IX/IY 不変。
+pmdneo_v2_fm_dispatch:
+        ld      b, #0                   ; B = FM ch index 0..5
+pmdneo_v2_fm_dispatch_loop:
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ;; YM2610B: 全 6 ch (A-F) keyon
+        call    fm_keyon                ; reg 0x28 <- fm_keyon_values[B]
+.else
+        ;; YM2610: A (index 0) / D (index 3) は silent = keyon skip、 B/C/E/F のみ
+        ld      a, b
+        cp      #0
+        jr      z, pmdneo_v2_fm_dispatch_next
+        cp      #3
+        jr      z, pmdneo_v2_fm_dispatch_next
+        call    fm_keyon                ; reg 0x28 <- fm_keyon_values[B]
+.endif
+pmdneo_v2_fm_dispatch_next:
+        inc     b
+        ld      a, b
+        cp      #6
+        jr      c, pmdneo_v2_fm_dispatch_loop
         ret
 
 pmdneo5_clear_part_workarea:
