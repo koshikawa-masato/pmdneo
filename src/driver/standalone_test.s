@@ -67,6 +67,13 @@
         ;; β verify 時のみ手動で 1 build + register trace、 δ で build infra 切替 + verify script 化。
         .equ    TEST_MODE_FADE_FIXTURE, 0
 
+        ;; ADR-0052 β: 軸 B 実装 sprint 1 δ-1 v2 entry (cmd 0x07) driver-embedded
+        ;;   fixture toggle。 0 = production (= v2 entry fixture 無効)、 1 = β v2
+        ;;   entry fixture build (= MML song init 時に pmdneo_v2_entry_skeleton を
+        ;;   call、 cmd 0x07 v2 entry path = pmdneo_v2_entry_marker write を register
+        ;;   trace で観測)。 production 時は必ず 0 維持 (= TEST_MODE_FADE_FIXTURE と同)。
+        .equ    TEST_MODE_V2_ENTRY_FIXTURE, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -182,6 +189,12 @@
         ;;   で 0x3F (= 全 disable) 初期化。 reg 0x07 は 0=enable / 1=disable。
         .equ    pmdneo_v2_ssg_mixer,           0xFD3A
 
+        ;; ADR-0052 §決定 2 軸 B 実装 sprint 1 β: v2 entry skeleton 到達 marker
+        ;;   1 byte、 0xFD3B (= pmdneo_v2_ssg_mixer の次、 free region 内)。 v2 entry
+        ;;   skeleton が到達時に 0x07 を write = cmd 0x07 trigger path verify gate の
+        ;;   観測点。 v2 PartWork / driver_state の正式 placement は δ-2 scope。
+        .equ    pmdneo_v2_entry_marker,        0xFD3B
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -208,7 +221,8 @@
 ;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
 ;;;   0xFD39            pmdneo_v2_fade_level (= 1 byte、ADR-0050 §決定 4 軸 B 実装 sprint 6 β fade-out 減衰 factor)
 ;;;   0xFD3A            pmdneo_v2_ssg_mixer (= 1 byte、ADR-0051 §決定 4 軸 B 実装 sprint 7 β SSG mixer reg 0x07 shadow)
-;;;   0xFD3B - 0xFFBF   free / 後続 phase 用 (= 645 bytes 余裕)
+;;;   0xFD3B            pmdneo_v2_entry_marker (= 1 byte、ADR-0052 §決定 2 軸 B 実装 sprint 1 β v2 entry skeleton 到達 marker)
+;;;   0xFD3C - 0xFFBF   free / 後続 phase 用 (= 644 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -335,6 +349,10 @@ nmi_dispatch:
         jp      z, nmi_cmd_5_adpcmb_beat
         cp      #6
         jp      z, nmi_cmd_6_fade_start
+        ;; ADR-0052 β: NMI dispatch command 0x07 = 軸 B v2 entry (= δ-1 FM/SSG v2)。
+        ;;   cmd 0x06 (fade) と別 command 番号。 cmd 7/8 は従来 nmi_done へ落ちる空き。
+        cp      #7
+        jp      z, nmi_cmd_7_play_song_v2
         cp      #9
         jp      c, nmi_done
         cp      #24
@@ -474,19 +492,11 @@ nmi_cmd_2_play_song:
         .endif
         jp      nmi_done
 
-nmi_cmd_5_adpcmb_beat:
-        .if TEST_MODE_CHORD == 5
-        call    nmi_cmd_5_init_mml_song
-        jp      nmi_done
-        .else
-        ld      a, (driver_adpcmb_done_flag)
-        or      a
-        jp      nz, nmi_done
-        call    init_adpcmb_beat
-        ld      a, #1
-        ld      (driver_adpcmb_done_flag), a
-        jp      nmi_done
-        .endif
+        ;; ADR-0052 β: nmi_cmd_5_adpcmb_beat は 0x0066 セクション overflow 軽減 (= 案 A)
+        ;; のため 0x0610 セクションへ移設した (= cmd 0x07 分岐 5 byte の空き確保、
+        ;; feedback_org_section_overflow_silent_bug.md 再発防止)。 routine 内容は移設前と
+        ;; 同一 = cmd 5 register trace 等価。 nmi_dispatch の `jp z, nmi_cmd_5_adpcmb_beat`
+        ;; は絶対 jp で配置非依存。
 
         ;; ADR-0050 β finding: nmi_cmd_6_fade_start は本来この位置 (= 0x0066 NMI
         ;; セクション末尾) にあったが、 0x0066 セクションが既に 0x0100 を越えて
@@ -1712,6 +1722,12 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
 .if TEST_MODE_FADE_FIXTURE
         call    pmdneo_fade_begin
 .endif
+        ;; ADR-0052 β v2 entry fixture (= driver-embedded、 TEST_MODE_V2_ENTRY_FIXTURE=0
+        ;;   で skip)。 v2 entry skeleton を直接 call し pmdneo_v2_entry_marker write を
+        ;;   register trace で観測。 production build では本 call skip。
+.if TEST_MODE_V2_ENTRY_FIXTURE
+        call    pmdneo_v2_entry_skeleton
+.endif
         ld      a, #1
         ld      (driver_song_ready), a
         ret
@@ -2068,6 +2084,51 @@ pmdneo_ssg_tone_sync_write:
 
 pmdneo_ssg_tone_mask:
         .db     0x01, 0x02, 0x04        ; SSG ch 0/1/2 の tone bit mask
+
+;;; ============================================================
+;;; ADR-0052 軸 B 実装 sprint 1 (= δ-1) β: cmd 0x07 v2 entry + trigger path
+;;;   NMI dispatch command 0x07 = 軸 B Phase 2 fullscratch driver (v2) の entry。
+;;;   既存 cmd 0x02 (= nmi_cmd_2_play_song = Phase 1 PoC base) と完全並走、
+;;;   cmd 0x06 (= nmi_cmd_6_fade_start = ADR-0050 fade) とは別 command 番号。
+;;;   配置: 0x0610 セクション (= .org 制約なし、 ADR-0049/0050/0051 並設 pattern)。
+;;;   β scope = trigger path + v2 entry skeleton 入口のみ。 FM 6ch / SSG 3ch
+;;;   v2 dispatcher 本体は γ/δ sub-sprint。
+;;; ============================================================
+
+;; nmi_cmd_5_adpcmb_beat: NMI dispatch command 5 = ADPCM-B beat。 ADR-0052 β で
+;;   0x0066 セクション overflow 軽減 (= 案 A) のため本セクション (= 0x0610) へ移設。
+;;   routine 内容は移設前と同一 (= cmd 5 register trace 等価)。
+nmi_cmd_5_adpcmb_beat:
+        .if TEST_MODE_CHORD == 5
+        call    nmi_cmd_5_init_mml_song
+        jp      nmi_done
+        .else
+        ld      a, (driver_adpcmb_done_flag)
+        or      a
+        jp      nz, nmi_done
+        call    init_adpcmb_beat
+        ld      a, #1
+        ld      (driver_adpcmb_done_flag), a
+        jp      nmi_done
+        .endif
+
+;; nmi_cmd_7_play_song_v2: NMI dispatch command 0x07 = 軸 B v2 song 再生開始。
+;;   nmi_dispatch の cmd 0x07 分岐から到達。 v2 entry skeleton を call し nmi_done
+;;   へ。 破壊 register = AF (= pmdneo_v2_entry_skeleton 経由)。
+nmi_cmd_7_play_song_v2:
+        call    pmdneo_v2_entry_skeleton
+        jp      nmi_done
+
+;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β、 δ-1)。
+;;   β scope = 入口到達の marker write のみ。 FM 6ch / SSG 3ch v2 dispatcher 本体は
+;;   γ/δ sub-sprint。 pmdneo_v2_entry_marker に 0x07 を write し ret (= cmd 0x07
+;;   trigger path verify gate の観測点)。 ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE
+;;   build では nmi_cmd_5_init_mml_song から本 routine を直接 call する。
+;;   破壊 register = AF。
+pmdneo_v2_entry_skeleton:
+        ld      a, #0x07
+        ld      (pmdneo_v2_entry_marker), a
+        ret
 
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea

@@ -206,7 +206,7 @@ verify gate の最終件数 / fixture 詳細は ε sub-sprint で確定する。
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
 | α (= ADR-0052 起票 + cmd 0x07 doc-correction) | **完了** (= 39th session) | 起票 PR #74 + doc-correction PR | 次着手 sprint 比較 review approve (= δ-1) + ADR-0052 起票 plan review approve (= must-fix 0) + ADR-0052 起票 review approve + cmd 0x07 doc-correction review |
-| β (= cmd 0x07 trigger path 実装) | 未着手 | - | - |
+| β (= cmd 0x07 trigger path 実装) | **完了** (= 39th session、 PR #76) | PR #76 | revised β kickoff plan review = round 1 escalate (`.org 0x0066` overflow 確定) → 案 A user 判断 gate → round 2 approve + β 実装 review approve (= must-fix 0) |
 | γ (= FM 6ch v2 dispatcher 実装) | 未着手 | - | - |
 | δ (= SSG 3ch v2 dispatcher 実装) | 未着手 | - | - |
 | ε (= verify script 体系化 + completion + Accepted 判断) | 未着手 | - | - |
@@ -270,9 +270,48 @@ ADR-0049 mute / ADR-0050 fade-out / ADR-0051 SSG tone-enable は Accepted 済で
 | δ | SSG v2 dispatcher の reg 0x00-0x0A write 順序 / `pmdneo_v2_` SRAM field 最小配置 |
 | ε | verify gate 最終件数 / audio gate 要否 (= v2 path 実音段階) / Draft → Accepted 移行判断 |
 
+## Annex D: β 実装 completion record (= cmd 0x07 v2 entry trigger path)
+
+### D-1: β deliverable
+
+軸 B 実装 sprint 1 β = cmd 0x07 v2 entry trigger path 実装 (= 39th session、 PR #76)。 §決定 3 = live `nmi_dispatch` の NMI dispatch command 0x07 を v2 entry trigger path とする。
+
+| deliverable | 内容 |
+|---|---|
+| `nmi_dispatch` cmd 0x07 分岐 | cmd 6 分岐直後に `cp #7` + `jp z, nmi_cmd_7_play_song_v2` を additive 追加。 既存 cmd 2/5/6/9-23/24-57 分岐は判定順序・cmd 番号不変 |
+| `nmi_cmd_7_play_song_v2` | cmd 0x07 dispatch target 並設 routine (= 0x0610 セクション)。 `call pmdneo_v2_entry_skeleton` + `jp nmi_done` |
+| `pmdneo_v2_entry_skeleton` | v2 main loop 入口骨格 並設 routine (= 0x0610 セクション)。 `pmdneo_v2_entry_marker` (0xFD3B) へ 0x07 write + `ret`。 FM/SSG v2 dispatcher 本体は含まない (= γ/δ) |
+| `pmdneo_v2_entry_marker` | SRAM 1 byte @ 0xFD3B (= free region、 `pmdneo_v2_` prefix)。 v2 entry skeleton 到達 marker |
+| `nmi_cmd_5_adpcmb_beat` 移設 | 0x0066 セクションから 0x0610 セクションへ verbatim 移設 (= 案 A overflow 軽減) |
+| `TEST_MODE_V2_ENTRY_FIXTURE` | driver-embedded fixture toggle (.equ 0) + `build.mk` / `build-poc.sh` wiring (= `PMDNEO_V2_ENTRY_FIXTURE=1`) |
+
+### D-2: `.org 0x0066` overflow 軽減 (= 案 A、 β kickoff plan escalate finding)
+
+β kickoff plan 整理で `.org 0x0066` NMI セクション overflow 確定 finding (= 空き 3 byte / cmd 0x07 分岐 5 byte、 user escalate)。 user 判断 gate = 案 A (= 小型 routine 移設)。 `nmi_cmd_5_adpcmb_beat` (= 6 byte) を 0x0610 セクションへ verbatim 移設し、 0x0066 セクションに cmd 0x07 分岐 5 byte の空きを確保。
+
+- 移設後 0x0066 セクション末尾 = 0x00FB (= 移設前 0x00FC から net -1 byte、 0x0100 未満、 overflow なし、 4 byte 空き)。
+- `nmi_dispatch` の `jp z, nmi_cmd_5_adpcmb_beat` は絶対 jp で移設先を指す (= 配置非依存)。
+- 移設は verbatim relocation。 `nmi_cmd_5_adpcmb_beat` の operand (`call nmi_cmd_5_init_mml_song` / `jp nmi_done`) は全て position-independent (= 両 routine の address は移設点より前 / 別セクションで不変) → cmd 5 routine machine code byte-identical、 register trace 等価。
+
+### D-3: §決定 7 gate 2 = byte-identical → register trace 等価 読み替え
+
+§決定 7 gate 2 は「既存 cmd path byte-identical」。 案 A relocation で 0x0066 セクション内 address が reflow するため、 厳密な byte-identical は成立しない (= 既存 cmd 分岐の `jp` operand が移設に伴い変化)。 本 β で gate 2 を **register trace 等価** と読み替える (= ADR-0050 β の `nmi_cmd_6_fade_start` relocation 先例 + memory `feedback_refactor_gate_register_trace_not_wav.md` の「refactor 系 gate は register trace、 byte-identical にしない」 規律)。
+
+### D-4: β 検証結果
+
+- production build PASS + `.lst` section check: 0x0066 セクション末尾 0x00FB (= overflow なし)、 `nmi_cmd_5_adpcmb_beat` / `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` 全て 0x0610 セクション、 cmd 0x07 分岐 `cp #7` + `jp z, nmi_cmd_7_play_song_v2` 正常配置
+- V2 fixture build (= `TEST_MODE_V2_ENTRY_FIXTURE=1`、 `.preprocessed` で `, 1` 化確認) + MAME headless trace: z80-mem-trace に `pmdneo_v2_entry_marker` (0xFD3B) ← 0x07 write を観測 (= cmd 0x07 v2 entry path = `nmi_cmd_7_play_song_v2` → `pmdneo_v2_entry_skeleton` 到達)
+- regression: `verify-mute-semantics.sh` 7 gate + `verify-fadeout-semantics.sh` 16 gate + `verify-ssg-tone-enable.sh` 15 gate 全 PASS (= cmd 5 移設 + cmd 0x07 分岐 additive が既存経路を破壊しない)
+- Codex layer 2 review = revised β kickoff plan review approve + β 実装 review approve (= must-fix 0)
+
+### D-5: 案 B (= `nmi_dispatch` 全体移設) future structural cleanup 候補
+
+`.org 0x0066` NMI セクションは ADR-0050 β (= `nmi_cmd_6_fade_start` overlap) + 本 ADR-0052 β (= cmd 0x07 分岐) で 2 回 overflow に直面した。 将来 cmd 追加 (= δ-3 X/Y/Z unmask cmd 58+ 等) で再発する場合、 **案 B = `nmi_dispatch` chain 全体を 0x0610 セクションへ移設 (= NMI handler の `jr nz, nmi_dispatch` → `jp nz`)** する構造的恒久 fix を検討する。 本 β では不採用 (= 39th session user 判断、 β は cmd 0x07 trigger path に集中)。 future structural cleanup 候補として記録する。
+
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
 | 2026-05-21 | Draft 起票 (= 39th session 軸 B 実装 sprint 1 α) | δ-1 FM/SSG v2 entry + dispatch trigger path の実装 ADR を起票。 軸 B 本線復帰の次着手 1 本として δ-1 を選定 (= 39th session 実装 sprint 1-4 比較 + Codex layer 2 review approve + user 判断 gate)。 決定 1-11 + 5 段 sub-sprint α/β/γ/δ/ε + verify gate 7 件 + δ-1 minimal scope (= FM 6ch + SSG 3ch dispatcher のみ、 接続点は δ-4 defer) + 既存 cmd path byte-identical 保護 + chip target flag 分岐。 doc-only filing (= ADR-0052 + dashboard のみ変更)。 ADR-0045 §J-4-1 literal 後続実装 ADR。 軸 B 実装 sprint chain は実装 1 = δ-1 が v2 driver foundation、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
 | 2026-05-21 | cmd 0x07 doc-correction (= 39th session、 β kickoff plan 整理 finding、 user escalate → 確定) | β kickoff plan 整理で trigger path 想定誤りを発見。 ADR-0045 §I-1-b + ADR-0052 起票第 1 版 §決定 3 の「`IRQ.inc cmd_jmptable` へ cmd 0x06 additive」 は (1) `cmd_jmptable` が live `standalone_test.s` build に不在 (= legacy nullsound 経路)、 (2) NMI dispatch command 6 = `nmi_cmd_6_fade_start` が ADR-0050 fade で使用中、 の 2 点で live driver ground truth と不一致。 §決定 3 を **cmd 0x07 + live `nmi_dispatch`** へ訂正 (= 決定 3-a override 明示 + 3-b 確定方針 + 3-c 層の違い整理)。 trigger routine 名 = `nmi_cmd_7_play_song_v2`。 ADR 全体 (= 決定 1/5/7/8/9 + Annex A/B/C + 平易要約 + 状態行) を cmd 0x07 + `nmi_dispatch` 前提へ整合。 doc-only (= ADR-0052 + dashboard、 driver 不変)。 Codex layer 2 doc-correction review 経由。 β 実装は本 doc-correction PR merge 後に着手 |
+| 2026-05-21 | β 実装完了 (= 39th session、 PR #76) | cmd 0x07 v2 entry trigger path 実装。 live `nmi_dispatch` に cmd 0x07 分岐 (`cp #7` + `jp z, nmi_cmd_7_play_song_v2`) を additive 追加 + `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` 並設 routine 新設 (= 0x0610 セクション) + `pmdneo_v2_entry_marker` (0xFD3B) + `TEST_MODE_V2_ENTRY_FIXTURE` build wiring。 `.org 0x0066` overflow 軽減 = 案 A で `nmi_cmd_5_adpcmb_beat` を 0x0610 セクションへ verbatim 移設 (= β kickoff plan で overflow 確定 finding → user escalate → 案 A 確定)。 Annex D 追記 (= β completion record + 案 A 軽減 + gate 2 register trace 等価 読み替え + 検証結果 + 案 B future cleanup 候補) + sub-sprint chain β 完了 reflect。 検証 = production build + .lst 0x0066 末尾 0x00FB (overflow なし) + V2 fixture trace で pmdneo_v2_entry_marker 0x07 write + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = revised β kickoff plan review (= round 1 escalate overflow 確定 → 案 A → round 2 approve) + β 実装 review approve。 軸 B 実装 sprint 1 = δ-1、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
