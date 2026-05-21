@@ -1,6 +1,6 @@
 # ADR-0051: PMDNEO 軸 B 実装 sprint 7 = SSG tone-enable semantics (= SSG note dispatch 時の mixer reg `0x07` on-demand tone enable / symmetric disable、 Phase 12a-5b の always-on 撤去判断を維持、 mixer reg 3ch 共有のため shadow byte で状態管理、 doc-only filing) 設計 (= sprint 7 α、 3 sub-sprint 構成)
 
-- 状態: **Draft** (= 2026-05-21 39th session 軸 B 実装 sprint 7 α、 root cause 調査 + ADR 起票 doc-only filing、 後続 β/γ で driver 実装 → verify → completion。 test-tone-ladder.mml 診断 (= PR #65) で surface した軸 B 実装 sprint。 **軸 B 実装 sprint chain は ADR-0045 §J-4 当初 6 候補 (= 実装 1-4 + mute + fade-out) に本 sprint 7 が追加された形**。 sprint 5 mute (= ADR-0049 Accepted) + sprint 6 fade-out (= ADR-0050 β 完了) は完了済、 実装 1-4 (= δ-1〜δ-4) は未着手。 軸 B 全体は未完了、 「軸 B 完成」 表現不使用)
+- 状態: **Accepted** (= 2026-05-21 39th session、 軸 B 実装 sprint 7 α/β/γ 全 sub-sprint 完走 (= PR #66/#67/#68 MERGED) + user 判断 gate 経由 Draft → Accepted 移行。 α = root cause 調査 + 起票、 β = SSG tone-enable on-demand driver 実装 (+ pitch bug 修正)、 γ = verify script 体系化 (= `verify-ssg-tone-enable.sh` 12 gate ALL PASS)。 test-tone-ladder.mml 診断 (= PR #65) で surface した軸 B 実装 sprint。 **軸 B 実装 sprint chain は ADR-0045 §J-4 当初 6 候補 (= 実装 1-4 + mute + fade-out) に本 sprint 7 が追加された形**。 sprint 5 mute (= ADR-0049 Accepted) + sprint 6 fade-out (= ADR-0050 β 完了) は完了済、 実装 1-4 (= δ-1〜δ-4) は未着手。 **軸 B 実装 sprint 7 = SSG tone-enable 完了、 ただし軸 B 全体は未完了、 「軸 B 完成」 表現不使用**。 follow-up = FM attack click (= Annex C-5) / V0 SSG keyon literal trace gate (= Annex D-3))
 - 起票日: 2026-05-21
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -358,9 +358,9 @@ ADR §決定 5 起票時の 11 gate を γ で 12 gate に精緻化した (= ADR
 - **gate 7 を rename**: §決定 5 起票時の「V0 SSG keyon で tone enable しない」 の literal trace gate は、 `test-tone-ladder.mml` の SSG part (G/H/I) が `V15` + note 構成で **V0 SSG keyon を含まない** ため register trace で直接検証できない。 γ では gate 7 を trace 観測可能な「leading-rest non-enable」 (= 最初の SSG note より前に reg `0x07` enable なし = V15 が premature enable しない) に rename。 keyon hook の code path (= vol==0 → `pmdneo_ssg_tone_sync` が disable) は β 実装済。 **literal な V0 SSG keyon trace gate 化は V0 SSG keyon を含む専用 fixture が必要** = γ scope 外の follow-up (= `test-tone-ladder.mml` は変更しない方針のため)。
 - **冗長 reg `0x07` write の観測**: `pmdneo_ssg_tone_sync` は reg `0x07` を無条件 write するため、 ある ch が tone enable 中に別 ch の rest-keyoff (= disable、 既 disabled で no-op) が現 shadow 値を再 write する。 = 同値の冗長 write で無害 (= audible 影響なし、 shadow 整合は gate 6 で担保)。 gate 7 はこの冗長 write を踏まえ leading-rest 区間の値で premature enable を判定する。
 
-### D-4: ADR-0051 Draft → Accepted 判断根拠
+### D-4: ADR-0051 Draft → Accepted 移行根拠 (= 2026-05-21 user 判断 gate で Accepted 移行)
 
-ADR-0051 (= 軸 B 実装 sprint 7 SSG tone-enable semantics) の Draft → Accepted 移行判断の根拠を整理する (= 移行自体は user 判断 gate)。
+ADR-0051 (= 軸 B 実装 sprint 7 SSG tone-enable semantics) は 2026-05-21 に user 判断 gate を経て Draft → Accepted へ移行した。 移行根拠は次のとおり。
 
 1. **3 sub-sprint 完走** = α (= root cause 調査 + 起票、 PR #66) / β (= driver 実装、 PR #67) / γ (= verify script 体系化、 本 PR) 全完了。
 2. **verify gate 12 件 ALL PASS** (= D-2)。 register trace primary gate で SSG tone-enable / disable / shadow 整合 / FM 回帰 / mute・fade・baseline regression / `.org` overlap を機械的検証。
@@ -374,6 +374,7 @@ ADR-0051 (= 軸 B 実装 sprint 7 SSG tone-enable semantics) の Draft → Accep
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-21 | Draft → Accepted 移行 (= 39th session、 user 判断 gate) | 軸 B 実装 sprint 7 α/β/γ 全 sub-sprint 完走 (= PR #66/#67/#68 MERGED) + verify-ssg-tone-enable.sh 12 gate ALL PASS + 越川氏 audition で SSG 可聴・pitch 正常確認 + 規律遵守 (= always-on 不回帰 / mute・fade・軸 G 不可触) を根拠に、 user 判断 gate を経て状態を Draft → Accepted へ移行 (= 移行根拠 Annex D-4)。 軸 B 実装 sprint 7 = SSG tone-enable 完了、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用)。 follow-up = FM attack click (Annex C-5) / V0 SSG keyon literal trace gate (Annex D-3) |
 | 2026-05-21 | Draft 起票 (= 39th session 軸 B 実装 sprint 7 α) | SSG tone-enable root cause 全数調査 (= Annex A) + 決定 1-8 + verify gate 11 件 + 設計核心 (= reg `0x07` shadow byte 状態管理) + 3 段 sub-sprint 構成、 doc-only filing (= ADR-0051 + dashboard のみ変更)。 test-tone-ladder.mml 診断 (= PR #65) で surface した軸 B 実装 sprint。 ADR-0045 §J-4 当初 6 候補に追加された sprint 7 |
 | 2026-05-21 | γ verify script 体系化完了 (= 39th session、 本 PR) | 新規 verify script `verify-ssg-tone-enable.sh` (= 12 gate)、 PMDNEO_NO_FADE=1 + test-tone-ladder.mml fixture。 12 gate ALL PASS。 Annex D 追記 (= D-1 deliverable / D-2 12 gate 結果 / D-3 gate 精緻化 = §決定 5 11 gate → 12 gate + gate 7 rename leading-rest non-enable + V0 keyon literal trace は follow-up + 冗長 reg 0x07 write 観測 / D-4 Draft→Accepted 判断根拠) + sub-sprint chain γ 完了 reflect。 Codex layer 2 = plan review revise (gate 7 trace 検証不可) → 修正 → approve + completion review。 driver / fixture 不変 (= verify 整備のみ)。 ADR-0051 Draft → Accepted 移行は user 判断 gate。 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
 | 2026-05-21 | β 実装完了 (= 39th session、 本 PR) | SSG tone-enable on-demand 実装 = `pmdneo_v2_ssg_mixer` shadow byte + `pmdneo_ssg_tone_sync` helper + keyon/keyoff/V cmd hook + init 同期。 Annex C 追記 (= C-1 deliverable / C-2 verify 結果 register trace 全 gate PASS + SSG tone period ascending / C-3 user audition 結果 literal 2 回 / C-4 SSG pitch 異常の真因 = β 自身の register 破壊 bug = must-fix 1、 β 内で修正済 / C-5 FM attack click finding = β scope 外・後続候補) + sub-sprint chain α/β 完了 reflect。 Codex layer 2 = plan review revise→approve + completion review revise (= must-fix 1 keyon hook A=note 破壊) → 修正 → 再 review。 driver `standalone_test.s` 実装、 `fnumsetp_ch` / FM voice / FM keyon 不可触、 ADR-0049 mute / ADR-0050 fade 経路 / 軸 G ADR-0048 不可触。 軸 B 実装 sprint chain 進行中 (= 「軸 B 完成」 表現不使用) |
