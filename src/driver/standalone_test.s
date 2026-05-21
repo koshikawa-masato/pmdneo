@@ -175,6 +175,13 @@
         ;;   派生値で直接 ramp。 非 fade 時は 64 固定 = volume hook passthrough。
         .equ    pmdneo_v2_fade_level,          0xFD39
 
+        ;; ADR-0051 §決定 4 軸 B 実装 sprint 7 β: SSG mixer reg 0x07 の shadow byte
+        ;;   1 byte、 0xFD3A (= pmdneo_v2_fade_level の次)。 reg 0x07 は 3 SSG tone ch
+        ;;   (= bit 0-2) + 3 noise ch (= bit 3-5) を 1 byte 共有 + read-back 不可の
+        ;;   ため、 driver SRAM に shadow を保持し read-modify-write する。 song init
+        ;;   で 0x3F (= 全 disable) 初期化。 reg 0x07 は 0=enable / 1=disable。
+        .equ    pmdneo_v2_ssg_mixer,           0xFD3A
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -200,7 +207,8 @@
 ;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
 ;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
 ;;;   0xFD39            pmdneo_v2_fade_level (= 1 byte、ADR-0050 §決定 4 軸 B 実装 sprint 6 β fade-out 減衰 factor)
-;;;   0xFD3A - 0xFFBF   free / 後続 phase 用 (= 646 bytes 余裕)
+;;;   0xFD3A            pmdneo_v2_ssg_mixer (= 1 byte、ADR-0051 §決定 4 軸 B 実装 sprint 7 β SSG mixer reg 0x07 shadow)
+;;;   0xFD3B - 0xFFBF   free / 後続 phase 用 (= 645 bytes 余裕)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
@@ -1412,6 +1420,9 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ld      b, #0x07
         ld      c, #0x3F
         call    ym2610_write_port_a
+        ;; ADR-0051 β: SSG mixer shadow byte を reg 0x07 と同値 (= 0x3F) で初期同期
+        ld      a, #0x3F
+        ld      (pmdneo_v2_ssg_mixer), a
         ;; SSG vol 0 all 3 channels
         ld      b, #0x08
         ld      c, #0x00
@@ -1965,6 +1976,54 @@ pmdneo_fade_scale_shift:
 pmdneo_fade_scale_zero:
         xor     a                       ; level 0 -> 完全減衰
         ret
+
+;;; ============================================================
+;;; ADR-0051 軸 B 実装 sprint 7 β: SSG tone-enable semantics
+;;;   SSG mixer reg 0x07 の tone bit を on-demand enable / symmetric disable する。
+;;;   reg 0x07 は 3 SSG tone ch (bit 0-2) + 3 noise ch (bit 3-5) を 1 byte 共有 +
+;;;   read-back 不可のため、 shadow byte (pmdneo_v2_ssg_mixer) を read-modify-write。
+;;;   always-on (reg 0x07=0x38) へは戻さない (= Phase 12a-5b 残音対策判断を維持)。
+;;; ============================================================
+
+;; pmdneo_ssg_tone_sync: SSG ch の mixer reg 0x07 tone bit を実効 volume に同期。
+;;   入力 B = SSG ch_idx (0-2)、 A = 実効 volume (0-15)。
+;;   A > 0 → 該当 ch tone bit enable (= shadow 該当 bit clear)。
+;;   A == 0 → disable (= shadow 該当 bit set)。
+;;   shadow (pmdneo_v2_ssg_mixer) を read-modify-write し reg 0x07 へ反映 = 他 ch
+;;   tone bit / noise bit を破壊しない。 本 routine が reg 0x07 の唯一の RMW owner
+;;   (= 直接 reg 0x07 write を本 routine 以外で増やさない)。
+;;   破壊: AF/BC/DE/HL。 IX/IY 不変。
+pmdneo_ssg_tone_sync:
+        ld      e, a                    ; E = vol 退避
+        ld      hl, #pmdneo_ssg_tone_mask
+        ld      a, b
+        ld      c, a
+        ld      b, #0
+        add     hl, bc                  ; HL = &pmdneo_ssg_tone_mask[ch_idx]
+        ld      c, (hl)                 ; C = bit mask (0x01 / 0x02 / 0x04)
+        ld      a, (pmdneo_v2_ssg_mixer)
+        ld      d, a                    ; D = 現 shadow
+        ld      a, e                    ; A = vol
+        or      a
+        jr      z, pmdneo_ssg_tone_sync_off
+        ;; vol > 0 → tone enable = shadow & ~mask (= 該当 bit clear)
+        ld      a, c
+        cpl
+        and     d
+        jr      pmdneo_ssg_tone_sync_write
+pmdneo_ssg_tone_sync_off:
+        ;; vol == 0 → tone disable = shadow | mask (= 該当 bit set)
+        ld      a, d
+        or      c
+pmdneo_ssg_tone_sync_write:
+        ld      (pmdneo_v2_ssg_mixer), a
+        ld      c, a                    ; C = 新 shadow 値
+        ld      b, #0x07
+        call    ym2610_write_port_a     ; reg 0x07 <- shadow
+        ret
+
+pmdneo_ssg_tone_mask:
+        .db     0x01, 0x02, 0x04        ; SSG ch 0/1/2 の tone bit mask
 
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea
@@ -3018,6 +3077,10 @@ psg_keyon_hook:
 ssg_keyoff_hook:
         ld      b, PART_OFF_CH_IDX(ix)
         call    ssg_keyoff
+        ;; ADR-0051 β: SSG keyoff で該当 ch mixer tone bit を disable (= symmetric)
+        ld      b, PART_OFF_CH_IDX(ix)
+        xor     a                       ; A = 0 → pmdneo_ssg_tone_sync が disable
+        call    pmdneo_ssg_tone_sync
         ret
 
 fnumsetp_ch_hook:
@@ -3029,6 +3092,16 @@ fnumsetp_ch_hook:
 ;; PART_OFF_VOLUME 値 (= 0-15、 V cmd 受領後 v→V 変換 経由) を SSG vol reg に反映
 ;; reg 0x08-0x0A (= ch1/2/3 vol、 bit 0-3 vol、 bit 4 envelope select)
 psg_volume_hook:
+        ;; ADR-0051 β: V cmd で実効 volume == 0 (= V0) の時のみ該当 ch mixer tone
+        ;; bit を disable。 V > 0 では tone bit を一切触らない (= enable は keyon hook
+        ;; に集約、 rest 中の V コマンドでの premature tone enable を回避)。
+        ld      a, PART_OFF_VOLUME(ix)
+        and     #0x0F
+        jr      nz, psg_volume_hook_faded   ; V > 0 → tone bit 不変
+        ld      b, PART_OFF_CH_IDX(ix)
+        xor     a                       ; A = 0 → pmdneo_ssg_tone_sync が disable
+        call    pmdneo_ssg_tone_sync
+psg_volume_hook_faded:
         ;; ADR-0050 β: fade factor 乗算混入 (= 案 b)。 pmdneo_fade_scale が BC/DE/HL
         ;; を破壊するため、 vol scale を先に行い faded vol を C に確定してから
         ;; reg lookup する (= 順序入替、 level=64 で byte-identical)。
@@ -3112,7 +3185,19 @@ noop_hook:
         ret
 
 pmdneo_psg_keyon:
+        ;; ADR-0051 β: SSG note keyon 時、 該当 ch mixer tone bit を実効 volume に
+        ;; 同期 (= raw V level、 fade scale 前 = ADR-0050 fade と独立)。 vol > 0 で
+        ;; tone enable、 == 0 (= V0 keyon) で enable しない (= disable)。
+        ;; pmdneo_ssg_tone_sync は AF/BC/DE/HL を破壊するため、 entry の
+        ;; B = ch_idx / A = note byte を、 call 後に B = ch_idx は IX から、
+        ;; A = note byte は PART_OFF_NOTE から再ロードする (= 後続 fnumsetp_ch は
+        ;; A = note byte 契約 = この A 再ロードを欠くと SSG tone period が壊れる)。
+        ld      a, PART_OFF_VOLUME(ix)
+        and     #0x0F                   ; A = 実効 volume (V level 0-15)
+        call    pmdneo_ssg_tone_sync    ; B = ch_idx, A = vol (= AF/BC/DE/HL 破壊)
+        ld      b, PART_OFF_CH_IDX(ix)  ; B = ch_idx 再ロード
         push    bc                      ; B = ch_idx 退避 (= fnumsetp_ch + fade_scale 破壊対策)
+        ld      a, PART_OFF_NOTE(ix)    ; A = note byte 再ロード (= fnumsetp_ch 契約)
         call    fnumsetp_ch
         ;; ADR-0050 β: SSG keyon は note 毎に volume register を書く volume write
         ;; path のため fade factor 乗算混入が必要 (= 案 b、 scale しないと fade 中の
