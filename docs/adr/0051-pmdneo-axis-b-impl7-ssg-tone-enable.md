@@ -164,8 +164,8 @@ ADR-0050 fade 経路は本 sprint で touch しないため fade regression gate
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
-| α (= root cause 調査 + ADR 起票) | **進行中** (= 39th session、 本 PR) | 本 PR | ADR-0051 起票 review (= 後続) |
-| β (= SSG tone-enable on-demand 実装) | 未着手 | - | - |
+| α (= root cause 調査 + ADR 起票) | **完了** (= 39th session、 PR #66 MERGED) | PR #66 | ADR-0051 起票 review = revise (must-fix 1 V>0 ガード) → 修正 → approve |
+| β (= SSG tone-enable on-demand 実装) | **完了** (= 39th session、 本 PR) | 本 PR | 実装 plan review = revise (must-fix 2) → 修正 → approve + completion review (= 後続) |
 | γ (= verify script 体系化 + completion + Accepted 判断) | 未着手 | - | - |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
@@ -259,8 +259,75 @@ call ym2610_write_port_a
 
 β 実装の新規 routine (= tone-enable / tone-disable + shadow 操作) は `.org` 制約のない `0x0610` セクション末尾に配置する (= ADR-0050 β `pmdneo_v2_fade_*` 配置 pattern 踏襲、 memory `feedback_org_section_overflow_silent_bug.md`)。 `.org 0x0100` IRQ handler body 等の 256 byte 制約セクションへの routine 配置は行わない。
 
+## Annex C: β 実装 completion record (= SSG tone-enable on-demand 実装)
+
+### C-1: β deliverable
+
+軸 B 実装 sprint 7 β = SSG tone-enable on-demand 実装 (= 39th session、 本 PR)。 §決定 3/4 の方針どおり driver `src/driver/standalone_test.s` に実装した。
+
+| 実装項目 | 内容 |
+|---|---|
+| `pmdneo_v2_ssg_mixer` | 1 byte SRAM field @ 0xFD3A (= reg `0x07` shadow、 §決定 4)。 song init で `0x3F` 同期初期化 |
+| `pmdneo_ssg_tone_sync` | 新規 helper (= 0x0610 セクション末尾)。 入力 B=ch_idx / A=実効 volume。 A>0 → 該当 tone bit enable、 A==0 → disable。 shadow read-modify-write + reg `0x07` write。 reg `0x07` の唯一の RMW owner |
+| `pmdneo_ssg_tone_mask` | tone bit mask table `.db 0x01,0x02,0x04` |
+| keyon hook | `pmdneo_psg_keyon` 冒頭で `pmdneo_ssg_tone_sync` (= raw V level、 fade scale 前)。 vol>0 enable / V0 keyon は enable しない。 `pmdneo_ssg_tone_sync` は AF/BC を破壊するため、 後続 `fnumsetp_ch` (= A=note byte 契約) の前に A=note を `PART_OFF_NOTE` から、 B=ch_idx を IX から再ロード (= Codex completion review must-fix 1 修正、 C-4 参照) |
+| keyoff hook | `ssg_keyoff_hook` で `call ssg_keyoff` 後に tone bit disable |
+| V cmd hook | `psg_volume_hook` で V0 時のみ disable。 V>0 は tone bit 不変 (= enable は keyon hook に集約、 rest 中 V コマンドでの premature enable 回避) |
+| init 同期 | `nmi_cmd_5_init_mml_song` の既存 reg `0x07`=`0x3F` write に隣接して shadow も `0x3F` 初期化 |
+
+Codex layer 2 review = 実装 plan review で revise (= must-fix 2 件 = keyon hook の BC/stack 整合 + V cmd hook の premature enable 回避) → 修正 → approve。 completion review で revise (= must-fix 1 = keyon hook が A=note byte を破壊し `fnumsetp_ch` に誤値が渡る、 C-4 の SSG pitch bug 真因 / must-fix 2 = `0xFB` 経路) → must-fix 1 修正 → 再 review。
+
+**part-end / tie の扱い** (= completion review must-fix 2 の論点整理): bytecode `0xFB` は **tie marker** (= compile.py `&` → `0xFB`)、 part-end terminator ではない (= terminator は `0x80`)。 `pmdneo_part_main` が note 終了時に次 byte `0xFB` で keyoff を skip するのは **tie の正しい挙動** (= tied note は持続、 tone は継続 enable が正)。 非 tie の note は keyoff hook (`ssg_keyoff_hook`) で tone disable されるため、 通常 part の part-end では最終 note の keyoff で tone disable 済。 tie で終わる part (= tie-at-end、 malformed MML 想定) のみ tone enable が残るが、 `test-tone-ladder.mml` 含む通常 MML には該当せず、 別 follow-up に literal 残す (= β plan review でも同判定)。
+
+### C-2: β verify 結果 (= register trace primary gate)
+
+fixture = `test-tone-ladder.mml` + `PMDNEO_NO_FADE=1` build。 MAME headless register trace 実測:
+
+- SSG tone period reg `0x00-0x05` = G/H/I 各 ch に write 発生 (= note dispatch 成立)。 must-fix 1 修正後、 tone period は G (LSB `0x9F`) > H (`0x8D`) > I (`0x7E`) = g4 < a4 < b4 の周波数 = ascending (= C-4 の pitch bug 修正確認)
+- SSG mixer reg `0x07` = G 区間で `0x3E` (= ch A tone bit のみ enable)、 H 区間で `0x3D` (= ch B)、 I 区間で `0x3B` (= ch C)、 各 note 後 `0x3F` (= 全 disable) へ復帰。 reg `0x07` の distinct 値は `3B / 3D / 3E / 3F` のみ = 単一 tone bit 操作で他 ch tone / noise bit (= bit 3-5 常時 `1`) を破壊しない
+- G/H/I の leading rest 中は reg `0x07` = `0x3F` 維持 = V15 (part 先頭) でも premature tone enable なし
+- FM keyon F1/F2/F5/F6 全発火 = FM B/C/E/F 回帰なし
+- `verify-mute-semantics.sh` 7 gate + baseline 9 script ALL PASS = ADR-0049 mute regression なし
+- production build `.lst` で `pmdneo_ssg_tone_sync` は 0x0610 セクション配置、 `.org` overlap なし
+
+### C-3: user audition 結果 (= literal 記録)
+
+越川氏 audition (= `test-tone-ladder.mml` + `PMDNEO_NO_FADE=1`、 fade なし全長再生) の結果を literal 記録する。
+
+**1 回目 audition (= must-fix 1 修正前)**:
+
+> 「そ、ら、は低い音で鳴り、し、は普通通りになった気がします」
+
+= SSG G/H/I は β tone-enable 実装により無音から可聴になった (= β の目的達成) が、 G (ソ) / H (ラ) の pitch が低かった。 この pitch 異常の真因は Codex completion review で β 自身の bug と判明 (= C-4)。
+
+**2 回目 audition (= must-fix 1 修正後)**:
+
+> 「(ソ ラ シ を含め) それ以外は正常になっています」 (= FM ド の attack click を除き正常)
+
+= must-fix 1 修正で SSG G/H/I の pitch が正常化 (= ソ ラ シ が ascending)。 FM ド の attack click は別 finding (= C-5)。
+
+### C-4: SSG pitch 異常の真因 = β 自身の bug (= must-fix 1、 β 内で修正済)
+
+C-3 の 1 回目 audition で surface した SSG pitch 異常 (= ソ/ラ低い) の真因は、 当初「pre-existing bug」 と推定したが、 **Codex layer 2 completion review で β 自身の実装 bug と判明し、 β 内で修正した**。
+
+- **真因**: keyon hook の `pmdneo_psg_keyon` で、 追加した `pmdneo_ssg_tone_sync` 呼出が A register を破壊。 後続 `call fnumsetp_ch` (= SSG tone period 計算、 A=note byte 契約) が note byte ではなく `pmdneo_ssg_tone_sync` の残値 (= mixer shadow 値 `0x3E`/`0x3D`/`0x3B`) を受け、 SSG tone period が壊れていた。 = β の register 破壊 bug。
+- **症状の説明**: G keyon 時 A=`0x3E` (= octave 3 / onkai 14 = out-of-range) → 異常 period → 低音。 H keyon 時 A=`0x3D` → 同様。 I keyon 時 A=`0x3B` (= octave 3 / onkai 11 = B) → 偶然 valid な B note (octave 3) → 「普通」 に聴こえた。
+- **修正**: `pmdneo_psg_keyon` で `call fnumsetp_ch` の前に `ld a, PART_OFF_NOTE(ix)` で A=note byte を再ロード (= C-1 keyon hook 行)。 修正後 trace で SSG tone period が ascending に正常化 (= C-2)、 2 回目 audition で ソ ラ シ 正常確認 (= C-3)。
+- **教訓**: `fnumsetp_ch` は A=note byte 契約。 keyon hook に register 破壊 routine を差し込む際は契約 register (A/B) の再確立が必須。 `test-tone-ladder.mml` 診断 MML が β 自身の register 破壊 bug を audition で炙り出した。
+
+### C-5: FM attack click finding (= β scope 外、 後続候補)
+
+C-3 の 2 回目 audition で、 FM B の `ド` (= `c1 c1` の 2 note) の attack でクリック音が聴取された。 これは **β (= SSG tone-enable) scope 外の FM 領域の finding** であり、 別 finding として記録する (= β PR に含めない、 FM note dispatch / voice は β で不可触)。
+
+- **症状**: FM B の `ド` の 1 回目・2 回目それぞれの note attack でクリック音。 FM C/E/F は同種の可能性あり。
+- **想定原因 (= 断定しない、 両論併記)**:
+  1. **voice 由来**: `@001` voice は modulator (slot 1-3) AR=31 (= 最速) + feedback fb=5 のため、 keyon 直後に FM 変調 (倍音) が瞬時に立ち上がり attack transient が出やすい。 voice の AR / feedback 調整で軽減しうる。
+  2. **FM note dispatch 由来**: FM の keyoff → register write → keyon の順序、 keyon 中の TL/fnum 書換、 keyoff から次 keyon までの間隔等でもクリックは生じうる。 FM note dispatch trace review が必要。
+- **扱い**: β scope 外。 後続候補 = 別 sprint で (a) voice 調整 fixture、 または (b) FM note-dispatch (keyoff→register write→keyon 順序) trace review。 起票するかは user 判断。 β は `fnumsetp_ch` / FM voice / FM keyon を不可触。
+
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
 | 2026-05-21 | Draft 起票 (= 39th session 軸 B 実装 sprint 7 α) | SSG tone-enable root cause 全数調査 (= Annex A) + 決定 1-8 + verify gate 11 件 + 設計核心 (= reg `0x07` shadow byte 状態管理) + 3 段 sub-sprint 構成、 doc-only filing (= ADR-0051 + dashboard のみ変更)。 test-tone-ladder.mml 診断 (= PR #65) で surface した軸 B 実装 sprint。 ADR-0045 §J-4 当初 6 候補に追加された sprint 7 |
+| 2026-05-21 | β 実装完了 (= 39th session、 本 PR) | SSG tone-enable on-demand 実装 = `pmdneo_v2_ssg_mixer` shadow byte + `pmdneo_ssg_tone_sync` helper + keyon/keyoff/V cmd hook + init 同期。 Annex C 追記 (= C-1 deliverable / C-2 verify 結果 register trace 全 gate PASS + SSG tone period ascending / C-3 user audition 結果 literal 2 回 / C-4 SSG pitch 異常の真因 = β 自身の register 破壊 bug = must-fix 1、 β 内で修正済 / C-5 FM attack click finding = β scope 外・後続候補) + sub-sprint chain α/β 完了 reflect。 Codex layer 2 = plan review revise→approve + completion review revise (= must-fix 1 keyon hook A=note 破壊) → 修正 → 再 review。 driver `standalone_test.s` 実装、 `fnumsetp_ch` / FM voice / FM keyon 不可触、 ADR-0049 mute / ADR-0050 fade 経路 / 軸 G ADR-0048 不可触。 軸 B 実装 sprint chain 進行中 (= 「軸 B 完成」 表現不使用) |
