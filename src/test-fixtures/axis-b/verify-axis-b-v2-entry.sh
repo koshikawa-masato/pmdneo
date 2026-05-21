@@ -13,9 +13,11 @@
 #   --- cmd 0x07 trigger path gate (= static + 動的 marker trace) ---
 #   gate 1: cmd 0x07 trigger path  — nmi_dispatch に cmd 0x07 分岐 (jp z,
 #                                     nmi_cmd_7_play_song_v2) + nmi_cmd_7_play_song_v2
-#                                     / pmdneo_v2_entry_skeleton routine 存在 (.lst
-#                                     静的) + V2 fixture build z80-mem-trace で
-#                                     pmdneo_v2_entry_marker (0xFD3B) <- 0x07 (動的)
+#                                     / pmdneo_v2_entry_skeleton routine 存在 +
+#                                     nmi_cmd_7_play_song_v2 が pmdneo_v2_entry_skeleton
+#                                     を call (= 連結 edge、 .lst 静的) + V2 fixture
+#                                     build z80-mem-trace で pmdneo_v2_entry_marker
+#                                     (0xFD3B) <- 0x07 (動的 = skeleton 到達)
 #   --- trace gate (= V2 fixture build、 ym2610 / ym2610b 両 chip) ---
 #   gate 3: FM 6ch v2 dispatch     — reg 0x28 keyon set = ym2610 {F1,F2,F5,F6} /
 #                                     ym2610b {F0,F1,F2,F4,F5,F6}
@@ -77,10 +79,19 @@ else
   ng "gate 2: 既存 cmd 分岐 欠落 (cmd2=$CMD2 cmd5=$CMD5 cmd6=$CMD6)"
 fi
 
-# --- gate 1 (静的部): cmd 0x07 分岐 + target routine 存在 ---
+# --- gate 1 (静的部): cmd 0x07 分岐 + target routine 存在 + cmd7 routine が
+#     pmdneo_v2_entry_skeleton を call すること (= cmd 0x07 -> skeleton 連結を
+#     routine label の存在だけでなく call edge まで静的確認) ---
 CMD7_BRANCH=$(grep -cE 'z, nmi_cmd_7_play_song_v2' "$LST" || true)
 CMD7_ROUTINE=$(awk '/[ \t]nmi_cmd_7_play_song_v2:/{print "ok"; exit}' "$LST")
 SKELETON_LBL=$(awk '/[ \t]pmdneo_v2_entry_skeleton:/{print "ok"; exit}' "$LST")
+# nmi_cmd_7_play_song_v2 label から次 label までの routine body に
+# `call pmdneo_v2_entry_skeleton` が存在するか (= 連結 edge の静的確認)。
+CMD7_CALLS_SKELETON=$(awk '
+  /[ \t]nmi_cmd_7_play_song_v2:/{seg=1; next}
+  seg && /[A-Za-z0-9_]:[ \t]*$/{seg=0}
+  seg && /call[ \t]+pmdneo_v2_entry_skeleton/{print "ok"; exit}
+' "$LST")
 
 # --- gate 6: .org overflow / section overlap ---
 # v2 並設 routine 4 件 (= nmi_cmd_7_play_song_v2 / pmdneo_v2_entry_skeleton /
@@ -121,16 +132,19 @@ cp "$ZMEM" "$ZMEM_2610"
 
 # --- gate 1: cmd 0x07 trigger path (= 静的 + 動的 marker) ---
 MARKER=$(awk -F'\t' '$3=="FD3B" && $4=="07"' "$ZMEM_2610" | wc -l | tr -d ' ')
-if [ "$CMD7_BRANCH" -ge 1 ] && [ "$CMD7_ROUTINE" = "ok" ] && [ "$SKELETON_LBL" = "ok" ] && [ "$MARKER" -ge 1 ]; then
-  ok "gate 1: cmd 0x07 trigger path = nmi_dispatch cmd 0x07 分岐($CMD7_BRANCH) + nmi_cmd_7_play_song_v2 / pmdneo_v2_entry_skeleton routine 存在 (静的) + pmdneo_v2_entry_marker 0xFD3B <- 0x07 ($MARKER 件、 動的 = skeleton 到達)"
+if [ "$CMD7_BRANCH" -ge 1 ] && [ "$CMD7_ROUTINE" = "ok" ] && [ "$SKELETON_LBL" = "ok" ] \
+   && [ "$CMD7_CALLS_SKELETON" = "ok" ] && [ "$MARKER" -ge 1 ]; then
+  ok "gate 1: cmd 0x07 trigger path = nmi_dispatch cmd 0x07 分岐($CMD7_BRANCH) + nmi_cmd_7_play_song_v2 routine が pmdneo_v2_entry_skeleton を call (= 連結 edge 静的確認) + routine label 存在 (静的) + pmdneo_v2_entry_marker 0xFD3B <- 0x07 ($MARKER 件、 動的 = skeleton 到達)"
 else
-  ng "gate 1: cmd 0x07 trigger path 不成立 (branch=$CMD7_BRANCH routine=$CMD7_ROUTINE skeleton=$SKELETON_LBL marker=$MARKER)"
+  ng "gate 1: cmd 0x07 trigger path 不成立 (branch=$CMD7_BRANCH routine=$CMD7_ROUTINE skeleton=$SKELETON_LBL calls_skeleton=$CMD7_CALLS_SKELETON marker=$MARKER)"
 fi
 
-# ym2610 FM keyon set / count (= reg 0x28 keyon = high nibble F) + SSG 0x0F count
+# ym2610 FM keyon set / count (= reg 0x28 keyon = high nibble F) + SSG 0x0F per-ch count
 FM_SET_2610=$(awk -F'\t' '$2=="A" && $3=="28" && $4 ~ /^F[0-9A-F]$/{print $4}' "$YMFM_2610" | sort -u | tr '\n' ',' | sed 's/,$//')
 FM_CNT_2610=$(awk -F'\t' '$2=="A" && $3=="28" && $4 ~ /^F[0-9A-F]$/' "$YMFM_2610" | wc -l | tr -d ' ')
-SSG_CNT_2610=$(awk -F'\t' '$2=="A" && ($3=="08"||$3=="09"||$3=="0A") && $4=="0F"' "$YMFM_2610" | wc -l | tr -d ' ')
+SSG08_2610=$(awk -F'\t' '$2=="A" && $3=="08" && $4=="0F"' "$YMFM_2610" | wc -l | tr -d ' ')
+SSG09_2610=$(awk -F'\t' '$2=="A" && $3=="09" && $4=="0F"' "$YMFM_2610" | wc -l | tr -d ' ')
+SSG0A_2610=$(awk -F'\t' '$2=="A" && $3=="0A" && $4=="0F"' "$YMFM_2610" | wc -l | tr -d ' ')
 
 # ============================================================
 # V2 fixture build (= ym2610b) + MAME headless trace
@@ -145,7 +159,9 @@ cp "$YMFM" "$YMFM_2610B"
 
 FM_SET_2610B=$(awk -F'\t' '$2=="A" && $3=="28" && $4 ~ /^F[0-9A-F]$/{print $4}' "$YMFM_2610B" | sort -u | tr '\n' ',' | sed 's/,$//')
 FM_CNT_2610B=$(awk -F'\t' '$2=="A" && $3=="28" && $4 ~ /^F[0-9A-F]$/' "$YMFM_2610B" | wc -l | tr -d ' ')
-SSG_CNT_2610B=$(awk -F'\t' '$2=="A" && ($3=="08"||$3=="09"||$3=="0A") && $4=="0F"' "$YMFM_2610B" | wc -l | tr -d ' ')
+SSG08_2610B=$(awk -F'\t' '$2=="A" && $3=="08" && $4=="0F"' "$YMFM_2610B" | wc -l | tr -d ' ')
+SSG09_2610B=$(awk -F'\t' '$2=="A" && $3=="09" && $4=="0F"' "$YMFM_2610B" | wc -l | tr -d ' ')
+SSG0A_2610B=$(awk -F'\t' '$2=="A" && $3=="0A" && $4=="0F"' "$YMFM_2610B" | wc -l | tr -d ' ')
 
 # --- gate 3: FM 6ch v2 dispatch (= reg 0x28 keyon set 両 chip) ---
 if [ "$FM_SET_2610" = "F1,F2,F5,F6" ] && [ "$FM_SET_2610B" = "F0,F1,F2,F4,F5,F6" ]; then
@@ -154,11 +170,14 @@ else
   ng "gate 3: FM keyon set 不一致 (ym2610={$FM_SET_2610} 期待 F1,F2,F5,F6 / ym2610b={$FM_SET_2610B} 期待 F0,F1,F2,F4,F5,F6)"
 fi
 
-# --- gate 4: SSG 3ch v2 dispatch (= reg 0x08/0x09/0x0A <- 値 0x0F 計 3、 両 chip) ---
-if [ "$SSG_CNT_2610" -eq 3 ] && [ "$SSG_CNT_2610B" -eq 3 ]; then
-  ok "gate 4: SSG 3ch v2 dispatch = reg 0x08/0x09/0x0A <- 値 0x0F ym2610 $SSG_CNT_2610 件 / ym2610b $SSG_CNT_2610B 件 (= SSG ch 0/1/2 各 1、 chip 共通 3ch)"
+# --- gate 4: SSG 3ch v2 dispatch (= reg 0x08/0x09/0x0A <- 値 0x0F、 各 ch 個別 1 件、 両 chip) ---
+# 総数 3 件ではなく reg 0x08/0x09/0x0A を個別 assert (= ある ch 2 件 + 別 ch 0 件で
+# 総数 3 になる擦り抜けを排除、 SSG ch 0/1/2 各 1 を担保)。
+if [ "$SSG08_2610" -eq 1 ] && [ "$SSG09_2610" -eq 1 ] && [ "$SSG0A_2610" -eq 1 ] \
+   && [ "$SSG08_2610B" -eq 1 ] && [ "$SSG09_2610B" -eq 1 ] && [ "$SSG0A_2610B" -eq 1 ]; then
+  ok "gate 4: SSG 3ch v2 dispatch = reg 0x08/0x09/0x0A <- 値 0x0F 各 ch 個別 1 件 (ym2610 08=${SSG08_2610}/09=${SSG09_2610}/0A=${SSG0A_2610}、 ym2610b 08=${SSG08_2610B}/09=${SSG09_2610B}/0A=${SSG0A_2610B} = SSG ch 0/1/2 各 1)"
 else
-  ng "gate 4: SSG 0x0F write 数 不一致 (ym2610=$SSG_CNT_2610 / ym2610b=$SSG_CNT_2610B、 期待 各 3)"
+  ng "gate 4: SSG 0x0F per-ch write 数 不一致 (ym2610 08=${SSG08_2610}/09=${SSG09_2610}/0A=${SSG0A_2610}、 ym2610b 08=${SSG08_2610B}/09=${SSG09_2610B}/0A=${SSG0A_2610B}、 期待 各 1)"
 fi
 
 # --- gate 5: chip target flag 分岐 (= FM keyon count 差分) ---
