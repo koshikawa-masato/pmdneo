@@ -1857,8 +1857,8 @@ pmdneo_fade_begin:
 ;;   1 段 fade step を実行する。
 ;;   fade step: pmdneo_v2_fade_level--、 ADPCM-A master reg 0x01 を level 派生値で
 ;;   write、 FM/SSG/ADPCM-B は pmdneo_v2_fade_reapply で volume hook 再適用。
-;;   level 0 到達で fade finish (= state=0 + ADPCM-A 全 6ch dump、 全 chip keyoff
-;;   拡張は γ sub-sprint)。
+;;   level 0 到達で fade finish (= state=0 + 全 chip keyoff = pmdneo_fade_finish_silence、
+;;   ADR-0050 §決定 1 γ)。
 ;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変 (= reapply が内部 push/pop、 verify gate 5)。
 pmdneo_v2_fade_tick:
         ld      a, (driver_fade_state)
@@ -1891,10 +1891,8 @@ pmdneo_v2_fade_tick_save:
 pmdneo_v2_fade_tick_finish:
         xor     a
         ld      (driver_fade_state), a        ; state = 0 (= fade 完了)
-        ld      b, #0x00
-        ld      c, #0xBF
-        call    ym2610_write_port_b           ; ADPCM-A 全 6ch dump (= 現挙動維持、
-        ret                                   ;   全 chip keyoff 拡張は γ sub-sprint)
+        call    pmdneo_fade_finish_silence    ; 全 chip keyoff (= safe silence、 γ)
+        ret
 
 ;; pmdneo_v2_fade_reapply: fade step 毎に FM/SSG/ADPCM-B part の volume hook を
 ;;   再適用 (= 案 b、 現 fade level を全 active part の volume register へ反映)。
@@ -1975,6 +1973,52 @@ pmdneo_fade_scale_shift:
         ret
 pmdneo_fade_scale_zero:
         xor     a                       ; level 0 -> 完全減衰
+        ret
+
+;; pmdneo_fade_finish_silence: fade finish (= pmdneo_v2_fade_level 0 到達) 時に
+;;   全 chip channel を keyoff し safe silence へ落とす (= ADR-0050 §決定 1 γ =
+;;   ADR-0049 §決定 5 の 4 chip keyoff routine 本体直接 call)。
+;;   FM ch 0-5 / SSG ch 0-2 / ADPCM-A ch 0-5 / ADPCM-B を順に keyoff。
+;;   SSG は volume 0 (ssg_keyoff) + tone bit disable (pmdneo_ssg_tone_sync A=0、
+;;   ADR-0051 §決定 3/4 = SSG keyoff の symmetric tone disable 契約)。
+;;   channel index 直接指定 = part workarea / IX 不使用。
+;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変。
+pmdneo_fade_finish_silence:
+        ;; FM ch 0..5 keyoff (= fm_keyoff は push/pop bc で B 保存、 counter 維持可)
+        ld      b, #0
+pmdneo_fade_finish_fm_loop:
+        call    fm_keyoff
+        inc     b
+        ld      a, b
+        cp      #6
+        jr      c, pmdneo_fade_finish_fm_loop
+        ;; SSG ch 0..2 keyoff = volume 0 + tone disable (= ADR-0051 §決定 3/4)。
+        ;;   ssg_keyoff は B 保存のため tone_sync まで B = ch_idx 維持。
+        ;;   pmdneo_ssg_tone_sync が BC 破壊のため counter は push/pop 退避。
+        ld      b, #0
+pmdneo_fade_finish_ssg_loop:
+        push    bc
+        call    ssg_keyoff                    ; reg 0x08+ch <- 0 (= volume 0)
+        xor     a                             ; A = 0 = tone disable
+        call    pmdneo_ssg_tone_sync          ; reg 0x07 tone bit clear (shadow RMW)
+        pop     bc
+        inc     b
+        ld      a, b
+        cp      #3
+        jr      c, pmdneo_fade_finish_ssg_loop
+        ;; ADPCM-A ch 0..5 keyoff (= adpcma_keyoff 本体 call、 ADR-0049 §決定 5)。
+        ;;   adpcma_keyoff が B 破壊のため counter は push/pop 退避。
+        ld      b, #0
+pmdneo_fade_finish_adpcma_loop:
+        push    bc
+        call    adpcma_keyoff
+        pop     bc
+        inc     b
+        ld      a, b
+        cp      #6
+        jr      c, pmdneo_fade_finish_adpcma_loop
+        ;; ADPCM-B keyoff
+        call    adpcmb_keyoff
         ret
 
 ;;; ============================================================
