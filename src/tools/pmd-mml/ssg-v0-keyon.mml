@@ -1,0 +1,26 @@
+#Title      PMDNEO SSG V0 keyon verify fixture
+#Composer   M.Koshikawa.
+#Memo       V0 SSG keyon literal trace verify, explicit lengths, no tone enable expected
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; FM A/D silent, B/C/E/F empty: this fixture exercises SSG V0 keyon only.
+A ;silent
+D ;silent
+B ;empty
+C ;empty
+E ;empty
+F ;empty
+
+; SSG G/H/I keyon at V0 = note dispatches (tone period write) but volume 0.
+; tone bit must NOT enable: mixer reg 0x07 stays 0x3F (= ADR-0051 D-3 verify).
+G t80 q8 V0 o4 g1 g1
+H t80 q8 V0 o4 a1 a1
+I t80 q8 V0 o4 b1 b1
+
+; ADPCM-B off.
+J ;empty
