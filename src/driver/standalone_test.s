@@ -2092,7 +2092,8 @@ pmdneo_ssg_tone_mask:
 ;;;   cmd 0x06 (= nmi_cmd_6_fade_start = ADR-0050 fade) とは別 command 番号。
 ;;;   配置: 0x0610 セクション (= .org 制約なし、 ADR-0049/0050/0051 並設 pattern)。
 ;;;   β = cmd 0x07 trigger path + v2 entry skeleton。 γ = FM 6ch v2 dispatcher
-;;;   (= pmdneo_v2_fm_dispatch、 keyon trace proof)。 SSG 3ch v2 dispatcher は δ。
+;;;   (= pmdneo_v2_fm_dispatch、 keyon trace proof)。 δ = SSG 3ch v2 dispatcher
+;;;   (= pmdneo_v2_ssg_dispatch、 volume trace proof)。
 ;;; ============================================================
 
 ;; nmi_cmd_5_adpcmb_beat: NMI dispatch command 5 = ADPCM-B beat。 ADR-0052 β で
@@ -2119,15 +2120,16 @@ nmi_cmd_7_play_song_v2:
         call    pmdneo_v2_entry_skeleton
         jp      nmi_done
 
-;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ、 δ-1)。
+;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ/δ、 δ-1)。
 ;;   pmdneo_v2_entry_marker に 0x07 を write (= β、 cmd 0x07 trigger path verify
-;;   gate の観測点) + FM 6ch v2 dispatcher を call (= γ)。 SSG 3ch v2 dispatcher は δ。
-;;   ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では nmi_cmd_5_init_mml_song
-;;   から本 routine を直接 call する。 破壊 register = AF/BC/DE/HL。
+;;   gate の観測点) + FM 6ch v2 dispatcher を call (= γ) + SSG 3ch v2 dispatcher を
+;;   call (= δ)。 ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では
+;;   nmi_cmd_5_init_mml_song から本 routine を直接 call する。 破壊 register = AF/BC/DE/HL。
 pmdneo_v2_entry_skeleton:
         ld      a, #0x07
         ld      (pmdneo_v2_entry_marker), a
         call    pmdneo_v2_fm_dispatch
+        call    pmdneo_v2_ssg_dispatch
         ret
 
 ;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ、 δ-1)。
@@ -2159,6 +2161,26 @@ pmdneo_v2_fm_dispatch_next:
         ld      a, b
         cp      #6
         jr      c, pmdneo_v2_fm_dispatch_loop
+        ret
+
+;; pmdneo_v2_ssg_dispatch: SSG 3ch v2 dispatcher (= ADR-0052 δ、 δ-1)。
+;;   v2 entry skeleton から call。 SSG ch slot (= index 0-2 = G/H/I) を sequential
+;;   に loop し per ch で SSG volume (reg 0x08+ch) を write (= 各 ch 到達 + SSG
+;;   register write の trace proof)。 δ scope = volume proof のみ = tone period
+;;   (reg 0x00-0x05) / fnum は実装しない (= 実音再生 = 後続段階)。 volume write は
+;;   既存 ssg_keyon を本体直接 call (= reg 0x08+ch <- 0x0F、 ssg_keyon は BC 保存で
+;;   loop counter 維持可)。 **reg 0x07 (mixer tone-enable) は一切 touch しない** =
+;;   ADR-0051 SSG tone-enable 契約 (= reg 0x07 shadow RMW owner pmdneo_ssg_tone_sync)
+;;   を保護。 SSG は YM2610 / YM2610B 共に 3ch のため chip target 分岐なし。
+;;   破壊 register: AF/BC。 DE/HL/IX/IY 不変。
+pmdneo_v2_ssg_dispatch:
+        ld      b, #0                   ; B = SSG ch index 0..2
+pmdneo_v2_ssg_dispatch_loop:
+        call    ssg_keyon               ; reg 0x08+ch <- 0x0F (volume)
+        inc     b
+        ld      a, b
+        cp      #3
+        jr      c, pmdneo_v2_ssg_dispatch_loop
         ret
 
 pmdneo5_clear_part_workarea:
