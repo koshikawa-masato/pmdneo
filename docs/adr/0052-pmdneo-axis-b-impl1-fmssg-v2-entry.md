@@ -1,6 +1,6 @@
 # ADR-0052: PMDNEO 軸 B 実装 sprint 1 = δ-1 FM/SSG v2 entry + dispatch trigger path
 
-- 状態: **Draft** (= 2026-05-21 39th session 軸 B 実装 sprint 1 α、 ground truth = ADR-0045 Annex I-1 / §J-4-1、 ADR 起票 doc-only filing、 後続 β/γ/δ/ε で driver 実装 → verify → completion。 ADR-0045 §J-4-1 literal 後続実装 ADR。 **軸 B 実装 sprint chain の 実装 1 = δ-1 = v2 driver foundation**。 軸 B 全体は未完了、 「軸 B 完成」 表現不使用。 §決定 3 は β kickoff plan 整理で発見した trigger path 想定誤り (= `cmd_jmptable` / cmd 0x06) を doc-correction PR で訂正済 = **cmd 0x07 + live `nmi_dispatch`**、 改訂履歴 + §決定 3 参照)
+- 状態: **Accepted** (= 2026-05-21 39th session 軸 B 実装 sprint 1 = δ-1 FM/SSG v2 entry 完了。 全 sub-sprint α/β/γ/δ/ε 完走 = PR #74/#75/#76/#77/#78/#79、 §決定 7 verify gate 7 件 = `src/test-fixtures/axis-b/verify-axis-b-v2-entry.sh` 全 PASS。 ground truth = ADR-0045 Annex I-1 / §J-4-1、 ADR-0045 §J-4-1 literal 後続実装 ADR。 **軸 B 実装 sprint chain の 実装 1 = δ-1 = v2 driver foundation の完了**であり、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用、 残 = 実装 2-4 = δ-2 PartWork placement / δ-3 F-2-B integration / δ-4 軸 C/G/rhythm 接続点)。 Draft → Accepted 移行は §決定 11 + §決定 1 ε 行の user 判断 gate を user が Codex layer 2 へ委譲し、 ε 内 Codex approve 経由で確定 (= 39th session、 Annex G-5 + 改訂履歴 ε 行参照)。 §決定 3 は β kickoff plan 整理で発見した trigger path 想定誤り (= `cmd_jmptable` / cmd 0x06) を doc-correction PR で訂正済 = **cmd 0x07 + live `nmi_dispatch`**、 改訂履歴 + §決定 3 参照)
 - 著作権者: 越川将人
 - 関連 ADR:
   - **ADR-0045** (= 軸 B Phase 2 FM/SSG driver フルスクラッチ 設計 ADR、 Accepted、 §Annex I-1 で δ-1 設計を literal 化 + §J-4-1 で実装 sprint 1 bridging note 化、 本 ADR の母 ADR。 §I-1-b の `cmd_jmptable` / cmd 0x06 記述は legacy nullsound 経路想定であり本 ADR §決定 3 が override)
@@ -209,7 +209,7 @@ verify gate の最終件数 / fixture 詳細は ε sub-sprint で確定する。
 | β (= cmd 0x07 trigger path 実装) | **完了** (= 39th session、 PR #76) | PR #76 | revised β kickoff plan review = round 1 escalate (`.org 0x0066` overflow 確定) → 案 A user 判断 gate → round 2 approve + β 実装 review approve (= must-fix 0) |
 | γ (= FM 6ch v2 dispatcher 実装) | **完了** (= 39th session、 PR #77) | PR #77 | γ kickoff plan review = round 1 revise (verify gate を count-only → ch_addr 値セット一致 + A/D 不発火に強化) → round 2 approve + γ 実装 review approve |
 | δ (= SSG 3ch v2 dispatcher 実装) | **完了** (= 39th session、 PR #78) | PR #78 | δ kickoff plan review approve (= must-fix 0、 nice-to-have = reg 0x07 gate) + δ 実装 review approve |
-| ε (= verify script 体系化 + completion + Accepted 判断) | 未着手 | - | - |
+| ε (= verify script 体系化 + completion + Accepted 判断) | **完了** (= 39th session、 PR #79) | PR #79 | ε kickoff plan review = escalate (= 論点 2 件 = gate 1 verify 構成 / Draft→Accepted 主体、 user 判断 → 案 A / 案 A 確定) + ε 実装 review approve |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
@@ -365,6 +365,57 @@ ADR-0049 mute / ADR-0050 fade-out / ADR-0051 SSG tone-enable は Accepted 済で
 - regression: `verify-mute-semantics.sh` 7 gate + `verify-fadeout-semantics.sh` 16 gate + `verify-ssg-tone-enable.sh` 15 gate 全 PASS
 - Codex layer 2 = δ kickoff plan review approve (= must-fix 0、 nice-to-have = reg 0x07 gate) + δ 実装 review approve
 
+## Annex G: ε 実装 completion record (= verify script 体系化 + ADR-0052 completion + Draft→Accepted)
+
+### G-1: ε deliverable
+
+軸 B 実装 sprint 1 ε = verify script 体系化 + ADR-0052 completion + Draft → Accepted 移行 (= 39th session、 PR #79)。 driver touch なし (= verify script + ADR + dashboard のみ、 §決定 1 ε 行 literal)。
+
+| deliverable | 内容 |
+|---|---|
+| `src/test-fixtures/axis-b/verify-axis-b-v2-entry.sh` | §決定 7 の verify gate 7 件を体系化した新規 verify script。 production build (= 静的 gate 2/6 + gate 1 静的部) + V2 fixture build ym2610/ym2610b + MAME headless trace (= gate 1 marker / gate 3/4/5) + `verify-fadeout-semantics.sh` (= gate 7 baseline) |
+| `verify-fadeout-semantics.sh` stale label 訂正 | gate 14 wrapper の header comment + echo の `verify-ssg-tone-enable.sh 12 gate` 表記を `15 gate` へ訂正 (= PR #73 で gate 13-15 追加後の実 gate 数と不一致だった pre-existing stale label、 δ で記録した finding、 verify script 体系化 scope 内訂正) |
+| ADR-0052 completion | Annex G + sub-sprint chain ε 行 + 改訂履歴 + 状態行 Draft → Accepted |
+
+### G-2: verify-axis-b-v2-entry.sh = 7 gate 構成
+
+| gate | 種別 | 検証 |
+|---|---|---|
+| gate 1 | static + 動的 marker | nmi_dispatch の cmd 0x07 分岐 (= `jp z, nmi_cmd_7_play_song_v2`) + `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` routine 存在を production `.lst` で静的確認 + V2 fixture build の z80-mem-trace で `pmdneo_v2_entry_marker` (0xFD3B) ← 0x07 を動的確認 (= G-3 参照) |
+| gate 2 | static | nmi_dispatch に既存 cmd 2/5/6 分岐残存 (= cmd 0x07 additive が既存分岐を破壊せず) |
+| gate 3 | trace | V2 fixture trace で reg 0x28 keyon set = ym2610 {F1,F2,F5,F6} / ym2610b {F0,F1,F2,F4,F5,F6} |
+| gate 4 | trace | V2 fixture trace で reg 0x08/0x09/0x0A ← 値 0x0F が各 1 計 3 (両 chip) |
+| gate 5 | trace | FM keyon count = ym2610 4 / ym2610b 6 の chip target flag 分岐差分が register trace で観測可能 |
+| gate 6 | static | v2 並設 routine 4 件 (= `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` / `pmdneo_v2_fm_dispatch` / `pmdneo_v2_ssg_dispatch`) が 0x0610 セクション (>= 0x0610) + 0x0066 セクション max addr (= 0x00F9) < 0x0100 |
+| gate 7 | baseline | `verify-fadeout-semantics.sh` 16 gate (= 内部で `verify-mute-semantics.sh` 7 gate + baseline 9 script + `verify-ssg-tone-enable.sh` 15 gate を transitively) 全 PASS |
+
+### G-3: gate 1 verify 構成 = §決定 7 literal との差分 (= ε user 判断 = 案 A)
+
+§決定 7 gate 1 は「NMI dispatch command 0x07 経由で `nmi_cmd_7_play_song_v2` → v2 entry skeleton へ到達する register/PC trace」 と literal 規定。 しかし V2 fixture build は `nmi_cmd_5_init_mml_song` → `pmdneo_v2_entry_skeleton` 直接 call 経路 (= Annex D-1) であり、 実 NMI dispatch command 0x07 命令を MAME 68k 側から送出しない。 = cmd 0x07 命令そのものの動的 PC trace は現 fixture 構成では取得不可。
+
+ε user 判断 (= 39th session、 Codex layer 2 ε kickoff plan review escalate 経由) で **案 A = 「`.lst` 静的確認 (= cmd 0x07 分岐 + target routine 存在) + V2 fixture marker trace (= skeleton 到達)」 の組合せを正式 gate 1 として採用** した。 理由 = 68k 側 cmd 0x07 送出 fixture 追加は ε の「verify script のみ / driver touch なし」 scope (= §決定 1 ε 行) から膨らむため不採用。 cmd 0x07 と V2 fixture 経路は同一 `nmi_cmd_7_play_song_v2` → `pmdneo_v2_entry_skeleton` へ収束するため、 静的確認 + marker trace の組合せで δ-1 trigger path verify を満たす。 cmd 0x07 命令そのものの動的 trace は本 gate の対象外であり、 本差分を §決定 7 literal に対して隠さず記録する。
+
+### G-4: ε 検証結果
+
+- `verify-axis-b-v2-entry.sh` 7 gate 全 PASS (= 39th session 実行確認、 EXIT 0)
+  - gate 1 = cmd 0x07 分岐(1) + nmi_cmd_7_play_song_v2 / pmdneo_v2_entry_skeleton routine 存在 + marker 0xFD3B ← 0x07 (1 件)
+  - gate 2 = cmd 2/5/6 分岐残存
+  - gate 3 = reg 0x28 keyon set ym2610 {F1,F2,F5,F6} / ym2610b {F0,F1,F2,F4,F5,F6}
+  - gate 4 = SSG reg 0x08/0x09/0x0A ← 0x0F 各 3 (両 chip)
+  - gate 5 = FM keyon count ym2610 4 / ym2610b 6
+  - gate 6 = v2 並設 routine 全 >= 0x0610 + 0x0066 セクション max addr 0x00F9 < 0x0100
+  - gate 7 = `verify-fadeout-semantics.sh` 16 gate 全 PASS
+- driver touch なし (= verify-axis-b-v2-entry.sh 新規 + verify-fadeout-semantics.sh stale label 訂正 + ADR-0052 + dashboard のみ)
+- Codex layer 2 = ε kickoff plan review escalate (= 論点 2 件 user 判断 → 案 A/案 A 確定) + ε 実装 review approve
+
+### G-5: Draft → Accepted 移行
+
+全 sub-sprint α/β/γ/δ/ε 完走 + §決定 7 verify gate 7 件 (= `verify-axis-b-v2-entry.sh`) 全 PASS をもって ADR-0052 を **Draft → Accepted** へ移行する。
+
+§決定 11 + §決定 1 ε 行 literal で Accepted 移行は user 判断 gate と規定されていた。 39th session で user が「ε 実装 + verify 7 gate PASS + Codex layer 2 approve をもって Accepted へ進めてよい」 + 「判断を Codex layer 2 へ委譲したため §決定 11 の user 判断 gate はこの委譲で満たされた扱いにできる」 と明示。 = Draft → Accepted 移行の根拠 = **user 判断を Codex layer 2 へ委譲 + ε 内 Codex approve 経由確定** (= memory `feedback_codex_layer2_implementation_review_delegation.md` 39th session 拡張 = 完全自走 model)。
+
+ADR-0052 Accepted = **軸 B 実装 sprint 1 (= δ-1 FM/SSG v2 entry) の完了** であり、 軸 B 全体の完了ではない (= 「軸 B 完成」 表現不使用)。 軸 B 実装 sprint chain の残 = 実装 2-4 (= δ-2 PartWork placement / δ-3 F-2-B integration / δ-4 軸 C/G/rhythm 接続点)。
+
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
@@ -373,4 +424,5 @@ ADR-0049 mute / ADR-0050 fade-out / ADR-0051 SSG tone-enable は Accepted 済で
 | 2026-05-21 | cmd 0x07 doc-correction (= 39th session、 β kickoff plan 整理 finding、 user escalate → 確定) | β kickoff plan 整理で trigger path 想定誤りを発見。 ADR-0045 §I-1-b + ADR-0052 起票第 1 版 §決定 3 の「`IRQ.inc cmd_jmptable` へ cmd 0x06 additive」 は (1) `cmd_jmptable` が live `standalone_test.s` build に不在 (= legacy nullsound 経路)、 (2) NMI dispatch command 6 = `nmi_cmd_6_fade_start` が ADR-0050 fade で使用中、 の 2 点で live driver ground truth と不一致。 §決定 3 を **cmd 0x07 + live `nmi_dispatch`** へ訂正 (= 決定 3-a override 明示 + 3-b 確定方針 + 3-c 層の違い整理)。 trigger routine 名 = `nmi_cmd_7_play_song_v2`。 ADR 全体 (= 決定 1/5/7/8/9 + Annex A/B/C + 平易要約 + 状態行) を cmd 0x07 + `nmi_dispatch` 前提へ整合。 doc-only (= ADR-0052 + dashboard、 driver 不変)。 Codex layer 2 doc-correction review 経由。 β 実装は本 doc-correction PR merge 後に着手 |
 | 2026-05-21 | γ 実装完了 (= 39th session、 PR #77) | FM 6ch v2 dispatcher 実装 (= trace proof 中心、 audible 非対象)。 `pmdneo_v2_fm_dispatch` 並設 routine 新設 (= FM ch slot 0-5 を loop、 per ch で FM keyon = reg 0x28 emit、 既存 `fm_keyon` 本体直接 call) + `pmdneo_v2_entry_skeleton` を fm_dispatch call へ拡張。 chip target 分岐 = YM2610 は A/D skip (B/C/E/F の 4 ch)、 YM2610B は全 6 ch。 Annex E 追記 (= γ completion + trace proof 中心 + sdas `.if X == N` finding + 検証結果) + sub-sprint chain γ 完了 reflect。 検証 = production build + V2 fixture trace で reg 0x28 keyon が YM2610 {F1,F2,F5,F6} / YM2610B {F0,F1,F2,F4,F5,F6} + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = γ kickoff plan review (round 1 revise verify gate 強化 → round 2 approve) + γ 実装 review approve。 fnum/TL/voice/pan は γ 非対象 (= 後続)、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
 | 2026-05-21 | β 実装完了 (= 39th session、 PR #76) | cmd 0x07 v2 entry trigger path 実装。 live `nmi_dispatch` に cmd 0x07 分岐 (`cp #7` + `jp z, nmi_cmd_7_play_song_v2`) を additive 追加 + `nmi_cmd_7_play_song_v2` / `pmdneo_v2_entry_skeleton` 並設 routine 新設 (= 0x0610 セクション) + `pmdneo_v2_entry_marker` (0xFD3B) + `TEST_MODE_V2_ENTRY_FIXTURE` build wiring。 `.org 0x0066` overflow 軽減 = 案 A で `nmi_cmd_5_adpcmb_beat` を 0x0610 セクションへ verbatim 移設 (= β kickoff plan で overflow 確定 finding → user escalate → 案 A 確定)。 Annex D 追記 (= β completion record + 案 A 軽減 + gate 2 register trace 等価 読み替え + 検証結果 + 案 B future cleanup 候補) + sub-sprint chain β 完了 reflect。 検証 = production build + .lst 0x0066 末尾 0x00FB (overflow なし) + V2 fixture trace で pmdneo_v2_entry_marker 0x07 write + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = revised β kickoff plan review (= round 1 escalate overflow 確定 → 案 A → round 2 approve) + β 実装 review approve。 軸 B 実装 sprint 1 = δ-1、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
+| 2026-05-21 | ε 実装完了 + Draft → Accepted (= 39th session、 PR #79) | verify script 体系化 + ADR-0052 completion + Draft → Accepted 移行。 §決定 7 の verify gate 7 件を `src/test-fixtures/axis-b/verify-axis-b-v2-entry.sh` に体系化 (= production build 静的 gate 1/2/6 + V2 fixture build ym2610/ym2610b MAME trace gate 1 marker/3/4/5 + verify-fadeout-semantics.sh baseline gate 7)。 verify-fadeout-semantics.sh の gate 14 wrapper の `verify-ssg-tone-enable.sh 12 gate` stale label を実 `15 gate` へ訂正 (= PR #73 由来の pre-existing finding、 δ で記録)。 Annex G 追記 (= ε completion + 7 gate 構成 + gate 1 verify 構成の §決定 7 literal 差分 + 検証結果 + Draft→Accepted 移行根拠) + sub-sprint chain ε 完了 reflect + 状態行 Draft → Accepted。 gate 1 verify 構成と Draft→Accepted 移行主体は Codex layer 2 ε kickoff plan review で escalate され、 user 判断 = 案 A (= `.lst` 静的 + marker trace を正式 gate 1) / 案 A (= ε 内 Codex approve 経由で Accepted 確定、 §決定 11 user 判断 gate は user の Codex 委譲で充足) で確定。 検証 = verify-axis-b-v2-entry.sh 7 gate 全 PASS (EXIT 0)。 driver touch なし。 Codex layer 2 = ε kickoff plan review escalate + ε 実装 review approve。 ADR-0052 Accepted = 軸 B 実装 sprint 1 = δ-1 完了、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用、 残 = 実装 2-4 = δ-2/δ-3/δ-4) |
 | 2026-05-21 | δ 実装完了 (= 39th session、 PR #78) | SSG 3ch v2 dispatcher 実装 (= trace proof 中心、 audible 非対象)。 `pmdneo_v2_ssg_dispatch` 並設 routine 新設 (= SSG ch slot 0-2 = G/H/I を loop、 per ch で SSG volume = reg 0x08+ch emit、 既存 `ssg_keyon` 本体直接 call、 BC 保存) + `pmdneo_v2_entry_skeleton` を `call pmdneo_v2_ssg_dispatch` 拡張 (= γ の fm_dispatch call 後)。 chip target 分岐なし (= SSG は YM2610 / YM2610B 共に 3ch)。 reg 0x07 (= SSG mixer tone-enable) は一切 touch せず (= ADR-0051 契約 trivially 保護、 `ssg_keyon` は reg 0x08+ch のみ書く)。 Annex F 追記 (= δ completion + trace proof 中心 + reg 0x07 不可触 + 検証結果) + sub-sprint chain δ 完了 reflect。 検証 = production build + .lst (`pmdneo_v2_ssg_dispatch` ym2610 0x09B7 / ym2610b 0x09D1、 0x0610 セクション overflow なし) + V2 fixture trace で reg 0x08/0x09/0x0A ← 値 0x0F 各 1 write 計 3 (両 chip) + reg 0x07 全 16 write 0x3F 維持 + FM γ keyon 維持 + verify-mute 7/fadeout 16/SSG 15 gate 全 PASS。 Codex layer 2 = δ kickoff plan review approve (= must-fix 0、 nice-to-have reg 0x07 gate) + δ 実装 review approve。 残 = ε (= verify script 体系化 + completion + Accepted 判断)、 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |

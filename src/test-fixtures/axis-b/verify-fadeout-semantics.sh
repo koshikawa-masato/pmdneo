@@ -32,7 +32,7 @@
 #   gate 11 [§7-5]  register preservation — fade routine の push/pop balance (= stack leak なし)
 #   gate 12 [§7-6]  cmd 0x04 不可触        — IRQ.inc snd_command_04_fade_out byte-identical
 #   gate 13 [§7-7+8] mute + baseline regression — verify-mute-semantics.sh 7 gate (baseline 9 内包)
-#   gate 14 [add]   SSG tone-enable regression — verify-ssg-tone-enable.sh 12 gate
+#   gate 14 [add]   SSG tone-enable regression — verify-ssg-tone-enable.sh 15 gate
 #   gate 15 [§7-9]  .org overflow / fixture isolation — fade routine >= 0x0610 +
 #                                          fade fixture call が production build に生成なし
 #   gate 16 [§7-10] SRAM placement        — pmdneo_v2_fade_level が free region 内 + prefix 規約
@@ -324,7 +324,7 @@ fi
 
 echo "=== gate 14: ADR-0051 SSG tone-enable regression (= verify-ssg-tone-enable.sh) ==="
 if bash src/test-fixtures/axis-b/verify-ssg-tone-enable.sh >/dev/null 2>&1; then
-  ok "gate 14: ADR-0051 SSG tone-enable regression 12 gate 全 PASS"
+  ok "gate 14: ADR-0051 SSG tone-enable regression 15 gate 全 PASS"
 else
   ng "gate 14: SSG tone-enable regression FAIL"
 fi
