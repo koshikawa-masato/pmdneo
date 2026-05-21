@@ -28,7 +28,14 @@ SRCDIRS=assets
 CFLAGS=-I$(BUILDDIR) -std=c99 -fomit-frame-pointer -O2 -g
 PMDNEO_FIXTURE?=0
 PMDNEO_SONG?=0
+# PMDNEO_NO_FADE: audition harness 分離 flag (= driver 非改修、 main.c harness 側)
+#   0 (default) = fade-out audition (= main.c が 16 sec wait 後 cmd 6 fade trigger 送出)
+#   1           = tone-ladder audition (= cmd 6 を送らない、 聴覚テスト MML を fade なし全長再生)
+PMDNEO_NO_FADE?=0
 CFLAGS+=-DPMDNEO_FIXTURE=$(PMDNEO_FIXTURE) -DPMDNEO_SONG=$(PMDNEO_SONG) $(PMDNEO_EXTRA_CFLAGS)
+ifeq ($(PMDNEO_NO_FADE),1)
+CFLAGS+=-DPMDNEO_NO_FADE
+endif
 LDFLAGS=
 Z80FLAGS=
 Z80LDFLAGS=

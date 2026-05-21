@@ -52,6 +52,12 @@ int main(void) {
   //   2 = fade slow  (= cmd 5 → 4 sec → cmd 7 + speed 64 → cmd 6、 約 4 sec fade)
   //   3 = fade test  (= cmd 5 → 4 sec → cmd 7 + speed 255 → cmd 6、 約 16 sec fade)
   // 既存 cmd 6/7 protocol: cmd 7 で modal flag set → arg byte → cmd 6 で trigger
+  //
+  // PMDNEO_NO_FADE (= compile-time flag、 Makefile PMDNEO_NO_FADE=1 で -D 定義):
+  //   定義時は上記 fixture に関わらず cmd 6 fade trigger を送らない。
+  //   = tone-ladder audition harness mode (= 聴覚テスト用 MML を fade なしで全長
+  //   再生)。 本 main.c は PMDNEO audition harness であり、 fade-out audition と
+  //   tone-ladder audition は用途が異なるため flag で分離する (= driver 非改修)。
 #ifndef PMDNEO_FIXTURE
 #define PMDNEO_FIXTURE 0
 #endif
@@ -134,12 +140,18 @@ int main(void) {
     }
   }
 
-  /* Fade trigger (= speed param protocol、 cmd 7 → arg byte → cmd 6) */
+  /* Fade trigger (= speed param protocol、 cmd 7 → arg byte → cmd 6)。
+   * PMDNEO_NO_FADE 定義時は cmd 6 fade を送らない = tone-ladder audition harness
+   * mode (= 聴覚テスト用 MML を fade なしで全長再生)。 未定義時は従来どおり
+   * fade-out audition として cmd 6 送出。 fade-out audition と tone-ladder
+   * audition を分離するため本 flag を追加 (= driver 非改修、 harness 分離)。 */
+#ifndef PMDNEO_NO_FADE
   ng_center_text(14, 0, "FADE OUT...");
 #if PMDNEO_FIXTURE != 0
 #endif
   *REG_SOUND = 6;          /* fade trigger */
   ng_wait_vblank();
+#endif /* PMDNEO_NO_FADE */
 
   for(;;) {}
   return 0;

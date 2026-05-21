@@ -1,0 +1,31 @@
+#Title      PMDNEO auditory tone ladder explicit lengths
+#Composer   M.Koshikawa.
+#Memo       one channel at a time, explicit note/rest lengths, no chord, no drum overlap
+
+@001 000 005
+ 031 000 000 000 000 017 000 001 003 000
+ 031 000 000 000 000 025 000 002 003 000
+ 031 000 000 000 000 038 000 001 003 000
+ 004 018 000 015 002 000 000 001 003 000
+
+; FM A/D are silent on YM2610 OPNB target
+A ;silent
+D ;silent
+
+; FM active channels only: B/C/E/F
+; Each part starts after explicit r1 blocks.
+B t80 q8 o4 @0 c1 c1
+C t80 q8 o4 @0 r1 r1 d1 d1
+E t80 q8 o4 @0 r1 r1 r1 r1 e1 e1
+F t80 q8 o4 @0 r1 r1 r1 r1 r1 r1 f1 f1
+
+; SSG G/H/I: fixed volume, one channel at a time.
+; Use long explicit notes. If SSG does not sustain, inspect mixer/volume/gate.
+G t80 q8 V15 o4 r1 r1 r1 r1 r1 r1 r1 r1 g1 g1
+H t80 q8 V15 o4 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 a1 a1
+I t80 q8 V15 o4 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 r1 b1 b1
+
+; Keep ADPCM-B off for this first auditory ladder.
+J ;empty
+
+; Keep rhythm / ADPCM-A off in this first ladder.

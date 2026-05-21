@@ -235,7 +235,11 @@ echo "=== make poc ==="
 # .equ 切替できるよう standalone_test.s に .equ PMDNEO_USE_PMDDOTNET 0 を残置)。
 # ただし standalone_test.s 内では pmddotnet_song label 参照経路は未整備、 V-1/W-1
 # 以前と同じ動作に戻る (= song_table 経由の自前 compile.py 経路)。
-make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" TEST_MODE_AXIS_G_INT="${PMDNEO_AXIS_G_INT:-0}" TEST_MODE_MUTE_FIXTURE="${PMDNEO_MUTE_FIXTURE:-0}" TEST_MODE_FADE_FIXTURE="${PMDNEO_FADE_FIXTURE:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s poc
+### PMDNEO_NO_FADE: audition harness 分離 flag (= main.c harness 側、 driver 非改修)。
+### =1 で main.c が cmd 6 fade trigger を送らない (= tone-ladder audition、 fade なし全長再生)。
+### `-W main.c` = CFLAGS 変更 (= PMDNEO_NO_FADE / PMDNEO_FIXTURE 等) を main.o rebuild に
+### 確実に反映させる (= make は CFLAGS 変化を timestamp 追跡しないため)。
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" TEST_MODE_AXIS_G_INT="${PMDNEO_AXIS_G_INT:-0}" TEST_MODE_MUTE_FIXTURE="${PMDNEO_MUTE_FIXTURE:-0}" TEST_MODE_FADE_FIXTURE="${PMDNEO_FADE_FIXTURE:-0}" PMDNEO_NO_FADE="${PMDNEO_NO_FADE:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s -W main.c poc
 
 echo
 echo "=== build 完了 ==="
