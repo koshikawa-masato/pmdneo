@@ -166,7 +166,7 @@ ADR-0050 fade 経路は本 sprint で touch しないため fade regression gate
 |---|---|---|---|
 | α (= root cause 調査 + ADR 起票) | **完了** (= 39th session、 PR #66 MERGED) | PR #66 | ADR-0051 起票 review = revise (must-fix 1 V>0 ガード) → 修正 → approve |
 | β (= SSG tone-enable on-demand 実装) | **完了** (= 39th session、 本 PR) | 本 PR | 実装 plan review = revise (must-fix 2) → 修正 → approve + completion review (= 後続) |
-| γ (= verify script 体系化 + completion + Accepted 判断) | 未着手 | - | - |
+| γ (= verify script 体系化 + completion + Accepted 判断) | **完了** (= 39th session、 本 PR) | 本 PR | γ verify script plan review = revise (gate 7 trace 検証不可) → 修正 → approve + completion review (= 後続) |
 
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
@@ -325,9 +325,55 @@ C-3 の 2 回目 audition で、 FM B の `ド` (= `c1 c1` の 2 note) の attac
   2. **FM note dispatch 由来**: FM の keyoff → register write → keyon の順序、 keyon 中の TL/fnum 書換、 keyoff から次 keyon までの間隔等でもクリックは生じうる。 FM note dispatch trace review が必要。
 - **扱い**: β scope 外。 後続候補 = 別 sprint で (a) voice 調整 fixture、 または (b) FM note-dispatch (keyoff→register write→keyon 順序) trace review。 起票するかは user 判断。 β は `fnumsetp_ch` / FM voice / FM keyon を不可触。
 
+## Annex D: γ 実装 completion record (= verify script 体系化)
+
+### D-1: γ deliverable
+
+軸 B 実装 sprint 7 γ = SSG tone-enable verify script 体系化 (= 39th session、 本 PR)。 新規 verify script `src/test-fixtures/axis-b/verify-ssg-tone-enable.sh` を追加 (= ADR-0049 `verify-mute-semantics.sh` 構造踏襲)。 driver / fixture は変更せず verify 整備のみ。 fixture = `test-tone-ladder.mml` + `PMDNEO_NO_FADE=1` build (= PR #65/#67)。
+
+### D-2: verify gate 12 件 結果 (= 全 PASS)
+
+`verify-ssg-tone-enable.sh` 実行 = **12 gate ALL PASS**。
+
+| # | gate | 結果 |
+|---|---|---|
+| 1 | SSG tone period write | reg `0x00-0x05` 24 件 (= G/H/I note dispatch 成立) |
+| 2 | SSG volume write | reg `0x08-0x0A` 48 件 |
+| 3 | mixer tone enable | reg `0x07` G `0x3E` / H `0x3D` / I `0x3B` |
+| 4 | mixer tone disable 復帰 | reg `0x07` `0x3F` 34 件 (= note 後 disable) |
+| 5 | noise bit 不変 | reg `0x07` 全 write で noise bit (3-5) set |
+| 6 | shadow 整合 | reg `0x07` distinct `{3B,3D,3E,3F}` のみ |
+| 7 | leading-rest non-enable | 最初の SSG note より前の reg `0x07` 全 `0x3F` (= V15 premature enable なし) |
+| 8 | SSG tone period ascending | G(159) > H(141) > I(126) (= g4<a4<b4 周波数) |
+| 9 | FM 回帰 | FM B/C/E/F keyon (reg `0x28` F1/F2/F5/F6) 8 件 |
+| 10 | ADR-0049 mute regression | `verify-mute-semantics.sh` 7 gate + baseline 9 script 全 PASS |
+| 11 | ADR-0050 fade regression | default build に cmd 6 + fade routine 存在 (= fade audition 不破壊) |
+| 12 | `.org` overflow / overlap | `pmdneo_ssg_tone_sync` 0x0610 セクション、 section overlap なし |
+
+### D-3: verify gate の精緻化 + V0 keyon literal trace の follow-up
+
+ADR §決定 5 起票時の 11 gate を γ で 12 gate に精緻化した (= ADR-0049 §決定 7 の δ gate 文言精緻化 pattern 踏襲)。
+
+- **gate 8「SSG tone period ascending」 を追加** = β must-fix 1 (= keyon hook の A=note 破壊) 修正の検証 gate。
+- **gate 7 を rename**: §決定 5 起票時の「V0 SSG keyon で tone enable しない」 の literal trace gate は、 `test-tone-ladder.mml` の SSG part (G/H/I) が `V15` + note 構成で **V0 SSG keyon を含まない** ため register trace で直接検証できない。 γ では gate 7 を trace 観測可能な「leading-rest non-enable」 (= 最初の SSG note より前に reg `0x07` enable なし = V15 が premature enable しない) に rename。 keyon hook の code path (= vol==0 → `pmdneo_ssg_tone_sync` が disable) は β 実装済。 **literal な V0 SSG keyon trace gate 化は V0 SSG keyon を含む専用 fixture が必要** = γ scope 外の follow-up (= `test-tone-ladder.mml` は変更しない方針のため)。
+- **冗長 reg `0x07` write の観測**: `pmdneo_ssg_tone_sync` は reg `0x07` を無条件 write するため、 ある ch が tone enable 中に別 ch の rest-keyoff (= disable、 既 disabled で no-op) が現 shadow 値を再 write する。 = 同値の冗長 write で無害 (= audible 影響なし、 shadow 整合は gate 6 で担保)。 gate 7 はこの冗長 write を踏まえ leading-rest 区間の値で premature enable を判定する。
+
+### D-4: ADR-0051 Draft → Accepted 判断根拠
+
+ADR-0051 (= 軸 B 実装 sprint 7 SSG tone-enable semantics) の Draft → Accepted 移行判断の根拠を整理する (= 移行自体は user 判断 gate)。
+
+1. **3 sub-sprint 完走** = α (= root cause 調査 + 起票、 PR #66) / β (= driver 実装、 PR #67) / γ (= verify script 体系化、 本 PR) 全完了。
+2. **verify gate 12 件 ALL PASS** (= D-2)。 register trace primary gate で SSG tone-enable / disable / shadow 整合 / FM 回帰 / mute・fade・baseline regression / `.org` overlap を機械的検証。
+3. **user audition 確認** = 越川氏 audition で SSG G/H/I が無音→可聴、 ソ ラ シ の pitch 正常 (= Annex C-3 2 回目 audition)。
+4. **規律遵守** = always-on (`reg 0x07=0x38`) 不回帰、 noise bit 不可触、 `fnumsetp_ch` / FM voice / FM keyon 不可触、 ADR-0049 mute / ADR-0050 fade 経路 / 軸 G ADR-0048 完全不可触、 「軸 B 完成」 表現不使用。
+5. **follow-up の literal 化** = FM attack click (= Annex C-5) / V0 SSG keyon literal trace gate (= D-3) を ADR に literal 記録済。
+
+軸 B 実装 sprint 7 = SSG tone-enable 完了。 ただし **軸 B 全体は未完了** (= ADR-0045 §J-4 実装 sprint chain は mute / fade-out / SSG tone-enable + 実装 1-4 = δ-1〜δ-4、 残あり)。 「軸 B 完成」 表現は使用しない。
+
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
 | 2026-05-21 | Draft 起票 (= 39th session 軸 B 実装 sprint 7 α) | SSG tone-enable root cause 全数調査 (= Annex A) + 決定 1-8 + verify gate 11 件 + 設計核心 (= reg `0x07` shadow byte 状態管理) + 3 段 sub-sprint 構成、 doc-only filing (= ADR-0051 + dashboard のみ変更)。 test-tone-ladder.mml 診断 (= PR #65) で surface した軸 B 実装 sprint。 ADR-0045 §J-4 当初 6 候補に追加された sprint 7 |
+| 2026-05-21 | γ verify script 体系化完了 (= 39th session、 本 PR) | 新規 verify script `verify-ssg-tone-enable.sh` (= 12 gate)、 PMDNEO_NO_FADE=1 + test-tone-ladder.mml fixture。 12 gate ALL PASS。 Annex D 追記 (= D-1 deliverable / D-2 12 gate 結果 / D-3 gate 精緻化 = §決定 5 11 gate → 12 gate + gate 7 rename leading-rest non-enable + V0 keyon literal trace は follow-up + 冗長 reg 0x07 write 観測 / D-4 Draft→Accepted 判断根拠) + sub-sprint chain γ 完了 reflect。 Codex layer 2 = plan review revise (gate 7 trace 検証不可) → 修正 → approve + completion review。 driver / fixture 不変 (= verify 整備のみ)。 ADR-0051 Draft → Accepted 移行は user 判断 gate。 軸 B 全体は未完了 (= 「軸 B 完成」 表現不使用) |
 | 2026-05-21 | β 実装完了 (= 39th session、 本 PR) | SSG tone-enable on-demand 実装 = `pmdneo_v2_ssg_mixer` shadow byte + `pmdneo_ssg_tone_sync` helper + keyon/keyoff/V cmd hook + init 同期。 Annex C 追記 (= C-1 deliverable / C-2 verify 結果 register trace 全 gate PASS + SSG tone period ascending / C-3 user audition 結果 literal 2 回 / C-4 SSG pitch 異常の真因 = β 自身の register 破壊 bug = must-fix 1、 β 内で修正済 / C-5 FM attack click finding = β scope 外・後続候補) + sub-sprint chain α/β 完了 reflect。 Codex layer 2 = plan review revise→approve + completion review revise (= must-fix 1 keyon hook A=note 破壊) → 修正 → 再 review。 driver `standalone_test.s` 実装、 `fnumsetp_ch` / FM voice / FM keyon 不可触、 ADR-0049 mute / ADR-0050 fade 経路 / 軸 G ADR-0048 不可触。 軸 B 実装 sprint chain 進行中 (= 「軸 B 完成」 表現不使用) |
