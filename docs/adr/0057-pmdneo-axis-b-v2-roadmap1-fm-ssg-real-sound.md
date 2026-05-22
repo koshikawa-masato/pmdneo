@@ -253,7 +253,7 @@ v2 SSG dispatcher (per ch、 既存 routine 本体 call):
 
 **前提**: ADR-0056 で production-ready 化の roadmap (= ① FM/SSG 実音 → ② 曲データ解釈 → ③ ADPCM-B/rhythm → ④ 軸 G) が固定済。 本 ADR-0057 = roadmap ① の実装。
 
-**進捗 (= α/β 完了)**: α で設計書 (= 本 ADR-0057) を起票し、 FM/SSG の実音化方式・固定 note・検証方法・不可触対象を文書で固定した。 β でドライバ (= `standalone_test.s`) の v2 FM/SSG dispatcher を実音化した = FM は音色 (voice) と音程 (fnum) を、 SSG は音程 (tone period) と tone enable を register に書くようになった。 固定の和音 (= C4/E4/G4) を鳴らす。 既存検証 (= ADR-0049〜0056) は全て PASS のままで、 実音化は既存挙動に追加する形 (= additive) のため既存 gate は壊れなかった。
+**進捗 (= α/β/γ 完了)**: α で設計書 (= 本 ADR-0057) を起票し、 FM/SSG の実音化方式・固定 note・検証方法・不可触対象を文書で固定した。 β でドライバ (= `standalone_test.s`) の v2 FM/SSG dispatcher を実音化した = FM は音色 (voice) と音程 (fnum) を、 SSG は音程 (tone period) と tone enable を register に書くようになった。 固定の和音 (= C4/E4/G4) を鳴らす。 既存検証 (= ADR-0049〜0056) は全て PASS のままで、 実音化は既存挙動に追加する形 (= additive) のため既存 gate は壊れなかった。 γ で FM/SSG 実音 proof の検証スクリプト (= `verify-axis-b-fm-ssg-real-sound.sh`、 6 項目) を整備し、 全 6 項目 PASS を確認した。
 
 **実音化のやり方**: 既存の音源処理ルーチン (= `pmdneo_fm_voice_set` / `fnumset_fm` / `fm_keyon`、 `fnumset_ssg` / `ssg_keyon` / `pmdneo_ssg_tone_sync`) を v2 dispatcher から呼ぶ。 v2 はまだ曲データを解釈しないので (= roadmap ②)、 固定の音 (= C4/E4/G4 = 既存 fixture と同じ和音) を鳴らす。
 
