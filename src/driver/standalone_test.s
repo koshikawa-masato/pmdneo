@@ -195,6 +195,16 @@
         ;;   観測点。 v2 PartWork / driver_state の正式 placement は δ-2 scope。
         .equ    pmdneo_v2_entry_marker,        0xFD3B
 
+        ;; ADR-0055 §決定 2/4 軸 B 実装 sprint 4 β: v2 main loop 軸 C/G/rhythm 接続点
+        ;;   stub marker (= dispatch boundary 到達 proof)。 v2 driver_state 拡張 region
+        ;;   (= 0xFD3C-、 ADR-0053 §決定 2) に配置。 v2 main loop の接続点 stub が
+        ;;   到達時 marker を write し dispatch boundary を trace proof する。 既存
+        ;;   軸 C adpcmb_keyon / rhythm pmdneo_rhythm_event_trigger は call しない
+        ;;   (= 実音 dispatch は後続 future、 ADR-0055 §決定 2)。 軸 G は ADPCM-B 接続点
+        ;;   の sub-path であり別 marker なし (= ADR-0055 §決定 3)。
+        .equ    pmdneo_v2_adpcmb_marker,       0xFD3C
+        .equ    pmdneo_v2_rhythm_marker,       0xFD3D
+
         ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
         ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
         ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
@@ -237,7 +247,9 @@
 ;;;       0xFD39          pmdneo_v2_fade_level (= 1 byte、ADR-0050 軸 B sprint 6 fade-out 減衰 factor)
 ;;;       0xFD3A          pmdneo_v2_ssg_mixer (= 1 byte、ADR-0051 軸 B sprint 7 SSG mixer reg 0x07 shadow)
 ;;;       0xFD3B          pmdneo_v2_entry_marker (= 1 byte、ADR-0052 軸 B sprint 1 v2 entry skeleton 到達 marker)
-;;;       0xFD3C - 0xFD78   free (= 61 bytes、δ-3/δ-4 v2 driver_state singleton home)
+;;;       0xFD3C          pmdneo_v2_adpcmb_marker (= 1 byte、ADR-0055 軸 B sprint 4 軸 C ADPCM-B 接続点 stub marker)
+;;;       0xFD3D          pmdneo_v2_rhythm_marker (= 1 byte、ADR-0055 軸 B sprint 4 rhythm 接続点 stub marker)
+;;;       0xFD3E - 0xFD78   free (= 59 bytes、後続 v2 driver_state singleton home)
 ;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base、全 free)
 ;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
@@ -2113,6 +2125,8 @@ pmdneo_ssg_tone_mask:
 ;;;   (= pmdneo_v2_ssg_dispatch、 volume trace proof)。 ADR-0054 δ-3 = F-2-B
 ;;;   ch3 4-op individual mode dispatcher (= pmdneo_v2_fm3ext_dispatch、
 ;;;   reg 0x27 bit 7 + ch3 op1-4 individual register write trace proof)。
+;;;   ADR-0055 δ-4 = 軸 C/G/rhythm 接続点 stub (= pmdneo_v2_adpcmb_dispatch /
+;;;   pmdneo_v2_rhythm_dispatch、 dispatch boundary 到達 marker proof)。
 ;;; ============================================================
 
 ;; nmi_cmd_5_adpcmb_beat: NMI dispatch command 5 = ADPCM-B beat。 ADR-0052 β で
@@ -2140,10 +2154,11 @@ nmi_cmd_7_play_song_v2:
         jp      nmi_done
 
 ;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ/δ +
-;;   ADR-0054 δ-3、 軸 B 実装 sprint 1 δ-1 + sprint 3 δ-3)。
+;;   ADR-0054 δ-3 + ADR-0055 δ-4、 軸 B 実装 sprint 1 δ-1 + sprint 3 δ-3 + sprint 4 δ-4)。
 ;;   pmdneo_v2_entry_marker に 0x07 を write (= β、 cmd 0x07 trigger path verify
 ;;   gate の観測点) + FM 6ch v2 dispatcher を call (= γ) + SSG 3ch v2 dispatcher を
-;;   call (= δ) + F-2-B ch3 4-op individual mode dispatcher を call (= ADR-0054 δ-3)。
+;;   call (= δ) + F-2-B ch3 4-op individual mode dispatcher を call (= ADR-0054 δ-3) +
+;;   軸 C ADPCM-B / rhythm 接続点 stub を call (= ADR-0055 δ-4)。
 ;;   ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では
 ;;   nmi_cmd_5_init_mml_song から本 routine を直接 call する。 破壊 register = AF/BC/DE/HL。
 pmdneo_v2_entry_skeleton:
@@ -2152,6 +2167,8 @@ pmdneo_v2_entry_skeleton:
         call    pmdneo_v2_fm_dispatch
         call    pmdneo_v2_ssg_dispatch
         call    pmdneo_v2_fm3ext_dispatch
+        call    pmdneo_v2_adpcmb_dispatch
+        call    pmdneo_v2_rhythm_dispatch
         ret
 
 ;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ、 δ-1)。
@@ -2234,6 +2251,28 @@ pmdneo_v2_fm3ext_dispatch:
         ld      b, #0x4E                ; ch3 op4 TL
         ld      c, #0x23
         call    ym2610_write_port_a
+        ret
+
+;; pmdneo_v2_adpcmb_dispatch: 軸 C ADPCM-B 接続点 stub (= ADR-0055 δ-4、 接続点定義)。
+;;   v2 entry skeleton から call。 v2 main loop が軸 C ADPCM-B dispatch boundary
+;;   (= PART_PCM = J part 到達点) に到達したことを pmdneo_v2_adpcmb_marker へ
+;;   marker write (= 0x09 = PART_PCM) で trace proof する stub。 既存 軸 C
+;;   adpcmb_keyon (= ADR-0043 entry) は call しない (= 実音 ADPCM-B dispatch は
+;;   後続 future、 ADR-0055 §決定 2)。 破壊 register: AF。
+pmdneo_v2_adpcmb_dispatch:
+        ld      a, #0x09                ; 0x09 = PART_PCM (= ADPCM-B dispatch boundary marker)
+        ld      (pmdneo_v2_adpcmb_marker), a
+        ret
+
+;; pmdneo_v2_rhythm_dispatch: rhythm 接続点 stub (= ADR-0055 δ-4、 接続点定義)。
+;;   v2 entry skeleton から call。 v2 main loop が rhythm dispatch boundary
+;;   (= PART_RHYTHM = K part 到達点) に到達したことを pmdneo_v2_rhythm_marker へ
+;;   marker write (= 0x0A = PART_RHYTHM) で trace proof する stub。 既存 rhythm
+;;   pmdneo_rhythm_event_trigger (= ADR-0026〜0031 entry) は call しない
+;;   (= 実音 rhythm dispatch は後続 future、 ADR-0055 §決定 2)。 破壊 register: AF。
+pmdneo_v2_rhythm_dispatch:
+        ld      a, #0x0A                ; 0x0A = PART_RHYTHM (= rhythm dispatch boundary marker)
+        ld      (pmdneo_v2_rhythm_marker), a
         ret
 
 pmdneo5_clear_part_workarea:
