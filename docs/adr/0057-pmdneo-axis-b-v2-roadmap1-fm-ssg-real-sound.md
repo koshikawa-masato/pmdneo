@@ -1,6 +1,6 @@
 # ADR-0057: PMDNEO 軸 B v2 driver production-ready roadmap ① = FM/SSG 実音
 
-- 状態: **Draft** (= 2026-05-23 39th session 軸 B production-ready roadmap ①、 ground truth = ADR-0056 roadmap ① / ADR-0045、 α 起票 doc-only filing + β driver 実音化 + γ verify script 体系化 完了、 後続 δ で completion → Draft → Accepted。 ADR-0056 §決定 4 roadmap ① literal 後続実装 ADR。 **v2 FM/SSG dispatcher を trace-proof stub から実音 register write へ昇格する実装 ADR**。 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用)
+- 状態: **Accepted** (= 2026-05-23 39th session 軸 B production-ready roadmap ① = FM/SSG 実音 完了。 全 sub-sprint α/β/γ/δ 完走 = PR #92/#93/#94/#95、 §決定 7 verify gate 6 件 = `src/test-fixtures/axis-b/verify-axis-b-fm-ssg-real-sound.sh` 全 PASS。 ground truth = ADR-0056 roadmap ① / ADR-0045、 ADR-0056 §決定 4 roadmap ① literal 後続実装 ADR。 **v2 FM/SSG dispatcher を trace-proof stub から実音 register write へ昇格する実装 ADR の完了**。 ADR-0057 Accepted = production-ready roadmap ① 完了 (= 後続 roadmap ② = song parse + v2 per-part dispatch loop + IRQ 連携)。 production-ready 達成宣言ではない (= roadmap ②〜④ + gate 全通過 + 越川氏 audition が残る)、 「軸 B 完成」 表現不使用。 Draft → Accepted 移行は §決定 10 完全自走 model で Codex layer 2 approve 経由 = Annex E-3 + 改訂履歴 δ 行参照)
 - 著作権者: 越川将人
 - 関連 ADR:
   - **ADR-0056** (= 軸 B v2 driver production-ready 化 選定 ADR、 Accepted、 §決定 4 roadmap ① = FM/SSG 実音。 本 ADR-0057 が roadmap ① の実装 ADR)
@@ -247,19 +247,48 @@ v2 SSG dispatcher (per ch、 既存 routine 本体 call):
 - **finding** (= verify script 自身の 2 bug を debug): 初回実行で gate 1/2 が false FAIL。 driver は β regression PASS 済で正常だったが、 verify script の awk 走査が 2 つ誤りを持っていた = (a) `.lst` の routine seg 走査が内部 `_loop:` / `_next:` label で seg を打ち切り `call pmdneo_v2_fm_voice_note` を見逃した (= ret 末尾境界へ修正)、 (b) ymfm-trace の port B register は `$3` に "1" prefix 付き (= `"1A1"` 等 = 0x100+reg) で記録されるため fnum count が port B (= FM ch 4-6) を取りこぼした (= `/^1?A[0-9A-F]$/` へ修正)。 詳細は memory `feedback_ymfm_trace_portb_prefix_and_lst_segscan.md`
 - Codex layer 2 = γ 実装 review approve
 
+## Annex E: δ 完了 record (= ADR-0057 completion + Draft → Accepted)
+
+### E-1: δ deliverable
+
+軸 B production-ready roadmap ① δ = ADR-0057 completion + Draft → Accepted 移行 (= 39th session、 PR #95)。 driver / verify script touch なし (= doc-only completion、 §決定 1 δ 行 literal)。
+
+| deliverable | 内容 |
+|---|---|
+| ADR-0057 completion | Annex E + sub-sprint chain δ 行 + 改訂履歴 + 状態行 Draft → Accepted |
+
+### E-2: 全 sub-sprint 完走確認
+
+| sub | 内容 | PR | 検証 |
+|---|---|---|---|
+| α | ADR-0057 起票 (= doc-only filing) | #92 | doc-only |
+| β | v2 FM/SSG dispatcher 実音化 | #93 | production build PASS + V2 fixture trace 両 chip 実音 register write + baseline regression 全 PASS |
+| γ | FM/SSG 実音 proof verify script 体系化 (= `verify-axis-b-fm-ssg-real-sound.sh`) | #94 | 6 gate ALL PASS |
+| δ | completion + Draft → Accepted | #95 | doc-only |
+
+### E-3: Draft → Accepted 移行 + roadmap ① 位置づけ
+
+全 sub-sprint α/β/γ/δ 完走 + §決定 7 verify gate 6 件 (= `verify-axis-b-fm-ssg-real-sound.sh`) 全 PASS をもって ADR-0057 を **Draft → Accepted** へ移行する。
+
+§決定 10 で本 roadmap ① は ADR-0041 §決定 4-2 Codex rescue 化 + 39th session 完全自走 model + 後半 再拡張 (= 判断要件も Codex 自律判断、 non-stop) を継承し、 Accepted 移行判断を Codex layer 2 へ投入する規律とした。 Draft → Accepted 移行の根拠 = **Codex layer 2 approve 経由確定** (= memory `feedback_codex_layer2_implementation_review_delegation.md`、 ADR-0052〜0056 の Draft→Accepted と同形式)。
+
+ADR-0057 Accepted = **軸 B v2 driver production-ready roadmap ① (= FM/SSG 実音) の完了** = v2 FM/SSG dispatcher が trace-proof stub から実音 register write (= FM voice/operator + fnum/block + keyon、 SSG tone period + volume + reg 0x07 tone-enable) へ昇格。
+
+ADR-0056 §決定 4 の production-ready 化 roadmap は ① FM/SSG 実音 → ② song parse + v2 per-part dispatch loop + IRQ tick 連携 → ③ ADPCM-B/rhythm 実 dispatch → ④ 軸 G dynamic supply。 ADR-0057 = roadmap ① の完了。 **production-ready 達成宣言ではない** = roadmap ②〜④ + production-ready gate 4 系統 (= ADR-0056 §決定 3) 全通過 + 越川氏 audition が残る。 「軸 B 完成」 表現は使用しない (= memory `feedback_axis_design_adr_accepted_vs_implementation_completion.md`)。 次フェーズ = roadmap ② (= 実 MML song parse + v2 per-part dispatch loop + IRQ tick 連携) の実装 ADR 起票。
+
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
 **やりたいこと**: 新ドライバ (= v2) の FM/SSG 音源処理を「証跡を出すだけのスタブ」 から「実際に音が鳴るレベル」 へ引き上げる。 FM は keyon だけでなく音色 (voice) と音程 (fnum) を、 SSG は音量だけでなく音程 (tone period) と tone enable を register に書く。
 
 **前提**: ADR-0056 で production-ready 化の roadmap (= ① FM/SSG 実音 → ② 曲データ解釈 → ③ ADPCM-B/rhythm → ④ 軸 G) が固定済。 本 ADR-0057 = roadmap ① の実装。
 
-**進捗 (= α/β/γ 完了)**: α で設計書 (= 本 ADR-0057) を起票し、 FM/SSG の実音化方式・固定 note・検証方法・不可触対象を文書で固定した。 β でドライバ (= `standalone_test.s`) の v2 FM/SSG dispatcher を実音化した = FM は音色 (voice) と音程 (fnum) を、 SSG は音程 (tone period) と tone enable を register に書くようになった。 固定の和音 (= C4/E4/G4) を鳴らす。 既存検証 (= ADR-0049〜0056) は全て PASS のままで、 実音化は既存挙動に追加する形 (= additive) のため既存 gate は壊れなかった。 γ で FM/SSG 実音 proof の検証スクリプト (= `verify-axis-b-fm-ssg-real-sound.sh`、 6 項目) を整備し、 全 6 項目 PASS を確認した。
+**進捗 (= α/β/γ/δ 完走 = roadmap ① 完了)**: α で設計書 (= 本 ADR-0057) を起票し、 FM/SSG の実音化方式・固定 note・検証方法・不可触対象を文書で固定した。 β でドライバ (= `standalone_test.s`) の v2 FM/SSG dispatcher を実音化した = FM は音色 (voice) と音程 (fnum) を、 SSG は音程 (tone period) と tone enable を register に書くようになった。 固定の和音 (= C4/E4/G4) を鳴らす。 既存検証 (= ADR-0049〜0056) は全て PASS のままで、 実音化は既存挙動に追加する形 (= additive) のため既存 gate は壊れなかった。 γ で FM/SSG 実音 proof の検証スクリプト (= `verify-axis-b-fm-ssg-real-sound.sh`、 6 項目) を整備し、 全 6 項目 PASS を確認した。 δ で全 sub-sprint 完走 + 検証 6 項目 PASS を根拠に ADR-0057 を Draft → Accepted へ移行した。
 
 **実音化のやり方**: 既存の音源処理ルーチン (= `pmdneo_fm_voice_set` / `fnumset_fm` / `fm_keyon`、 `fnumset_ssg` / `ssg_keyon` / `pmdneo_ssg_tone_sync`) を v2 dispatcher から呼ぶ。 v2 はまだ曲データを解釈しないので (= roadmap ②)、 固定の音 (= C4/E4/G4 = 既存 fixture と同じ和音) を鳴らす。
 
 **SSG の reg 0x07 について**: 旧スタブ期は「v2 SSG は reg 0x07 を触らない」 契約だったが、 実音化では tone enable が要る。 ADR-0051 が定めた `pmdneo_ssg_tone_sync` (= reg 0x07 の唯一の管理ルーチン) を経由して扱う = 契約違反ではなく契約への合流。
 
-**次**: δ で ADR-0057 を Draft → Accepted へ移行する (= 全 sub-sprint α/β/γ/δ 完走 + verify 6 gate PASS を根拠)。 実 MML 曲再生は roadmap ②、 production-ready 達成宣言はまだしない。
+**次**: ADR-0057 = roadmap ① は α/β/γ/δ 完走で Accepted。 次フェーズ = roadmap ② (= 実 MML song parse + v2 per-part dispatch loop + IRQ tick 連携) の実装 ADR 起票。 production-ready 達成宣言は roadmap ②〜④ + gate 全通過 + 越川氏 audition の後。
 
 ## sub-sprint chain 進捗
 
@@ -268,12 +297,13 @@ v2 SSG dispatcher (per ch、 既存 routine 本体 call):
 | α (= ADR-0057 起票) | **完了** (= 39th session、 PR #92) | PR #92 | 起票 plan review approve (= 全 3 論点 + 規律 + ADR 番号 approve、 escalate なし) + 起票 review revise (= must-fix 1 = fnumset_fm/ssg BC 非保存) → approve |
 | β (= driver 実音化 + 影響 verify gate 更新) | **完了** (= 39th session、 PR #93) | PR #93 | β 実装 review approve |
 | γ (= FM/SSG 実音 proof verify script 体系化) | **完了** (= 39th session、 PR #94) | PR #94 | γ 実装 review approve |
-| δ (= completion + Draft → Accepted 判断) | 未着手 | - | - |
+| δ (= completion + Draft → Accepted 判断) | **完了** (= 39th session、 PR #95) | PR #95 | δ completion review approve |
 
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-23 | δ 完了 + Draft → Accepted (= 39th session、 PR #95) | ADR-0057 completion + Draft → Accepted 移行。 全 sub-sprint α/β/γ/δ 完走 + §決定 7 verify gate 6 件 (= verify-axis-b-fm-ssg-real-sound.sh) 全 PASS をもって Draft → Accepted。 Annex E 追記 (= δ completion + 全 sub-sprint 完走確認 + Draft→Accepted 移行根拠 + roadmap ① 位置づけ) + sub-sprint chain δ 完了 reflect + 状態行 Draft → Accepted + 平易要約 δ 同期。 driver / verify script touch なし (= doc-only completion)。 Draft → Accepted 移行は §決定 10 完全自走 model = Codex layer 2 approve 経由確定。 Codex layer 2 = δ completion review approve。 ADR-0057 Accepted = 軸 B production-ready roadmap ① = FM/SSG 実音 の完了 (= v2 FM/SSG dispatcher が trace-proof stub から実音 register write へ昇格)、 production-ready 達成宣言ではない (= roadmap ②〜④ + gate 全通過 + 越川氏 audition が残る)、 「軸 B 完成」 表現不使用。 次フェーズ = roadmap ② (= song parse + v2 per-part dispatch loop + IRQ 連携) |
 | 2026-05-23 | γ 実装完了 (= 39th session、 PR #94) | FM/SSG 実音 proof verify script 体系化。 §決定 7 の verify gate 6 件を `src/test-fixtures/axis-b/verify-axis-b-fm-ssg-real-sound.sh` に体系化 (= gate 1/2/3 = FM/SSG 実音 call chain 静的 + 実音 register write 動的、 gate 4 = chip 分岐 + entry marker、 gate 5 = baseline regression、 gate 6 = .org overflow)。 Annex D 追記 (= γ completion + 6 gate 構成 + 検証結果 + finding) + sub-sprint chain γ 完了 reflect + 状態行/平易要約 γ 同期。 検証 = verify-axis-b-fm-ssg-real-sound.sh 6 gate 全 PASS (EXIT 0)。 driver touch なし (= verify script 新規 + ADR-0057 + dashboard のみ)。 finding = 初回実行で verify script 自身の awk 2 bug (= .lst seg 走査が内部 _loop label で打ち切り + ymfm-trace port B register の "1" prefix 取りこぼし) を debug、 driver は正常、 memory feedback_ymfm_trace_portb_prefix_and_lst_segscan.md に記録。 Codex layer 2 = γ 実装 review approve。 軸 B production-ready roadmap ① γ、 残 δ (= completion + Draft → Accepted)、 「軸 B 完成」 表現不使用 |
 | 2026-05-23 | β 実装完了 (= 39th session、 PR #93) | v2 FM/SSG dispatcher 実音化。 `standalone_test.s` の `pmdneo_v2_fm_dispatch` を per ch `pmdneo_v2_fm_voice_note` call (= `pmdneo_fm_voice_set` + `fnumset_fm` + `fm_keyon`) へ、 `pmdneo_v2_ssg_dispatch` を per ch `pmdneo_v2_ssg_voice_note` call (= `fnumset_ssg` + `ssg_keyon` + `pmdneo_ssg_tone_sync`) へ拡張 + 固定 note table `pmdneo_v2_fm_notes`/`pmdneo_v2_ssg_notes` (= C4/E4/G4) 新設。 BC 非保存 routine の call で loop counter B を push/pop 退避。 reg 0x07 は `pmdneo_ssg_tone_sync` 経由のみ (= §決定 4 契約 evolution、 ADR-0051 準拠)。 Annex C 追記 (= β completion + deliverable + finding) + sub-sprint chain β 完了 reflect + 状態行/平易要約 β 同期。 検証 = production build PASS (= v2 実音 routine 0x0610 セクション、 overflow なし) + V2 fixture trace 両 chip で FM voice/fnum/keyon + SSG tone period/volume/reg 0x07 の実音 register write 観測 + verify-axis-b-axis-connection.sh 6 gate baseline regression 全 PASS (= ADR-0049〜0056 transitively 全 PASS)。 finding = §決定 6 は実音化で既存 verify gate 更新が要ると想定したが、 実音化が additive (= 既存 keyon/SSG 0x0F は維持、 voice/fnum/tone period/reg 0x07 が新規追加) のため既存 gate の literal 期待値は壊れず gate 更新不要。 Codex layer 2 = β 実装 review approve。 軸 B production-ready roadmap ① β、 残 γ/δ、 「軸 B 完成」 表現不使用 |
 | 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ① α) | v2 driver production-ready roadmap ① = FM/SSG 実音 の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ① の実装 ADR として、 v2 FM/SSG dispatcher を trace-proof stub から実音 register write へ昇格する設計を固定。 決定 1-10 + 4 段 sub-sprint α/β/γ/δ + FM 実音化方式 (= `pmdneo_fm_voice_set` + `fnumset_fm` + `fm_keyon` 本体 call) + SSG 実音化方式 (= `fnumset_ssg` + `ssg_keyon` + `pmdneo_ssg_tone_sync` 本体 call) + reg 0x07 契約 evolution (= ADR-0052 δ「touch しない」 → ADR-0051 `pmdneo_ssg_tone_sync` 経由、 契約準拠) + 固定 note 使用 (= song parse は roadmap ②) + verify gate 更新方針 (= β driver+影響 gate 同時 / γ 実音 proof script 体系化) + verify gate 6 件 + scope-out (= song parse/ADPCM-B/rhythm/軸 G/F-2-B 実音 は後続)。 doc-only filing (= ADR-0057 + dashboard のみ)。 並列 sub-agent 3 体調査の ground truth (= FM/SSG 実音 routine + reg 0x07 契約 + v2 dispatcher 現状 + verify 影響) を Annex A/B に literal 化。 Codex layer 2 起票 plan review approve (= 全 3 論点 = sub-sprint 段数/reg 0x07 契約 evolution/固定 note+fm3ext scope-out + 規律 6 観点 + ADR 番号 0057 approve、 escalate なし)。 起票 review must-fix 1 件 = `fnumset_fm`/`fnumset_ssg` の register 保存性。 並列 sub-agent は冒頭 `push bc`/`pop bc` のみ見て「BC 保存」 と誤判定したが、 Codex source verify + 主軸 driver source 直接確認で両 routine は table lookup 用 push/pop bc 後に B を register addr で上書きして ret する = **BC 非保存** と確定 → Annex A + §決定 2/3 を訂正 (= `pmdneo_fm_voice_set`/`fnumset_fm` 両方、 `fnumset_ssg`/`pmdneo_ssg_tone_sync` 両方 で loop counter B を push/pop 退避必須)。 ADR-0057 = roadmap ① 実装、 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用 |
