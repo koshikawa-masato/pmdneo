@@ -16,8 +16,9 @@
 #                                     pmdneo_v2_ssg_mixer = 0xFD3A /
 #                                     pmdneo_v2_entry_marker = 0xFD3B、 全て
 #                                     driver_state region [0xFD39,0xFD79) 内
-#   gate 4: 既存 SRAM layout 不変    — 0xFD20-0xFD38 既存 field の .equ (= ADR-0022
-#                                     /0023/0048) が documented address のまま
+#   gate 4: 既存 SRAM layout 不変    — 0xF820-0xFD38 既存 field の .equ (= part_workarea
+#                                     / PNE block / 軸 G scratch = ADR-0006/0022/0023
+#                                     /0048) が documented address + PART_COUNT/SIZE のまま
 #   gate 5: 命名規約 pmdneo_v2_     — v2 region [0xFD39,0xFFC0) に resolve する
 #                                     .equ symbol が全て pmdneo_v2_ prefix
 #   --- baseline gate ---
@@ -106,17 +107,26 @@ else
   ng "gate 3: 既配置 3 field placement 異常 (fade_level=0x${FL:-NONE} 期待 00FD39 / ssg_mixer=0x${SM:-NONE} 期待 00FD3A / entry_marker=0x${EM:-NONE} 期待 00FD3B)"
 fi
 
-# --- gate 4: 既存 SRAM layout 0xFD20-0xFD38 不変 ---
-# ADR-0022/0023/0048 owner の既存 field .equ が documented address のまま
-# (= δ-2 が free region 直前の既存 layout を shift していない)
+# --- gate 4: 既存 SRAM layout 0xF820-0xFD38 不変 ---
+# ADR-0006/0022/0023/0048 owner の既存 field .equ が documented address のまま
+# (= δ-2 が free region 0xFD39 より前の既存 layout = part_workarea / PNE block /
+#  軸 G scratch を shift していない、 ADR-0053 §決定 5 gate 4 + §決定 7 不可触)。
+# part_workarea region は base 0xF820 + PART_COUNT × PART_WORKAREA_SIZE で
+# 0xF820-0xFD1F (= 20 × 64 byte)、 PART_COUNT/SIZE も併せて assert する。
+PWA=$(equ_addr part_workarea)
+PNEBUF=$(equ_addr driver_pne_filename_buf)
 FADRW=$(equ_addr driver_pne_filename_adr_word)
 SAMPID=$(equ_addr driver_pne_sample_table_id)
 PPCSC=$(equ_addr ppc_scratch_start_lsb)
 AUDFC=$(equ_addr audition_frame_counter_lsb)
-if [ "$FADRW" = "00FD30" ] && [ "$SAMPID" = "00FD32" ] && [ "$PPCSC" = "00FD33" ] && [ "$AUDFC" = "00FD37" ]; then
-  ok "gate 4: 既存 SRAM layout 不変 = driver_pne_filename_adr_word 0x${FADRW} / driver_pne_sample_table_id 0x${SAMPID} / ppc_scratch_start_lsb 0x${PPCSC} / audition_frame_counter_lsb 0x${AUDFC} (= ADR-0022/0023/0048 layout shift なし)"
+PCNT=$(equ_addr PART_COUNT)
+PWSZ=$(equ_addr PART_WORKAREA_SIZE)
+if [ "$PWA" = "00F820" ] && [ "$PNEBUF" = "00FD20" ] && [ "$FADRW" = "00FD30" ] \
+   && [ "$SAMPID" = "00FD32" ] && [ "$PPCSC" = "00FD33" ] && [ "$AUDFC" = "00FD37" ] \
+   && [ "$PCNT" = "000014" ] && [ "$PWSZ" = "000040" ]; then
+  ok "gate 4: 既存 SRAM layout 0xF820-0xFD38 不変 = part_workarea 0x${PWA} (= PART_COUNT $(hex "$PCNT") × PART_WORKAREA_SIZE $(hex "$PWSZ")) / driver_pne_filename_buf 0x${PNEBUF} / driver_pne_filename_adr_word 0x${FADRW} / driver_pne_sample_table_id 0x${SAMPID} / ppc_scratch_start_lsb 0x${PPCSC} / audition_frame_counter_lsb 0x${AUDFC} (= ADR-0006/0022/0023/0048 layout shift なし)"
 else
-  ng "gate 4: 既存 SRAM layout shift (filename_adr_word=0x${FADRW:-NONE} 期待 00FD30 / sample_table_id=0x${SAMPID:-NONE} 期待 00FD32 / ppc_scratch=0x${PPCSC:-NONE} 期待 00FD33 / audition_counter=0x${AUDFC:-NONE} 期待 00FD37)"
+  ng "gate 4: 既存 SRAM layout shift (part_workarea=0x${PWA:-NONE} 期待 00F820 / filename_buf=0x${PNEBUF:-NONE} 期待 00FD20 / filename_adr_word=0x${FADRW:-NONE} 期待 00FD30 / sample_table_id=0x${SAMPID:-NONE} 期待 00FD32 / ppc_scratch=0x${PPCSC:-NONE} 期待 00FD33 / audition_counter=0x${AUDFC:-NONE} 期待 00FD37 / PART_COUNT=0x${PCNT:-NONE} 期待 000014 / PART_WORKAREA_SIZE=0x${PWSZ:-NONE} 期待 000040)"
 fi
 
 # --- gate 5: 命名規約 = v2 region [0xFD39,0xFFC0) 内 .equ symbol が全て pmdneo_v2_ prefix ---
