@@ -117,16 +117,22 @@ PWA=$(equ_addr part_workarea)
 PNEBUF=$(equ_addr driver_pne_filename_buf)
 FADRW=$(equ_addr driver_pne_filename_adr_word)
 SAMPID=$(equ_addr driver_pne_sample_table_id)
-PPCSC=$(equ_addr ppc_scratch_start_lsb)
-AUDFC=$(equ_addr audition_frame_counter_lsb)
 PCNT=$(equ_addr PART_COUNT)
 PWSZ=$(equ_addr PART_WORKAREA_SIZE)
-if [ "$PWA" = "00F820" ] && [ "$PNEBUF" = "00FD20" ] && [ "$FADRW" = "00FD30" ] \
-   && [ "$SAMPID" = "00FD32" ] && [ "$PPCSC" = "00FD33" ] && [ "$AUDFC" = "00FD37" ] \
-   && [ "$PCNT" = "000014" ] && [ "$PWSZ" = "000040" ]; then
-  ok "gate 4: 既存 SRAM layout 0xF820-0xFD38 不変 = part_workarea 0x${PWA} (= PART_COUNT $(hex "$PCNT") × PART_WORKAREA_SIZE $(hex "$PWSZ")) / driver_pne_filename_buf 0x${PNEBUF} / driver_pne_filename_adr_word 0x${FADRW} / driver_pne_sample_table_id 0x${SAMPID} / ppc_scratch_start_lsb 0x${PPCSC} / audition_frame_counter_lsb 0x${AUDFC} (= ADR-0006/0022/0023/0048 layout shift なし)"
+# 軸 G scratch 0xFD33-0xFD38 (= ADR-0048、 6 byte 全 .equ symbol を個別 assert)
+GS1=$(equ_addr ppc_scratch_start_lsb)
+GS2=$(equ_addr ppc_scratch_start_msb)
+GS3=$(equ_addr ppc_scratch_stop_lsb)
+GS4=$(equ_addr ppc_scratch_stop_msb)
+GS5=$(equ_addr audition_frame_counter_lsb)
+GS6=$(equ_addr audition_frame_counter_msb)
+if [ "$PWA" = "00F820" ] && [ "$PNEBUF" = "00FD20" ] && [ "$FADRW" = "00FD30" ] && [ "$SAMPID" = "00FD32" ] \
+   && [ "$PCNT" = "000014" ] && [ "$PWSZ" = "000040" ] \
+   && [ "$GS1" = "00FD33" ] && [ "$GS2" = "00FD34" ] && [ "$GS3" = "00FD35" ] \
+   && [ "$GS4" = "00FD36" ] && [ "$GS5" = "00FD37" ] && [ "$GS6" = "00FD38" ]; then
+  ok "gate 4: 既存 SRAM layout 0xF820-0xFD38 不変 = part_workarea 0x${PWA} (= PART_COUNT $(hex "$PCNT") × PART_WORKAREA_SIZE $(hex "$PWSZ")) / driver_pne_filename_buf 0x${PNEBUF} / driver_pne_filename_adr_word 0x${FADRW} / driver_pne_sample_table_id 0x${SAMPID} / 軸 G scratch 0x${GS1}-0x${GS6} 6 byte 全 .equ (= ADR-0006/0022/0023/0048 layout shift なし)"
 else
-  ng "gate 4: 既存 SRAM layout shift (part_workarea=0x${PWA:-NONE} 期待 00F820 / filename_buf=0x${PNEBUF:-NONE} 期待 00FD20 / filename_adr_word=0x${FADRW:-NONE} 期待 00FD30 / sample_table_id=0x${SAMPID:-NONE} 期待 00FD32 / ppc_scratch=0x${PPCSC:-NONE} 期待 00FD33 / audition_counter=0x${AUDFC:-NONE} 期待 00FD37 / PART_COUNT=0x${PCNT:-NONE} 期待 000014 / PART_WORKAREA_SIZE=0x${PWSZ:-NONE} 期待 000040)"
+  ng "gate 4: 既存 SRAM layout shift (part_workarea=0x${PWA:-NONE}/filename_buf=0x${PNEBUF:-NONE}/filename_adr_word=0x${FADRW:-NONE}/sample_table_id=0x${SAMPID:-NONE}/PART_COUNT=0x${PCNT:-NONE}/PART_WORKAREA_SIZE=0x${PWSZ:-NONE}/軸G_scratch=0x${GS1:-NONE},0x${GS2:-NONE},0x${GS3:-NONE},0x${GS4:-NONE},0x${GS5:-NONE},0x${GS6:-NONE} 期待 00FD33-00FD38)"
 fi
 
 # --- gate 5: 命名規約 = v2 region [0xFD39,0xFFC0) 内 .equ symbol が全て pmdneo_v2_ prefix ---
