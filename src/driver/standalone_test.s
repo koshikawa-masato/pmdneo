@@ -195,6 +195,19 @@
         ;;   観測点。 v2 PartWork / driver_state の正式 placement は δ-2 scope。
         .equ    pmdneo_v2_entry_marker,        0xFD3B
 
+        ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
+        ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
+        ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
+        ;;     driver_state 拡張 region  0xFD39-0xFD78  64 byte  (= per-driver singleton)
+        ;;     PartWork 拡張 region      0xFD79-0xFE78  256 byte (= per-part work)
+        ;;     reserved region          0xFE79-0xFFBF  327 byte (= 後続軸 future)
+        ;;   後続 δ-3/δ-4 が追加する v2 SRAM field は本 base 定数からの相対 offset で
+        ;;   配置する。 既配置 3 field (= fade_level/ssg_mixer/entry_marker) は
+        ;;   driver_state 拡張 region 先頭 3 byte であり本 base 定数で move しない。
+        .equ    pmdneo_v2_driver_state_base,   0xFD39
+        .equ    pmdneo_v2_partwork_base,       0xFD79
+        .equ    pmdneo_v2_reserved_base,       0xFE79
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -219,10 +232,14 @@
 ;;;   0xFD32            driver_pne_sample_table_id (= 1 byte、ADR-0023 §決定 4、 α scope = placement only)
 ;;;   0xFD33 - 0xFD36   ppc_scratch_start/stop_lsb/msb (= 4 bytes、ADR-0048 §決定 8 軸 G δ runtime selection scratch)
 ;;;   0xFD37 - 0xFD38   audition_frame_counter_lsb/msb (= 2 bytes、ADR-0048 §決定 8 軸 G ε integration test mode 16-bit IRQ counter)
-;;;   0xFD39            pmdneo_v2_fade_level (= 1 byte、ADR-0050 §決定 4 軸 B 実装 sprint 6 β fade-out 減衰 factor)
-;;;   0xFD3A            pmdneo_v2_ssg_mixer (= 1 byte、ADR-0051 §決定 4 軸 B 実装 sprint 7 β SSG mixer reg 0x07 shadow)
-;;;   0xFD3B            pmdneo_v2_entry_marker (= 1 byte、ADR-0052 §決定 2 軸 B 実装 sprint 1 β v2 entry skeleton 到達 marker)
-;;;   0xFD3C - 0xFFBF   free / 後続 phase 用 (= 644 bytes 余裕)
+;;;   --- 0xFD39 - 0xFFBF = 軸 B v2 SRAM sub-region (= 647 bytes、ADR-0053 §決定 2 案 A) ---
+;;;   0xFD39 - 0xFD78   v2 driver_state 拡張 region (= 64 bytes、pmdneo_v2_driver_state_base)
+;;;       0xFD39          pmdneo_v2_fade_level (= 1 byte、ADR-0050 軸 B sprint 6 fade-out 減衰 factor)
+;;;       0xFD3A          pmdneo_v2_ssg_mixer (= 1 byte、ADR-0051 軸 B sprint 7 SSG mixer reg 0x07 shadow)
+;;;       0xFD3B          pmdneo_v2_entry_marker (= 1 byte、ADR-0052 軸 B sprint 1 v2 entry skeleton 到達 marker)
+;;;       0xFD3C - 0xFD78   free (= 61 bytes、δ-3/δ-4 v2 driver_state singleton home)
+;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base、全 free)
+;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
 ;;;   ※ 0xFFFE/0xFFFF は SM1 BIOS 作業領域、driver state 配置禁止。
