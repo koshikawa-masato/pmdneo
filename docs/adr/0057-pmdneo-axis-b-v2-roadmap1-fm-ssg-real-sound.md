@@ -236,7 +236,7 @@ v2 SSG dispatcher (per ch、 既存 routine 本体 call):
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
-| α (= ADR-0057 起票) | **進行中** (= 39th session、 本 PR) | (= 本 PR) | 起票 plan review approve (= 全 3 論点 + 規律 + ADR 番号 approve、 escalate なし) + 起票 review |
+| α (= ADR-0057 起票) | **完了** (= 39th session、 PR #92) | PR #92 | 起票 plan review approve (= 全 3 論点 + 規律 + ADR 番号 approve、 escalate なし) + 起票 review revise (= must-fix 1 = fnumset_fm/ssg BC 非保存) → approve |
 | β (= driver 実音化 + 影響 verify gate 更新) | **完了** (= 39th session、 PR #93) | PR #93 | β 実装 review approve |
 | γ (= FM/SSG 実音 proof verify script 体系化) | 未着手 | - | - |
 | δ (= completion + Draft → Accepted 判断) | 未着手 | - | - |
