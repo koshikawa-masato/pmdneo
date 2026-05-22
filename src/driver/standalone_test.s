@@ -2171,29 +2171,29 @@ pmdneo_v2_entry_skeleton:
         call    pmdneo_v2_rhythm_dispatch
         ret
 
-;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ、 δ-1)。
+;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ + ADR-0057 roadmap ① β)。
 ;;   v2 entry skeleton から call。 FM ch slot (= index 0-5 = A/B/C/D/E/F) を
-;;   sequential に loop し per ch で FM keyon (reg 0x28) を emit (= 各 ch 到達 +
-;;   FM register write の trace proof)。 γ scope = keyon proof のみ = fnum/block/
-;;   TL/voice/pan は実装しない (= 実音再生 = 後続段階)。 keyon は既存 fm_keyon を
-;;   本体直接 call (= fm_keyon は BC 保存で loop counter 維持可)。
+;;   sequential に loop し per ch で実音 register write を emit。 ADR-0057 β で
+;;   trace-proof stub (= keyon のみ) から実音化 = per ch で pmdneo_v2_fm_voice_note
+;;   を call (= voice/operator + fnum/block + keyon)。 固定 note (= C4/E4/G4 chord、
+;;   pmdneo_v2_fm_notes table) を使用 (= 実 MML song parse は roadmap ②)。
 ;;   chip target: YM2610 (= PMDNEO_TARGET_CHIP_YM2610B 0) は A (index 0) / D
-;;   (index 3) を keyon skip (= A/D silent)、 B/C/E/F の 4 ch keyon。 YM2610B は
-;;   全 6 ch keyon。 破壊 register: AF/BC/DE/HL。 IX/IY 不変。
+;;   (index 3) を skip (= A/D silent)、 B/C/E/F の 4 ch。 YM2610B は全 6 ch。
+;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変。
 pmdneo_v2_fm_dispatch:
         ld      b, #0                   ; B = FM ch index 0..5
 pmdneo_v2_fm_dispatch_loop:
 .if PMDNEO_TARGET_CHIP_YM2610B
-        ;; YM2610B: 全 6 ch (A-F) keyon
-        call    fm_keyon                ; reg 0x28 <- fm_keyon_values[B]
+        ;; YM2610B: 全 6 ch (A-F) 実音
+        call    pmdneo_v2_fm_voice_note
 .else
-        ;; YM2610: A (index 0) / D (index 3) は silent = keyon skip、 B/C/E/F のみ
+        ;; YM2610: A (index 0) / D (index 3) は silent = skip、 B/C/E/F のみ
         ld      a, b
         cp      #0
         jr      z, pmdneo_v2_fm_dispatch_next
         cp      #3
         jr      z, pmdneo_v2_fm_dispatch_next
-        call    fm_keyon                ; reg 0x28 <- fm_keyon_values[B]
+        call    pmdneo_v2_fm_voice_note
 .endif
 pmdneo_v2_fm_dispatch_next:
         inc     b
@@ -2202,25 +2202,77 @@ pmdneo_v2_fm_dispatch_next:
         jr      c, pmdneo_v2_fm_dispatch_loop
         ret
 
-;; pmdneo_v2_ssg_dispatch: SSG 3ch v2 dispatcher (= ADR-0052 δ、 δ-1)。
+;; pmdneo_v2_fm_voice_note: per-ch FM 実音 register write (= ADR-0057 roadmap ① β)。
+;;   B = FM ch index。 既存実音 routine を本体直接 call し voice/operator + fnum/
+;;   block + keyon を emit。 pmdneo_fm_voice_set / fnumset_fm は BC 非保存 (= 戻り時
+;;   B は register addr) のため loop counter B を push/pop 退避。 fm_keyon は BC 保存。
+;;   破壊 register: AF/BC/DE/HL。
+pmdneo_v2_fm_voice_note:
+        push    bc                      ; pmdneo_fm_voice_set は BC 非保存
+        ld      hl, #fm_voice_data_default
+        call    pmdneo_fm_voice_set     ; reg 0x30-0x8E (op) + 0xB0 (FB/ALG) + 0xB4 (pan)
+        pop     bc
+        push    bc                      ; fnumset_fm は BC 非保存
+        ld      a, b
+        ld      hl, #pmdneo_v2_fm_notes
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)                 ; A = 固定 note byte (= ch 別 C4/E4/G4)
+        call    fnumset_fm              ; reg 0xA4系 -> 0xA0系 (block+fnum)
+        pop     bc
+        call    fm_keyon                ; reg 0x28 (keyon、 BC 保存)
+        ret
+
+;; pmdneo_v2_fm_notes: v2 FM dispatcher 固定 note table (= ADR-0057 β、 C4/E4/G4 chord)。
+pmdneo_v2_fm_notes:
+        .db     0x40, 0x44, 0x47, 0x40, 0x44, 0x47
+
+;; pmdneo_v2_ssg_dispatch: SSG 3ch v2 dispatcher (= ADR-0052 δ + ADR-0057 roadmap ① β)。
 ;;   v2 entry skeleton から call。 SSG ch slot (= index 0-2 = G/H/I) を sequential
-;;   に loop し per ch で SSG volume (reg 0x08+ch) を write (= 各 ch 到達 + SSG
-;;   register write の trace proof)。 δ scope = volume proof のみ = tone period
-;;   (reg 0x00-0x05) / fnum は実装しない (= 実音再生 = 後続段階)。 volume write は
-;;   既存 ssg_keyon を本体直接 call (= reg 0x08+ch <- 0x0F、 ssg_keyon は BC 保存で
-;;   loop counter 維持可)。 **reg 0x07 (mixer tone-enable) は一切 touch しない** =
-;;   ADR-0051 SSG tone-enable 契約 (= reg 0x07 shadow RMW owner pmdneo_ssg_tone_sync)
-;;   を保護。 SSG は YM2610 / YM2610B 共に 3ch のため chip target 分岐なし。
-;;   破壊 register: AF/BC。 DE/HL/IX/IY 不変。
+;;   に loop し per ch で実音 register write を emit。 ADR-0057 β で trace-proof
+;;   stub (= volume のみ) から実音化 = per ch で pmdneo_v2_ssg_voice_note を call
+;;   (= tone period + volume + reg 0x07 tone-enable)。 固定 note (= C4/E4/G4、
+;;   pmdneo_v2_ssg_notes table) 使用 (= 実 MML song parse は roadmap ②)。
+;;   ADR-0057 §決定 4: reg 0x07 は ADR-0052 δ「touch しない」 契約を実音化に伴い
+;;   ADR-0051 pmdneo_ssg_tone_sync 経由へ更新 (= reg 0x07 唯一の RMW owner 経由 =
+;;   契約準拠、 直接 write なし)。 SSG は YM2610 / YM2610B 共 3ch、 chip 分岐なし。
+;;   破壊 register: AF/BC/DE/HL。 IX/IY 不変。
 pmdneo_v2_ssg_dispatch:
         ld      b, #0                   ; B = SSG ch index 0..2
 pmdneo_v2_ssg_dispatch_loop:
-        call    ssg_keyon               ; reg 0x08+ch <- 0x0F (volume)
+        call    pmdneo_v2_ssg_voice_note
         inc     b
         ld      a, b
         cp      #3
         jr      c, pmdneo_v2_ssg_dispatch_loop
         ret
+
+;; pmdneo_v2_ssg_voice_note: per-ch SSG 実音 register write (= ADR-0057 roadmap ① β)。
+;;   B = SSG ch index。 fnumset_ssg (tone period) + ssg_keyon (volume) +
+;;   pmdneo_ssg_tone_sync (reg 0x07 tone-enable = ADR-0051 §決定 3/4 契約準拠) を
+;;   本体直接 call。 fnumset_ssg / pmdneo_ssg_tone_sync は BC 非保存のため loop
+;;   counter B を push/pop 退避。 ssg_keyon は BC 保存。 破壊 register: AF/BC/DE/HL。
+pmdneo_v2_ssg_voice_note:
+        push    bc                      ; fnumset_ssg は BC 非保存
+        ld      a, b
+        ld      hl, #pmdneo_v2_ssg_notes
+        ld      e, a
+        ld      d, #0
+        add     hl, de
+        ld      a, (hl)                 ; A = 固定 note byte (= ch 別 C4/E4/G4)
+        call    fnumset_ssg             ; reg 0x00-0x05 (tone period)
+        pop     bc
+        call    ssg_keyon               ; reg 0x08+ch <- 0x0F (volume、 BC 保存)
+        push    bc                      ; pmdneo_ssg_tone_sync は BC 非保存
+        ld      a, #0x0F                ; A = 実効 volume (= ssg_keyon が書く 0x0F、 >0 で tone enable)
+        call    pmdneo_ssg_tone_sync    ; reg 0x07 tone-enable (= ADR-0051 RMW owner 経由)
+        pop     bc
+        ret
+
+;; pmdneo_v2_ssg_notes: v2 SSG dispatcher 固定 note table (= ADR-0057 β、 C4/E4/G4)。
+pmdneo_v2_ssg_notes:
+        .db     0x40, 0x44, 0x47
 
 ;; pmdneo_v2_fm3ext_dispatch: F-2-B ch3 4-op individual mode dispatcher
 ;;   (= ADR-0054 δ-3、 簡易実装 trace-proof)。 v2 entry skeleton から call。
