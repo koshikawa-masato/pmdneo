@@ -218,6 +218,28 @@
         .equ    pmdneo_v2_partwork_base,       0xFD79
         .equ    pmdneo_v2_reserved_base,       0xFE79
 
+        ;; ADR-0058 §決定 3 軸 B production-ready roadmap ② β: v2 PartWork compact
+        ;;   slot layout。 v2 song playback の per-part 進行 state を v2 PartWork
+        ;;   拡張 region (= pmdneo_v2_partwork_base 0xFD79-0xFE78、 256 byte) へ
+        ;;   配置する。 既存 part_workarea (= 0xF820、 64 byte/part) は流用せず
+        ;;   (= 256 byte で 4 part 分のみ = FM 6ch+SSG 3ch に不足)、 v2 専用の
+        ;;   12 byte compact slot を新設。 slot N の base = pmdneo_v2_partwork_base
+        ;;   + N * PMDNEO_V2_PARTWORK_SLOT_SIZE。 後続 γ が本 slot に MML 進行
+        ;;   state を read/write、 δ が IRQ 駆動で per-part loop する。
+        ;;   12 byte x PMDNEO_V2_PART_COUNT (= 9) = 108 byte <= 256 byte region。
+        .equ    PMDNEO_V2_PARTWORK_SLOT_SIZE,  12
+        .equ    PMDNEO_V2_PART_COUNT,          9       ; FM 6ch + SSG 3ch (= roadmap ② scope、 roadmap ③ で ADPCM-B/rhythm 拡張)
+        ;; v2 PartWork compact slot field offset (= slot 先頭からの相対 byte)
+        .equ    PMDNEO_V2_PART_OFF_ADDR,       0       ; 2 byte: 現在の MML fetch pointer
+        .equ    PMDNEO_V2_PART_OFF_LEN,        2       ; 1 byte: 残り tick counter (= note 持続)
+        .equ    PMDNEO_V2_PART_OFF_NOTE,       3       ; 1 byte: 現在の note byte (= OCT<<4|ONKAI)
+        .equ    PMDNEO_V2_PART_OFF_CH_IDX,     4       ; 1 byte: chip channel index
+        .equ    PMDNEO_V2_PART_OFF_KIND,       5       ; 1 byte: part kind (= 0 FM / 1 SSG)
+        .equ    PMDNEO_V2_PART_OFF_OCTAVE,     6       ; 1 byte: octave / shift state
+        .equ    PMDNEO_V2_PART_OFF_LOOP,       7       ; 2 byte: loop start MML pointer
+        .equ    PMDNEO_V2_PART_OFF_FLAGS,      9       ; 1 byte: part flags (= bit0 active)
+        ;; offset 10-11 = reserved (= 12 byte slot 端数、 後続 field 用)
+
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
         ;;   (= ADR-0025 §決定 4 / axis 3-b α' + ADR-0025 §決定 5 / axis 4-e、 1 定数で同期)
@@ -250,7 +272,8 @@
 ;;;       0xFD3C          pmdneo_v2_adpcmb_marker (= 1 byte、ADR-0055 軸 B sprint 4 軸 C ADPCM-B 接続点 stub marker)
 ;;;       0xFD3D          pmdneo_v2_rhythm_marker (= 1 byte、ADR-0055 軸 B sprint 4 rhythm 接続点 stub marker)
 ;;;       0xFD3E - 0xFD78   free (= 59 bytes、後続 v2 driver_state singleton home)
-;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base、全 free)
+;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base)
+;;;       v2 compact slot = 12 byte/part x PMDNEO_V2_PART_COUNT (= ADR-0058 §決定 3、 slot N = base + N*12)
 ;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
 ;;;   0xFFC0 - 0xFFFF   Z80 stack (= 64 bytes 既存、ld sp, #0xFFFF 起点)
 ;;;
