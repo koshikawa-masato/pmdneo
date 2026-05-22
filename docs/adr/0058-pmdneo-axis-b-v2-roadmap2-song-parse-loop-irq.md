@@ -205,7 +205,7 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
-| α (= ADR-0058 起票) | **進行中** (= 39th session、 本 PR) | (= 本 PR) | 起票 plan review approve (= 案 b + 6 段 + 全 4 論点 + 規律 approve、 escalate なし) + 起票 review |
+| α (= ADR-0058 起票) | **完了** (= 39th session、 PR #96) | PR #96 | 起票 plan review approve (= 案 b + 6 段 + 全 4 論点 + 規律 approve、 escalate なし) + 起票 review approve |
 | β (= v2 PartWork compact layout) | **完了** (= 39th session、 PR #97) | PR #97 | β 実装 review approve |
 | γ (= v2 song parse + dispatch wiring) | 未着手 | - | - |
 | δ (= IRQ 連携 + tempo) | 未着手 | - | - |
