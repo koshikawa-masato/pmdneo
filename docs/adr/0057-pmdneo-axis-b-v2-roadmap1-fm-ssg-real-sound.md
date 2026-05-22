@@ -66,7 +66,7 @@ roadmap ① 実装を **4 段階 α/β/γ/δ** に分割する。
 | 2 | `fnumset_fm` (A = 固定 note byte、 B = ch) | FM fnum/block 設定 (= reg 0xA4系 → 0xA0系) |
 | 3 | `fm_keyon` (B = ch) | FM keyon (= reg 0x28) |
 
-`pmdneo_fm_voice_set` は BC 非保存のため、 loop counter B を push/pop で退避する。 `fnumset_fm` / `fm_keyon` は BC 保存。 chip target 分岐 (= YM2610 は A/D = ch index 0/3 を skip) は既存 `pmdneo_v2_fm_dispatch` の `.if PMDNEO_TARGET_CHIP_YM2610B` 構造を維持する。
+`pmdneo_fm_voice_set` と `fnumset_fm` は **BC 非保存** (= `fnumset_fm` は冒頭 `push bc`/`pop bc` を fnum_data table lookup 用に行うが、 その後 B を register addr 0xA4系/0xA0系 で上書きして ret するため、 戻り時 B は ch index ではない) のため、 これらの call では loop counter B を push/pop で退避する。 `fm_keyon` は末尾 `pop bc` で BC 保存。 chip target 分岐 (= YM2610 は A/D = ch index 0/3 を skip) は既存 `pmdneo_v2_fm_dispatch` の `.if PMDNEO_TARGET_CHIP_YM2610B` 構造を維持する。
 
 ### 決定 3: SSG 実音化方式 = 既存 routine 本体 call
 
@@ -78,7 +78,7 @@ roadmap ① 実装を **4 段階 α/β/γ/δ** に分割する。
 | 2 | `ssg_keyon` (B = ch) | SSG volume 設定 (= reg 0x08-0x0A) |
 | 3 | `pmdneo_ssg_tone_sync` (B = ch、 A = 実効 volume) | SSG mixer reg 0x07 tone-enable (= ADR-0051 契約準拠) |
 
-`pmdneo_ssg_tone_sync` は AF/BC/DE/HL 破壊のため、 loop counter B を push/pop で退避する。 `fnumset_ssg` / `ssg_keyon` は BC 保存。
+`fnumset_ssg` と `pmdneo_ssg_tone_sync` は **BC 非保存** (= `fnumset_ssg` は冒頭 `push bc`/`pop bc` を psg_tune_data table lookup 用に行うが、 その後 B を register addr で上書きして ret する。 `pmdneo_ssg_tone_sync` は AF/BC/DE/HL 破壊) のため、 これらの call では loop counter B を push/pop で退避する。 `ssg_keyon` は末尾 `pop bc` で BC 保存。
 
 ### 決定 4: reg 0x07 契約 evolution = ADR-0052 δ「touch しない」 → ADR-0051 `pmdneo_ssg_tone_sync` 経由
 
@@ -156,7 +156,7 @@ audition は production-ready gate (= ADR-0056 §決定 3) の最終段。 roadm
 | routine | 入力 | 破壊 register | 役割 |
 |---|---|---|---|
 | `pmdneo_fm_voice_set` | HL = voice data 先頭、 B = ch | AF/DE/HL (= **BC 非保存**) | reg 0x30-0x80 (op) + 0xB0 (FB/ALG) + 0xB4 (pan) |
-| `fnumset_fm` | A = note byte (OCT<<4\|ONKAI)、 B = ch | AF/DE/HL (= BC 保存) | reg 0xA4系 → 0xA0系 (block+fnum、 latch 順序保証) |
+| `fnumset_fm` | A = note byte (OCT<<4\|ONKAI)、 B = ch | AF/BC/DE/HL (= **BC 非保存**、 table lookup 用の冒頭 push/pop bc 後に B を register addr で上書きして ret) | reg 0xA4系 → 0xA0系 (block+fnum、 latch 順序保証) |
 | `fm_keyon` | B = ch | AF/DE/HL (= BC 保存) | reg 0x28 (slot mask + ch) |
 
 固定値 = note byte 0x40=C4 / 0x44=E4 / 0x47=G4 (= cmd 0x02 mode4 chord)、 `fnum_data` table (12 entry)、 `fm_voice_data_default` (25 byte、 ALG7 = 4 op 全 carrier)。
@@ -165,7 +165,7 @@ audition は production-ready gate (= ADR-0056 §決定 3) の最終段。 roadm
 
 | routine | 入力 | 破壊 register | 役割 |
 |---|---|---|---|
-| `fnumset_ssg` | A = note byte、 B = ch | なし (= AF/BC 保存) | reg 0x00-0x05 (tone period) |
+| `fnumset_ssg` | A = note byte、 B = ch | AF/BC/DE/HL (= **BC 非保存**、 table lookup 用の冒頭 push/pop bc 後に B を register addr で上書きして ret) | reg 0x00-0x05 (tone period) |
 | `ssg_keyon` | B = ch | AF (= BC 保存) | reg 0x08-0x0A (volume、 0x0F 固定) |
 | `pmdneo_ssg_tone_sync` | B = ch、 A = 実効 volume | AF/BC/DE/HL (= **BC 破壊**) | reg 0x07 tone-enable (= shadow `pmdneo_v2_ssg_mixer` 0xFD3A RMW) |
 
@@ -217,4 +217,4 @@ v2 SSG dispatcher (per ch、 既存 routine 本体 call):
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
-| 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ① α) | v2 driver production-ready roadmap ① = FM/SSG 実音 の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ① の実装 ADR として、 v2 FM/SSG dispatcher を trace-proof stub から実音 register write へ昇格する設計を固定。 決定 1-10 + 4 段 sub-sprint α/β/γ/δ + FM 実音化方式 (= `pmdneo_fm_voice_set` + `fnumset_fm` + `fm_keyon` 本体 call) + SSG 実音化方式 (= `fnumset_ssg` + `ssg_keyon` + `pmdneo_ssg_tone_sync` 本体 call) + reg 0x07 契約 evolution (= ADR-0052 δ「touch しない」 → ADR-0051 `pmdneo_ssg_tone_sync` 経由、 契約準拠) + 固定 note 使用 (= song parse は roadmap ②) + verify gate 更新方針 (= β driver+影響 gate 同時 / γ 実音 proof script 体系化) + verify gate 6 件 + scope-out (= song parse/ADPCM-B/rhythm/軸 G/F-2-B 実音 は後続)。 doc-only filing (= ADR-0057 + dashboard のみ)。 並列 sub-agent 3 体調査の ground truth (= FM/SSG 実音 routine + reg 0x07 契約 + v2 dispatcher 現状 + verify 影響) を Annex A/B に literal 化。 Codex layer 2 起票 plan review approve (= 全 3 論点 = sub-sprint 段数/reg 0x07 契約 evolution/固定 note+fm3ext scope-out + 規律 6 観点 + ADR 番号 0057 approve、 escalate なし)。 ADR-0057 = roadmap ① 実装、 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用 |
+| 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ① α) | v2 driver production-ready roadmap ① = FM/SSG 実音 の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ① の実装 ADR として、 v2 FM/SSG dispatcher を trace-proof stub から実音 register write へ昇格する設計を固定。 決定 1-10 + 4 段 sub-sprint α/β/γ/δ + FM 実音化方式 (= `pmdneo_fm_voice_set` + `fnumset_fm` + `fm_keyon` 本体 call) + SSG 実音化方式 (= `fnumset_ssg` + `ssg_keyon` + `pmdneo_ssg_tone_sync` 本体 call) + reg 0x07 契約 evolution (= ADR-0052 δ「touch しない」 → ADR-0051 `pmdneo_ssg_tone_sync` 経由、 契約準拠) + 固定 note 使用 (= song parse は roadmap ②) + verify gate 更新方針 (= β driver+影響 gate 同時 / γ 実音 proof script 体系化) + verify gate 6 件 + scope-out (= song parse/ADPCM-B/rhythm/軸 G/F-2-B 実音 は後続)。 doc-only filing (= ADR-0057 + dashboard のみ)。 並列 sub-agent 3 体調査の ground truth (= FM/SSG 実音 routine + reg 0x07 契約 + v2 dispatcher 現状 + verify 影響) を Annex A/B に literal 化。 Codex layer 2 起票 plan review approve (= 全 3 論点 = sub-sprint 段数/reg 0x07 契約 evolution/固定 note+fm3ext scope-out + 規律 6 観点 + ADR 番号 0057 approve、 escalate なし)。 起票 review must-fix 1 件 = `fnumset_fm`/`fnumset_ssg` の register 保存性。 並列 sub-agent は冒頭 `push bc`/`pop bc` のみ見て「BC 保存」 と誤判定したが、 Codex source verify + 主軸 driver source 直接確認で両 routine は table lookup 用 push/pop bc 後に B を register addr で上書きして ret する = **BC 非保存** と確定 → Annex A + §決定 2/3 を訂正 (= `pmdneo_fm_voice_set`/`fnumset_fm` 両方、 `fnumset_ssg`/`pmdneo_ssg_tone_sync` 両方 で loop counter B を push/pop 退避必須)。 ADR-0057 = roadmap ① 実装、 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用 |
