@@ -2110,7 +2110,9 @@ pmdneo_ssg_tone_mask:
 ;;;   配置: 0x0610 セクション (= .org 制約なし、 ADR-0049/0050/0051 並設 pattern)。
 ;;;   β = cmd 0x07 trigger path + v2 entry skeleton。 γ = FM 6ch v2 dispatcher
 ;;;   (= pmdneo_v2_fm_dispatch、 keyon trace proof)。 δ = SSG 3ch v2 dispatcher
-;;;   (= pmdneo_v2_ssg_dispatch、 volume trace proof)。
+;;;   (= pmdneo_v2_ssg_dispatch、 volume trace proof)。 ADR-0054 δ-3 = F-2-B
+;;;   ch3 4-op individual mode dispatcher (= pmdneo_v2_fm3ext_dispatch、
+;;;   reg 0x27 bit 7 + ch3 op1-4 individual register write trace proof)。
 ;;; ============================================================
 
 ;; nmi_cmd_5_adpcmb_beat: NMI dispatch command 5 = ADPCM-B beat。 ADR-0052 β で
@@ -2137,16 +2139,19 @@ nmi_cmd_7_play_song_v2:
         call    pmdneo_v2_entry_skeleton
         jp      nmi_done
 
-;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ/δ、 δ-1)。
+;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ/δ +
+;;   ADR-0054 δ-3、 軸 B 実装 sprint 1 δ-1 + sprint 3 δ-3)。
 ;;   pmdneo_v2_entry_marker に 0x07 を write (= β、 cmd 0x07 trigger path verify
 ;;   gate の観測点) + FM 6ch v2 dispatcher を call (= γ) + SSG 3ch v2 dispatcher を
-;;   call (= δ)。 ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では
+;;   call (= δ) + F-2-B ch3 4-op individual mode dispatcher を call (= ADR-0054 δ-3)。
+;;   ret 可能のため TEST_MODE_V2_ENTRY_FIXTURE build では
 ;;   nmi_cmd_5_init_mml_song から本 routine を直接 call する。 破壊 register = AF/BC/DE/HL。
 pmdneo_v2_entry_skeleton:
         ld      a, #0x07
         ld      (pmdneo_v2_entry_marker), a
         call    pmdneo_v2_fm_dispatch
         call    pmdneo_v2_ssg_dispatch
+        call    pmdneo_v2_fm3ext_dispatch
         ret
 
 ;; pmdneo_v2_fm_dispatch: FM 6ch v2 dispatcher (= ADR-0052 γ、 δ-1)。
@@ -2198,6 +2203,37 @@ pmdneo_v2_ssg_dispatch_loop:
         ld      a, b
         cp      #3
         jr      c, pmdneo_v2_ssg_dispatch_loop
+        ret
+
+;; pmdneo_v2_fm3ext_dispatch: F-2-B ch3 4-op individual mode dispatcher
+;;   (= ADR-0054 δ-3、 簡易実装 trace-proof)。 v2 entry skeleton から call。
+;;   F-2-B = FM ch3 を 4 operator 個別制御する individual mode。 本 routine は
+;;   簡易実装 trace-proof 段階 = (1) reg 0x27 bit 7 (= CH3 individual mode
+;;   enable) を非破壊 set (2) ch3 op1-4 の individual TL register (= 0x42/0x46/
+;;   0x4A/0x4E) を per-op 異値で write し individual addressing を trace proof。
+;;   reg 0x27 = 0xAA = init 値 0x2A (= L357-359、 TIMER-B reset/IRQ/run) | 0x80
+;;   (= bit 7) = TIMER bit 非破壊で bit 7 を加算 (= ADR-0054 §決定 4)。 op1-4 TL
+;;   は 0x20-0x23 の per-op 異値で個別 register 到達を観測可能化。 実音 individual
+;;   mode 完全動作 / fnum per-op 完全制御 / PMDPPZ 流儀 full 実装 / legacy
+;;   PART_FM3EXT hooks=noop 解除 は後続 future (= ADR-0054 §決定 2/3 scope-out)。
+;;   既存 reg 0x27 write path (= L347-359) + legacy PART_FM3EXT hook は不可触。
+;;   既存 ym2610_write_port_a を本体直接 call。 破壊 register: AF/BC。
+pmdneo_v2_fm3ext_dispatch:
+        ld      b, #0x27                ; Mode/Timer Control register
+        ld      c, #0xAA                ; 0x2A (init reg 0x27) | 0x80 (bit 7 = CH3 individual mode)
+        call    ym2610_write_port_a
+        ld      b, #0x42                ; ch3 op1 TL
+        ld      c, #0x20
+        call    ym2610_write_port_a
+        ld      b, #0x46                ; ch3 op2 TL
+        ld      c, #0x21
+        call    ym2610_write_port_a
+        ld      b, #0x4A                ; ch3 op3 TL
+        ld      c, #0x22
+        call    ym2610_write_port_a
+        ld      b, #0x4E                ; ch3 op4 TL
+        ld      c, #0x23
+        call    ym2610_write_port_a
         ret
 
 pmdneo5_clear_part_workarea:
