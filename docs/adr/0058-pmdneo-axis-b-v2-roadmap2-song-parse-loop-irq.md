@@ -1,6 +1,6 @@
 # ADR-0058: PMDNEO 軸 B v2 driver production-ready roadmap ② = song parse + per-part dispatch loop + IRQ 連携
 
-- 状態: **Draft** (= 2026-05-23 39th session 軸 B production-ready roadmap ② α、 ground truth = ADR-0056 roadmap ② / ADR-0057、 ADR 起票 doc-only filing、 後続 β/γ/δ/ε/ζ で v2 PartWork layout → song parse+dispatch wiring → IRQ+tempo → verify → completion。 ADR-0056 §決定 4 roadmap ② literal 後続実装 ADR。 **v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する実装 ADR**。 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用)
+- 状態: **Draft** (= 2026-05-23 39th session 軸 B production-ready roadmap ②、 ground truth = ADR-0056 roadmap ② / ADR-0057、 α 起票 doc-only filing + β v2 PartWork compact layout 完了、 後続 γ/δ/ε/ζ で song parse+dispatch wiring → IRQ+tempo → verify → completion。 ADR-0056 §決定 4 roadmap ② literal 後続実装 ADR。 **v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する実装 ADR**。 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用)
 - 著作権者: 越川将人
 - 関連 ADR:
   - **ADR-0056** (= production-ready 化 選定 ADR、 Accepted、 §決定 4 roadmap ② = song parse + v2 per-part dispatch loop + IRQ tick 連携。 本 ADR-0058 が roadmap ② の実装 ADR)
@@ -165,24 +165,48 @@ roadmap ② 完了後の v2 song playback 経路:
 
 build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を `.if` flag で排他 build。
 
+## Annex C: β 実装 completion record (= v2 PartWork compact layout)
+
+### C-1: β deliverable
+
+軸 B production-ready roadmap ② β = v2 PartWork compact slot layout 確定 (= 39th session、 PR #97)。
+
+| deliverable | 内容 |
+|---|---|
+| `standalone_test.s` の v2 PartWork compact slot `.equ` layout | `PMDNEO_V2_PARTWORK_SLOT_SIZE` (= 12) + `PMDNEO_V2_PART_COUNT` (= 9 = FM 6ch + SSG 3ch) + slot field offset 8 件 (`PMDNEO_V2_PART_OFF_ADDR`/`LEN`/`NOTE`/`CH_IDX`/`KIND`/`OCTAVE`/`LOOP`/`FLAGS`)。 ADR-0053 §決定 2 の v2 PartWork region 0xFD79-0xFE78 に v2 専用 compact slot を配置 (= slot N = `pmdneo_v2_partwork_base` + N × 12) |
+| SRAM layout comment | v2 PartWork region 行を compact slot layout 付きへ更新 |
+
+### C-2: 実装詳細
+
+- v2 専用 12 byte compact slot = 既存 `part_workarea` の 64 byte/part slot を流用しない (= 256 byte で 4 part 分のみ = FM 6ch+SSG 3ch に不足)。 12 byte × 9 part = 108 byte ≤ 256 byte region。 roadmap ③ で ADPCM-B/rhythm part 追加時は `PMDNEO_V2_PART_COUNT` 拡張 (= 256/12 = 21 part まで収容可)
+- slot field = ADDR (2 byte MML pointer) / LEN (1 byte tick counter) / NOTE (1 byte) / CH_IDX (1 byte) / KIND (1 byte FM/SSG) / OCTAVE (1 byte) / LOOP (2 byte loop pointer) / FLAGS (1 byte)、 offset 10-11 reserved
+- β は `.equ` 定数のみ (= active code なし)。 γ が本 slot を read/write、 δ が IRQ 駆動で per-part loop
+
+### C-3: β 検証結果
+
+- production build PASS
+- **m1 binary byte-identical** (= sha256 一致確認、 β は unused symbol の `.equ` のみ = sdasz80 は byte 非出力 = Z80 driver binary 不変、 ADR-0053 β と同 pattern)
+- binary 不変のため ADR-0049〜0057 baseline regression は trivially 維持 (= 同一 binary)
+- Codex layer 2 = β 実装 review approve
+
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
 **やりたいこと**: 新ドライバ (= v2) を「固定の和音を 1 回鳴らすだけ」 から「実際の MML 曲を時間進行で鳴らす」 ドライバへ引き上げる。 曲データを読んで、 各パートを時間で進め、 IRQ (= 一定間隔の割り込み) で周期再生する。
 
 **前提**: roadmap ① (= ADR-0057) で v2 の FM/SSG 音源処理は実音を出せるようになった。 ただし v2 はまだ「曲データを読まない・時間進行しない・割り込み連携なし」 の one-shot。 本 ADR-0058 = roadmap ② = この 3 つを実装する。
 
-**今回やること (= α)**: 設計書 (= 本 ADR-0058) を起票するだけ。 ドライバのコードはまだ書かない。 曲解釈の方式・パート状態の置き場所・IRQ 連携の方法・検証方法を文書で固定する。
+**進捗 (= α/β 完了)**: α で設計書 (= 本 ADR-0058) を起票し、 曲解釈の方式・パート状態の置き場所・IRQ 連携の方法・検証方法を文書で固定した。 β でドライバ (= `standalone_test.s`) に v2 専用のパート状態置き場 (= v2 PartWork compact slot = 12 byte/part × 9) のレイアウト定数を追加した。 β は定数のみで Z80 ドライバ binary は byte-identical (= 不変)。
 
 **核心**: 既存ドライバの MML 曲解釈ロジックは信頼して基盤に使うが (= 案 b)、 各パートの「音を鳴らす出口」 は roadmap ① で作った v2 dispatcher へ向ける。 既存ドライバをそのまま流用すると roadmap ① の v2 dispatcher が使われずに無駄になるため。
 
-**次**: 本 ADR-0058 を doc-only で commit / PR / merge した後、 β でパート状態の置き場所 (= v2 PartWork) を確定し、 γ で曲解釈 + dispatch 配線、 δ で IRQ 連携 + tempo、 ε で検証スクリプト、 ζ で Draft → Accepted へ移行する。 ADPCM-B/rhythm は roadmap ③、 production-ready 達成宣言はまだしない。
+**次**: γ で曲解釈 + dispatch 配線 (= v2 song parse を v2 dispatcher へ feed)、 δ で IRQ 連携 + tempo、 ε で検証スクリプト、 ζ で Draft → Accepted へ移行する。 ADPCM-B/rhythm は roadmap ③、 production-ready 達成宣言はまだしない。
 
 ## sub-sprint chain 進捗
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
 | α (= ADR-0058 起票) | **進行中** (= 39th session、 本 PR) | (= 本 PR) | 起票 plan review approve (= 案 b + 6 段 + 全 4 論点 + 規律 approve、 escalate なし) + 起票 review |
-| β (= v2 PartWork compact layout) | 未着手 | - | - |
+| β (= v2 PartWork compact layout) | **完了** (= 39th session、 PR #97) | PR #97 | β 実装 review approve |
 | γ (= v2 song parse + dispatch wiring) | 未着手 | - | - |
 | δ (= IRQ 連携 + tempo) | 未着手 | - | - |
 | ε (= verify script 体系化) | 未着手 | - | - |
@@ -192,4 +216,5 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-23 | β 実装完了 (= 39th session、 PR #97) | v2 PartWork compact layout 確定。 `standalone_test.s` に v2 専用 compact slot `.equ` layout (= `PMDNEO_V2_PARTWORK_SLOT_SIZE` 12 + `PMDNEO_V2_PART_COUNT` 9 + slot field offset 8 件 ADDR/LEN/NOTE/CH_IDX/KIND/OCTAVE/LOOP/FLAGS) を追加 + SRAM layout comment 更新。 ADR-0053 §決定 2 の v2 PartWork region 0xFD79-0xFE78 に slot N = base + N×12 で配置 (= 12×9 = 108 byte ≤ 256)。 Annex C 追記 + sub-sprint chain β 完了 reflect + 状態行/平易要約 β 同期。 検証 = production build PASS + m1 binary byte-identical (= β は unused symbol の `.equ` のみ = byte 非出力 = Z80 driver binary 不変、 ADR-0053 β と同 pattern、 baseline regression は同一 binary で trivially 維持)。 既存 part_workarea + ADR-0049〜0057 + 軸 C/G/rhythm 完全不可触。 Codex layer 2 = β 実装 review approve。 軸 B roadmap ② β、 残 γ/δ/ε/ζ、 「軸 B 完成」 表現不使用 |
 | 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ② α) | v2 driver production-ready roadmap ② = song parse + per-part dispatch loop + IRQ tick 連携 の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ② の実装 ADR として、 v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する設計を固定。 決定 1-9 + 6 段 sub-sprint α/β/γ/δ/ε/ζ + parse 方式 = 案 (b) 既存 MML byte 解釈基盤 + v2 dispatch wiring (= 案 a 完全専用 parser / 案 c 既存 pmdneo_song_main 単純流用 = roadmap ① bypass は不採用) + v2 PartWork compact layout (= ADR-0053 v2 PartWork region 0xFD79-0xFE78) + IRQ 連携 (= irq_handler_body へ v2 hook 1 行 additive + build-mode 排他) + v2 dispatcher 固定 note → song-driven note 置換 + verify gate 6 件 + scope-out (= ADPCM-B/rhythm は roadmap ③、 軸 G は roadmap ④)。 doc-only filing (= ADR-0058 + dashboard のみ)。 並列 sub-agent 3 体調査の ground truth (= 既存 MML parser / IRQ 機構 / v2 path 現状) を Annex A/B に literal 化。 核心の気づき = 既存 pmdneo_song_main 単純流用は roadmap ① の v2 dispatcher を bypass するため、 roadmap ② は song parse 出力を v2 dispatcher へ feed する wiring 必須。 Codex layer 2 起票 plan review approve (= 案 b parse 方式 + 6 段 sub-sprint + 全 4 論点 (parse 方式/v2 PartWork/IRQ 連携/scope 分割) + 規律 + ADR 番号 0058 approve、 escalate なし)。 ADR-0058 = roadmap ② 実装、 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用 |
