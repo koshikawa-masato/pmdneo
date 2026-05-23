@@ -121,14 +121,20 @@ else
 fi
 
 # ============================================================
-# δ-3: 周期再生 proof
-#   slot 0 ADDR (= 0xFD79 / 0xFD7A) write の uniq value 件数 >= 2 (= 複数 byte 進行)
-# ============================================================
-SLOT0_ADDR_UNIQ=$(awk -F'\t' '$3=="FD79" || $3=="FD7A" {print $3"="$4}' "$ZMEM_DELTA" | sort -u | wc -l | tr -d ' ')
-if [ "$SLOT0_ADDR_UNIQ" -ge 2 ]; then
-  ok "δ-3: 周期再生 proof = slot 0 ADDR (= 0xFD79/0xFD7A) write uniq value ${SLOT0_ADDR_UNIQ} 件 (>= 2 期待 = 複数 byte 進行)"
+# δ-3: 周期再生 proof (= init-only false PASS 排除 = Codex layer 2 実装 review revise)
+#   pmdneo_v2_song_init は ADDR lo + ADDR hi をそれぞれ 1 回 write (= fixture base lo/hi)
+#   = init のみで `addr=value` uniq pair が既に 2 件成立する。 fixture 後続 byte 進行を
+#   literal proof するには次の 2 観点を AND assert:
+#   (a) slot 0 ADDR lo (= 0xFD79) の uniq value >= 3 (= init 1 値 + dispatch 経路で
+#       fixture base+2/+4/... と複数 lo 値が観測) = init-only fixture base のみではない byte 進行 proof
+#   (b) slot 0 LEN (= 0xFD7B) の uniq value >= 3 (= note dispatch で LEN=0x10 set + IRQ tick で
+#       LEN dec 0x0F/0x0E/... が観測) = IRQ tick による decrement 経路通過 + 周期再生 literal proof
+SLOT0_ADDR_LO_UNIQ=$(awk -F'\t' '$3=="FD79" {print $4}' "$ZMEM_DELTA" | sort -u | wc -l | tr -d ' ')
+SLOT0_LEN_UNIQ=$(awk -F'\t' '$3=="FD7B" {print $4}' "$ZMEM_DELTA" | sort -u | wc -l | tr -d ' ')
+if [ "$SLOT0_ADDR_LO_UNIQ" -ge 3 ] && [ "$SLOT0_LEN_UNIQ" -ge 3 ]; then
+  ok "δ-3: 周期再生 proof = slot 0 ADDR lo (= 0xFD79) uniq value ${SLOT0_ADDR_LO_UNIQ} 件 (>= 3 期待 = init 1 + dispatch advance >= 2) + slot 0 LEN (= 0xFD7B) uniq value ${SLOT0_LEN_UNIQ} 件 (>= 3 期待 = LEN set + IRQ dec values) = init-only false PASS 排除 + IRQ tick による decrement + fixture byte advance proof"
 else
-  ng "δ-3: 周期再生 proof 不成立 (slot0_addr_uniq=${SLOT0_ADDR_UNIQ} 期待 >= 2、 fixture 後続 byte 進行なし)"
+  ng "δ-3: 周期再生 proof 不成立 (slot0_addr_lo_uniq=${SLOT0_ADDR_LO_UNIQ} 期待 >= 3 / slot0_len_uniq=${SLOT0_LEN_UNIQ} 期待 >= 3、 init-only false PASS 排除のため両 AND 必須)"
 fi
 
 # ============================================================
