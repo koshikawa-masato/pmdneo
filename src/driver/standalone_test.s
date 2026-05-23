@@ -212,6 +212,21 @@
         .equ    pmdneo_v2_adpcmb_marker,       0xFD3C
         .equ    pmdneo_v2_rhythm_marker,       0xFD3D
 
+        ;; ADR-0058 §決定 4 軸 B production-ready roadmap ② δ: v2 song dispatch state
+        ;;   pmdneo_v2_song_state (= 0xFD3E、 bit0 = active flag): v2 song dispatch
+        ;;     active flag。 cold init で 0 clear (= I-12 mitigation = random SRAM
+        ;;     false active 回避)。 pmdneo_v2_song_entry が tempo init 後 1 set。
+        ;;     pmdneo_v2_song_tick が IRQ 毎 read、 bit0=0 で即 ret = dispatch skip。
+        ;;   pmdneo_v2_tempo_acc (= 0xFD3F、 1 byte): v2 tempo subtick accumulator。
+        ;;     IRQ tick 毎に tempo_d 加算、 overflow (= carry set) で dispatch 発火。
+        ;;     既存 driver_subtick_acc (= cmd 0x05 path、 0xF814) と独立。
+        ;;   pmdneo_v2_tempo_d (= 0xFD40、 1 byte): v2 tempo delta (= IRQ 毎の subtick
+        ;;     加算値)。 song_entry で 0x80 init (= 2 IRQ per step、 妥当 BPM 想定)。
+        ;;     既存 driver_tempo_d (= cmd 0x05 path、 0xF815) と独立。
+        .equ    pmdneo_v2_song_state,          0xFD3E
+        .equ    pmdneo_v2_tempo_acc,           0xFD3F
+        .equ    pmdneo_v2_tempo_d,             0xFD40
+
         ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
         ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
         ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
@@ -278,7 +293,10 @@
 ;;;       0xFD3B          pmdneo_v2_entry_marker (= 1 byte、ADR-0052 軸 B sprint 1 v2 entry skeleton 到達 marker)
 ;;;       0xFD3C          pmdneo_v2_adpcmb_marker (= 1 byte、ADR-0055 軸 B sprint 4 軸 C ADPCM-B 接続点 stub marker)
 ;;;       0xFD3D          pmdneo_v2_rhythm_marker (= 1 byte、ADR-0055 軸 B sprint 4 rhythm 接続点 stub marker)
-;;;       0xFD3E - 0xFD78   free (= 59 bytes、後続 v2 driver_state singleton home)
+;;;       0xFD3E          pmdneo_v2_song_state (= 1 byte、ADR-0058 δ v2 song dispatch active flag)
+;;;       0xFD3F          pmdneo_v2_tempo_acc (= 1 byte、ADR-0058 δ v2 tempo subtick accumulator)
+;;;       0xFD40          pmdneo_v2_tempo_d (= 1 byte、ADR-0058 δ v2 tempo delta)
+;;;       0xFD41 - 0xFD78   free (= 56 bytes、後続 v2 driver_state singleton home)
 ;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base)
 ;;;       v2 compact slot = 12 byte/part x PMDNEO_V2_PART_COUNT (= ADR-0058 §決定 3、 slot N = base + N*12)
 ;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
@@ -322,6 +340,15 @@ nmi_clear_driver_state:
         ld      (hl), a
         inc     hl
         djnz    nmi_clear_driver_state
+
+.if TEST_MODE_V2_SONG_FIXTURE
+        ;; ADR-0058 δ I-12 mitigation: v2 song_state を cold init で 0 clear。
+        ;; random SRAM 状態で IRQ tick が pmdneo_v2_song_entry 到達前に false active
+        ;; 踏まないようにする。 production build (= TEST_MODE_V2_SONG_FIXTURE=0) では
+        ;; 本 block 全 skip (= byte-identical 担保、 δ-7 gate で proof)。
+        xor     a
+        ld      (pmdneo_v2_song_state), a
+.endif
 
         ;; ADR-0048 §決定 8 案 C ε integration test mode (= 36th session ε round 3 fix):
         ;; init 経路で 1 度だけ強制 ADPCM-B keyon trigger (= .PPC 経路 entry 0 sample で発音)。
@@ -602,6 +629,16 @@ irq_handler_body:
         ;; feedback_org_section_overflow_silent_bug)。 driver_fade_state==0 で即
         ;; return、 IX は routine 内で push/pop save (= verify gate 5)。
         call    pmdneo_v2_fade_tick
+
+        ;; ADR-0058 δ: v2 song dispatch IRQ tick (= roadmap ② δ)。 IRQ handler body
+        ;;   から毎 tick 無条件 call、 内部で pmdneo_v2_song_state bit0=0 なら即 ret。
+        ;;   bit0=1 ならば pmdneo_v2_tempo_acc に tempo_d 加算、 overflow 時のみ
+        ;;   pmdneo_v2_song_dispatch を call。 routine 本体は 0x0610 セクションに
+        ;;   配置 (= .if TEST_MODE_V2_SONG_FIXTURE 配下)。 production build (= 0) では
+        ;;   本 call skip = byte-identical 担保 (= δ-7 gate)。
+.if TEST_MODE_V2_SONG_FIXTURE
+        call    pmdneo_v2_song_tick
+.endif
 
         ld      a, (driver_song_ready)
         or      a
@@ -2582,11 +2619,45 @@ pmdneo_v2_ssg_voice_note_song:
         pop     bc
         ret
 
-;; pmdneo_v2_song_entry (ADR-0058 γ、 案 E'-b): γ 用 entry = init + dispatch 1 回。
-;;   IRQ wiring は δ で別途追加。 破壊 register: AF/BC/DE/HL/IY。
+;; pmdneo_v2_song_entry (ADR-0058 γ→δ、 案 D'): δ で IRQ 駆動へ移行 = init +
+;;   tempo init + active flag set。 dispatch 直接 call は撤去 (= IRQ tick =
+;;   pmdneo_v2_song_tick が overflow 時に dispatch)。 pmdneo_v2_song_init は I-11
+;;   mitigation で必須維持 (= 誤撤去禁止 = slot 0/1 ADDR/LOOP setup なしで dispatch
+;;   すると 0xFD79 等 random SRAM を MML として fetch する)。 順序 literal:
+;;   song_init → tempo_acc=0 → tempo_d=0x80 → song_state=1 (= active 最後 set)。
+;;   破壊 register: AF/BC/DE/HL/IY。
 pmdneo_v2_song_entry:
-        call    pmdneo_v2_song_init
+        call    pmdneo_v2_song_init             ; ★ 必須維持 (= I-11 = song_init 誤撤去禁止)
+        ;; tempo + state init (= 順序 literal、 D')
+        xor     a
+        ld      (pmdneo_v2_tempo_acc), a        ; tempo acc = 0 reset
+        ld      a, #0x80                        ; tempo delta = 0x80 (= 2 IRQ per step、 妥当 BPM 想定)
+        ld      (pmdneo_v2_tempo_d), a
+        ld      a, #1
+        ld      (pmdneo_v2_song_state), a       ; ★ active flag 最後 set (= init/tempo 完了後の active 化)
+        ret
+
+;; pmdneo_v2_song_tick (ADR-0058 δ): IRQ tick から call、 IX/IY 退避 (= IRQ handler
+;;   不退避契約) + song_state inactive で即 ret + tempo accumulator overflow ならば
+;;   pmdneo_v2_song_dispatch call。 全 exit path は単一 epilogue
+;;   (= pmdneo_v2_song_tick_done) 経由 = IX/IY pop pair 順序保証。
+;;   破壊 register: AF/BC/DE/HL (= IRQ handler が push 済 = caller 視点不変)、
+;;   IX/IY は routine 内で push/pop 退避。
+pmdneo_v2_song_tick:
+        push    ix
+        push    iy
+        ld      a, (pmdneo_v2_song_state)
+        and     #1
+        jr      z, pmdneo_v2_song_tick_done     ; inactive exit → epilogue 経由
+        ld      a, (pmdneo_v2_tempo_acc)
+        ld      hl, #pmdneo_v2_tempo_d
+        add     a, (hl)
+        ld      (pmdneo_v2_tempo_acc), a
+        jr      nc, pmdneo_v2_song_tick_done    ; overflow なし exit → epilogue 経由
         call    pmdneo_v2_song_dispatch
+pmdneo_v2_song_tick_done:
+        pop     iy
+        pop     ix
         ret
 
 ;; pmdneo_v2_song_fixture_fm_b (ADR-0058 γ): FM ch B 用 fixture MML。
