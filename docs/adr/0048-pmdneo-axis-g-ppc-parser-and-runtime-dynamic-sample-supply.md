@@ -1020,3 +1020,149 @@ TIMER-B init + IRQ handler を改修して IRQ rate を 1 ms 想定に復旧 (= 
 - **他軸へ戻る** = 軸 B (= Phase 2 FM/SSG driver) / 軸 D (= WebApp) / 軸 E (= IPL) 等の優先順位仰ぎ
 
 本 sub-section (= ζ 着手準備) は **doc-only sprint** で、 driver / runtime / vendor / 既存 fixture / 既存 yaml 全完全不変。 ADR-0048 Draft 維持 + 軸 G ε partial complete 状態維持。
+
+## sub-sprint ζ-α 起票 (= 2026-05-23 39th session、 ADR-0048 ζ-α 起票 doc-only filing、 ADR-0060 Accepted 後の continuation、 単一 doc-only PR = single-doc-pr-A、 Codex layer 2 round 2 approve 経由)
+
+### ζ-α 起票の経緯 (= ADR-0060 Accepted 後の ADR-0048 ζ 着手判断)
+
+ADR-0060 Accepted (= 2026-05-23 39th session、 PR #108、 軸 B production-ready roadmap ④ 軸 G dynamic supply 依存整理 doc-only design 完了) で次の literal 整理が確立した:
+
+- **ADR-0058 δ-5 TIMER-B IRQ rate ~492 Hz literal 実測** = ADR-0048 ε partial 切り分け 5「6 秒で 2 回」 finding 完全 stale 化 (= ADR-0060 §決定 1)
+- **v2 driver と軸 G ε partial state の依存関係 literal 整理** = ADR-0060 §決定 2 で case 1/2/3 候補 + ADR-0048 ζ scope literal
+- **ADR-0048 ζ 着手向け前提整理** = ADR-0060 §決定 3 で案 X 不要 / 案 Y 継続 / 案 Z 第一候補 + 真 root cause 4 候補
+- **ADR-0059 sup-sample-table-id-bit7-clear gate 関係性** = ADR-0060 §決定 4 で roadmap ④ 後の bit7=1 侵入可能性 literal、 実装は ADR-0048 ζ scope
+
+これらの finding を反映し、 user 明示「次は ADR-0048 ζ の再評価 / 起票判断でよいです」 を受けて ADR-0048 ζ 起票判断を実施。 Codex layer 2 起票 plan review = round 1 revise + round 2 approve 経由で **ADR-0048 ζ-α (= 起票 doc-only filing) GO** 確定。
+
+### ζ-α 起票 deliverable (= 本 sub-section)
+
+| deliverable | 内容 |
+|---|---|
+| ADR-0048 本文 ζ-α section additive 追加 (= ADR-0058 ζ / ADR-0059 ζ pattern 同形式) | 本 sub-section が ζ-α 起票内容 = (1) ζ-α 経緯 (2) 5 sub-sprint 構成 (= ζ-α/β/γ/δ/ε) (3) 案 X/Y/Z/W 再評価 (4) 真 root cause 4 候補 (5) 不可触対象 (6) allowed-touch 例外 (7) verify+audition gate (8) 禁止表現リスト (9) Draft → Accepted 移行 trigger |
+| ADR-0048 状態行 + 改訂履歴 update | 状態行 = Draft 維持 (= ζ-α は起票のみ、 ζ-ε で Accepted 移行)、 改訂履歴に ζ-α entry 追加 |
+| dashboard 同期 (= ADR-0048 軸 G 行 + escalation 履歴 entry) | 軸 G 行 status column に ζ-α 完了 reflect、 escalation 履歴に ζ-α entry literal |
+
+### ζ-α 5 sub-sprint 構成 (= ζ-α/β/γ/δ/ε)
+
+ADR-0048 ζ 全体は 5 sub-sprint で完成する。 各 sub-sprint の scope + driver touch + user gate を literal 化:
+
+| sub | 内容 | driver touch | user gate |
+|---|---|---|---|
+| **ζ-α** (= 本 sub-section) | 起票 doc-only filing (= ADR-0048 本文に ζ section additive 追加 + 案再評価 + 不可触対象 + allowed-touch 例外 + sub-sprint plan literal 化) | なし | なし (= main agent 自律完走、 Codex layer 2 plan review approve + ζ-α doc review 経由) |
+| **ζ-β** | 実装 (= case 選定確定後の driver implementation、 v2 wrapper extension or 並設) | **allowed-touch 例外 適用** (= 下記 §allowed-touch 例外条件) | **user GO 必須** (= case 最終選定 + 着手判断) |
+| **ζ-γ** | verify script 体系化 (= integration 同居 audition fixture + register trace + audio gate) | verify script 新規のみ (= driver touch なし) | なし (= ζ-β 完了後の continuation) |
+| **ζ-δ** | 越川氏 audition gate (= ADR-0056 §決定 3 production-ready gate 4 系統最終 gate) | なし (= audition session) | **user 介入必須** (= 越川氏 audition + judgment) |
+| **ζ-ε** | completion + ADR-0048 Draft → Accepted 移行 doc-only | なし | **user 判断 gate** (= audition approve 後の Accepted 移行 trigger) |
+
+### 案 X/Y/Z/W 再評価 (= ADR-0058 δ-5 finding stale 化 + ADR-0060 §決定 1-4 反映)
+
+ADR-0048 sub-sprint ζ 着手準備 (= 同 ADR 内 L953-1006) の 3 案 (= X/Y/Z) は ADR-0060 §決定 1-4 で再評価された。 本 ζ-α では再評価結果 literal + ADR-0060 §決定 2 case 1 由来の新案 W を追加:
+
+| 案 | ADR-0048 ζ 着手準備当時評価 | 本 ζ-α 再評価 (= ADR-0060 §決定 1-4 反映) |
+|---|---|---|
+| **案 X** TIMER-B IRQ rate 構造改修 | 第二候補 (= 既存 driver 改修、 ε scope 超え) | **不要** (= ADR-0058 δ-5 ~492 Hz literal 実測で 1 ms 想定通り、 改修不要、 ADR-0060 §決定 1 stale 化確定) |
+| **案 Y** MML 拡張で J part PPC keyon | 第三候補 (= 軸 F defer 解除必要、 ADR-0044 ζ scope 別軸) | **継続候補** (= MML 経路で song-driven PPC 切替、 軸 F defer 解除は user 判断別軸、 軸 F なしでも部分実装可能性) |
+| **案 Z** init 経路順次発火 | **第一候補** (= 主軸推奨 + user 仮判断) | **継続候補 + ADR-0058 IRQ tick 駆動整合検討必要** (= ADR-0058 δ で IRQ tick 駆動 (~492 Hz) 確立済 = init 経路順次発火と並走 or 統合可能か再評価必要) |
+| **新案 W** v2 driver KIND=2 経路 PPC 切替 | ADR-0048 当時不可 (= roadmap ②/③ 未完了) | **主軸推奨 candidate (= 確定ではない、 ζ-β 着手時 user 判断 gate)** (= ADR-0060 §決定 2 case 1 採用 = v2 wrapper 内 driver_pne_sample_table_id bit7 save/set/call/restore、 song-driven PPC 切替、 ADR-0058 IRQ tick 駆動と統合済、 ADR-0048 当時 roadmap ②/③/④ 未完了で不可能だった新候補) |
+
+**最終選定 = ζ-β 着手時 user 判断 gate (= Codex review + user judgment AND 必須条件)**。 ζ-α では「主軸推奨 candidate (= 確定ではない)」 で止める。 案 W/Y/Z 並列候補、 case 最終選定は user GO 後。
+
+### 真 root cause 候補 enumeration (= ADR-0048 ε partial integration 同居 reject 再評価、 ADR-0060 §決定 3 reference)
+
+ADR-0048 ε partial の integration 同居 reject の真 root cause 候補 (= ADR-0058 δ-5 TIMER-B finding stale 化に伴う再評価):
+
+1. **同居 fixture 設計不足** = ADR-0048 ε partial fixture は単発 keyon のみ = 3 経路同居 (= PPC + yaml beat + ADPCM-A) の時系列並走 fixture 未実装
+2. **単発 keyon 設計** = init 経路 1 度 trigger だけでは同居 audition 不可、 周期 trigger or sequence 化必要
+3. **トリガ timing 設計不足** = ADR-0058 δ IRQ tick 駆動 (= ~492 Hz 周期再生) を活用すれば解消可能性
+4. **越川氏 audition 期待値 align 不足** = ε partial reject literal「FM / ADPCM-A / 既存 yaml beat 経路との同居 audition にはなっていません」 から integration audition target fixture の明確化必要
+
+これらは **ζ-β 着手時 + ζ-γ verify gate 設計時 + ζ-δ audition 設計時の調査軸**。 ζ-α では候補列挙 literal のみ、 確定は後続 sub-sprint。
+
+### 不可触対象 (= ζ-α 全 sub-sprint 共通、 ADR-0060 §決定 6 継承 + 補完)
+
+次を **完全不可触** とする (= ζ-α は全 sub-sprint 通算、 ζ-β は allowed-touch 例外条件下で部分例外):
+
+- **ADR-0049〜0060 routine body** (= mute / fade-out / SSG tone-enable / v2 entry / SRAM placement / F-2-B / 軸 C/G/rhythm 接続点 / song parse + dispatch + IRQ + tempo / ADPCM-B/rhythm 実 dispatch + roadmap ④ 依存整理)、 ζ-β allowed-touch 例外除く
+- 既存 `adpcmb_keyon` body / `pmdneo_select_adpcmb_ppc_pointer` body / `pmdneo_select_adpcmb_sample_pointer` body
+- 既存 `pmdneo_rhythm_event_trigger` body + `_rhythm_event_*_trigger` 全部
+- 既存 cmd 0x05 path / `pmdneo_song_main` / `pmdneo_part_main` / `commandsp` / `part_workarea` (= 0xF820-)
+- `irq_handler_body` 既存処理 + ADR-0050 fade tick + ADR-0058 song tick 既存処理
+- ADPCMB_DRV.inc / KR_STUB.inc / `adpcma_sample_*` (= driver-embedded fixture)
+- **vromtool.py / compile.py / PMDDotNETCompiler** = vendor 範囲、 ADR-0048 ζ では一切 touch なし
+- vendor / vendor wav 3 件 + 未確認 untracked MML 3 件 (= user 明示永続 scope-out)
+- **軸 G ε partial state** (= ppc_scratch 0xFD33-0xFD36 / audition_frame_counter 0xFD37-0xFD38) = ζ-β で **sentinel/contract 不変な state 拡張のみ許容** (= ADR-0048 §決定 8 案 C 維持 + ADR-0060 §決定 6 不可触原則継承、 既存 placement 不変 + 新規 field 追加のみ許容)
+- ADR-0048 sub-sprint α/β/γ/γ revision/δ/ε partial の本文 literal (= 履歴改変 risk 回避、 本 ζ-α 起票は additive 追加のみ、 既存 sub-sprint section の本文 modify なし)
+
+### allowed-touch 例外 (= ζ-β 着手時のみ、 3 条件 AND 必須)
+
+ζ-β 実装時、 以下 **3 条件 AND** を満たす場合に限り **v2 wrapper extension** (= `pmdneo_v2_adpcmb_voice_note_song` 相当 routine の修正 or 並設 routine 追加) を allowed-touch 例外として扱う:
+
+1. **ADR-0048 ζ-β sub-sprint 着手** (= ζ-α MERGED + ζ-β branch 作成後)
+2. **user 明示 GO** (= case 最終選定 + 着手判断 user judgment)
+3. **case 選定確定** (= Codex layer 2 review + user judgment AND、 案 W/Y/Z のいずれを採用するか確定)
+
+allowed-touch 例外対象:
+
+- **案 W 採用時**: `pmdneo_v2_adpcmb_voice_note_song` (= ADR-0059 §決定 4 routine) の **保持** (= modify ではなく、 内部に case 1 save/restore bit7 sequence を additive 追加可能、 既存 default voice 0 経路は保持) または並設 v2 wrapper (= `pmdneo_v2_adpcmb_voice_note_song_ppc` 等の新 routine) の追加
+- **案 Z 採用時**: 既存 init 経路 (= ADR-0048 ε partial で確立した init 経路強制 keyon) を sequence 化拡張、 既存 `nmi_clear_driver_state` の body 不変 + 並設 routine 追加
+- **案 Y 採用時**: 軸 F defer 解除なしで v2 driver-side で MML 経路 partial 実装の場合のみ、 v2 driver 範囲で wrapper 追加
+
+ζ-α 時点では **case 最終選定は確定しない** (= ζ-β user GO + case 選定確定 AND 必須)。
+
+### verify + audition gate target (= ζ-γ + ζ-δ scope)
+
+#### ζ-γ verify script 体系化 (= integration 同居 audition fixture + register trace)
+
+- integration 同居 fixture (= **3 経路同居 trigger** = PPC + yaml beat + ADPCM-A の時系列並走)
+- register trace primary gate = PPC 経路 reg 0x10/0x12-0x15/0x19/0x1A/0x1B (= ADPCM-B chip) + yaml beat 経路 reg + ADPCM-A L ch reg 全観測
+- baseline regression = ADR-0058/0059/0060 全 verify ALL PASS 維持 (= 既存 verify-axis-b-v2-song-playback.sh + verify-axis-b-v2-roadmap3-dispatch.sh)
+- supplemental gate (= ζ-β case 選定に応じて確定)
+
+#### ζ-δ 越川氏 audition gate (= ADR-0056 §決定 3 4 系統最終 gate)
+
+- **越川氏 audition target = 「integration 同居 audition approve」** (= ADR-0048 ε partial reject literal「FM / ADPCM-A / 既存 yaml beat 経路との同居 audition にはなっていません」 を解消)
+- audition session = user 介入必須 (= 越川氏 listening + judgment)
+- audition approve = ADR-0048 ζ-ε Draft → Accepted 移行 trigger
+
+### 禁止表現リスト (= 全 sub-sprint で literal 維持)
+
+ADR-0048 ζ-α から ζ-ε までの全 sub-sprint で以下表現を **literal 禁止**:
+
+- 「軸 B 完成」 (= v2 driver production-ready 化が残る = ADR-0045 §I-5-b future + ADR-0056 production-ready gate 全通過後)
+- **「軸 G 完成」** (= ADR-0048 ζ-ε Accepted 移行までは「ζ-ε で軸 G dynamic supply 完成」 表現を慎重に使用、 audition approve 後のみ)
+- **`axis-G dynamic supply complete` (英語版)** (= 同上)
+- **「軸 G dynamic supply 完成」** (= 同上、 ζ-ε Accepted 移行後のみ)
+- 「production-ready 全体達成」 (= ADR-0056 §決定 3 4 系統全通過 + 越川氏 audition approve 後の future)
+
+ζ-ε Accepted 移行時の Accepted 表記制約 (= ADR-0058 ζ pattern 継承):
+
+- ADR-0048 Accepted = 軸 G dynamic supply 完成 (= ζ-α/β/γ/δ/ε 全完走 + audition approve)
+- ≠ production-ready 全体達成 (= ADR-0056 §決定 3 全 gate + 本番 cmd 切替 user 判断後の future)
+- ≠ 「軸 B 完成」 (= v2 driver production-ready 化 + 本番 cmd 切替後の future)
+
+### Draft → Accepted 移行 trigger (= ζ-ε)
+
+ADR-0048 Draft → Accepted 移行は **ζ-ε で実施** (= ζ-α/β/γ/δ 完了 + 越川氏 audition approve + user 判断後)。 ζ-α では Draft 状態維持。
+
+移行条件 (= ζ-ε 着手判定):
+
+- ζ-α/β/γ/δ 全完走 (= 各 sub-sprint Codex layer 2 review approve + PR MERGED)
+- ζ-δ 越川氏 audition approve (= integration 同居 audition approve、 ε partial reject literal 解消)
+- user 明示 GO (= ζ-ε Draft → Accepted 移行判断)
+
+ζ-ε 完了 = ADR-0048 Accepted = 軸 G dynamic supply 完成 (= ただし production-ready 全体達成 ≠ 「軸 B 完成」 ≠ 本番 cmd 切替、 これらは更に user 判断 gate)。
+
+### ζ-α 起票 verify gate (= doc-only filing、 spec consistency check)
+
+- ADR-0048 本文 ζ-α section additive 追加のみ (= 既存 sub-sprint section + 本文 literal 全不変、 履歴改変 risk 回避)
+- driver / verify script / vendor / vromtool.py / compile.py / spike / fixture 完全不変
+- m1 binary byte-identical 維持期待 (= ADR-0048 ζ-α は doc-only filing で通算 sha256 b15883fe... 維持)
+- 軸 G ε partial state (= 0xFD32-0xFD38) + Draft 状態維持
+- ADR-0049〜0060 routine body 完全不変
+- vendor wav 3 件 + 未確認 untracked MML 3 件 untracked retain
+
+### ζ-α Codex layer 2 review chain (= 全 approve、 起票 GO)
+
+- **plan review round 1** = **revise** (= 3 must-fix + 2 nice-to-have、 ζ-β allowed-touch 例外明文化 + 不可触対象漏れ補完 + 案 W 確定度を下げる + 名称衝突回避 + 禁止表現英語版追加)
+- **plan review round 2** = **approve** (= round 1 must-fix 3 + nice-to-have 2 全反映、 追加修正なし、 ζ-α 起票 GO + 主軸自律進行)
+- **doc review** (= 後続 commit 後投入予定)
