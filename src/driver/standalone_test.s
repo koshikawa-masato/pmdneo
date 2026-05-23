@@ -2497,6 +2497,30 @@ pmdneo_v2_song_init_clear_loop:
         add     hl, bc
         dec     a
         jr      nz, pmdneo_v2_song_init_clear_loop
+
+        ;; ADR-0059 γ: slot 9 = J part = ADPCM-B active init (= clear loop 後 additive)
+        ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDD1
+        ld      hl, #(pmdneo_v2_partwork_base + 9*12)
+        ld      bc, #pmdneo_v2_song_fixture_adpcmb_j
+        ld      (hl), c                                 ; ADDR lo
+        inc     hl
+        ld      (hl), b                                 ; ADDR hi
+        inc     hl
+        ld      (hl), #0                                ; LEN
+        inc     hl
+        ld      (hl), #0                                ; NOTE
+        inc     hl
+        ld      (hl), #0                                ; CH_IDX = 0 (= ADPCM-B chip 上 1 ch のみ)
+        inc     hl
+        ld      (hl), #PMDNEO_V2_KIND_ADPCMB            ; KIND = 2 (= ADPCM-B、 ADR-0059 §決定 2)
+        inc     hl
+        ld      (hl), #0                                ; OCTAVE
+        inc     hl
+        ld      (hl), c                                 ; LOOP lo
+        inc     hl
+        ld      (hl), b                                 ; LOOP hi
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
         ret
 
 ;; pmdneo_v2_song_dispatch (ADR-0058 γ): v2 PartWork slot 0..PMDNEO_V2_PART_COUNT-1
@@ -2601,12 +2625,26 @@ pmdneo_v2_part_fetch_byte:
         ld      PMDNEO_V2_PART_OFF_ADDR+1(iy), h
         ret
 
-;; pmdneo_v2_part_dispatch_note (ADR-0058 γ): A = note、 B = ch_idx、 C = KIND。
-;;   KIND=0 で FM、 KIND=1 で SSG の voice_note_song routine へ jump。
+;; pmdneo_v2_part_dispatch_note (ADR-0058 γ + ADR-0059 γ): A = note、 B = ch_idx、 C = KIND。
+;;   KIND=0 で FM、 KIND=1 で SSG、 KIND=2 で ADPCM-B (= ADR-0059 γ) の voice_note_song
+;;   routine へ jump。 KIND=3 rhythm は δ で追加 (= γ scope-out)、 現状 silent ret。
+;;   KIND>=4 silent ignore (= no-op ret)。
+;;   ADR-0059 §決定 6 allowed-touch extension = 既存 KIND=0/1 magic 直接埋込みを
+;;   保持しつつ KIND=2/3 分岐を additive 追加 (= cp #1 / cp #PMDNEO_V2_KIND_ADPCMB)。
 pmdneo_v2_part_dispatch_note:
         ld      a, c
         or      a
-        jr      z, pmdneo_v2_part_dispatch_note_fm
+        jr      z, pmdneo_v2_part_dispatch_note_fm      ; KIND=0 FM
+        cp      #1
+        jr      z, pmdneo_v2_part_dispatch_note_ssg     ; KIND=1 SSG
+        cp      #PMDNEO_V2_KIND_ADPCMB
+        jr      z, pmdneo_v2_part_dispatch_note_adpcmb  ; KIND=2 ADPCM-B (= ADR-0059 γ)
+        ;; KIND=3 rhythm は δ で追加、 KIND>=4 silent ignore
+        ret
+pmdneo_v2_part_dispatch_note_adpcmb:
+        ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
+        jp      pmdneo_v2_adpcmb_voice_note_song
+pmdneo_v2_part_dispatch_note_ssg:
         ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
         jp      pmdneo_v2_ssg_voice_note_song
 pmdneo_v2_part_dispatch_note_fm:
@@ -2642,6 +2680,30 @@ pmdneo_v2_ssg_voice_note_song:
         ld      a, #0x0F                ; volume = 0x0F (= ssg_keyon 既設定値)
         call    pmdneo_ssg_tone_sync    ; reg 0x07 RMW owner 経由
         pop     bc
+        ret
+
+;; pmdneo_v2_adpcmb_voice_note_song (ADR-0059 γ、 案 b' 並設): A = song-driven note、
+;;   既存 adpcmb_keyon (= L3875、 ADR-0043 entry) を本体不可触で call する v2 ADPCM-B
+;;   wrapper。 ADR-0059 §決定 3 案 Q 確定 = v2 driver_state region 内 32 byte shim
+;;   (= pmdneo_v2_adpcmb_ix_shim 0xFD41-0xFD60) に IX を向ける。
+;;   既存 adpcmb_keyon の IX 経路 read は PART_OFF_INSTRUMENT (= offset 31) のみ
+;;   (= note は A レジスタ経由、 CH_IDX read 不在)。
+;;   shim PART_OFF_INSTRUMENT(ix) に default voice index 0 (= ADR-0043 経路) を write
+;;   後 IX = shim base で adpcmb_keyon call。 既存 part_workarea (= 0xF820-) は
+;;   完全不可触 (= ADR-0058 §決定 8 + ADR-0059 §決定 3 案 Q 確定遵守)。
+;;   driver_pne_sample_table_id (= 0xFD32) bit7=0 default 維持で軸 G 経路を侵入させない
+;;   (= roadmap ④ scope-out、 ADR-0059 §決定 8 sup-sample-table-id-bit7-clear)。
+;;   破壊 register: AF (= A は call adpcmb_keyon に渡す note byte)、 IX は push/pop で
+;;   退避 (= IRQ 経路 contract 継承)。
+pmdneo_v2_adpcmb_voice_note_song:
+        push    ix                              ; IX 退避 (= IRQ 経路 contract 継承)
+        push    af                              ; A=note byte 退避 (= shim init で A 不変だが
+                                                ;   防衛的に push、 既存 fm/ssg wrapper と同 pattern)
+        ld      ix, #pmdneo_v2_adpcmb_ix_shim   ; IX = shim base (= 案 Q 確定)
+        ld      PART_OFF_INSTRUMENT(ix), #0     ; default voice index 0 (= ADR-0043 経路)
+        pop     af                              ; A=note byte 復元
+        call    adpcmb_keyon                    ; A=note、 IX=shim base、 ADR-0043 entry 本体不可触 call
+        pop     ix                              ; IX 復元
         ret
 
 ;; pmdneo_v2_song_entry (ADR-0058 γ→δ、 案 D'): δ で IRQ 駆動へ移行 = init +
@@ -2694,6 +2756,14 @@ pmdneo_v2_song_fixture_fm_b:
 ;; pmdneo_v2_song_fixture_ssg_g (ADR-0058 γ): SSG ch G 用 fixture MML。
 pmdneo_v2_song_fixture_ssg_g:
         .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_adpcmb_j (ADR-0059 γ): J part = ADPCM-B 用 fixture MML。
+;;   note byte 0x42/0x45/0x48 (= FM/SSG fixture と同 pattern song-driven proof)、
+;;   length 0x20 (= 32 tick、 ADPCM-B sample 再生時間考慮で FM/SSG より長)、
+;;   末尾 0x80 = loop。 既存 adpcmb_keyon は note byte → chromatic table 引きで
+;;   delta-N に変換、 reg 0x19/0x1A に literal write される (= ADR-0016 step 4-3-γ)。
+pmdneo_v2_song_fixture_adpcmb_j:
+        .db     0x42, 0x20, 0x45, 0x20, 0x48, 0x20, 0x80
 
 .endif
 
