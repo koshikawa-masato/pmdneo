@@ -487,7 +487,7 @@ supplemental gate stub-marker-regression:   PASS
 supplemental gate IX/IY:                    PASS
 supplemental gate KIND-dispatch:            PASS
 supplemental gate cold-boot:                PASS
-supplemental gate sample-table-id-bit7:     PASS
+supplemental gate sample-table-id-bit7-clear: PASS
 ζ Accepted 移行 ready: yes (ADR-0059 §決定 1 ε 完了)
 ```
 

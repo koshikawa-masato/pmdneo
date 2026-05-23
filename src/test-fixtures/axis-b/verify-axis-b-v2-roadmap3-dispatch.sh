@@ -9,7 +9,7 @@
 #   を 1 verify script に統合。
 #
 #   roadmap3-gate-1 (ADPCM-B 実 dispatch proof):
-#       z80-mem-trace で slot 9 ADDR lo (= 0xFDD1) uniq value >= 3 +
+#       z80-mem-trace で slot 9 ADDR lo (= 0xFDE5) uniq value >= 3 +
 #       ymfm-trace で ADPCM-B reg write (= reg 0x10/0x12-0x15/0x19/0x1A) port A 件数 >= 1
 #       (= 既存 adpcmb_keyon body 経由で reg write 発生 proof)
 #
@@ -21,8 +21,8 @@
 #
 #   roadmap3-gate-3 (v2 song-driven 駆動 proof):
 #       slot 9 FLAGS bit0=1 (active) AND slot 10 FLAGS bit0=1 +
-#       slot 9 ADDR lo (= 0xFDD1) uniq value >= 2 +
-#       slot 10 ADDR lo (= 0xFDDD) uniq value >= 2
+#       slot 9 ADDR lo (= 0xFDE5) uniq value >= 2 +
+#       slot 10 ADDR lo (= 0xFDF1) uniq value >= 2
 #       (= 両 slot active + fixture byte 進行 proof)
 #
 #   roadmap3-gate-4 (baseline regression):
@@ -206,7 +206,7 @@ done
 ADPCMB_DRV_DIFF=$(git diff 27aad02..HEAD -- src/driver/ADPCMB_DRV.inc | wc -l | tr -d ' ')
 KR_STUB_DIFF=$(git diff 27aad02..HEAD -- src/driver/KR_STUB.inc | wc -l | tr -d ' ')
 if [ -z "$G6BAD" ] && [ "$ADPCMB_DRV_DIFF" -eq 0 ] && [ "$KR_STUB_DIFF" -eq 0 ]; then
-  ok "roadmap3-gate-6 (既存 routine 本体不可触静的確認): 既存 body 全 9 labels (= adpcmb_keyon / pmdneo_rhythm_event_trigger / _rhythm_event_*_trigger / adpcma_sample_*) 不変 + ADPCMB_DRV.inc + KR_STUB.inc 不変 (= 27aad02..HEAD diff 0 lines)"
+  ok "roadmap3-gate-6 (既存 routine 本体不可触静的確認): 既存 body 全 10 labels (= adpcmb_keyon / pmdneo_rhythm_event_trigger / _rhythm_event_*_trigger 6 件 / adpcma_sample_* 2 件) 不変 + ADPCMB_DRV.inc + KR_STUB.inc 不変 (= 27aad02..HEAD diff 0 lines)"
 else
   ng "roadmap3-gate-6 (既存 routine 本体不可触静的確認) 不成立 (touched_bodies=${G6BAD:-none-expected} ADPCMB_DRV_diff=${ADPCMB_DRV_DIFF} KR_STUB_diff=${KR_STUB_DIFF})"
 fi
@@ -322,7 +322,7 @@ if [ "$FAIL" -eq 0 ]; then
   echo "supplemental gate IX/IY:                    PASS"
   echo "supplemental gate KIND-dispatch:            PASS"
   echo "supplemental gate cold-boot:                PASS"
-  echo "supplemental gate sample-table-id-bit7:     PASS"
+  echo "supplemental gate sample-table-id-bit7-clear: PASS"
   echo "ζ Accepted 移行 ready: yes (ADR-0059 §決定 1 ε 完了)"
   echo ""
   echo "OK  ALL PASS (= 軸 B production-ready roadmap ③ ε = verify script 体系化 + completion proof + 12 gate 全 PASS)"
