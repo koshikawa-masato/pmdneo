@@ -266,6 +266,12 @@ v2 driver_state region (= 0xFD39-0xFD78) と軸 G ε partial state (= 0xFD32-0xF
 
 **次**: ADR-0060 を doc-only で commit / PR / merge した後、 ADR-0048 ζ 起票 = user 判断 gate (= 案 X/Y/Z の選定 + 着手時期 + 軸 G integration 同居 reject の真の root cause 再調査) → ADR-0048 ζ 完了 + 越川氏 audition approve → production-ready 全体判定 (= ADR-0056 §決定 3 gate 全通過) → user 判断で v2 driver を本番経路へ切替。 これらは順次 user 判断 gate で進める。
 
+## ADR-0060 Accepted = roadmap ④ 依存整理完了の literal (= Codex layer 2 plan review nice-to-have #2 反映、 dashboard 同形式 短文)
+
+> **ADR-0060 Accepted = roadmap ④ 依存整理完了 ≠ ADR-0048 ζ dynamic supply 本体実装完了 ≠ production-ready 全体達成**
+
+ADR-0048 ζ 着手 + 越川氏 audition approve + production-ready gate 全通過 (= ADR-0056 §決定 3) は roadmap ④ 完了後の future、 user 判断 gate。 「軸 B 完成」 表現禁止 継続 (= v2 driver production-ready 化が残る = ADR-0045 §I-5-b future)。
+
 ## sub-sprint chain 進捗 (= 単一 doc-only 起票、 sub-sprint chain なし、 ADR-0056 同形式)
 
 本 ADR-0060 は **単一 doc-only 起票** (= 案 B 採用、 Codex layer 2 plan review approve 経由)。 sub-sprint chain (= α/β/γ/δ/ε/ζ) は設けない。 計 = **1 PR** で起票 + Accepted。
