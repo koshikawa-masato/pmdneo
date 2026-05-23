@@ -1042,9 +1042,14 @@ ADR-0060 Accepted (= 2026-05-23 39th session、 PR #108、 軸 B production-read
 | ADR-0048 状態行 + 改訂履歴 update | 状態行 = Draft 維持 (= ζ-α は起票のみ、 ζ-ε で Accepted 移行)、 改訂履歴に ζ-α entry 追加 |
 | dashboard 同期 (= ADR-0048 軸 G 行 + escalation 履歴 entry) | 軸 G 行 status column に ζ-α 完了 reflect、 escalation 履歴に ζ-α entry literal |
 
-### ζ-α 5 sub-sprint 構成 (= ζ-α/β/γ/δ/ε)
+### ζ-α 5 sub-sprint 構成 (= ζ-α/β/γ/δ/ε、 PR 形式 = single-doc-pr-A (ζ-α のみ) + chain-pr-A (ζ-β/γ/δ/ε))
 
-ADR-0048 ζ 全体は 5 sub-sprint で完成する。 各 sub-sprint の scope + driver touch + user gate を literal 化:
+ADR-0048 ζ 全体は 5 sub-sprint で完成する。 PR 形式:
+
+- **ζ-α** = **single-doc-pr-A** (= ADR-0056/0060 同形式、 単一 doc-only PR で起票 + Codex layer 2 review、 main agent 自律完走範囲)
+- **ζ-β/γ/δ/ε** = **chain-pr-A** (= ADR-0058/0059 同形式、 sub-sprint chain で各 1 PR + Codex layer 2 review、 ζ-β 着手は user GO 必須、 ζ-β 以降 chain-pr-A 全体は user GO 待ち)
+
+各 sub-sprint の scope + driver touch + user gate を literal 化:
 
 | sub | 内容 | driver touch | user gate |
 |---|---|---|---|
