@@ -1619,3 +1619,37 @@ user 判断 (= 「修正方針は candidate C を推奨」) を受領、 新 fla
 - production build (= 全 flag 0): m1 sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` = byte-identical 維持
 - 通常 fixture build (= V2_SONG_FIXTURE=1 + V2_PPC=1 + LEGACY_SKIP=0): 既存挙動完全維持 (= legacy + v2 並走)
 - audition / solo fixture build (= LEGACY_SKIP=1): v2 dispatch のみ動作 = solo trigger 分離
+
+#### fixture 前提確認完了 milestone (= candidate C fix 後、 ζ-δ-2 audition approve とは別軸)
+
+user 報告 literal (= 5 wav 提示後の technical confirmation):
+
+> 「きちんと 4 つとも分離している、 混ざっているのは四パート全部混ざっている事を確認できる」
+
+確認できた内容 (= user 明示 4 件):
+
+1. 4 solo wav はきちんと分離している (= LEGACY_SKIP=1 で legacy 経路 skip 機能 confirm)
+2. integration wav では 4 パート全部が混ざっていることを確認できる (= 4+ 経路同居 audition target 達成)
+3. candidate C の legacy skip 方針は、 fixture 分離の目的を満たしている
+4. FM B solo に ADPCM-A rhythm が混入していた問題は、 v2 mute 破綻ではなく legacy dispatch 混入だった、 という解釈が強まる
+
+##### ⚠ 重要 = 本 milestone は ζ-δ-2 audition approve そのものではない
+
+これは **fixture 分離 / dispatch gate fix の verify 確認完了** であり、 ζ-δ-2 audition approve とは別軸:
+
+| 軸 | 状態 |
+|---|---|
+| **dispatch gate fix / fixture 分離** | ✅ verify 確認完了 (= 本 milestone) |
+| **ζ-δ-2 audition approve** (= 音色 quality / 経路聞き分け / fixture length 判断) | ❌ user 判断待ち (= 次 step、 5 wav を audition material として改めての approve / reject / partial approve judgment) |
+| **ADR-0048 Draft → Accepted 移行 (= ζ-ε)** | ❌ 進まず (= user GO 必須) |
+
+##### user 明示 4 件 規律 (= fixture 前提確認完了後の継続 scope)
+
+- ADR-0048 は Draft 維持
+- ζ-ε には進まない
+- stash 退避分 (= FM voice round 2 bell-like + audition silent enforcement + verify update) は ζ-δ-2 audition judgment 確定まで touch しない
+- 今回の確認を「fixture 前提確認完了」 として ADR に記録 (= 本 milestone additive)
+
+##### 次 step (= ζ-δ-2 audition judgment 待機)
+
+main agent は 5 wav (= integration audition + 4 solo) を ζ-δ-2 audition material として user の改めての approve / reject / partial approve judgment を待機する。 main agent autonomous で audition judgment を行わない (= 越川氏 user 介入必須 sub-sprint)。
