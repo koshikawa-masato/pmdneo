@@ -95,9 +95,12 @@ PMDNEO_V2_SONG_FIXTURE=1 bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1
 [ -f "$LST" ] || { echo "NG  .lst 未生成"; exit 1; }
 cp "$LST" "$LST_PLAYBACK"
 
+# Codex layer 2 ε 実装 review revise = stale trace false PASS risk 解消:
+# MAME 呼び出し前に trace dir を clean rm して、 MAME 失敗時に前回 trace が残らず literal 未生成判定可能化。
+rm -rf "$TRACE_DIR"
 bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
-[ -f "$YMFM" ] || { echo "NG  ymfm-trace 未生成"; exit 1; }
-[ -f "$ZMEM" ] || { echo "NG  z80-mem-trace 未生成"; exit 1; }
+[ -f "$YMFM" ] || { echo "NG  ymfm-trace 未生成 (= MAME run 失敗 or trace 出力なし)"; exit 1; }
+[ -f "$ZMEM" ] || { echo "NG  z80-mem-trace 未生成 (= MAME run 失敗 or trace 出力なし)"; exit 1; }
 cp "$YMFM" "$YMFM_PLAYBACK"
 cp "$ZMEM" "$ZMEM_PLAYBACK"
 
@@ -131,6 +134,8 @@ LITERAL_VALUE_PROOF=""
 REF_BUILD_OK=""
 rm -f "$PREPROCESSED"
 if PMDNEO_V2_ENTRY_FIXTURE=1 MML_INPUTS=ssg-v0-keyon.mml bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1; then
+  # stale trace 排除 = MAME run 前に trace dir 強制 clean (= ε MAME run 由来の trace と区別)
+  rm -rf "$TRACE_DIR"
   bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
   if [ -f "$YMFM" ]; then
     cp "$YMFM" "$YMFM_ROADMAP1_REF"
@@ -161,9 +166,11 @@ rm -f "$PREPROCESSED"
 PMDNEO_V2_SONG_FIXTURE=1 bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1 \
   || { echo "NG  ε fixture build 復帰 FAIL"; exit 1; }
 cp "$LST" "$LST_PLAYBACK"
+# stale trace 排除 = MAME run 前に trace dir 強制 clean (= roadmap ① ref MAME run 由来の trace と区別)
+rm -rf "$TRACE_DIR"
 bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
-[ -f "$YMFM" ] || { echo "NG  ymfm-trace 復帰 未生成"; exit 1; }
-[ -f "$ZMEM" ] || { echo "NG  z80-mem-trace 復帰 未生成"; exit 1; }
+[ -f "$YMFM" ] || { echo "NG  ymfm-trace 復帰 未生成 (= MAME run 失敗 or trace 出力なし)"; exit 1; }
+[ -f "$ZMEM" ] || { echo "NG  z80-mem-trace 復帰 未生成 (= MAME run 失敗 or trace 出力なし)"; exit 1; }
 cp "$YMFM" "$YMFM_PLAYBACK"
 cp "$ZMEM" "$ZMEM_PLAYBACK"
 # 共通 metric 再計算
