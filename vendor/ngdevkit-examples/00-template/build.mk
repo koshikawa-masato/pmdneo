@@ -142,6 +142,7 @@ TEST_MODE_MUTE_FIXTURE?=0
 TEST_MODE_FADE_FIXTURE?=0
 TEST_MODE_V2_ENTRY_FIXTURE?=0
 TEST_MODE_V2_SONG_FIXTURE?=0
+TEST_MODE_AXIS_G_V2_PPC?=0
 PMDNEO_SED_EXPRS=
 ifeq ($(PMDNEO_CHIP),ym2610b)
 PMDNEO_SED_EXPRS+=-e 's/PMDNEO_TARGET_CHIP_YM2610B, 0/PMDNEO_TARGET_CHIP_YM2610B, 1/'
@@ -172,6 +173,12 @@ endif
 # wiring fixture toggle (= PMDNEO_V2_SONG_FIXTURE=1 で fixture build、 production は必ず =0)
 ifeq ($(TEST_MODE_V2_SONG_FIXTURE),1)
 PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_V2_SONG_FIXTURE,     0/TEST_MODE_V2_SONG_FIXTURE,     1/'
+endif
+# ADR-0048 ζ-β 案 W: 軸 G dynamic supply v2 PPC 経路 fixture toggle (= PMDNEO_AXIS_G_V2_PPC=1 で
+# ζ-β fixture build = v2 wrapper bit7 save/restore + lower 7 bit = note byte 由来 PPC entry index、
+# production は必ず =0、 ADR-0059 roadmap ③ fixture build (= =0 default) との完全分離)
+ifeq ($(TEST_MODE_AXIS_G_V2_PPC),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_V2_PPC,       0/TEST_MODE_AXIS_G_V2_PPC,       1/'
 endif
 ifeq ($(strip $(PMDNEO_SED_EXPRS)),)
 PMDNEO_PREPROCESS_CMD=cp $< $@

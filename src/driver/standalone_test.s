@@ -81,6 +81,15 @@
         ;;   dispatch を register trace で観測)。 production 時は必ず 0 維持。
         .equ    TEST_MODE_V2_SONG_FIXTURE,     0
 
+        ;; ADR-0048 ζ-β: 軸 G dynamic supply v2 PPC 経路 fixture toggle (= 案 W = v2
+        ;;   wrapper bit7 save/restore + lower 7 bit = note byte 由来 PPC entry index、
+        ;;   song-driven 動的 PPC 切替 = dynamic supply 本質)。 0 = production (= ADR-0059
+        ;;   roadmap ③ scope 維持、 sup-sample-table-id-bit7-clear gate 不変)、 1 = ζ-β
+        ;;   fixture build (= TEST_MODE_V2_SONG_FIXTURE=1 と組合せ、 slot 9 KIND=4 init で
+        ;;   軸 G 経路侵入、 zeta-beta-bit7-save-restore-entry-select gate 観測)。
+        ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-α §allowed-touch 例外 3 条件 AND 充足下)。
+        .equ    TEST_MODE_AXIS_G_V2_PPC,       0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -239,6 +248,18 @@
         ;;   不可触 call する。 既存 part_workarea (= 0xF820-) は完全不可触。
         .equ    pmdneo_v2_adpcmb_ix_shim,      0xFD41
 
+        ;; ADR-0048 ζ-β 案 W: v2 wrapper transient scratch (= bit7 save/restore 専用)
+        ;;   軸 G dynamic supply v2 PPC 経路 wrapper (= pmdneo_v2_adpcmb_voice_note_song_ppc)
+        ;;   が driver_pne_sample_table_id の bit7=1 + lower 7 bit (= note byte 由来 PPC
+        ;;   entry index) 設定 → adpcmb_keyon 本体不可触 call → restore する間、 元の
+        ;;   driver_pne_sample_table_id 値を 1 byte ここに save し routine 末 (= 単一
+        ;;   epilogue) で restore する。 v2 driver_state region 内 (= 0xFD61、 ADR-0059
+        ;;   IX shim 0xFD41-0xFD60 末尾の次)、 軸 G ε partial state (= 0xFD32-0xFD38、
+        ;;   ppc_scratch / audition_frame_counter) とは別領域 (= 混同回避)。
+        ;;   production (= TEST_MODE_AXIS_G_V2_PPC=0) では未参照 = unused .equ symbol、
+        ;;   sdasz80 が byte 出力なし = m1 binary byte-identical 維持。
+        .equ    pmdneo_v2_ppc_bit7_scratch,    0xFD61
+
         ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
         ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
         ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
@@ -282,6 +303,13 @@
         ;;   .equ 明示化。 γ で pmdneo_v2_part_dispatch_note KIND=2/3 分岐 additive、 δ で同 KIND=3 追加。
         .equ    PMDNEO_V2_KIND_ADPCMB,         2       ; J part (= ADPCM-B、 ADR-0059 γ で実 dispatch)
         .equ    PMDNEO_V2_KIND_RHYTHM,         3       ; K part (= rhythm、 ADR-0059 δ で実 dispatch)
+        ;; ADR-0048 ζ-β: 軸 G dynamic supply v2 PPC 経路 KIND (= 案 W、 song-driven 動的
+        ;; PPC 切替)。 KIND=4 で dispatch_note → pmdneo_v2_adpcmb_voice_note_song_ppc jp、
+        ;; wrapper 内で driver_pne_sample_table_id bit7=1 + lower 7 bit = note byte 由来
+        ;; PPC entry index 設定 → adpcmb_keyon (= ADR-0043 entry) 本体不可触 call。
+        ;; production (= TEST_MODE_AXIS_G_V2_PPC=0) では dispatch_note 内 KIND=4 分岐
+        ;; routine + slot init は assemble なし = byte-identical 維持。
+        .equ    PMDNEO_V2_KIND_ADPCMB_PPC,     4       ; J part 軸 G PPC 経路 (= ADR-0048 ζ-β、 case W)
 
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
@@ -318,7 +346,8 @@
 ;;;       0xFD3F          pmdneo_v2_tempo_acc (= 1 byte、ADR-0058 δ v2 tempo subtick accumulator)
 ;;;       0xFD40          pmdneo_v2_tempo_d (= 1 byte、ADR-0058 δ v2 tempo delta)
 ;;;       0xFD41 - 0xFD60   pmdneo_v2_adpcmb_ix_shim (= 32 bytes、ADR-0059 §決定 3 β 案 Q ADPCM-B IX shim)
-;;;       0xFD61 - 0xFD78   free (= 24 bytes、後続 v2 driver_state singleton home)
+;;;       0xFD61            pmdneo_v2_ppc_bit7_scratch (= 1 byte、ADR-0048 ζ-β 案 W v2 wrapper transient scratch、軸 G ε partial state とは別領域)
+;;;       0xFD62 - 0xFD78   free (= 23 bytes、後続 v2 driver_state singleton home)
 ;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base)
 ;;;       v2 compact slot = 12 byte/part x PMDNEO_V2_PART_COUNT (= ADR-0058 §決定 3、 slot N = base + N*12)
 ;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
@@ -2499,9 +2528,16 @@ pmdneo_v2_song_init_clear_loop:
         jr      nz, pmdneo_v2_song_init_clear_loop
 
         ;; ADR-0059 γ: slot 9 = J part = ADPCM-B active init (= clear loop 後 additive)
-        ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDD1
+        ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDE5
+        ;; ADR-0048 ζ-β 案 W: TEST_MODE_AXIS_G_V2_PPC=1 で slot 9 KIND=2 → KIND=4
+        ;; (= ADPCM-B 軸 G PPC 経路) + ADDR を fixture_adpcmb_j_ppc に切替 (binary toggle、
+        ;; sdasz80 .if 値比較禁止規律遵守)。 production (= =0) では既存 KIND=2 init 維持。
         ld      hl, #(pmdneo_v2_partwork_base + 9*12)
+.if TEST_MODE_AXIS_G_V2_PPC
+        ld      bc, #pmdneo_v2_song_fixture_adpcmb_j_ppc
+.else
         ld      bc, #pmdneo_v2_song_fixture_adpcmb_j
+.endif
         ld      (hl), c                                 ; ADDR lo
         inc     hl
         ld      (hl), b                                 ; ADDR hi
@@ -2512,7 +2548,11 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), #0                                ; CH_IDX = 0 (= ADPCM-B chip 上 1 ch のみ)
         inc     hl
+.if TEST_MODE_AXIS_G_V2_PPC
+        ld      (hl), #PMDNEO_V2_KIND_ADPCMB_PPC        ; KIND = 4 (= ADPCM-B 軸 G PPC、 ADR-0048 ζ-β 案 W)
+.else
         ld      (hl), #PMDNEO_V2_KIND_ADPCMB            ; KIND = 2 (= ADPCM-B、 ADR-0059 §決定 2)
+.endif
         inc     hl
         ld      (hl), #0                                ; OCTAVE
         inc     hl
@@ -2665,8 +2705,19 @@ pmdneo_v2_part_dispatch_note:
         jr      z, pmdneo_v2_part_dispatch_note_adpcmb  ; KIND=2 ADPCM-B (= ADR-0059 γ)
         cp      #PMDNEO_V2_KIND_RHYTHM
         jr      z, pmdneo_v2_part_dispatch_note_rhythm  ; KIND=3 rhythm (= ADR-0059 δ)
-        ;; KIND>=4 silent ignore
+.if TEST_MODE_AXIS_G_V2_PPC
+        ;; ADR-0048 ζ-β 案 W: KIND=4 ADPCM-B 軸 G PPC 経路 (= song-driven dynamic supply、
+        ;; production = TEST_MODE_AXIS_G_V2_PPC=0 では本 cp + jr z + jp 行が未 assemble)
+        cp      #PMDNEO_V2_KIND_ADPCMB_PPC
+        jr      z, pmdneo_v2_part_dispatch_note_adpcmb_ppc
+.endif
+        ;; KIND>=4 (or KIND>=5 with ζ-β enabled) silent ignore
         ret
+.if TEST_MODE_AXIS_G_V2_PPC
+pmdneo_v2_part_dispatch_note_adpcmb_ppc:
+        ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
+        jp      pmdneo_v2_adpcmb_voice_note_song_ppc
+.endif
 pmdneo_v2_part_dispatch_note_rhythm:
         ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
         jp      pmdneo_v2_rhythm_voice_note_song
@@ -2734,6 +2785,53 @@ pmdneo_v2_adpcmb_voice_note_song:
         call    adpcmb_keyon                    ; A=note、 IX=shim base、 ADR-0043 entry 本体不可触 call
         pop     ix                              ; IX 復元
         ret
+
+.if TEST_MODE_AXIS_G_V2_PPC
+;; pmdneo_v2_adpcmb_voice_note_song_ppc (ADR-0048 ζ-β 案 W、 並設): A = song-driven
+;;   note byte (= lower 7 bit = PPC directory entry index)、 既存
+;;   pmdneo_v2_adpcmb_voice_note_song 不変。 driver_pne_sample_table_id の bit7 + lower 7 bit
+;;   を save/set/restore で軸 G 経路侵入し、 既存 adpcmb_keyon (= ADR-0043 entry、 L4020)
+;;   本体不可触 call。
+;;   bit7 save = pmdneo_v2_ppc_bit7_scratch (0xFD61) 経由 (= stack/AF 順序衝突回避)。
+;;   A=note byte (= adpcmb_keyon delta-N 計算用) は別 push/pop で保持。
+;;   全 exit path は単一 epilogue (= pmdneo_v2_adpcmb_voice_note_song_ppc_done) 経由で
+;;   driver_pne_sample_table_id restore (= ADR-0058 δ single epilogue pattern 同形式)。
+;;   IX 退避 = IRQ 経路 contract 継承 (= ADR-0058 pmdneo_v2_song_tick + ADR-0059 §決定 4)。
+;;   ADR-0048 ζ-α §allowed-touch 例外 3 条件 AND 充足 = ζ-β 着手 + user GO + case 選定確定。
+;;   破壊 register: AF。 IX/IY routine 内 push/pop 退避。
+pmdneo_v2_adpcmb_voice_note_song_ppc:
+        push    ix                              ; IX 退避 = IRQ 経路 contract 継承
+
+        ;; save bit7 state = 関数 entry 時の driver_pne_sample_table_id 全 byte
+        push    af                              ; A=note byte 退避 (= adpcmb_keyon 入力)
+        ld      a, (driver_pne_sample_table_id)
+        ld      (pmdneo_v2_ppc_bit7_scratch), a ; save scratch
+        pop     af                              ; A=note byte 復元
+
+        ;; A=note byte の lower 7 bit を PPC entry index として
+        ;; driver_pne_sample_table_id に格納、 bit7=1 set (= 軸 G 経路)
+        push    af                              ; A=note byte 再退避 (= adpcmb_keyon 入力 = delta-N 計算用)
+        and     #0x7F                           ; lower 7 bit = PPC entry index (= 0-127 範囲)
+        or      #0x80                           ; bit7 = 1 (= 軸 G 経路、 adpcmb_keyon が PPC path 選択)
+        ld      (driver_pne_sample_table_id), a ; PPC entry index 設定 (= song-driven)
+        pop     af                              ; A=note byte 復元 (= adpcmb_keyon 入力)
+
+        ;; shim base 設定 (= ADR-0059 互換 init、 PPC 経路では
+        ;; PART_OFF_INSTRUMENT(ix) は unused だが ADR-0059 §決定 3 案 Q shim 経路 contract 維持)
+        ld      ix, #pmdneo_v2_adpcmb_ix_shim
+        ld      PART_OFF_INSTRUMENT(ix), #0     ; unused on PPC path、 ADR-0059 互換 init
+
+        call    adpcmb_keyon                    ; A=note (= delta-N)、 IX=shim、
+                                                ;   bit7=1 + lower 7 bit = note 由来 PPC entry index
+                                                ;   → pmdneo_select_adpcmb_ppc_pointer 経由 reg emit
+
+        ;; bit7 restore (= 全 exit path 必須、 単一 epilogue)
+pmdneo_v2_adpcmb_voice_note_song_ppc_done:
+        ld      a, (pmdneo_v2_ppc_bit7_scratch)
+        ld      (driver_pne_sample_table_id), a
+        pop     ix
+        ret
+.endif
 
 ;; pmdneo_v2_rhythm_voice_note_song (ADR-0059 δ、 案 b' 並設): A = song-driven bitmap
 ;;   (= v2 NOTE field 流用、 ADR-0059 §決定 5 案 A、 KIND=3 で bitmap として解釈)、
@@ -2804,6 +2902,19 @@ pmdneo_v2_song_fixture_ssg_g:
 ;;   delta-N に変換、 reg 0x19/0x1A に literal write される (= ADR-0016 step 4-3-γ)。
 pmdneo_v2_song_fixture_adpcmb_j:
         .db     0x42, 0x20, 0x45, 0x20, 0x48, 0x20, 0x80
+
+.if TEST_MODE_AXIS_G_V2_PPC
+;; pmdneo_v2_song_fixture_adpcmb_j_ppc (ADR-0048 ζ-β 案 W): J part 軸 G PPC 経路用
+;;   fixture MML (= song-driven dynamic supply proof)。 note byte の lower 7 bit が
+;;   ζ-β wrapper 内で PPC directory entry index として使用される。 fixture pattern =
+;;   entry 0 → entry 1 → entry 0 → loop で song-driven 動的 PPC entry index 切替を
+;;   trace 観測可能 (= ζ-γ gate `zeta-beta-bit7-save-restore-entry-select` lower7 uniq
+;;   ≥ 2 + reg 0x12-0x15 uniq ≥ 2 proof)。 軸 G ε partial で確立した minimum.PPC
+;;   directory entry 0/1 を利用 (= ADR-0048 ε partial fixture continuation)。
+;;   length 0x10 (= 16 tick、 ADR-0059 fixture と同 BPM)、 末尾 0x80 = loop。
+pmdneo_v2_song_fixture_adpcmb_j_ppc:
+        .db     0x00, 0x10, 0x01, 0x10, 0x00, 0x10, 0x80
+.endif
 
 ;; pmdneo_v2_song_fixture_rhythm_k (ADR-0059 δ): K part = rhythm 用 fixture MML。
 ;;   note byte = bitmap (= ADR-0059 §決定 5 案 A、 v2 NOTE 1 byte を bitmap 流用)。
