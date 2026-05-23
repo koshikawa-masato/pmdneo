@@ -419,6 +419,78 @@ build-mode 排他 = `TEST_MODE_V2_SONG_FIXTURE=0` (= production) では全 roadm
 - driver edit = `standalone_test.s` 1 file 49 行 + (= rhythm wrapper 11 行 + dispatch_note 拡張 5 行 + slot 10 init 24 行 + fixture 9 行)
 - 既存 `pmdneo_rhythm_event_trigger` body / `_rhythm_event_*_trigger` 全部 / `adpcma_sample_*` / KR_STUB.inc / 既存 `adpcmb_keyon` body / ADPCMB_DRV.inc / 既存 part_workarea / cmd 0x05 path / irq_handler_body / ADR-0049〜0058 routine body (= allowed-touch 例外除く) / 軸 G ADR-0048 Draft + ε partial state / vendor 完全不可触
 
+## Annex F: ε 実装 completion record (= verify script 体系化 + completion proof + slot base address 訂正注記)
+
+### F-1: ε deliverable
+
+軸 B production-ready roadmap ③ ε = verify script 体系化 (= 39th session、 PR # 後続)。
+
+| deliverable | 内容 |
+|---|---|
+| `verify-axis-b-v2-roadmap3-dispatch.sh` 新規 (= 約 280 行) | ADR-0059 §決定 8 primary 7 gate (= `roadmap3-gate-1` ADPCM-B 実 dispatch / `roadmap3-gate-2` rhythm 実 dispatch / `roadmap3-gate-3` v2 song-driven 駆動 / `roadmap3-gate-4` baseline regression / `roadmap3-gate-5` .org + build-mode 排他 / `roadmap3-gate-6` 既存 routine 本体不可触 / `roadmap3-gate-7` Q shim 経路 + 既存 body call) + supplemental 5 gate (= `sup-stub-marker-regression` / `sup-IX/IY` / `sup-KIND-dispatch` / `sup-cold-boot` / `sup-sample-table-id-bit7-clear`) = **計 12 gate** に統合 + 末尾 completion proof line 13 行 literal (= ζ Annex 引用可能形式) |
+| Annex F 追記 = ε completion + slot base address 訂正注記 | Annex D γ (= slot 9 base) / Annex E δ (= slot 10 base) 本文不変、 ε で発見した誤算を本 Annex F に訂正注記として記録 (= ADR-0058 ε rename 注記 pattern 同形式、 履歴改変 risk 回避) |
+
+### F-2: 実装詳細
+
+- **gate 整理**: §決定 8 primary 7 gate 命名 `roadmap3-gate-1〜7` で literal 統一 + supplemental 5 gate (= `sup-*` prefix) を末尾配置
+- **stale trace 防止** (= ADR-0058 ε pattern 継承): 全 MAME invocation 前に `rm -rf $TRACE_DIR`
+- **port B 3 桁 hex** (= 既存 step15/16/17 rhythm verify pattern 継承): ymfm-trace port B reg は `1XX` prefix (= ADPCM-A reg 0x10 = `"110"` / reg 0x18 = `"118"` / reg 0x00 = `"100"`)
+- **sup-stub-marker-regression 静的 .lst 化** (= fixture build cmd 0x05 経路で `pmdneo_v2_entry_skeleton` 非経路のため runtime marker write 観測なし): 静的 .lst で stub routine 内 `ld (pmdneo_v2_adpcmb_marker),a` / `ld (pmdneo_v2_rhythm_marker),a` 存在を確認、 source level proof で ADR-0055 contract 維持
+- **gate-6 git diff scan**: awk で diff scan (= pipefail + set -e で grep no-match 時の script exit 回避)、 既存 body 全 10 labels + ADPCMB_DRV.inc / KR_STUB.inc 不変 (= 27aad02..HEAD diff 0 lines)
+- **completion proof line literal**: `FAIL=0` 通過時のみ 13 行 literal 出力 = NG なら gate failure で `ng` line + 末尾未達 = false PASS 不可
+- **driver touch なし** (= ADR-0059 §決定 1 ε row literal 遵守 + §決定 10 不可触対象維持)
+
+### F-3: slot base address 訂正注記 (= Annex D/E 履歴不変、 driver code は正しい)
+
+ε で `verify-axis-b-v2-roadmap3-dispatch.sh` の trace 抽出時に発見した誤算を訂正注記として記録 (= ADR-0058 ε rename 注記 pattern と同形式、 Annex D γ / Annex E δ 本文の literal は当時の記録として維持、 履歴改変 risk 回避)。
+
+| 対象 | Annex D/E literal (= 誤算) | 正算 | 根拠 |
+|---|---|---|---|
+| slot 9 base | 0xFDD1 | **0xFDE5** | `pmdneo_v2_partwork_base + 9*12 = 0xFD79 + 0x6C = 0xFDE5` (= 0xFD79 + 108 decimal) |
+| slot 10 base | 0xFDDD | **0xFDF1** | `pmdneo_v2_partwork_base + 10*12 = 0xFD79 + 0x78 = 0xFDF1` |
+| slot 9 FLAGS | (Annex D/E 内 literal なし) | **0xFDEE** | 0xFDE5 + OFF_FLAGS 9 = 0xFDEE |
+| slot 10 FLAGS | (Annex D/E 内 literal なし) | **0xFDFA** | 0xFDF1 + OFF_FLAGS 9 = 0xFDFA |
+
+**driver code は計算式 `(pmdneo_v2_partwork_base + 9*12)` / `(pmdneo_v2_partwork_base + 10*12)` を sdasz80 が assemble 時に計算するため正しい address (= 0xFDE5 / 0xFDF1) に init 命令を emit する**。 誤算は ADR-0059 Annex D/E doc の literal 表記のみ (= 計算式 vs literal の不整合)、 runtime 動作は正しい (= ε verify gate 1/3 で slot 9 ADDR lo @ 0xFDE5 uniq 8 件 + slot 10 ADDR lo @ 0xFDF1 uniq 8 件 = 0xFDE5/0xFDF1 が実 write address で確認済)。
+
+ε 以降は本 Annex F の正算を ground truth とする。
+
+### F-4: ε 検証結果 (= 12 gate ALL PASS literal + completion proof line)
+
+- ε fixture build (= `PMDNEO_V2_SONG_FIXTURE=1` + ym2610): **PASS**
+- production build (= `TEST_MODE_V2_SONG_FIXTURE=0`): **PASS**
+- `verify-axis-b-v2-roadmap3-dispatch.sh` 12 gate **ALL PASS** literal:
+  - roadmap3-gate-1 (ADPCM-B 実 dispatch): slot 9 ADDR lo (= 0xFDE5) uniq 8 件 + ADPCM-B reg write port A 188 件 (= 既存 adpcmb_keyon body 経由)
+  - roadmap3-gate-2 (rhythm 実 dispatch): ADPCM-A L ch reg write port B (= reg 0x110/0x118/0x100、 = ADPCM-A reg 0x10/0x18/0x00) 218 件 + reg 0x110 sample START_LSB uniq value 2 件 (= BD/SD sample addr 切替 proof)
+  - roadmap3-gate-3 (v2 song-driven 駆動): slot 9/10 ADDR lo uniq 各 8 件 + 両 slot FLAGS=01 active + fixture 進行 proof
+  - roadmap3-gate-4 (baseline regression): verify-axis-b-v2-song-playback.sh 10 gate ALL PASS (= ADR-0049〜0058 transitively)
+  - roadmap3-gate-5 (.org + build-mode 排他): 新 4 routine/fixture 全 >= 0x0610 + 0x0066 max 0xFD < 0x0100 + production build で 新 4 全 assemble なし
+  - roadmap3-gate-6 (既存 routine 本体不可触): 既存 body 10 labels + ADPCMB_DRV.inc + KR_STUB.inc 全 不変
+  - roadmap3-gate-7 (Q shim 経路 + body call): dispatch_note 内 ld a, PART_OFF_NOTE(iy) 4 箇所 + ld ix #pmdneo_v2_adpcmb_ix_shim + part_workarea write 不在 + call adpcmb_keyon + call pmdneo_rhythm_event_trigger + push ix / pop ix pair
+  - sup-stub-marker-regression: 静的 .lst で adpcmb_dispatch + rhythm_dispatch stub 内 marker write 命令存在 (= ADR-0055 source 維持)
+  - sup-IX/IY: ADPCM-B wrapper 内 push ix / pop ix pair
+  - sup-KIND-dispatch: 4 KIND 分岐 (= 0/1/2/3) 全 jp 静的存在
+  - sup-cold-boot: production build で `pmdneo_v2_song_init` 未 assemble
+  - sup-sample-table-id-bit7-clear: 0xFD32 bit7=1 write 件数 = 0
+- **completion proof line literal 出力** (= ε deliverable、 ζ Annex 引用可能形式):
+
+```
+=== roadmap ③ completion proof (ADR-0059 §決定 8 全 PASS = ζ Accepted 移行 ready) ===
+§決定 8 gate 1 (ADPCM-B 実 dispatch):       PASS
+§決定 8 gate 2 (rhythm 実 dispatch):        PASS
+§決定 8 gate 3 (v2 song-driven 駆動):       PASS
+§決定 8 gate 4 (baseline regression):        PASS
+§決定 8 gate 5 (.org + build-mode 排他):    PASS
+§決定 8 gate 6 (既存 routine 本体不可触):   PASS
+§決定 8 gate 7 (Q shim 経路 + body call):   PASS
+supplemental gate stub-marker-regression:   PASS
+supplemental gate IX/IY:                    PASS
+supplemental gate KIND-dispatch:            PASS
+supplemental gate cold-boot:                PASS
+supplemental gate sample-table-id-bit7-clear: PASS
+ζ Accepted 移行 ready: yes (ADR-0059 §決定 1 ε 完了)
+```
+
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
 **やりたいこと**: 新ドライバ (= v2) の rhythm (= ドラム) と ADPCM-B (= 単音 ADPCM) を、 これまでの「ここに来ました証拠の SRAM マーカーを書くだけ」 から「実際の既存 ADPCM-B / rhythm ルーチンを呼び出して音を出す」 へ昇格させる。 既存ルーチンの中身は完全に触らず、 v2 側から呼ぶだけ。
@@ -443,13 +515,14 @@ build-mode 排他 = `TEST_MODE_V2_SONG_FIXTURE=0` (= production) では全 roadm
 | β (= v2 PartWork 11 + KIND + shim .equ) | **完了** (= 39th session、 PR #103) | PR #103 | β 実装 review 2 round chain = round 1 revise 2 must-fix (= L320 SRAM layout shim range comment + Annex C との range 表記整合) + 2 nice-to-have (= clear loop comment update + PR # 後続 → PR #103) 全反映 → round 2 投入予定 (= must-fix 反映後) |
 | γ (= ADPCM-B 実 dispatch) | **完了** (= 39th session、 PR # 後続) | PR # 後続 | γ 実装 review (= 後続 commit 後投入) |
 | δ (= rhythm 実 dispatch) | **完了** (= 39th session、 PR # 後続) | PR # 後続 | δ 実装 review (= 後続 commit 後投入) |
-| ε (= verify script 体系化) | 未着手 | | |
+| ε (= verify script 体系化) | **完了** (= 39th session、 PR # 後続) | PR # 後続 | ε 実装 review (= 後続 commit 後投入) |
 | ζ (= completion + Draft → Accepted 判断) | 未着手 | | |
 
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-23 | ε 実装完了 (= 39th session、 PR # 後続) | verify script 体系化 + completion proof + slot base address 訂正注記。 `src/test-fixtures/axis-b/verify-axis-b-v2-roadmap3-dispatch.sh` 新規 (= 約 280 行) で ADR-0059 §決定 8 primary 7 gate (= roadmap3-gate-1〜7) + supplemental 5 gate (= sup-*) = **計 12 gate** 統合 + 末尾 completion proof line 13 行 literal 出力 (= ζ Accepted 移行 ready signal)。 ADR-0059 Annex F 追記 (= ε completion + 実装詳細 + slot base address 訂正注記 + 検証結果 + completion proof line literal)。 **slot base address 訂正注記** = Annex D γ literal `slot 9 base = 0xFDD1` / Annex E δ literal `slot 10 base = 0xFDDD` は誤算 (= 0xFD79 + 9*12 / 10*12 計算誤り)、 正は **slot 9 base = 0xFDE5 / slot 10 base = 0xFDF1**。 driver code は計算式 `(pmdneo_v2_partwork_base + 9*12)` / `(pmdneo_v2_partwork_base + 10*12)` を sdasz80 が assemble 時に計算するため正しい address に init 命令を emit する (= runtime 動作は正しい、 誤算は doc literal 表記のみ)。 ε verify gate-1/3 で slot 9 ADDR lo @ 0xFDE5 uniq 8 件 + slot 10 ADDR lo @ 0xFDF1 uniq 8 件 = 0xFDE5/0xFDF1 が実 write address で確認済。 Annex D/E 本文は履歴改変 risk 回避のため不変、 ε 以降は Annex F 正算を ground truth とする (= ADR-0058 ε rename 注記 pattern 同形式)。 sub-sprint chain ε 完了 reflect + 改訂履歴 ε entry。 検証 = ε fixture build PASS + production build PASS + 12 gate ALL PASS literal (= roadmap3-gate-1 slot 9 ADDR uniq 8 + ADPCM-B reg write 188 件 / roadmap3-gate-2 ADPCM-A L ch reg write port B 218 件 + sample START_LSB uniq 2 件 BD/SD 切替 / roadmap3-gate-3 slot 9/10 FLAGS=01 active + ADDR 進行 / roadmap3-gate-4 verify-axis-b-v2-song-playback.sh 10 gate / roadmap3-gate-5 .org overflow なし + production assemble なし / roadmap3-gate-6 既存 body 10 labels + ADPCMB_DRV.inc + KR_STUB.inc 不変 / roadmap3-gate-7 dispatch_note 経路 + Q shim 経路 + 既存 body call 5 点 / sup-stub-marker static .lst proof / sup-IX/IY / sup-KIND-dispatch 4 KIND 分岐 / sup-cold-boot production 未 assemble / sup-sample-table-id-bit7-clear 0 件) + completion proof line 13 行 literal 出力 (= ζ Annex 引用可能形式)。 driver / SRAM / .equ / build flag / vendor 一切 touch なし (= ε row literal、 ADR-0059 §決定 1 遵守)、 既存 cmd 0x05 path + ADR-0049〜0058 routine body (= allowed-touch 例外除く) + 軸 C/G/rhythm + vendor 完全不可触、 Annex D (γ) / Annex E (δ) 本文不変 (= 履歴改変 risk 回避)、 「軸 B 完成」 表現不使用継続。 Codex layer 2 = ε 実装 review (= 後続 commit 後投入)。 軸 B roadmap ③ ε、 残 ζ (= Draft → Accepted 移行)、 「軸 B 完成」 表現不使用 (= roadmap ④ + 越川氏 audition 残る) |
 | 2026-05-23 | δ 実装完了 (= 39th session、 PR # 後続) | rhythm 実 dispatch wrapper 並設 + KIND=3 分岐 additive + slot 10 fixture init。 `standalone_test.s` 1 file edit (= 49 行 +、 全て `.if TEST_MODE_V2_SONG_FIXTURE` 配下): (1) `pmdneo_v2_rhythm_voice_note_song` 並設新設 (= 案 b' + A=bitmap、 既存 `pmdneo_rhythm_event_trigger` body L4616 不可触 call、 IX 退避不要) (2) `pmdneo_v2_part_dispatch_note` KIND=3 分岐 additive (= allowed-touch extension、 cp #PMDNEO_V2_KIND_RHYTHM jr z 追加、 既存 KIND=0/1/2 path 不変、 KIND>=4 silent ret) (3) `pmdneo_v2_song_init` slot 10 = K part active init 追加 (= allowed-touch extension、 slot 9 init 後 additive、 ADDR/LOOP = fixture base / KIND=3 / CH_IDX=0 rhythm L ch 暫定占有 / FLAGS=1) (4) `pmdneo_v2_song_fixture_rhythm_k` 新設 (= `.db 0x01, 0x10, 0x02, 0x10, 0x01, 0x10, 0x80`、 bitmap fixture = BD → SD → BD → loop、 length 0x10、 末尾 0x80 loop、 ADR-0059 §決定 5 案 A v2 NOTE bitmap 流用)。 Annex E 追記 (= δ completion + deliverable + 実装詳細 + 検証結果) + sub-sprint chain δ 完了 reflect + 改訂履歴 δ entry。 検証 = production build (= `TEST_MODE_V2_SONG_FIXTURE=0`) PASS + **m1 binary byte-identical** 維持 (= `sha256(243-m1.m1) = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` で α/β/γ/δ 通算同一 binary、 全 δ routine + dispatch_note KIND=3 分岐 + slot 10 init + fixture 全て `.if` 配下未 assemble proof)。 既存 `pmdneo_rhythm_event_trigger` body / `_rhythm_event_*_trigger` 全部 / `adpcma_sample_*` / KR_STUB.inc / 既存 `adpcmb_keyon` body / ADPCMB_DRV.inc / 既存 part_workarea / cmd 0x05 path / irq_handler_body / ADR-0049〜0058 routine body (= allowed-touch 例外除く) / 軸 G ADR-0048 Draft + ε partial state / vendor 完全不可触。 fixture build trace gate proof は ε で verify-axis-b-v2-roadmap3-dispatch.sh 体系化時に実施 (= ADR-0059 §決定 1 sub-sprint 役割分離)。 Codex layer 2 = δ 実装 review (= 後続 commit 後投入)。 軸 B roadmap ③ δ、 残 ε/ζ、 「軸 B 完成」 表現不使用 (= v2 driver production-ready 化 + roadmap ④ + 越川氏 audition 残る) |
 | 2026-05-23 | γ 実装完了 (= 39th session、 PR # 後続) | ADPCM-B 実 dispatch wrapper 並設 + KIND=2 分岐 additive + slot 9 fixture init。 `standalone_test.s` 1 file edit (= 60 行 +、 全て `.if TEST_MODE_V2_SONG_FIXTURE` 配下): (1) `pmdneo_v2_adpcmb_voice_note_song` 並設新設 (= 案 b' + 案 Q shim 経路、 push ix → ld ix #pmdneo_v2_adpcmb_ix_shim → shim PART_OFF_INSTRUMENT(ix)=0 → call adpcmb_keyon → pop ix、 既存 `adpcmb_keyon` body L3875 不可触 call) (2) `pmdneo_v2_part_dispatch_note` KIND=2 分岐 additive (= allowed-touch extension、 cp #1 / cp #PMDNEO_V2_KIND_ADPCMB の 2 分岐追加、 既存 KIND=0/1 path 不変、 KIND=3+ silent ret) (3) `pmdneo_v2_song_init` slot 9 = J part active init 追加 (= allowed-touch extension、 clear loop の後ろに additive、 ADDR/LOOP = fixture base / KIND=2 / FLAGS=1) (4) `pmdneo_v2_song_fixture_adpcmb_j` 新設 (= `.db 0x42, 0x20, 0x45, 0x20, 0x48, 0x20, 0x80`、 note byte は既存 adpcmb_keyon chromatic table 引きで delta-N 変換、 length 0x20、 末尾 0x80 loop)。 Annex D 追記 (= γ completion + deliverable + 実装詳細 + 検証結果) + sub-sprint chain γ 完了 reflect + 改訂履歴 γ entry。 検証 = production build (= `TEST_MODE_V2_SONG_FIXTURE=0`) PASS + **m1 binary byte-identical** 維持 (= `sha256(243-m1.m1) = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` で α/β/γ 通算同一 binary、 全 γ routine + dispatch_note 拡張 + slot 9 init + fixture 全て `.if` 配下未 assemble proof)。 既存 `adpcmb_keyon` body / `pmdneo_rhythm_event_trigger` body / ADPCMB_DRV.inc / KR_STUB.inc / `adpcma_sample_*` / 既存 part_workarea / cmd 0x05 path / irq_handler_body / ADR-0049〜0058 routine body (= allowed-touch 例外除く) / 軸 G ADR-0048 Draft + ε partial state / vendor 完全不可触。 fixture build trace gate proof は ε で verify-axis-b-v2-roadmap3-dispatch.sh 体系化時に実施 (= γ 単体 verify script 不同梱 = ADR-0059 §決定 1 sub-sprint 役割分離)。 Codex layer 2 = γ 実装 review (= 後続 commit 後投入)。 軸 B roadmap ③ γ、 残 δ/ε/ζ、 「軸 B 完成」 表現不使用 (= v2 driver production-ready 化 + roadmap ③/④ + 越川氏 audition 残る) |
 | 2026-05-23 | β 実装完了 (= 39th session、 PR #103) | v2 PartWork 11 拡張 + KIND=2/3 .equ + ADPCM-B IX shim 0xFD41-0xFD60 .equ。 `standalone_test.s` 1 file edit (= 35 行 +): (1) `PMDNEO_V2_PART_COUNT` 9 → **11** (= FM 6ch + SSG 3ch + ADPCM-B 1 + rhythm 1 = 132 byte ≤ 256 byte region、 ADR-0059 §決定 2) (2) `PMDNEO_V2_KIND_ADPCMB` = 2 / `PMDNEO_V2_KIND_RHYTHM` = 3 .equ 新規 (= 既存 KIND=0/1 magic 直接埋込み不変、 後続 refactor 候補、 ADR-0059 §決定 2 literal) (3) `pmdneo_v2_adpcmb_ix_shim` = 0xFD41 .equ 新規 (= 32 byte shim、 ADR-0059 §決定 3 案 Q 確定、 既存 part_workarea 不可触遵守、 残 free 0xFD61-0xFD78 24 byte) (4) `PART_OFF_NOTE` / `PART_OFF_KIND` comment update (= KIND=3 rhythm bitmap 解釈 + KIND=0/1/2/3 enumeration literal、 ADR-0059 §決定 5 案 A / §決定 2) (5) SRAM layout shim 配置 comment 11 行追加 (= ADPCM-B IX shim 経路 literal、 案 Q 採用理由 / 配置 / size / 不可触対象) (6) v2 PartWork compact slot layout comment update (= 12 byte × 11 = 132 byte ≤ 256 byte、 残 124 byte 後続軸 future)。 Annex C 追記 (= β completion + deliverable + 実装詳細 + 検証結果) + sub-sprint chain β 完了 reflect + 平易要約 β 完了 reflect。 検証 = production build (= `TEST_MODE_V2_SONG_FIXTURE=0`) PASS + **m1 binary byte-identical** (= `sha256(243-m1.m1) = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` で β 前後 (= 27aad02 vs 本 commit) 一致確認、 `cmp -s` PASS、 git stash + build + sha256 比較 2 段 proof、 unused `.equ` symbol は sdasz80 が byte 非出力 = ADR-0053 β / ADR-0058 β と同 pattern)。 binary 不変のため ADR-0049〜0058 baseline regression は trivially 維持 (= 同一 binary)。 既存 `pmdneo_song_main` / `pmdneo_part_main` / `commandsp` / `part_workarea` / `irq_handler_body` 既存処理 / ADR-0049〜0058 routine body (= allowed-touch 例外除く) + 既存 `adpcmb_keyon` body / 既存 `pmdneo_rhythm_event_trigger` body / ADPCMB_DRV.inc / KR_STUB.inc / `adpcma_sample_*` / 軸 G ADR-0048 Draft + ε partial state / vendor 完全不可触。 active code 変更なし (= γ/δ で active code 追加予定 = wrapper 並設 + KIND 分岐 + slot 9/10 init)。 Codex layer 2 = β 実装 review (= 後続 commit 後投入)。 軸 B roadmap ③ β、 残 γ/δ/ε/ζ、 「軸 B 完成」 表現不使用 (= v2 driver production-ready 化 + roadmap ③/④ + 越川氏 audition 残る) |
