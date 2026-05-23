@@ -1238,3 +1238,72 @@ ADR-0048 Draft → Accepted 移行は **ζ-ε で実施** (= ζ-α/β/γ/δ 完�
 - **plan review round 3** = **approve** (= 全反映、 案 W skeleton + ζ-γ gate 全 source 整合、 must-fix なし + nice-to-have 1 件 (= `and #0x7F` → `or #0x80` 順序 static gate))
 - **user case 選定 final confirmation** = 案 W 確定 (= AskUserQuestion 回答)
 - **implementation review** (= 後続 commit 後投入予定)
+
+## sub-sprint ζ-γ verify script 体系化 (= 2026-05-23 39th session、 ADR-0048 ζ-β 案 W 実装の verify proof、 chain-pr-A 2 本目、 user 明示 5 重点 gate + ζ-β literal gate 統合)
+
+### ζ-γ 着手条件 (= chain-pr-A 2 本目)
+
+- ζ-β implementation 完走 (= PR #118 MERGED、 chain-pr-A 1 本目、 Codex layer 2 implementation review round 1 revise 2 must-fix (= ADR-0048 ζ-α section 行書き換え修正 + fixture build .lst 再確認) → 反映 → main agent self-approve + merge)
+- user 明示「次は ζ-γ でよいです」 + 5 重点 gate 提示
+- ζ-γ scope = main agent 自律完走範囲 (= verify script + ADR-0048 ζ-γ section additive + dashboard)、 ζ-δ user audition は別 sub-sprint で user GO 待ち
+
+### ζ-γ deliverable
+
+- `src/test-fixtures/axis-g/verify-axis-g-zeta-beta-dispatch.sh` 新規 = primary 8 gate + supplemental 5 gate = **13 gate** + completion proof line 16 行
+- ADR-0048 本文に ζ-γ section additive 追加 (= 既存 ζ-α/ζ-β section + ζ-γ row 当時 literal 不変、 audio gate scope 訂正注記 literal 内蔵)
+- dashboard sync (= 予約簿 0048 軸 G 行 + 軸 G 行 status column + escalation 履歴 ζ-γ entry)
+
+### ζ-γ 実装核心 = user 明示 5 重点 gate + ζ-β literal gate 5 proof 統合
+
+#### primary 8 gate
+
+| # | gate | user 明示 / ζ-β literal 由来 |
+|---|---|---|
+| 1 | bit7 save/set/restore sequence | user 明示 #1 + ζ-β proof (a)(b) |
+| 2 | lower 7 bit = PPC entry index song-driven 変化 | user 明示 #2 + ζ-β proof (c) |
+| 3 | PPC pointer register write 変化 | user 明示 #3 + ζ-β proof (d) |
+| 4 | 全 exit driver_pne_sample_table_id restore | user 明示 #4 + ζ-β proof (e) |
+| 5 | ADR-0049〜0060 baseline regression | user 明示 #5 (= verify-axis-b-v2-roadmap3-dispatch.sh transitive) |
+| 6 | production byte-identical + build-mode 排他 | 追加 (= ADR-0058/0059 ε pattern) |
+| 7 | ζ-β wrapper 経路 + 既存 routine 不可触 (= diff base pin `11655cb`) | 追加 (= round 2 must-fix B) |
+| 8 | integration preview = 同一 trace co-existence | 追加 (= round 1 must-fix A、 ADR-0048 ζ-α §sub-sprint 構成 ζ-γ row literal「integration 同居 audition fixture」 の preview proof) |
+
+#### supplemental 5 gate
+
+- sup-IX-saved / sup-KIND-4-dispatch / sup-slot-9-init-binary-toggle / sup-fixture-loop / sup-fixture-byte-sequence
+
+### audio gate scope 訂正注記 (= round 1 must-fix A 反映、 履歴改変 risk 回避)
+
+ADR-0048 ζ-α §sub-sprint 構成 ζ-γ row literal は当時:
+
+> ζ-γ | verify script 体系化 (= integration 同居 audition fixture + register trace + audio gate)
+
+ζ-γ 実装段階で判明した scope clarification:
+
+- **ζ-γ 実装範囲**: ζ-β routine register trace primary gate + **integration preview gate** (= 同一 trace run 内 PPC ADPCM-B reg + ADPCM-A reg co-observation = co-existence preview proof)
+- **ζ-δ scope に移動**: 本格 integration 同居 audition fixture (= 3 経路同居 trigger) + audio gate (= wav artifact existence + 越川氏 audition)
+
+ADR-0048 ζ-α §sub-sprint 構成 ζ-γ row 当時 literal は **不変**維持 (= ADR-0058 ε rename 注記 / ADR-0059 ε slot base address 訂正注記 と同 pattern)。
+
+### ζ-γ 検証結果 (= 13 gate ALL PASS literal)
+
+- ζ-β fixture build (= 両 flag 1 + ym2610): **PASS**
+- production build (= 両 flag clear): **PASS** + **m1 binary byte-identical 維持** (= sha256 b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4)
+- `verify-axis-g-zeta-beta-dispatch.sh` **13 gate ALL PASS** literal:
+  - gate 1: 0xFD32 bit7=1 write 70 件 + bit7=0 restore 70 件
+  - gate 2: lower 7 bit uniq 2 件 (= entry 0/1 切替)
+  - gate 3: reg 0x12-0x15 uniq ≥ 2 per register
+  - gate 4: 単一 epilogue 経由全 exit (= tick body 内 ret 直接出現なし)
+  - gate 5: verify-axis-b-v2-roadmap3-dispatch.sh 12 gate ALL PASS
+  - gate 6: m1 sha256 baseline 一致 + ζ-β routine 3 件 全 assemble なし
+  - gate 7: and #0x7F → or #0x80 順序 + call adpcmb_keyon + ld ix #shim + 既存 body 4 labels diff `11655cb..HEAD` = 0 lines
+  - gate 8: PPC ADPCM-B reg 284 件 + ADPCM-A reg 212 件 (= co-existence proof)
+  - supplemental 5 gate 全 PASS
+- completion proof line 16 行 literal 出力 + **ζ-δ audition 移行 ready: yes signal**
+
+### ζ-γ Codex layer 2 review chain
+
+- **plan review round 1** = **revise** (= 2 must-fix = integration 同居 + audio gate scope clarification + gate-7(d) diff base 明示 pin + 3 nice-to-have)
+- **plan review round 2** = **revise** (= 3 minor must-fix = completion proof line 行数訂正 15→16 + production .lst path 明示 + ADR-0048 doc sync policy 明示)
+- **plan review round 3** = **approve** (= 全反映確認、 must-fix なし + nice-to-have なし、 ζ-γ kickoff GO + main agent 自律完走)
+- **implementation review** (= 後続 commit 後投入予定)
