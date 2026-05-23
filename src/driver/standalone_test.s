@@ -3061,17 +3061,45 @@ pmdneo_v2_song_fixture_rhythm_k:
 ;;   - ADPCM-A rhythm: length 0x10 → 0x14 (= 約 53 ms、 BD/SD/BD 識別維持 target)
 ;;   note byte = 既存 fixture と同 (= PPC entry range 安全 + yaml beat marker 0x7F 維持)。
 ;;   末尾 0x80 = loop。
+;; ADR-0048 ζ-δ-2 solo audition extension (= user「MML 自体を各パートのみでビルド」 要求対応):
+;;   TEST_MODE_AXIS_G_AUDITION_MUTE_<slot>=1 で対応 fixture を empty MML (= loop terminator
+;;   0x80 only) に置換 = dispatch_note 経路で loop branch のみ = note trigger 起きない
+;;   = chip register に keyon write 起きない = 完全 mute (= solo audition build = MML レベル分離)。
+;;   既存 MUTE flag (= slot init FLAGS=active 内部 binary toggle) は dispatch skip するが
+;;   slot init body 内で chip state を touch する init 経路の残留可能性あったため fixture
+;;   level mute に経路変更 (= ζ-δ-2 user finding 反映、 commit f7b2e8a の FLAGS 内部 toggle は
+;;   revert 不要 = 重複 mute 経路 = safe redundancy)。
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x80                            ; empty MML (= loop terminator only、 solo audition mute)
+.else
 pmdneo_v2_song_fixture_fm_b_audition:
         .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
 
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G
+pmdneo_v2_song_fixture_ssg_g_audition:
+        .db     0x80                            ; empty MML
+.else
 pmdneo_v2_song_fixture_ssg_g_audition:
         .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
 
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB
+pmdneo_v2_song_fixture_adpcmb_j_ppc_audition:
+        .db     0x80                            ; empty MML
+.else
 pmdneo_v2_song_fixture_adpcmb_j_ppc_audition:
         .db     0x00, 0x30, 0x01, 0x30, 0x7F, 0x30, 0x80
+.endif
 
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM
+pmdneo_v2_song_fixture_rhythm_k_audition:
+        .db     0x80                            ; empty MML
+.else
 pmdneo_v2_song_fixture_rhythm_k_audition:
         .db     0x01, 0x14, 0x02, 0x14, 0x01, 0x14, 0x80
+.endif
 .endif
 
 .endif

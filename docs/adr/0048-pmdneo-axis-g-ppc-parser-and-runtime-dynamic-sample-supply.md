@@ -1500,3 +1500,58 @@ ADR-0048 ε partial 確立 + ζ-α/ζ-β/ζ-γ/ζ-δ-1 維持の 軸 G 永続 sc
 - production byte-identical 維持 (= m1 sha256 不変)
 - verify-axis-g-zeta-delta-2-audition-revise-dispatch.sh 全 7 gate ALL PASS 維持
 - user 再 audition judgment は 4+ 経路同居 wav (= /tmp/zeta-delta-2-audition-revise.wav) + 4 solo wav の合計 5 wav を audition material として行う
+
+#### solo audition mute 経路の round 1 finding + round 2 fix (= user 「ミュート実装は完了していないのでミュートはされません」 受領下、 fixture-level mute 経路追加)
+
+##### round 1: FLAGS=active 内部 binary toggle 経路 (= 不完全)
+
+ζ-δ-2 solo audition extension 初回実装 (= commit `f7b2e8a` 段階) では、 slot init body 末尾の `FLAGS=active` set 行を `.if MUTE_<slot>` 配下 binary toggle (= inactive/active 切替) で実装した:
+
+```
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+        ld      (hl), #0                ; OFF_FLAGS = inactive
+.else
+        ld      (hl), #1                ; OFF_FLAGS = active
+.endif
+```
+
+この経路は **dispatch loop が slot 巡回時に FLAGS bit0=1 check で skip** することで dispatch_note 不発火を目指したが、 user audition で 「ミュート実装は完了していないのでミュートはされません」 finding 受領。
+
+##### root cause: slot init body 不変 + chip register init 残留
+
+FLAGS=0 set で dispatch loop は skip するが、 **slot init body 自体は assemble される + 既存 cmd 0x05 init 経路の chip register write (= init_chip_ch2_voice / init_adpcmb_beat 等 ADR-0010/0016/0026 確立 init routine) が残留** = 各 ch chip 内部 state が previous state を維持 = audible 残留音。
+
+加えて、 fixture data 自体 (= `pmdneo_v2_song_fixture_fm_b_audition` 等) は assemble + ADDR 等 SRAM に書き込まれている = fixture を IRQ tick で fetch すれば note dispatch が起きる経路は残存 = 完全 mute にならない。
+
+##### round 2 fix: fixture-level mute 経路 (= empty MML 置換)
+
+user 要求 spec 「MML 自体を各パートのみでビルド」 literal を反映、 **fixture data 自体を `.if MUTE_<slot>` 配下で empty MML (= loop terminator 0x80 only) に置換** する経路に変更:
+
+```
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x80                            ; empty MML (= loop terminator only)
+.else
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
+```
+
+これで dispatch_note は note byte = 0x80 で **loop branch のみ = note trigger 起きない** = chip register に keyon write 起きない = 完全 mute。
+
+##### round 1 経路の維持 (= safe redundancy)
+
+round 1 経路 (= FLAGS=active 内部 binary toggle、 commit `f7b2e8a` で導入) は **revert せず維持** = 2 重 mute 経路 (= dispatch skip + fixture empty MML) で safe redundancy。 既存 build で副作用なし (= production 時 4 flag 全 0 = 既存動作)。
+
+##### round 2 fix mute 経路 effective verify (= register trace literal)
+
+各 solo wav build の register trace で「target part のみ active + 他 3 経路は init residual のみ」 を確認:
+
+| solo wav | FM keyon (reg 0x28) | SSG mixer (reg 0x07) | ADPCM-B (reg 0x12-0x15) | ADPCM-A (port B reg 0x100/0x108/0x110/0x118) |
+|---|---|---|---|---|
+| FM B | **420 件** (active) | 4 (residual) | 4 (residual) | 2 (residual) |
+| SSG G | 70 (init residual) | **356 件** (active) | 4 (residual) | 2 (residual) |
+| ADPCM-B PPC | 70 (residual) | 4 (residual) | **208 件** (active) | 2 (residual) |
+| rhythm K | 70 (residual) | 4 (residual) | 4 (residual) | **474 件** (active) |
+
+= **fixture-level mute 経路 effective confirmed** (= target part のみ active + 他 3 経路は cmd 0x05 init 段階の chip register write 数件のみ = audible 影響なし)。
