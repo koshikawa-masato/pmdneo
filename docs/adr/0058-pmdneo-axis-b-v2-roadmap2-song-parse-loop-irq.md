@@ -207,7 +207,7 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 |---|---|---|---|
 | α (= ADR-0058 起票) | **完了** (= 39th session、 PR #96) | PR #96 | 起票 plan review approve (= 案 b + 6 段 + 全 4 論点 + 規律 approve、 escalate なし) + 起票 review approve |
 | β (= v2 PartWork compact layout) | **完了** (= 39th session、 PR #97) | PR #97 | β 実装 review approve |
-| γ (= v2 song parse + dispatch wiring) | **完了** (= 39th session、 PR # 後続 push 後確定) | (= push 後 PR 番号確定) | γ kickoff plan review revise (= 案 b' + 案 E'-b 推奨 + γ-2/γ-3/γ-6 修正 + I-6〜I-9 追加 反映) + γ 実装 review (= 後続 commit 後投入) |
+| γ (= v2 song parse + dispatch wiring) | **完了** (= 39th session、 PR #98) | PR #98 | γ kickoff plan review revise (= 案 b' + 案 E'-b 推奨 + γ-2/γ-3/γ-6 修正 + I-6〜I-9 追加 反映) + γ 実装 review 4 round (= round 1 = 不可触/規律/verify gate revise → 案 b' + E'-b + γ-2 literal value gate + dashboard 予約簿 sync + γ-2 noref fallback risk → ref inline 必須生成 + ref failure 二重カウント除去) → round 4 approve |
 | δ (= IRQ 連携 + tempo) | 未着手 | - | - |
 | ε (= verify script 体系化) | 未着手 | - | - |
 | ζ (= completion + Draft → Accepted 判断) | 未着手 | - | - |
