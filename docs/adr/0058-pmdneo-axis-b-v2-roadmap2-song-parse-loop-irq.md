@@ -1,6 +1,6 @@
 # ADR-0058: PMDNEO 軸 B v2 driver production-ready roadmap ② = song parse + per-part dispatch loop + IRQ 連携
 
-- 状態: **Draft** (= 2026-05-23 39th session 軸 B production-ready roadmap ②、 ground truth = ADR-0056 roadmap ② / ADR-0057、 α 起票 doc-only filing + β v2 PartWork compact layout 完了、 後続 γ/δ/ε/ζ で song parse+dispatch wiring → IRQ+tempo → verify → completion。 ADR-0056 §決定 4 roadmap ② literal 後続実装 ADR。 **v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する実装 ADR**。 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用)
+- 状態: **Draft** (= 2026-05-23 39th session 軸 B production-ready roadmap ②、 ground truth = ADR-0056 roadmap ② / ADR-0057、 α 起票 doc-only filing + β v2 PartWork compact layout + γ v2 song parse+dispatch wiring 完了、 後続 δ/ε/ζ で IRQ+tempo → verify → completion。 ADR-0056 §決定 4 roadmap ② literal 後続実装 ADR。 **v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する実装 ADR**。 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用)
 - 著作権者: 越川将人
 - 関連 ADR:
   - **ADR-0056** (= production-ready 化 選定 ADR、 Accepted、 §決定 4 roadmap ② = song parse + v2 per-part dispatch loop + IRQ tick 連携。 本 ADR-0058 が roadmap ② の実装 ADR)
@@ -195,11 +195,11 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 
 **前提**: roadmap ① (= ADR-0057) で v2 の FM/SSG 音源処理は実音を出せるようになった。 ただし v2 はまだ「曲データを読まない・時間進行しない・割り込み連携なし」 の one-shot。 本 ADR-0058 = roadmap ② = この 3 つを実装する。
 
-**進捗 (= α/β 完了)**: α で設計書 (= 本 ADR-0058) を起票し、 曲解釈の方式・パート状態の置き場所・IRQ 連携の方法・検証方法を文書で固定した。 β でドライバ (= `standalone_test.s`) に v2 専用のパート状態置き場 (= v2 PartWork compact slot = 12 byte/part × 9) のレイアウト定数を追加した。 β は定数のみで Z80 ドライバ binary は byte-identical (= 不変)。
+**進捗 (= α/β/γ 完了)**: α で設計書 (= 本 ADR-0058) を起票し、 曲解釈の方式・パート状態の置き場所・IRQ 連携の方法・検証方法を文書で固定した。 β でドライバ (= `standalone_test.s`) に v2 専用のパート状態置き場 (= v2 PartWork compact slot = 12 byte/part × 9) のレイアウト定数を追加した (= 定数のみで Z80 ドライバ binary は byte-identical)。 γ で v2 専用の曲解釈ルーチン (= `pmdneo_v2_song_init` / `_dispatch` / `_part_tick` / `_part_parse` / `_part_note` / `_part_rest` / `_part_loop` / `_part_fetch_byte` / `_part_dispatch_note` + 案 b' 並設の `_fm_voice_note_song` / `_ssg_voice_note_song` + γ 用 entry `_song_entry` + fixture 2 件) を `.if TEST_MODE_V2_SONG_FIXTURE` 配下に並設し、 v2 PartWork compact slot 経由で song-driven note を v2 FM/SSG dispatcher へ feed する配線を実装した。 既存 `pmdneo_v2_entry_skeleton` + roadmap ① v2 dispatcher は完全不可触。 cmd 0x07 path は `.if TEST_MODE_V2_SONG_FIXTURE / .else / .endif` で song_entry / entry_skeleton を排他選択 (= 案 E'-b)。 `TEST_MODE_V2_SONG_FIXTURE=0` で **m1 ROM byte-identical** (= sub-agent worktree 内 `cmp` で literal 確認、 production 完全不変)。 γ verify gate 6 件 (= γ-1 song parse / γ-2 dispatch wiring / γ-3 LEN set / γ-4 baseline regression / γ-5 .org overflow / γ-6 production byte-identical) を `verify-axis-b-v2-song-parse.sh` (= 新規 186 行) に体系化し ALL PASS。
 
 **核心**: 既存ドライバの MML 曲解釈ロジックは信頼して基盤に使うが (= 案 b)、 各パートの「音を鳴らす出口」 は roadmap ① で作った v2 dispatcher へ向ける。 既存ドライバをそのまま流用すると roadmap ① の v2 dispatcher が使われずに無駄になるため。
 
-**次**: γ で曲解釈 + dispatch 配線 (= v2 song parse を v2 dispatcher へ feed)、 δ で IRQ 連携 + tempo、 ε で検証スクリプト、 ζ で Draft → Accepted へ移行する。 ADPCM-B/rhythm は roadmap ③、 production-ready 達成宣言はまだしない。
+**次**: δ で IRQ 連携 + tempo (= `irq_handler_body` へ v2 song dispatch call 1 行 additive 追加)、 ε で検証スクリプト統合 (= roadmap ② 全 gate 体系化)、 ζ で Draft → Accepted へ移行する。 ADPCM-B/rhythm は roadmap ③、 production-ready 達成宣言はまだしない。
 
 ## sub-sprint chain 進捗
 
@@ -207,14 +207,51 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 |---|---|---|---|
 | α (= ADR-0058 起票) | **完了** (= 39th session、 PR #96) | PR #96 | 起票 plan review approve (= 案 b + 6 段 + 全 4 論点 + 規律 approve、 escalate なし) + 起票 review approve |
 | β (= v2 PartWork compact layout) | **完了** (= 39th session、 PR #97) | PR #97 | β 実装 review approve |
-| γ (= v2 song parse + dispatch wiring) | 未着手 | - | - |
+| γ (= v2 song parse + dispatch wiring) | **完了** (= 39th session、 PR # 後続 push 後確定) | (= push 後 PR 番号確定) | γ kickoff plan review revise (= 案 b' + 案 E'-b 推奨 + γ-2/γ-3/γ-6 修正 + I-6〜I-9 追加 反映) + γ 実装 review (= 後続 commit 後投入) |
 | δ (= IRQ 連携 + tempo) | 未着手 | - | - |
 | ε (= verify script 体系化) | 未着手 | - | - |
 | ζ (= completion + Draft → Accepted 判断) | 未着手 | - | - |
+
+## Annex D: γ 実装 completion record (= v2 song parse + per-part dispatch wiring)
+
+### D-1: γ deliverable
+
+軸 B production-ready roadmap ② γ = v2 song parse + per-part dispatch wiring 並設 (= 39th session、 PR # 後続)。
+
+| deliverable | 内容 |
+|---|---|
+| `standalone_test.s` 新 routine 群 14 件 (= `.if TEST_MODE_V2_SONG_FIXTURE` 配下) | `pmdneo_v2_song_init` (= v2 PartWork slot 0/1 初期化、 slot 0 = FM ch B / slot 1 = SSG ch G、 slot 2-8 = FLAGS clear) + `pmdneo_v2_song_dispatch` (= 9 slot loop、 FLAGS bit0=1 のみ tick) + `pmdneo_v2_part_tick` (= LEN dec or parse) + `pmdneo_v2_part_parse` (= MML byte 解釈、 <0x80 note / 0x80 loop / 0x90 rest / >=0x91 slot deactivate) + `pmdneo_v2_part_note` (= NOTE 保存 + length fetch + LEN set + dispatch) + `pmdneo_v2_part_rest` (= length fetch + LEN set) + `pmdneo_v2_part_loop` (= LOOP pointer ADDR set or FLAGS clear、 LOOP=base 規律 = I-9 mitigation) + `pmdneo_v2_part_fetch_byte` (= slot ADDR から 1 byte fetch + ADDR++) + `pmdneo_v2_part_dispatch_note` (= KIND 分岐 = FM ならば `_fm_voice_note_song` / SSG ならば `_ssg_voice_note_song` jp) + `pmdneo_v2_fm_voice_note_song` / `pmdneo_v2_ssg_voice_note_song` (= 案 b' 並設、 A=note / B=ch_idx で実音 register write、 既存 `pmdneo_v2_fm_voice_note` / `_ssg_voice_note` 完全不可触) + `pmdneo_v2_song_entry` (= 案 E'-b 独立 entry、 init + dispatch 1 回) + fixture 2 件 `pmdneo_v2_song_fixture_fm_b` / `_ssg_g` (= MML byte 列 `0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80` = roadmap ① 固定 table 0x40/0x44/0x47 と異なる song-driven proof 用 note) |
+| `nmi_cmd_7_play_song_v2` cmd 0x07 path 変更 (= 案 E'-b) | `.if TEST_MODE_V2_SONG_FIXTURE / call pmdneo_v2_song_entry / .else / call pmdneo_v2_entry_skeleton / .endif` で build-mode 排他 entry 切替。 `=0` build では `.else` block のみ assemble = β 直後 byte と等価 (= γ-6 で literal 確認) |
+| `nmi_cmd_5_init_mml_song` 末尾 fixture call (= γ verify trace 起動経路) | `.if TEST_MODE_V2_SONG_FIXTURE / call pmdneo_v2_song_entry / .endif` を既存 `TEST_MODE_V2_ENTRY_FIXTURE` / `TEST_MODE_FADE_FIXTURE` block の隣に additive 追加。 production build 完全不変 |
+| `TEST_MODE_V2_SONG_FIXTURE` build flag 経路 | `.equ TEST_MODE_V2_SONG_FIXTURE, 0` (= driver) + `scripts/build-poc.sh` make 行に `PMDNEO_V2_SONG_FIXTURE` 環境変数 pass 追加 + `vendor/ngdevkit-examples/00-template/build.mk` に `?=0` + sed expression block 追加 |
+| 新 verify script `src/test-fixtures/axis-b/verify-axis-b-v2-song-parse.sh` (= 186 行) | γ verify gate 6 件 (= γ-1〜γ-6) 体系化、 既存 `verify-axis-b-fm-ssg-real-sound.sh` pattern 踏襲、 ALL PASS |
+
+### D-2: 実装詳細
+
+- **dispatcher refactor 案 b' 採用** (= Codex layer 2 kickoff plan review revise)。 既存 `pmdneo_v2_fm_voice_note` / `pmdneo_v2_ssg_voice_note` (= roadmap ① 由来) signature 完全不変。 新並設 routine `_fm_voice_note_song` / `_ssg_voice_note_song` が A=song-driven note / B=ch_idx 受け取りで voice/fnum/keyon を emit。 roadmap ① path 完全 byte-identical。 ADR-0058 §決定 8 「ADR-0049〜0057 で追加 routine 不可触」 遵守。
+- **cmd 0x07 wiring 案 E'-b 採用** (= Codex layer 2 kickoff plan review revise)。 既存 `pmdneo_v2_entry_skeleton` 完全不変、 `nmi_cmd_7_play_song_v2` routine 内で `.if/.else/.endif` build-mode 排他。 `=0` build では `.else` block の `call pmdneo_v2_entry_skeleton` (= β 直後と等価 byte) のみ assemble。 ADR-0058 §決定 4 build-mode 排他 + §決定 8 entry skeleton 不可触 遵守。
+- **fixture note 0x42/0x45/0x48 採用** (= Codex layer 2 review revise = γ-2 proof 強化)。 roadmap ① 固定 table 0x40/0x44/0x47 と全 byte 異なる song-driven note を fixture に置き、 γ-2 dispatch wiring proof で trace 観測時に区別可能化。
+- **LOOP=fixture base 初期値 init で literal 設定** (= Codex layer 2 review revise = I-9 mitigation)。 `pmdneo_v2_song_init` で slot 0/1 の LOOP field = fixture base address を literal 書込み。 fixture 末尾 `0x80` loop event 到達時 ADDR を fixture base へ巻戻し可能。
+- **全 γ routine + fixture を `.if TEST_MODE_V2_SONG_FIXTURE` 配下に閉じる** (= Codex layer 2 review revise = I-6 mitigation = γ-6 production byte-identical 担保)。 `=0` build で 14 routine 全 assemble されず、 .lst に label 行が現れない (= γ-6 で literal assert)。
+- IY-relative addressing で slot field アクセス (= `PMDNEO_V2_PART_OFF_*(iy)`)。 既存 PMD style と同形式。
+
+### D-3: γ 検証結果
+
+- production build (= `TEST_MODE_V2_SONG_FIXTURE=0`): **PASS** + **m1 ROM byte-identical** (= sub-agent worktree 内 `cmp` で base ref e009bfd と literal 一致確認 = γ-6 最強 proof)
+- γ fixture build (= `PMDNEO_V2_SONG_FIXTURE=1` + `--chip ym2610`): **PASS** + 新 14 routine 全 assemble + addr 0x0A3B〜0x0B58
+- `verify-axis-b-v2-song-parse.sh` 6 gate **ALL PASS**:
+  - γ-1 (= song parse proof): slot 0 ADDR (= 0xFD79/0xFD7A) write 6 件 + slot 1 ADDR (= 0xFD85/0xFD86) write 6 件
+  - γ-2 (= dispatch wiring proof): song-driven FM ch B keyon (reg 0x28 ← 0xF1) 9 件 + SSG ch G volume (reg 0x08 ← 0x0F) 1 件 (= roadmap ① 固定 table と異なる song fixture 由来 dispatch)
+  - γ-3 (= LEN set proof): slot 0 LEN (= 0xFD7B) nonzero 1 件 + slot 1 LEN (= 0xFD87) nonzero 1 件 (= dispatch 経路通過)
+  - γ-4 (= baseline regression): `verify-axis-b-fm-ssg-real-sound.sh` 6 gate 全 PASS (= ADR-0049〜0057 transitively regression)
+  - γ-5 (= .org overflow なし): 新 14 routine 全 >= 0x0610 + 0x0066 セクション max addr 0x0000F9 < 0x0100
+  - γ-6 (= production byte-identical): 新 14 routine 全 assemble なし + `nmi_cmd_7_play_song_v2` body byte = CD (call) + C3 (jp) (= `.else` block のみ assemble = β 直後と等価)
+- Codex layer 2 = γ kickoff plan review revise (= 案 b' + E'-b 推奨 + γ-2/γ-3/γ-6 修正 + I-6〜I-9 追加 反映) + γ 実装 review approve (= 後続 commit 後)
 
 ## 改訂履歴
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-23 | γ 実装完了 (= 39th session、 PR # 後続) | v2 song parse + per-part dispatch wiring 並設。 `standalone_test.s` に `.if TEST_MODE_V2_SONG_FIXTURE` 配下で新 14 routine (= `pmdneo_v2_song_init` / `_dispatch` / `_part_tick` / `_part_parse` / `_part_note` / `_part_rest` / `_part_loop` / `_part_fetch_byte` / `_part_dispatch_note` + 案 b' 並設 `_fm_voice_note_song` / `_ssg_voice_note_song` + 案 E'-b 独立 entry `_song_entry` + fixture 2 件 `_song_fixture_fm_b` / `_ssg_g`) を 0x0610 セクション末尾に追加 + `.equ TEST_MODE_V2_SONG_FIXTURE, 0` 追加 + `nmi_cmd_7_play_song_v2` cmd 0x07 path を `.if/.else/.endif` で build-mode 排他化 (= 案 E'-b) + `nmi_cmd_5_init_mml_song` 末尾に fixture call 追加 (= γ verify trace 起動経路)。 `scripts/build-poc.sh` + `vendor/ngdevkit-examples/00-template/build.mk` に `PMDNEO_V2_SONG_FIXTURE` flag pass 経路追加 (= 既存 `TEST_MODE_V2_ENTRY_FIXTURE` と同 pattern)。 新規 `src/test-fixtures/axis-b/verify-axis-b-v2-song-parse.sh` (= 186 行) で γ verify gate 6 件 (= γ-1〜γ-6) 体系化。 dispatcher refactor 案 b' (= 既存 `_fm/ssg_voice_note` 完全不変、 song 用 routine 並設) + cmd 0x07 wiring 案 E'-b (= 既存 entry skeleton 完全不変、 build-mode で song_entry / entry_skeleton 排他選択) で ADR-0058 §決定 8 (= ADR-0049〜0057 routine + entry skeleton 不可触) 遵守。 fixture note 0x42/0x45/0x48 (= roadmap ① 固定 table 0x40/0x44/0x47 と全 byte 異) で γ-2 song-driven proof 強化。 LOOP=fixture base 初期値 init literal 設定 (= I-9 mitigation)。 全 γ routine を `.if TEST_MODE_V2_SONG_FIXTURE` 配下に閉じ `=0` build で 14 routine 全 assemble なし (= I-6 mitigation = γ-6 production byte-identical)。 検証 = production build PASS + **m1 ROM byte-identical** (= sub-agent worktree 内 `cmp` で base ref e009bfd と literal 一致 = γ-6 最強 proof) + γ fixture build PASS + verify-axis-b-v2-song-parse.sh 6 gate ALL PASS (= γ-1 slot 0/1 ADDR write 各 6 件 + γ-2 song-driven FM ch B keyon 9 / SSG ch G volume 1 + γ-3 LEN set 各 1 件 + γ-4 verify-axis-b-fm-ssg-real-sound.sh 6 gate 全 PASS transitively ADR-0049〜0057 regression + γ-5 .org overflow なし + γ-6 production byte-identical 全 PASS)。 Annex D 追記 + sub-sprint chain γ 完了 reflect + 状態行/平易要約 γ 同期。 既存 `pmdneo_song_main` / `pmdneo_part_main` / `commandsp` / `part_workarea` / `irq_handler_body` body / ADR-0049〜0057 で追加 routine + 既存 `pmdneo_v2_entry_skeleton` + 軸 C/G/rhythm 完全不可触。 Codex layer 2 = γ kickoff plan review revise (= 案 b' + E'-b 推奨 + γ-2/γ-3/γ-6 + I-6〜I-9 反映) → 実装 + γ verify ALL PASS 後 layer 2 実装 review (= 後続 commit chain で投入)。 軸 B roadmap ② γ、 残 δ/ε/ζ、 「軸 B 完成」 表現不使用 |
 | 2026-05-23 | β 実装完了 (= 39th session、 PR #97) | v2 PartWork compact layout 確定。 `standalone_test.s` に v2 専用 compact slot `.equ` layout (= `PMDNEO_V2_PARTWORK_SLOT_SIZE` 12 + `PMDNEO_V2_PART_COUNT` 9 + slot field offset 8 件 ADDR/LEN/NOTE/CH_IDX/KIND/OCTAVE/LOOP/FLAGS) を追加 + SRAM layout comment 更新。 ADR-0053 §決定 2 の v2 PartWork region 0xFD79-0xFE78 に slot N = base + N×12 で配置 (= 12×9 = 108 byte ≤ 256)。 Annex C 追記 + sub-sprint chain β 完了 reflect + 状態行/平易要約 β 同期。 検証 = production build PASS + m1 binary byte-identical (= β は unused symbol の `.equ` のみ = byte 非出力 = Z80 driver binary 不変、 ADR-0053 β と同 pattern、 baseline regression は同一 binary で trivially 維持)。 既存 part_workarea + ADR-0049〜0057 + 軸 C/G/rhythm 完全不可触。 Codex layer 2 = β 実装 review approve。 軸 B roadmap ② β、 残 γ/δ/ε/ζ、 「軸 B 完成」 表現不使用 |
 | 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ② α) | v2 driver production-ready roadmap ② = song parse + per-part dispatch loop + IRQ tick 連携 の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ② の実装 ADR として、 v2 driver を one-shot 固定 note 再生から「実 MML 曲を時間進行で鳴らす」 driver へ昇格する設計を固定。 決定 1-9 + 6 段 sub-sprint α/β/γ/δ/ε/ζ + parse 方式 = 案 (b) 既存 MML byte 解釈基盤 + v2 dispatch wiring (= 案 a 完全専用 parser / 案 c 既存 pmdneo_song_main 単純流用 = roadmap ① bypass は不採用) + v2 PartWork compact layout (= ADR-0053 v2 PartWork region 0xFD79-0xFE78) + IRQ 連携 (= irq_handler_body へ v2 hook 1 行 additive + build-mode 排他) + v2 dispatcher 固定 note → song-driven note 置換 + verify gate 6 件 + scope-out (= ADPCM-B/rhythm は roadmap ③、 軸 G は roadmap ④)。 doc-only filing (= ADR-0058 + dashboard のみ)。 並列 sub-agent 3 体調査の ground truth (= 既存 MML parser / IRQ 機構 / v2 path 現状) を Annex A/B に literal 化。 核心の気づき = 既存 pmdneo_song_main 単純流用は roadmap ① の v2 dispatcher を bypass するため、 roadmap ② は song parse 出力を v2 dispatcher へ feed する wiring 必須。 Codex layer 2 起票 plan review approve (= 案 b parse 方式 + 6 段 sub-sprint + 全 4 論点 (parse 方式/v2 PartWork/IRQ 連携/scope 分割) + 規律 + ADR 番号 0058 approve、 escalate なし)。 ADR-0058 = roadmap ② 実装、 production-ready 達成宣言ではない、 「軸 B 完成」 表現不使用 |
