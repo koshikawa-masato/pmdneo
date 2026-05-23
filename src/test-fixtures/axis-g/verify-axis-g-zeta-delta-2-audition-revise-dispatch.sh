@@ -154,6 +154,32 @@ else
 fi
 
 # ============================================================
+# gate 8: dispatch gate isolation (= LEGACY_SKIP=1 で legacy pmdneo_song_main call skip、
+# solo build (= FM B / SSG G / ADPCM-B / rhythm K) で active 経路のみ trigger、 他 3 経路は
+# residual silent setup のみ = audible 影響なし、 candidate C 採用)。
+# threshold: legacy 経路 trigger (= ADPCM-A bitmap keyon < 0x80) が < 10 件 (= residual silent
+# setup の許容 baseline、 通常 legacy 経路では 数百件 周期 trigger)
+# ============================================================
+TEMPLATE_BUILD_LOCAL="vendor/ngdevkit-examples/00-template/build"
+echo "=== gate 8: dispatch gate isolation (= LEGACY_SKIP=1 で legacy skip + FM B solo trace) ==="
+rm -f "$TEMPLATE_BUILD_LOCAL/standalone_test.preprocessed.s"
+PMDNEO_V2_SONG_FIXTURE=1 PMDNEO_AXIS_G_V2_PPC=1 PMDNEO_AXIS_G_AUDITION_REVISE=1 \
+  PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP=1 \
+  PMDNEO_AXIS_G_AUDITION_MUTE_FM_B=0 PMDNEO_AXIS_G_AUDITION_MUTE_SSG_G=1 \
+  PMDNEO_AXIS_G_AUDITION_MUTE_ADPCMB=1 PMDNEO_AXIS_G_AUDITION_MUTE_RHYTHM=1 \
+  bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1 \
+  || { ng "FM B solo build FAIL"; }
+rm -rf "$TRACE_DIR"
+bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
+G8_ADPCMA_KEYON=$(awk -F'\t' '$2=="B" && $3=="100" {v=toupper($4); if (v ~ /^[0-7][0-9A-F]$/ && v != "00") c++} END{print c+0}' "$YMFM")
+G8_FM_KEYON=$(awk -F'\t' '$2=="A" && $3=="28" {c++} END{print c+0}' "$YMFM")
+if [ "$G8_ADPCMA_KEYON" -lt 10 ] && [ "$G8_FM_KEYON" -ge 100 ]; then
+  ok "gate 8 (dispatch gate isolation = candidate C): FM B solo で ADPCM-A bitmap keyon (= < 0x80) $G8_ADPCMA_KEYON 件 (< 10 期待 = legacy 経路 skip proof) + FM keyon $G8_FM_KEYON 件 (>= 100 = active proof)"
+else
+  ng "gate 8 不成立: ADPCM-A keyon=$G8_ADPCMA_KEYON (< 10 期待) / FM keyon=$G8_FM_KEYON (>= 100 期待)"
+fi
+
+# ============================================================
 # gate 7: baseline regression (= verify-axis-g-zeta-beta-dispatch.sh transitive)
 # ============================================================
 echo "=== gate 7: baseline regression (= verify-axis-g-zeta-beta-dispatch.sh) ==="
@@ -191,6 +217,7 @@ if [ "$FAIL" -eq 0 ]; then
   echo "OK  gate 5 FM voice percussive 化観測: ch B 関連 reg 0x81/0x85/0x89/0x8D に 0xFF write"
   echo "OK  gate 6 4+ 経路同居 trace: FM port A reg 0x28 + ADPCM-B port A reg 0x12-0x15 + ADPCM-A port B reg 0x100/0x108/0x110/0x118"
   echo "OK  gate 7 baseline regression: verify-axis-g-zeta-beta-dispatch.sh ALL PASS (= ζ-β/γ/δ-1 transitive)"
+  echo "OK  gate 8 dispatch gate isolation (= candidate C LEGACY_SKIP=1): FM B solo で legacy 経路 trigger skip proof"
   echo "OK  artifact preserved: $PREPROCESSED_ZD2 + $YMFM_ZD2 + $M1_PROD_SHA_FILE"
   echo "OK  audio gate scope-out: 越川氏 audition judgment は ζ-δ-2 user audition session (= 別 sub-sprint)"
   echo "OK  ADR-0048 Draft 維持 + ζ-ε 進まず literal 維持"

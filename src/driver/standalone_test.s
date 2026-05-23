@@ -109,6 +109,17 @@
         .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB,  0
         .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM,  0
 
+        ;; ADR-0048 ζ-δ-2 dispatch gate finding (= user 「音が混ざる」 finding 由来 root cause
+        ;;   investigation 反映、 candidate C 採用): audition / solo fixture 内で legacy
+        ;;   pmdneo_song_main 経路 (= IRQ tick L723 `.if TEST_MODE_CHORD == 5` 配下 call) が
+        ;;   v2 dispatch と並走 = K/L-Q/J/A-I part 周期 trigger が solo fixture に混入する真因。
+        ;;   本 flag=1 で IRQ tick 内 legacy pmdneo_song_main 呼び出しを skip = v2 dispatch 経路
+        ;;   のみ動作 = solo fixture 完全分離。 production build / 通常 fixture build (= flag=0)
+        ;;   は既存挙動完全維持 = byte-identical 維持。
+        ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 6 条件 AND + user
+        ;;   dispatch gate root cause finding 1 条件 拡張下の binary toggle additive)。
+        .equ    TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP,  0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -720,7 +731,15 @@ irq_handler_body:
         add     a, (hl)
         ld      (driver_subtick_acc), a
         jp      nc, irq_done              ; no overflow -> skip song dispatch
+.if TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP
+        ;; ADR-0048 ζ-δ-2 dispatch gate finding 反映 (= candidate C): audition / solo fixture
+        ;;   build 時に legacy pmdneo_song_main 経路を skip = v2 dispatch のみ動作。 既存
+        ;;   pmdneo_song_main body 完全不可触、 IRQ tick 内 .if 配下 call skip = additive 経路。
+        ;;   production build / 通常 fixture build (= flag=0) は既存挙動完全維持
+        ;;   (= byte-identical sha256 維持、 legacy dispatch 経路で song table データを continue 再生)。
+.else
         call    pmdneo_song_main
+.endif
         jp      irq_done
         .endif
 
