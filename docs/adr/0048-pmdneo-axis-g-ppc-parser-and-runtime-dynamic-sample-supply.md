@@ -1387,3 +1387,79 @@ user 明示「ADR-0048 はまだ Draft であり、 ζ-ε までは Accepted 扱
 ### ζ-δ-2 待機 (= user 介入必須 sub-sprint)
 
 main agent は ζ-δ-1 完了後、 越川氏 audition session result 報告を待つ。 audition approve → main agent が ADR-0048 ζ-δ section additive で audition result literal + ζ-ε への遷移 (= user GO 必須)。 audition reject → ζ-δ-1 改修 + 再 audition。 partial approve → 部分改修 + 再 audition。 ζ-ε Draft → Accepted 移行は audition approve 後 + user 判断 gate、 main agent autonomous で Accepted 化しない。
+
+## sub-sprint ζ-δ-2 audition reject + audition fixture revise (= 2026-05-23 39th session、 chain-pr-A 4 本目、 user audition reject judgment 受領 + 改修方向 spec literal 5 件確定経由)
+
+### ζ-δ-2 経緯 (= user audition reject judgment literal)
+
+ζ-δ-1 完了後の ζ-δ-2 user audition session で、 越川氏は `/tmp/zeta-delta-audition.wav` に対し下記 judgment を literal で報告した:
+
+- **ADR-0048 は Draft 維持** (= ζ-ε には進まず)
+- **/tmp/zeta-delta-audition.wav は approve しない**
+- **ζ-δ-1 fixture を再設計して再 audition** = audition fixture revise sub-sprint = **ζ-δ-2 起票**
+
+改修方向 (= user 明示 spec literal 5 件):
+
+- **FM B**: 持続音ではなく、 短いアタックの反復音にする
+- **SSG G**: FM と同じく短く区切る
+- **ADPCM-B**: PPC0 → PPC1 → yaml beat marker の順番が分かるようにする
+- **ADPCM-A rhythm**: BD → SD → BD の識別を維持
+- **全体**: 10 秒の中で「4+ 経路が同時に成立している」 と判断しやすい構成にする
+
+改修方向の核心は **音楽的綺麗さ scope-out + 経路聞き分け target**。
+
+### ζ-δ-2 切り分け 5 件 (= main agent ε partial 同形式、 register trace literal 由来)
+
+main agent ζ-δ-1 audition wav register trace 解析:
+
+| 切り分け | 観察値 | 期待値 | 結果 |
+|---|---|---|---|
+| 1. FM B keyon (= reg 0x28 = 0xF1) 件数 | 149 件 | 約 150 件 (= 50 loop × 3 note) | PASS = song-driven keyon 正常 trigger |
+| 2. FM B fnum LSB (= reg 0xA1) uniq | 4 種 (= 0x39 / 0x6A / 0xB6 / 0xD5) | 3 種以上 | PASS = fnum 切替正常動作 |
+| 3. FM B fnum/block MSB (= reg 0xA5) uniq | 2 種 (= 0x1A / 0x1B) | 1-3 種 | PASS = block + fnum upper 切替動作 |
+| 4. FM voice 音色 = `fm_voice_data_default` envelope | DR=0x00 / SR=0x00 / SL=0x00 = sustain hold 持続音色 | percussive 期待 | **finding** = 持続音色 (= default 音色由来 root cause) |
+| 5. wav 長さ = MAME `--wavwrite-seconds 10` cap | 10 秒で wav 強制終了 | 10 秒 audition target | **finding** = wav 末尾で audio 強制 cut off |
+
+切り分け 1/2/3 = **FM B 経路は register level で song-driven 正常動作 confirmed** (= keyon 149 件 ≈ 150 件期待 + fnum 4 種切替)。
+切り分け 4 = `fm_voice_data_default` の envelope 設定 (= DR=0x00 / SR=0x00 / SL=0x00) が「sustain hold 持続音色」 = 「ただの持続音」 の root cause。
+切り分け 5 = 10 秒 wav cap で末尾 cut off = 「途中で切れる」 解釈、 audition target 10 秒以内なら問題なし。
+
+### 改修内容 spec literal (= driver source additive、 4 軸)
+
+| 軸 | 改修内容 | 実装 |
+|---|---|---|
+| **A. FM 新 voice 追加** | `fm_voice_data_audition` block 追加 (= percussive envelope: AR=31 / DR=15 / SR=15 / SL=15 / RR=15、 TL=0x10、 alg=7、 fb=0) + `pmdneo_v2_fm_voice_note_song` wrapper 内 binary toggle で audition fixture build 時のみ swap | `.if TEST_MODE_AXIS_G_AUDITION_REVISE` 配下で voice address swap、 `fm_voice_data_default` 完全不可触維持 |
+| **B. fixture data length 改修** | slot 0 FM B + slot 1 SSG G = length 0x10 → 0x06 (= 約 24 ms = 短いアタック反復)、 slot 9 ADPCM-B PPC = length 0x10 → 0x30 (= 約 130 ms = sample 分離可聴)、 slot 10 ADPCM-A rhythm = length 0x10 → 0x14 (= 約 53 ms = BD/SD 識別維持) | `.if TEST_MODE_AXIS_G_AUDITION_REVISE` 配下で新 fixture block 並設、 既存 fixture 完全不可触維持 |
+| **C. note byte 維持** | slot 9 ADPCM-B = 0x00 / 0x01 / 0x7F (= PPC entry 0 + entry 1 + yaml beat marker、 ζ-δ-1 と同) | PPC entry index range 安全保証 (= 0x00 / 0x01 既知 + 0x7F = ADR-0043 経路) |
+| **D. build flag 追加** | `TEST_MODE_AXIS_G_AUDITION_REVISE` (= default 0)、 `TEST_MODE_AXIS_G_V2_PPC` の上位互換 (= ζ-δ-2 fixture build 時のみ ON、 ζ-δ-2 trigger flag) | `scripts/build-poc.sh` + `vendor/ngdevkit-examples/00-template/build.mk` |
+
+### allowed-touch 例外 5 条件 AND (= ζ-α 4 条件 + audition reject judgment 1 条件 拡張)
+
+ζ-α §allowed-touch 例外 4 条件 (= ζ-β 着手 + user GO + case 選定確定 + audition target = ζ-δ-1 で確立) に対し、 ζ-δ-2 は **「audition reject judgment 受領 + 改修方向 spec literal 5 件確定」** 1 条件 追加 = **5 条件 AND** で audition fixture revise sub-sprint 着手:
+
+1. ζ-β 着手 (= 既)
+2. user GO (= 既、 ζ-β 案 W 選定)
+3. case 選定確定 (= 既、 案 W 確定)
+4. audition target (= 既、 ζ-δ-1 で option A 確定)
+5. **audition reject judgment + 改修方向 spec literal 5 件確定** (= 新、 ζ-δ-2 trigger)
+
+allowed-touch scope literal (= ζ-δ-2):
+
+- 既存 `fm_voice_data_default` 完全不可触
+- 既存 fixture block (= `pmdneo_v2_song_fixture_fm_b` 等) 完全不可触
+- 既存 wrapper routine body (= `pmdneo_v2_fm_voice_note_song` 等) 完全不可触
+- 新規追加のみ = 新 voice block `fm_voice_data_audition` + 新 fixture block 並設 (= `pmdneo_v2_song_fixture_fm_b_audition` 等) + wrapper 内 binary toggle `.if` 配下 additive
+
+### 軸 G 永続 scope-out (= ζ-δ-2 でも維持)
+
+ADR-0048 ε partial 確立 + ζ-α/ζ-β/ζ-γ/ζ-δ-1 維持の 軸 G 永続 scope-out 9 項目 + ADR-0048 ζ-α §禁止表現リスト 5 件 (= 軸 G 完成系 3 件 + 軸 B 完成 + production-ready 全体達成) literal 維持。
+
+### ζ-δ-2 完了判定 (= ζ-δ-1 同形式、 audition fixture revise 完了 = wav 生成 + user 提示 + ζ-δ-2 再 audition session ready)
+
+- driver source 改修 PASS (= ADR additive + driver code additive + verify gate 拡張 + build flag 追加 + audition wav 生成)
+- ζ-δ-2 audition wav (= `/tmp/zeta-delta-2-audition-revise.wav`) 生成完了 = user 再 audition session ready
+- ADR-0048 Draft 維持 = ζ-ε 進まず literal 維持
+- user 再 audition judgment 受領後の path:
+  - **approve** → ADR-0048 ζ-ε 移行 (= user GO 必須、 main agent autonomous で Accepted 化しない)
+  - **reject** → ζ-δ-3 audition fixture revise round 2 起票
+  - **partial approve** → 部分改修 + 再 audition or ζ-ε 移行 (= user 判断)
