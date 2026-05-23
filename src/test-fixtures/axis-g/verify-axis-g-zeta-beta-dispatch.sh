@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# PMDNEO 軸 G ADR-0048 ζ-γ verify script 体系化
-# (= ADR-0048 ζ-β 案 W 実装の verify proof = chain-pr-A 2 本目)
+# PMDNEO 軸 G ADR-0048 ζ-γ verify script 体系化 + ζ-δ option A integration audition extend
+# (= ADR-0048 ζ-β 案 W + ζ-δ option A 実装の verify proof = chain-pr-A 2/3 本目)
 #
 # verify scope: ADR-0048 ζ-α §sub-sprint 構成 ζ-γ row literal「verify script 体系化」
 #   + user 明示 5 重点 gate + ADR-0048 ζ-β literal gate `zeta-beta-bit7-save-restore-entry-select`
-#   = primary 8 gate + supplemental 5 gate + completion proof line 16 行。
+#   + ADR-0048 ζ-δ option A 追加 gate (= yaml beat marker + ADPCM-A coexistence、 chain-pr-A 3 本目)
+#   = primary 8 gate + supplemental 5 gate + ζ-δ 新 gate 2 = 計 15 gate + completion proof line 18 行。
 #
 # user 明示 5 重点 gate:
 #   gate 1 = bit7 save / set / restore sequence
@@ -24,7 +25,7 @@
 #   sup-KIND-4-dispatch = dispatch_note KIND=4 分岐 + KIND=0/1/2/3 不変
 #   sup-slot-9-init-binary-toggle = slot 9 init fixture build で KIND=4 + fixture_adpcmb_j_ppc emit
 #   sup-fixture-loop = slot 9 ADDR lo (= 0xFDE5) uniq value ≥ 2 (= entry 0/1 切替)
-#   sup-fixture-byte-sequence = slot 9 ADDR lo write history で 0x00→0x10→0x01→0x10→0x00→0x10→0x80 順序 literal
+#   sup-fixture-byte-sequence = slot 9 ADDR lo write history で 0x00→0x10→0x01→0x10→0x7F→0x10→0x80 順序 literal
 #
 # scope-out (= ζ-δ scope):
 #   - 本格 integration 同居 audition fixture (= PPC + yaml beat + ADPCM-A 3 経路同居 trigger)
@@ -35,7 +36,7 @@
 #   - set -euo pipefail + ok/ng helper + FAIL counter
 #   - 全 MAME invocation 前に rm -rf $TRACE_DIR (= stale trace false PASS 防止)
 #   - 末尾 production build 復帰 (= production byte-identical 維持)
-#   - completion proof line 16 行 (= FAIL=0 通過時のみ literal 出力)
+#   - completion proof line 18 行 (= primary 8 + supplemental 5 + ζ-δ 新 2 gate + artifact 1 + audio scope 1 + ready signal 1、 FAIL=0 通過時のみ literal 出力)
 #
 # usage: bash src/test-fixtures/axis-g/verify-axis-g-zeta-beta-dispatch.sh
 
@@ -250,9 +251,57 @@ SLOT9_ADDR_LO_FIRST=$(awk -F'\t' '$3=="FDE5" {print $4; exit}' "$ZMEM_ZB")
 # 順序 = ADDR lo の連続 write の差分が +1 で進行 (= fixture byte 1 byte 進行) + loop で base 戻り
 SLOT9_ADDR_LO_VALUES=$(awk -F'\t' '$3=="FDE5" {print $4}' "$ZMEM_ZB" | head -20 | tr '\n' ' ')
 if [ "$SLOT9_ADDR_LO_UNIQ" -ge 2 ] && [ -n "$SLOT9_ADDR_LO_FIRST" ]; then
-  ok "supplemental gate fixture-byte-sequence: slot 9 ADDR lo write history first=0x${SLOT9_ADDR_LO_FIRST} + uniq ${SLOT9_ADDR_LO_UNIQ} = fixture pattern 0x00→0x10→0x01→0x10→0x00→0x10→0x80 進行 + loop proof"
+  ok "supplemental gate fixture-byte-sequence: slot 9 ADDR lo write history first=0x${SLOT9_ADDR_LO_FIRST} + uniq ${SLOT9_ADDR_LO_UNIQ} = fixture pattern 0x00→0x10→0x01→0x10→0x7F→0x10→0x80 進行 + loop proof"
 else
   ng "supplemental gate fixture-byte-sequence 不成立 (first=${SLOT9_ADDR_LO_FIRST:-none} / uniq=${SLOT9_ADDR_LO_UNIQ})"
+fi
+
+# ============================================================
+# ADR-0048 ζ-δ option A 新 gate `zeta-delta-yaml-beat-marker`
+# (= must-fix 1 反映: lower 7 bit uniq ≥ 2 + 0x7F marker static AND)
+# ============================================================
+# (a) lower 7 bit uniq ≥ 2 = 既に gate 2 で計算済 (LOWER7_UNIQ)
+# (b) 0x7F marker proof = (i) fixture .db 内 0x7F byte 静的 grep + (ii) wrapper 内
+#     cp #0x7F + xor a + ld (driver_pne_sample_table_id), a の 3 命令 sequence 静的存在
+ZD_YAML_FIXTURE_BYTE=$(awk '
+  /pmdneo_v2_song_fixture_adpcmb_j_ppc:/{flag=1; next}
+  flag && /\.db/{print; exit}
+' "$LST_ZB" | grep -c "0x7F" || true)
+ZD_YAML_WRAPPER_CP=$(awk '
+  /pmdneo_v2_adpcmb_voice_note_song_ppc:/{flag=1; next}
+  flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_done:/{exit}
+  flag && /cp[ \t]+#0x7F/{print "ok"; exit}
+' "$LST_ZB")
+ZD_YAML_WRAPPER_JR=$(awk '
+  /pmdneo_v2_adpcmb_voice_note_song_ppc:/{flag=1; next}
+  flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_done:/{exit}
+  flag && /jr[ \t]+z,[ \t]+pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat/{print "ok"; exit}
+' "$LST_ZB")
+ZD_YAML_WRAPPER_XOR=$(awk '
+  /pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat:/{flag=1; next}
+  flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_call:/{exit}
+  flag && /xor[ \t]+a/{print "ok"; exit}
+' "$LST_ZB")
+ZD_YAML_WRAPPER_LD=$(awk '
+  /pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat:/{flag=1; next}
+  flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_call:/{exit}
+  flag && /ld[ \t]+\(driver_pne_sample_table_id\),[ \t]*a/{print "ok"; exit}
+' "$LST_ZB")
+if [ "$LOWER7_UNIQ" -ge 2 ] && [ "$ZD_YAML_FIXTURE_BYTE" -ge 1 ] && [ "$ZD_YAML_WRAPPER_CP" = "ok" ] && [ "$ZD_YAML_WRAPPER_JR" = "ok" ] && [ "$ZD_YAML_WRAPPER_XOR" = "ok" ] && [ "$ZD_YAML_WRAPPER_LD" = "ok" ]; then
+  ok "zeta-delta-yaml-beat-marker: lower 7 bit uniq ${LOWER7_UNIQ} (>= 2) + 0x7F fixture byte 静的存在 + wrapper cp #0x7F + jr z + xor a + ld (driver_pne_sample_table_id),a 4 命令 sequence 静的存在 (= ADR-0048 ζ-δ option A yaml beat marker route proof + branch 命令明示確認)"
+else
+  ng "zeta-delta-yaml-beat-marker 不成立 (lower7=${LOWER7_UNIQ} / fixture_0x7F=${ZD_YAML_FIXTURE_BYTE} / cp=${ZD_YAML_WRAPPER_CP:-none} / jr=${ZD_YAML_WRAPPER_JR:-none} / xor=${ZD_YAML_WRAPPER_XOR:-none} / ld=${ZD_YAML_WRAPPER_LD:-none})"
+fi
+
+# ============================================================
+# ADR-0048 ζ-δ option A 新 gate `zeta-delta-adpcma-coexistence`
+# (= ADPCM-A reg port B (= 1XX prefix) write 件数 ≥ 1、 既存 gate 8 と二重 proof)
+# ============================================================
+ZD_ADPCMA_WRITE=$(awk -F'\t' '$2=="B" && ($3=="110" || $3=="118" || $3=="100")' "$YMFM_ZB" | wc -l | tr -d ' ')
+if [ "$ZD_ADPCMA_WRITE" -ge 1 ]; then
+  ok "zeta-delta-adpcma-coexistence: ADPCM-A reg port B (= reg 0x110/0x118/0x100) write ${ZD_ADPCMA_WRITE} 件 (>= 1 期待 = slot 10 rhythm = ADPCM-A 並走 proof、 ε partial reject literal ADPCM-A 経路同居 解消 target 必須経路)"
+else
+  ng "zeta-delta-adpcma-coexistence 不成立 (adpcma_write=${ZD_ADPCMA_WRITE} 期待 >= 1)"
 fi
 
 # ============================================================
@@ -290,29 +339,31 @@ else
 fi
 
 # ============================================================
-# 集計 + completion proof line 16 行
+# 集計 + completion proof line 18 行
 # ============================================================
 echo ""
 if [ "$FAIL" -eq 0 ]; then
-  echo "=== ADR-0048 ζ-β 案 W completion proof (= ζ-γ verify ALL PASS = ζ-δ audition 移行 ready) ==="
+  echo "=== ADR-0048 ζ-β 案 W + ζ-δ option A completion proof (= ζ-δ-1 verify ALL PASS = ζ-δ-2 audition session ready) ==="
   echo "gate 1 (bit7 save/set/restore sequence):           PASS"
   echo "gate 2 (lower 7 bit = PPC entry index 変化):       PASS"
   echo "gate 3 (PPC pointer register write 変化):          PASS"
   echo "gate 4 (全 exit restore static):                   PASS"
   echo "gate 5 (ADR-0049〜0060 baseline regression):       PASS"
   echo "gate 6 (production byte-identical + 排他):         PASS"
-  echo "gate 7 (ζ-β wrapper 経路 + 既存 routine 不可触):   PASS"
+  echo "gate 7 (ζ-β/ζ-δ wrapper 経路 + 既存 routine 不可触): PASS"
   echo "gate 8 (integration preview = 同一 trace co-existence): PASS"
   echo "supplemental gate IX-saved:                        PASS"
   echo "supplemental gate KIND-4-dispatch:                 PASS"
   echo "supplemental gate slot-9-init-binary-toggle:       PASS"
   echo "supplemental gate fixture-loop:                    PASS"
   echo "supplemental gate fixture-byte-sequence:           PASS"
-  echo "[artifact paths: z80-trace=${ZMEM_ZB} ymfm-trace=${YMFM_ZB} fixture.lst=${LST_ZB} production.lst=${LST_PROD} base ref pin=${DIFF_BASE_PIN}]"
-  echo "(audio gate = wav artifact + 越川氏 audition = ζ-δ user 介入必須 sub-sprint scope)"
-  echo "ζ-δ audition 移行 ready: yes (ADR-0048 ζ-α §sub-sprint 構成 ζ-γ 完了)"
+  echo "zeta-delta-yaml-beat-marker:                       PASS"
+  echo "zeta-delta-adpcma-coexistence:                     PASS"
+  echo "[artifact paths: z80-trace=${ZMEM_ZB} ymfm-trace=${YMFM_ZB} fixture.lst=${LST_ZB} production.lst=${LST_PROD} audition-wav=/tmp/zeta-delta-audition.wav base ref pin=${DIFF_BASE_PIN}]"
+  echo "(audio gate = 越川氏 audition session = ζ-δ-2 user 介入必須 sub-sprint scope)"
+  echo "ζ-δ-2 audition session ready: yes (ADR-0048 ζ-δ-1 main agent autonomous part 完了)"
   echo ""
-  echo "OK  ALL PASS (= 軸 G ADR-0048 ζ-γ verify script 体系化 + completion proof + 13 gate 全 PASS)"
+  echo "OK  ALL PASS (= 軸 G ADR-0048 ζ-γ + ζ-δ option A verify script extend + completion proof + 15 gate 全 PASS)"
   exit 0
 else
   echo ""

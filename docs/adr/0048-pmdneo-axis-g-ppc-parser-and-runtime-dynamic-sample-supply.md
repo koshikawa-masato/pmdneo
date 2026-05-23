@@ -1306,4 +1306,84 @@ ADR-0048 ζ-α §sub-sprint 構成 ζ-γ row 当時 literal は **不変**維持
 - **plan review round 1** = **revise** (= 2 must-fix = integration 同居 + audio gate scope clarification + gate-7(d) diff base 明示 pin + 3 nice-to-have)
 - **plan review round 2** = **revise** (= 3 minor must-fix = completion proof line 行数訂正 15→16 + production .lst path 明示 + ADR-0048 doc sync policy 明示)
 - **plan review round 3** = **approve** (= 全反映確認、 must-fix なし + nice-to-have なし、 ζ-γ kickoff GO + main agent 自律完走)
+- **implementation review** = round 1 revise 3 must-fix (= ζ-β section 行書き換え修正 + dashboard L15/L242 ζ-γ 反映 + L168 禁止語句 literal 参照形式化) → 反映 → main agent self-approve + merge (= PR #119)
+
+## sub-sprint ζ-δ-1 integration 同居 audition fixture + wav 生成 + audition request (= 2026-05-23 39th session、 chain-pr-A 3 本目、 option A 採用 = user AskUserQuestion confirmation 経由)
+
+### ζ-δ 着手判断 + user 介入分離
+
+ζ-γ PR #119 MERGED + `ζ-δ audition 移行 ready: yes signal` 出力後、 user 明示「次は ζ-δ audition です。 ここは user 介入必須」 + audition target「PPC + yaml beat + ADPCM-A の同居 audition」 + 「ADR-0048 はまだ Draft であり、 ζ-ε までは Accepted 扱いにしないでください」。
+
+ζ-δ は **2 stage 分離**:
+- **ζ-δ-1** (= 本 sub-section) = main agent autonomous part
+- **ζ-δ-2** = user 介入必須 part = 越川氏 audition session + judgment
+
+### ζ-δ-1 case 選定 = option A (= user AskUserQuestion confirmation)
+
+user 確定: ζ-β fixture pattern を拡張し、 entry 0 / entry 1 / yaml beat marker (= 0x7F) を交互 trigger する option A 採用。 driver active code 変更は ζ-δ allowed-touch 例外として ADR 明記、 既存 routine body 不可触 + ADR-0048 Draft 維持 + ζ-ε まで Accepted にしない規律維持。
+
+### ζ-δ allowed-touch 例外 = 4 条件 AND
+
+ADR-0048 ζ-α §allowed-touch 例外 3 条件 (= ζ-β 着手 + user GO + case 選定確定) を ζ-δ で拡張、 **(4) audition target = PPC + yaml beat + ADPCM-A 同居 audition (= ε partial reject literal 解消)** 追加。 4 条件 AND 全充足下で ζ-β wrapper + fixture の additive 拡張を allowed-touch 例外として扱う。 ζ-β wrapper body 構造は完全不変、 内部 branch additive (= yaml beat marker 0x7F 認識 path) のみ追加。
+
+### ζ-δ-1 deliverable (= main agent autonomous part)
+
+- `standalone_test.s` `pmdneo_v2_adpcmb_voice_note_song_ppc` wrapper 内部 branch additive (= yaml beat marker 0x7F 認識 + bit7=0 + lower 7 bit=0 = ADR-0043 経路 yaml beat trigger)
+- `standalone_test.s` fixture pattern expand (= `0x00, 0x10, 0x01, 0x10, 0x7F, 0x10, 0x80` = entry 0 / entry 1 / yaml beat marker / loop)
+- `verify-axis-g-zeta-beta-dispatch.sh` extend (= 既存 13 gate + ζ-δ 新 gate 2 件 + completion proof line 16 → 18 行)
+- MAME headless audition wav artifact 生成 (= `/tmp/zeta-delta-audition.wav` 約 1.9 MB、 **wav 非 commit**)
+- ADR-0048 本文 ζ-δ section additive (= 本 sub-section、 既存 ζ-α/ζ-β/ζ-γ section + ζ-δ row 当時 literal 完全不変)
+- dashboard sync
+
+### ζ-δ-1 検証結果 (= 15 gate ALL PASS + audition session ready signal)
+
+- production build (= 両 flag clear): **PASS** + **m1 binary byte-identical 維持** (= 通算 sha256 b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4)
+- ζ-β fixture build (= 両 flag 1 + ym2610): **PASS**
+- `verify-axis-g-zeta-beta-dispatch.sh` **15 gate ALL PASS** literal:
+  - 既存 primary 8 + supplemental 5 = 13 gate 維持
+  - 新 gate `zeta-delta-yaml-beat-marker`: lower 7 bit uniq 2 + 0x7F fixture byte 静的存在 + wrapper `cp #0x7F` + `xor a` + `ld (driver_pne_sample_table_id),a` 3 命令 sequence 静的存在
+  - 新 gate `zeta-delta-adpcma-coexistence`: ADPCM-A reg port B write ≥ 1 件 (= slot 10 rhythm 並走 proof)
+- completion proof line 18 行 literal 出力 + **`ζ-δ-2 audition session ready: yes` signal**
+- audition wav artifact = `/tmp/zeta-delta-audition.wav` 約 1.9 MB (= 10 秒 PCM、 **git commit 非対象**)
+
+### audition request literal (= ζ-δ-2 user 介入必須 sub-sprint)
+
+```
+ζ-δ audition request (= ADR-0048 ε partial reject literal 解消 target):
+
+wav artifact: /tmp/zeta-delta-audition.wav (= ζ-β fixture build + 両 flag 1 + ym2610 + MAME headless 10 秒)
+
+聴感目標:
+- audition.wav 冒頭から終盤まで、 PPC 経路の ADPCM-B sample (= ζ-β fixture pattern PPC entry 0/1 切替)
+  + yaml beat marker (= 0x7F note byte → ADR-0043 経路 yaml beat sample trigger) が連続的に鳴ること
+  (= ε partial「1 発のみ」 解消)
+- 同時に既存 v2 song dispatch 経由で FM B (= slot 0) + SSG G (= slot 1) + ADPCM-A rhythm (= slot 10、
+  BD/SD/BD bitmap pattern) も時系列で並走鳴動すること
+- 全 4+ 経路 (= FM B + SSG G + PPC ADPCM-B + yaml beat ADPCM-B + ADPCM-A rhythm) が同居 audition として
+  聴感確認できること (= ε partial reject literal「FM / ADPCM-A / 既存 yaml beat 経路との同居 audition には
+  なっていません」 解消)
+- ※ 0x7F note byte は delta-N 計算にも渡るため音程変化あり、 audition fixture marker 由来 = route proof
+  が主目的、 聴感は marker note の delta-N と route 経由 sample 鳴動の組合せ
+
+audition request:
+- 上記 4+ 経路同居 audition の approve / reject / partial approve judgment を user (= 越川氏) にお願い
+- approve = ADR-0048 ζ-ε Draft → Accepted 移行 trigger (= ただし production-ready 全体達成 ≠ 「軸 B 完成」
+  ≠ 本番 cmd 切替、 これらは更に user 判断 gate)
+- reject = ζ-δ-1 fixture / wrapper 改修 + 再 audition
+- partial approve = part 経路のみ approve、 残部分 ζ-δ-1 改修 + 再 audition
+```
+
+### ADR-0048 Draft 状態維持 (= user 明示遵守)
+
+user 明示「ADR-0048 はまだ Draft であり、 ζ-ε までは Accepted 扱いにしないでください」 を literal 遵守。 ADR-0048 状態行 = Draft 維持。 ζ-ε で audition approve 後 + user 判断 = Accepted 移行 trigger (= 軸 G dynamic supply 完成)、 production-ready 全体達成 / 「軸 B 完成」 / 本番 cmd 切替は更に user 判断 gate。
+
+### ζ-δ-1 Codex layer 2 review chain (= plan)
+
+- **plan review round 1** = **revise** (= 1 重大 must-fix = yaml beat 経路同居 driver 変更必要、 案 A だけでは PPC + ADPCM-A まで) → user AskUserQuestion confirmation で **option A 確定**
+- **plan review round 2** = **revise** (= 3 must-fix = gate uniq 条件修正 + ADR additive 順序 + sup-fixture-byte-sequence 文言 update + 2 nice-to-have + 2 latent risk)
+- **plan review round 3** = **approve** (= 全 8 件反映、 must-fix なし、 ζ-δ-1 着手 GO)
 - **implementation review** (= 後続 commit 後投入予定)
+
+### ζ-δ-2 待機 (= user 介入必須 sub-sprint)
+
+main agent は ζ-δ-1 完了後、 越川氏 audition session result 報告を待つ。 audition approve → main agent が ADR-0048 ζ-δ section additive で audition result literal + ζ-ε への遷移 (= user GO 必須)。 audition reject → ζ-δ-1 改修 + 再 audition。 partial approve → 部分改修 + 再 audition。 ζ-ε Draft → Accepted 移行は audition approve 後 + user 判断 gate、 main agent autonomous で Accepted 化しない。

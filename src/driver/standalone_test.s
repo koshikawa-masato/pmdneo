@@ -2808,13 +2808,38 @@ pmdneo_v2_adpcmb_voice_note_song_ppc:
         ld      (pmdneo_v2_ppc_bit7_scratch), a ; save scratch
         pop     af                              ; A=note byte 復元
 
-        ;; A=note byte の lower 7 bit を PPC entry index として
-        ;; driver_pne_sample_table_id に格納、 bit7=1 set (= 軸 G 経路)
-        push    af                              ; A=note byte 再退避 (= adpcmb_keyon 入力 = delta-N 計算用)
+        ;; A=note byte 再退避 (= 後続 cp 用 + adpcmb_keyon 入力)
+        push    af
+
+        ;; ADR-0048 ζ-δ option A additive: yaml beat marker (= 0x7F) 認識 branch
+        ;;   marker 0x7F → bit7=0 + lower 7 bit=0 (= ADR-0043 経路 yaml beat trigger)
+        ;;   ε partial reject literal「FM / ADPCM-A / 既存 yaml beat 経路との同居 audition
+        ;;   にはなっていません」 解消経路 = song-driven dynamic PPC + yaml beat 交互 trigger。
+        ;;   ζ-δ allowed-touch 例外 4 条件 AND (= ζ-β 着手 + user GO + case 選定確定 +
+        ;;   audition target = PPC + yaml beat + ADPCM-A 同居 audition) 下の wrapper 内
+        ;;   branch additive、 wrapper body 構造 (= push ix / save scratch / call adpcmb_keyon /
+        ;;   単一 epilogue) は完全不変。
+        cp      #0x7F
+        jr      z, pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat
+
+        ;; 既存 ζ-β path = lower 7 bit = PPC entry index、 bit7=1
         and     #0x7F                           ; lower 7 bit = PPC entry index (= 0-127 範囲)
         or      #0x80                           ; bit7 = 1 (= 軸 G 経路、 adpcmb_keyon が PPC path 選択)
         ld      (driver_pne_sample_table_id), a ; PPC entry index 設定 (= song-driven)
-        pop     af                              ; A=note byte 復元 (= adpcmb_keyon 入力)
+        jr      pmdneo_v2_adpcmb_voice_note_song_ppc_call
+
+pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat:
+        ;; ADR-0048 ζ-δ option A: yaml beat marker (= 0x7F) → bit7=0 + lower 7 bit=0
+        ;;   = ADR-0043 経路 (= pmdneo_select_adpcmb_sample_pointer = sample literal table)
+        ;;   = 既存 yaml beat sample trigger (= audition fixture marker route proof)。
+        ;;   ※ 0x7F note byte は adpcmb_keyon の delta-N 計算にも渡るため音程変化あり、
+        ;;   ただし audition fixture marker 由来 = route proof が主目的、 聴感は marker
+        ;;   note の delta-N と route 経由 sample 鳴動の組合せ。
+        xor     a                               ; A = 0x00 (= bit7=0 + lower 7 bit=0)
+        ld      (driver_pne_sample_table_id), a ; ADR-0043 sample literal table 引き
+
+pmdneo_v2_adpcmb_voice_note_song_ppc_call:
+        pop     af                              ; A=note byte 復元 (= adpcmb_keyon 入力 = delta-N 計算用)
 
         ;; shim base 設定 (= ADR-0059 互換 init、 PPC 経路では
         ;; PART_OFF_INSTRUMENT(ix) は unused だが ADR-0059 §決定 3 案 Q shim 経路 contract 維持)
@@ -2822,8 +2847,8 @@ pmdneo_v2_adpcmb_voice_note_song_ppc:
         ld      PART_OFF_INSTRUMENT(ix), #0     ; unused on PPC path、 ADR-0059 互換 init
 
         call    adpcmb_keyon                    ; A=note (= delta-N)、 IX=shim、
-                                                ;   bit7=1 + lower 7 bit = note 由来 PPC entry index
-                                                ;   → pmdneo_select_adpcmb_ppc_pointer 経由 reg emit
+                                                ;   bit7=1 + lower 7 bit = entry index (= PPC) or
+                                                ;   bit7=0 + voice index 0 (= ADR-0043 yaml beat)
 
         ;; bit7 restore (= 全 exit path 必須、 単一 epilogue)
 pmdneo_v2_adpcmb_voice_note_song_ppc_done:
@@ -2906,14 +2931,17 @@ pmdneo_v2_song_fixture_adpcmb_j:
 .if TEST_MODE_AXIS_G_V2_PPC
 ;; pmdneo_v2_song_fixture_adpcmb_j_ppc (ADR-0048 ζ-β 案 W): J part 軸 G PPC 経路用
 ;;   fixture MML (= song-driven dynamic supply proof)。 note byte の lower 7 bit が
-;;   ζ-β wrapper 内で PPC directory entry index として使用される。 fixture pattern =
-;;   entry 0 → entry 1 → entry 0 → loop で song-driven 動的 PPC entry index 切替を
-;;   trace 観測可能 (= ζ-γ gate `zeta-beta-bit7-save-restore-entry-select` lower7 uniq
-;;   ≥ 2 + reg 0x12-0x15 uniq ≥ 2 proof)。 軸 G ε partial で確立した minimum.PPC
-;;   directory entry 0/1 を利用 (= ADR-0048 ε partial fixture continuation)。
+;;   ζ-β wrapper 内で PPC directory entry index として使用される。
+;;   ADR-0048 ζ-δ option A: fixture pattern expand = entry 0 → entry 1 → yaml beat
+;;   marker (= 0x7F) → loop で PPC + yaml beat 両経路 trigger proof + slot 10 rhythm
+;;   (= ADPCM-A) + slot 0/1 FM/SSG 並走 = 4 経路同居 audition fixture
+;;   (= ε partial reject literal「FM / ADPCM-A / 既存 yaml beat 経路との同居 audition」 解消 target)。
+;;   yaml beat marker 0x7F = wrapper 内 cp #0x7F branch で認識、 bit7=0 + lower 7 bit=0 +
+;;   ADR-0043 経路 (= sample literal table 引き) で trigger。
+;;   軸 G ε partial で確立した minimum.PPC directory entry 0/1 を利用。
 ;;   length 0x10 (= 16 tick、 ADR-0059 fixture と同 BPM)、 末尾 0x80 = loop。
 pmdneo_v2_song_fixture_adpcmb_j_ppc:
-        .db     0x00, 0x10, 0x01, 0x10, 0x00, 0x10, 0x80
+        .db     0x00, 0x10, 0x01, 0x10, 0x7F, 0x10, 0x80
 .endif
 
 ;; pmdneo_v2_song_fixture_rhythm_k (ADR-0059 δ): K part = rhythm 用 fixture MML。
