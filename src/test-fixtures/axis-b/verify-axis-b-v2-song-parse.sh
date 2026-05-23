@@ -110,44 +110,50 @@ fi
 FM_CHB_KEYON=$(awk -F'\t' '$2=="A" && $3=="28" && $4=="F1"' "$YMFM_GAMMA" | wc -l | tr -d ' ')
 SSG_CHG_VOL=$(awk -F'\t' '$2=="A" && $3=="08" && $4=="0F"' "$YMFM_GAMMA" | wc -l | tr -d ' ')
 
-# --- γ-2 literal value gate (= Codex layer 2 review revise = 件数のみではなく note→register 変換の literal proof) ---
+# --- γ-2 literal value gate (= Codex layer 2 review revise = 件数のみではなく note→register 変換の literal proof、
+# clean CI false PASS risk 解消のため roadmap ① ref trace を本 script 内で必須生成) ---
 # fnumset_fm は note byte (= OCT<<4|ONKAI) を fnum/block に変換し reg 0xA4系 (high) と 0xA0系 (low) に write する。
 # fixture note 0x42 (= OCT=4 ONKAI=2 = D4 相当) → fnum/block 値は roadmap ① 固定 note 0x44 (= OCT=4 ONKAI=4 = E4) と異なる literal 値になる。
-# roadmap ① V2 entry fixture build で観測した FM ch B fnum write set と γ build の FM ch B fnum write set を
-# uniq value level で比較し、 set が完全一致でない (= song-driven により値が異なる write が含まれる) ことを assert。
-# FM ch B fnum = reg 0xA1 (= ch B fnum hi/block、 port A)、 reg 0xA5 (= ch B fnum lo、 port A)。
-# port B prefix なし (= ym2610 FM ch B = port A side)。
+# 本 gate では roadmap ① V2 entry build trace を本 script 内で再生成し、 γ trace との set 比較で song-driven literal value proof。
+# 比較 file 不在を許容 (= noref fallback) すると clean CI 単独実行で false PASS リスクのため必須化。
 FM_CHB_FNUM_GAMMA=$(awk -F'\t' '$2=="A" && ($3=="A1" || $3=="A5") {print $3"="$4}' "$YMFM_GAMMA" | sort -u)
-# roadmap ① V2 entry fixture build (= ssg-v0-keyon.mml + TEST_MODE_V2_ENTRY_FIXTURE=1) と比較するため
-# /tmp/v2-entry-ym2610-ymfm.tsv (= verify-axis-b-v2-entry.sh が残す) を参照。 ない場合は再 build 不要、 値検証のみ skip。
-FM_CHB_FNUM_ROADMAP1_FILE="/tmp/v2-entry-ym2610-ymfm.tsv"
-LITERAL_VALUE_PROOF=""
-if [ -f "$FM_CHB_FNUM_ROADMAP1_FILE" ]; then
-  FM_CHB_FNUM_ROADMAP1=$(awk -F'\t' '$2=="A" && ($3=="A1" || $3=="A5") {print $3"="$4}' "$FM_CHB_FNUM_ROADMAP1_FILE" | sort -u)
-  # set が完全一致なら song-driven proof 不成立 (= 同じ note table を引いている)
-  if [ "$FM_CHB_FNUM_GAMMA" != "$FM_CHB_FNUM_ROADMAP1" ] && [ -n "$FM_CHB_FNUM_GAMMA" ]; then
-    LITERAL_VALUE_PROOF="ok"
-  fi
+
+# --- roadmap ① ref trace inline 生成 (= TEST_MODE_V2_ENTRY_FIXTURE=1 + MML_INPUTS=ssg-v0-keyon.mml + ym2610) ---
+echo "=== roadmap ① ref trace 生成 (= γ-2 literal value 比較 ref、 本 script 内 build + MAME 必須) ==="
+YMFM_ROADMAP1_REF="/tmp/v2-song-parse-roadmap1-ref-ymfm.tsv"
+rm -f "$PREPROCESSED"
+PMDNEO_V2_ENTRY_FIXTURE=1 MML_INPUTS=ssg-v0-keyon.mml bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1 \
+  || { ng "γ-2: roadmap ① ref build FAIL"; FAIL=$((FAIL + 1)); }
+bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
+if [ -f "$YMFM" ]; then
+  cp "$YMFM" "$YMFM_ROADMAP1_REF"
 else
-  # 比較 file 不在ならば γ fnum write が >= 1 件 + 0x00 ではないことを最低限 assert
-  FM_CHB_FNUM_NONZERO=$(awk -F'\t' '$2=="A" && ($3=="A1" || $3=="A5") && $4!="00"' "$YMFM_GAMMA" | wc -l | tr -d ' ')
-  if [ "$FM_CHB_FNUM_NONZERO" -ge 1 ]; then
-    LITERAL_VALUE_PROOF="ok-noref"
+  ng "γ-2: roadmap ① ref ymfm-trace 未生成"
+  FAIL=$((FAIL + 1))
+fi
+
+# γ trace の FM ch B fnum write set と roadmap ① ref set を literal 比較
+LITERAL_VALUE_PROOF=""
+if [ -f "$YMFM_ROADMAP1_REF" ]; then
+  FM_CHB_FNUM_ROADMAP1=$(awk -F'\t' '$2=="A" && ($3=="A1" || $3=="A5") {print $3"="$4}' "$YMFM_ROADMAP1_REF" | sort -u)
+  # set が完全一致なら song-driven proof 不成立 (= 同 note table を引いている、 wiring 効いていない)
+  # γ set 非空 + set != ref → song-driven literal value proof OK
+  if [ -n "$FM_CHB_FNUM_GAMMA" ] && [ "$FM_CHB_FNUM_GAMMA" != "$FM_CHB_FNUM_ROADMAP1" ]; then
+    LITERAL_VALUE_PROOF="ok"
   fi
 fi
 
 # γ では note 0x42 1 回 + 0x45 (= LEN dispatch なし、 単発)、 但し song_entry は init+dispatch 1 回 = 最初の note のみ
 # (= LEN=0 で part_parse 即時実行 → note 0x42 で fnumset + LEN=0x10 set + ret = 後続 note 進行なし、 1 dispatch のみ)。
 # expected: γ では FM ch B keyon >= 1 (= song-driven dispatch 1 回) + SSG ch G volume 0x0F >= 1 + literal value proof
-if [ "$FM_CHB_KEYON" -ge 1 ] && [ "$SSG_CHG_VOL" -ge 1 ] && [ -n "$LITERAL_VALUE_PROOF" ]; then
-  if [ "$LITERAL_VALUE_PROOF" = "ok-noref" ]; then
-    ok "γ-2: dispatch wiring proof = song-driven FM ch B keyon (reg 0x28 <- 0xF1) ${FM_CHB_KEYON} + SSG ch G volume (reg 0x08 <- 0x0F) ${SSG_CHG_VOL} + FM ch B fnum write nonzero (= roadmap ① 比較 file 不在 noref mode、 song-driven literal value proof)"
-  else
-    ok "γ-2: dispatch wiring proof = song-driven FM ch B keyon (reg 0x28 <- 0xF1) ${FM_CHB_KEYON} + SSG ch G volume (reg 0x08 <- 0x0F) ${SSG_CHG_VOL} + FM ch B fnum write value set が roadmap ① と異 (= song-driven literal value proof)"
-  fi
+if [ "$FM_CHB_KEYON" -ge 1 ] && [ "$SSG_CHG_VOL" -ge 1 ] && [ "$LITERAL_VALUE_PROOF" = "ok" ]; then
+  ok "γ-2: dispatch wiring proof = song-driven FM ch B keyon (reg 0x28 <- 0xF1) ${FM_CHB_KEYON} + SSG ch G volume (reg 0x08 <- 0x0F) ${SSG_CHG_VOL} + FM ch B fnum write value set が roadmap ① ref と異 (= song-driven literal value proof、 ref file = $YMFM_ROADMAP1_REF)"
 else
-  ng "γ-2: dispatch wiring proof 不成立 (FM ch B keyon=${FM_CHB_KEYON} 期待 >= 1 / SSG ch G volume=${SSG_CHG_VOL} 期待 >= 1 / literal value proof=${LITERAL_VALUE_PROOF:-fail})"
+  ng "γ-2: dispatch wiring proof 不成立 (FM ch B keyon=${FM_CHB_KEYON} 期待 >= 1 / SSG ch G volume=${SSG_CHG_VOL} 期待 >= 1 / literal value proof=${LITERAL_VALUE_PROOF:-fail = γ set と roadmap ① ref set が一致 or ref 不在})"
 fi
+
+# γ trace 復帰 (= γ-6 production build 復帰の前段で γ trace を再生成しないため不要、 LST/YMFM は次 step まで γ build のもの)
+# 但し γ-6 production build は LST 上書きするため LST_PROD で退避する既存設計を維持。 ここでは特に追加処理不要。
 
 # ============================================================
 # γ-6: production build byte-identical = TEST_MODE_V2_SONG_FIXTURE=0 で新 routine 全 assemble なし
