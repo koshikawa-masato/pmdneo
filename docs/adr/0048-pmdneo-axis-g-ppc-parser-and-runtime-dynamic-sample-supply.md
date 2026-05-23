@@ -1463,3 +1463,40 @@ ADR-0048 ε partial 確立 + ζ-α/ζ-β/ζ-γ/ζ-δ-1 維持の 軸 G 永続 sc
   - **approve** → ADR-0048 ζ-ε 移行 (= user GO 必須、 main agent autonomous で Accepted 化しない)
   - **reject** → ζ-δ-3 audition fixture revise round 2 起票
   - **partial approve** → 部分改修 + 再 audition or ζ-ε 移行 (= user 判断)
+
+### ζ-δ-2 solo audition extension (= user 要求「1 パートずつの WAV」 受領下、 same PR additive、 chain-pr-A 4 本目 continuation)
+
+ζ-δ-2 commit + push + PR #121 提示直後の user audition session preparation で、 越川氏は「1 パートずつの WAV を生成して」 と要求 = 4+ 経路同居 wav に加えて per-part solo wav 4 本を user audition material として生成する extension。
+
+#### solo audition spec literal (= 4 per-slot MUTE flag 独立 binary toggle)
+
+| flag | slot | mute 内容 |
+|---|---|---|
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B` | slot 0 (= FM B) | =1 で FLAGS=0 (= inactive) set、 =0 で FLAGS=1 (= 既存 active) 維持 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G` | slot 1 (= SSG G) | 同 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB` | slot 9 (= ADPCM-B PPC) | 同 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM` | slot 10 (= rhythm K) | 同 |
+
+#### 4 solo wav 生成 (= 各 10 秒、 非 commit)
+
+| wav | mute combination | content |
+|---|---|---|
+| `/tmp/zeta-delta-2-solo-fm-b.wav` | mute_ssg=1 + mute_adpcmb=1 + mute_rhythm=1 | FM B solo (= `fm_voice_data_audition` percussive + length 0x06 反復) |
+| `/tmp/zeta-delta-2-solo-ssg-g.wav` | mute_fm=1 + mute_adpcmb=1 + mute_rhythm=1 | SSG G solo (= length 0x06 高頻度反復) |
+| `/tmp/zeta-delta-2-solo-adpcmb.wav` | mute_fm=1 + mute_ssg=1 + mute_rhythm=1 | ADPCM-B PPC solo (= PPC entry 0 → entry 1 → yaml beat marker 0x7F 順序、 length 0x30) |
+| `/tmp/zeta-delta-2-solo-rhythm.wav` | mute_fm=1 + mute_ssg=1 + mute_adpcmb=1 | ADPCM-A rhythm K solo (= BD → SD → BD、 length 0x14) |
+
+#### allowed-touch 例外 5 条件 AND 維持 + per-slot MUTE flag 6 条件目 拡張
+
+ζ-δ-2 ε allowed-touch 例外 5 条件 (= ζ-β 着手 + user GO + case 選定確定 + audition target + audition reject judgment) に加えて、 **user solo wav 要求受領 1 条件目** 追加 = **6 条件 AND** 下で per-slot MUTE flag binary toggle additive:
+
+- 既存 slot init body の FLAGS=1 set 行 1 行を `.if MUTE_<slot>` 配下 binary toggle (= sdasz80 .if 値比較禁止規律遵守)
+- 既存 fixture + voice block + wrapper routine body 完全不可触維持
+- production 時は 4 flag 全 0 = byte-identical 維持 (= m1 sha256 `b15883...4e4` 不変)
+
+#### solo audition extension 完了判定 = 既存 ζ-δ-2 完了判定 + 4 wav 生成
+
+- 4 solo wav (= /tmp/zeta-delta-2-solo-{fm-b,ssg-g,adpcmb,rhythm}.wav) 生成完了
+- production byte-identical 維持 (= m1 sha256 不変)
+- verify-axis-g-zeta-delta-2-audition-revise-dispatch.sh 全 7 gate ALL PASS 維持
+- user 再 audition judgment は 4+ 経路同居 wav (= /tmp/zeta-delta-2-audition-revise.wav) + 4 solo wav の合計 5 wav を audition material として行う

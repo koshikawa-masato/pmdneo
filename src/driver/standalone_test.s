@@ -99,6 +99,16 @@
         ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 充足下)。
         .equ    TEST_MODE_AXIS_G_AUDITION_REVISE, 0
 
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag 4 個 (= user 1 パートずつ
+        ;;   wav 要求対応下、 audition revise fixture build 時に slot 0/1/9/10 を独立 inactive
+        ;;   化 = solo audition wav 生成用)。 全 4 flag = 0 default で既存 4 経路同居 audition、
+        ;;   1 flag = 1 で対応 slot inactive (= FLAGS=0 set)、 残 3 経路のみ active = solo audition。
+        ;;   production 時は必ず全 4 flag = 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 下)。
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B,    0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G,   0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB,  0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM,  0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -2524,7 +2534,16 @@ pmdneo_v2_song_init:
         inc     hl
         ld      (hl), b                 ; OFF_LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+        ;;   TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B=1 で slot 0 (= FM B) inactive (= FLAGS=0)、
+        ;;   solo audition wav 生成用 (= user 1 パートずつ wav 要求対応)、
+        ;;   既存 ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 下の binary toggle additive
+        ;;   (= sdasz80 .if 値比較禁止規律遵守、 既存 wrapper / fixture / routine body 完全不可触)。
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+        ld      (hl), #0                ; OFF_FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                ; OFF_FLAGS = active
+.endif
 
         ;; slot 1 = pmdneo_v2_partwork_base + 12 = 0xFD85 (= SSG ch G)
         ld      hl, #(pmdneo_v2_partwork_base + 12)
@@ -2552,7 +2571,12 @@ pmdneo_v2_song_init:
         inc     hl
         ld      (hl), b                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G
+        ld      (hl), #0                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                ; FLAGS = active
+.endif
 
         ;; slot 2..(PMDNEO_V2_PART_COUNT-1): FLAGS=0 (= 不活性 明示 clear、 他 field は触らない)
         ;; ADR-0059 β で PART_COUNT 9→11 拡張 = loop count 7 → 9 へ自動追従 (= γ/δ で
@@ -2607,7 +2631,12 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), b                                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB
+        ld      (hl), #0                                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                                ; FLAGS = active
+.endif
 
         ;; ADR-0059 δ: slot 10 = K part = rhythm active init (= slot 9 init 後 additive)
         ;; slot 10 base = pmdneo_v2_partwork_base + 10 * 12 = 0xFDDD
@@ -2636,7 +2665,12 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), b                                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM
+        ld      (hl), #0                                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                                ; FLAGS = active
+.endif
         ret
 
 ;; pmdneo_v2_song_dispatch (ADR-0058 γ): v2 PartWork slot 0..PMDNEO_V2_PART_COUNT-1
