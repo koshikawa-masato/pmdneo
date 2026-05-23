@@ -74,6 +74,13 @@
         ;;   trace で観測)。 production 時は必ず 0 維持 (= TEST_MODE_FADE_FIXTURE と同)。
         .equ    TEST_MODE_V2_ENTRY_FIXTURE, 0
 
+        ;; ADR-0058 γ: 軸 B production-ready roadmap ② γ v2 song parse + per-part
+        ;;   dispatch wiring driver-embedded fixture toggle。 0 = production (= song
+        ;;   fixture 無効)、 1 = γ song fixture build (= nmi_cmd_5 末尾 + cmd 0x07 path
+        ;;   で pmdneo_v2_song_entry を call、 v2 PartWork slot 経由の song parse +
+        ;;   dispatch を register trace で観測)。 production 時は必ず 0 維持。
+        .equ    TEST_MODE_V2_SONG_FIXTURE,     0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -1780,6 +1787,12 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
 .if TEST_MODE_V2_ENTRY_FIXTURE
         call    pmdneo_v2_entry_skeleton
 .endif
+        ;; ADR-0058 γ song fixture (= driver-embedded、 TEST_MODE_V2_SONG_FIXTURE=0
+        ;;   で skip)。 v2 PartWork slot 0/1 (= FM ch B + SSG ch G) 経由の song
+        ;;   parse + dispatch を起動し register trace で観測。 production build では skip。
+.if TEST_MODE_V2_SONG_FIXTURE
+        call    pmdneo_v2_song_entry
+.endif
         ld      a, #1
         ld      (driver_song_ready), a
         ret
@@ -2173,7 +2186,11 @@ nmi_cmd_5_adpcmb_beat:
 ;;   nmi_dispatch の cmd 0x07 分岐から到達。 v2 entry skeleton を call し nmi_done
 ;;   へ。 破壊 register = AF (= pmdneo_v2_entry_skeleton 経由)。
 nmi_cmd_7_play_song_v2:
+.if TEST_MODE_V2_SONG_FIXTURE
+        call    pmdneo_v2_song_entry
+.else
         call    pmdneo_v2_entry_skeleton
+.endif
         jp      nmi_done
 
 ;; pmdneo_v2_entry_skeleton: 軸 B v2 main loop の入口骨格 (= ADR-0052 β/γ/δ +
@@ -2349,6 +2366,240 @@ pmdneo_v2_rhythm_dispatch:
         ld      a, #0x0A                ; 0x0A = PART_RHYTHM (= rhythm dispatch boundary marker)
         ld      (pmdneo_v2_rhythm_marker), a
         ret
+
+;; ============================================================
+;; ADR-0058 γ: v2 song parse + per-part dispatch wiring routine 群
+;; ============================================================
+;;   TEST_MODE_V2_SONG_FIXTURE=0 (= production) 時は全 routine + fixture が
+;;   assemble されず byte-identical 維持。 既存 pmdneo_v2_entry_skeleton +
+;;   pmdneo_v2_fm/ssg_voice_note 完全不可触。
+.if TEST_MODE_V2_SONG_FIXTURE
+
+;; pmdneo_v2_song_init (ADR-0058 γ): v2 PartWork slot 0 (= FM ch B) + slot 1
+;;   (= SSG ch G) を初期化 + slot 2..8 FLAGS clear。 ADDR/LOOP は fixture MML
+;;   base addr literal、 CH_IDX/KIND は slot 毎、 FLAGS=0x01 で active 化。
+;;   破壊 register: AF/BC/HL。
+pmdneo_v2_song_init:
+        ;; slot 0 = pmdneo_v2_partwork_base + 0*12 = 0xFD79 (= FM ch B)
+        ld      hl, #pmdneo_v2_partwork_base
+        ld      bc, #pmdneo_v2_song_fixture_fm_b
+        ld      (hl), c                 ; OFF_ADDR lo
+        inc     hl
+        ld      (hl), b                 ; OFF_ADDR hi
+        inc     hl
+        ld      (hl), #0                ; OFF_LEN
+        inc     hl
+        ld      (hl), #0                ; OFF_NOTE
+        inc     hl
+        ld      (hl), #1                ; OFF_CH_IDX = 1 (= FM ch B、 ym2610 audible)
+        inc     hl
+        ld      (hl), #0                ; OFF_KIND = 0 (= FM)
+        inc     hl
+        ld      (hl), #0                ; OFF_OCTAVE
+        inc     hl
+        ld      (hl), c                 ; OFF_LOOP lo
+        inc     hl
+        ld      (hl), b                 ; OFF_LOOP hi
+        inc     hl
+        ld      (hl), #1                ; OFF_FLAGS = active
+
+        ;; slot 1 = pmdneo_v2_partwork_base + 12 = 0xFD85 (= SSG ch G)
+        ld      hl, #(pmdneo_v2_partwork_base + 12)
+        ld      bc, #pmdneo_v2_song_fixture_ssg_g
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0                ; LEN
+        inc     hl
+        ld      (hl), #0                ; NOTE
+        inc     hl
+        ld      (hl), #0                ; CH_IDX = 0 (= SSG ch G)
+        inc     hl
+        ld      (hl), #1                ; KIND = 1 (= SSG)
+        inc     hl
+        ld      (hl), #0                ; OCTAVE
+        inc     hl
+        ld      (hl), c                 ; LOOP lo
+        inc     hl
+        ld      (hl), b                 ; LOOP hi
+        inc     hl
+        ld      (hl), #1                ; FLAGS = active
+
+        ;; slot 2..8: FLAGS=0 (= 不活性 明示 clear、 他 field は触らない)
+        ld      a, #(PMDNEO_V2_PART_COUNT - 2)          ; loop count = 7
+        ld      hl, #(pmdneo_v2_partwork_base + 2*12 + PMDNEO_V2_PART_OFF_FLAGS)
+        ld      bc, #PMDNEO_V2_PARTWORK_SLOT_SIZE
+pmdneo_v2_song_init_clear_loop:
+        ld      (hl), #0
+        add     hl, bc
+        dec     a
+        jr      nz, pmdneo_v2_song_init_clear_loop
+        ret
+
+;; pmdneo_v2_song_dispatch (ADR-0058 γ): v2 PartWork slot 0..PMDNEO_V2_PART_COUNT-1
+;;   を loop し FLAGS bit0=1 のみ pmdneo_v2_part_tick を call。 IY = slot base。
+;;   破壊 register: AF/BC/DE/HL/IY。
+pmdneo_v2_song_dispatch:
+        ld      b, #PMDNEO_V2_PART_COUNT                ; B = remaining slot count
+        ld      iy, #pmdneo_v2_partwork_base
+pmdneo_v2_song_dispatch_loop:
+        ld      a, PMDNEO_V2_PART_OFF_FLAGS(iy)
+        and     #1
+        jr      z, pmdneo_v2_song_dispatch_next
+        push    bc
+        call    pmdneo_v2_part_tick                     ; IY = slot base 維持
+        pop     bc
+pmdneo_v2_song_dispatch_next:
+        push    bc
+        ld      bc, #PMDNEO_V2_PARTWORK_SLOT_SIZE
+        add     iy, bc
+        pop     bc
+        djnz    pmdneo_v2_song_dispatch_loop
+        ret
+
+;; pmdneo_v2_part_tick (ADR-0058 γ): IY = slot base。 LEN > 0 ならば LEN dec
+;;   して ret、 0 ならば pmdneo_v2_part_parse へ fall through。 γ では IRQ なしで
+;;   1 tick demo = LEN dec は本 sub-sprint では確認できない。
+;;   破壊 register: AF/BC/DE/HL。
+pmdneo_v2_part_tick:
+        ld      a, PMDNEO_V2_PART_OFF_LEN(iy)
+        or      a
+        jr      z, pmdneo_v2_part_parse
+        dec     a
+        ld      PMDNEO_V2_PART_OFF_LEN(iy), a
+        ret
+
+;; pmdneo_v2_part_parse (ADR-0058 γ): IY = slot base。 next MML event fetch +
+;;   dispatch。 <0x80 = note、 ==0x80 = loop、 ==0x90 = rest、 >=0x91 = γ scope 外 =
+;;   slot deactivate。
+pmdneo_v2_part_parse:
+        call    pmdneo_v2_part_fetch_byte               ; A = byte
+        cp      #0x80
+        jr      z, pmdneo_v2_part_loop
+        cp      #0x90
+        jr      z, pmdneo_v2_part_rest
+        jr      c, pmdneo_v2_part_note                  ; A < 0x80 = note
+        ;; A >= 0x91 = γ scope 外 = slot deactivate
+        ld      PMDNEO_V2_PART_OFF_FLAGS(iy), #0
+        ret
+
+;; pmdneo_v2_part_note (ADR-0058 γ): A = note byte (< 0x80)。 NOTE 保存 + length
+;;   fetch + LEN 設定 + dispatch。
+pmdneo_v2_part_note:
+        ld      PMDNEO_V2_PART_OFF_NOTE(iy), a
+        call    pmdneo_v2_part_fetch_byte               ; A = length byte
+        or      a                                       ; length=0 ならば +1 (= scale inline)
+        jr      nz, pmdneo_v2_part_note_set_len
+        inc     a
+pmdneo_v2_part_note_set_len:
+        ld      PMDNEO_V2_PART_OFF_LEN(iy), a
+        ;; dispatch
+        ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
+        ld      b, PMDNEO_V2_PART_OFF_CH_IDX(iy)
+        ld      c, PMDNEO_V2_PART_OFF_KIND(iy)
+        push    iy
+        call    pmdneo_v2_part_dispatch_note
+        pop     iy
+        ret
+
+;; pmdneo_v2_part_rest (ADR-0058 γ): length fetch + LEN 設定、 dispatch なし。
+pmdneo_v2_part_rest:
+        call    pmdneo_v2_part_fetch_byte
+        or      a
+        jr      nz, pmdneo_v2_part_rest_set_len
+        inc     a
+pmdneo_v2_part_rest_set_len:
+        ld      PMDNEO_V2_PART_OFF_LEN(iy), a
+        ret
+
+;; pmdneo_v2_part_loop (ADR-0058 γ): LOOP pointer が 0 ならば FLAGS clear、
+;;   != 0 ならば ADDR <- LOOP + 直後の event を即時 parse。
+pmdneo_v2_part_loop:
+        ld      l, PMDNEO_V2_PART_OFF_LOOP(iy)
+        ld      h, PMDNEO_V2_PART_OFF_LOOP+1(iy)
+        ld      a, l
+        or      h
+        jr      nz, pmdneo_v2_part_loop_set
+        ld      PMDNEO_V2_PART_OFF_FLAGS(iy), #0
+        ret
+pmdneo_v2_part_loop_set:
+        ld      PMDNEO_V2_PART_OFF_ADDR(iy), l
+        ld      PMDNEO_V2_PART_OFF_ADDR+1(iy), h
+        jr      pmdneo_v2_part_parse
+
+;; pmdneo_v2_part_fetch_byte (ADR-0058 γ): IY = slot base、 ADDR から 1 byte
+;;   fetch + ADDR ++。 返値 A、 破壊 register: HL。
+pmdneo_v2_part_fetch_byte:
+        ld      l, PMDNEO_V2_PART_OFF_ADDR(iy)
+        ld      h, PMDNEO_V2_PART_OFF_ADDR+1(iy)
+        ld      a, (hl)
+        inc     hl
+        ld      PMDNEO_V2_PART_OFF_ADDR(iy), l
+        ld      PMDNEO_V2_PART_OFF_ADDR+1(iy), h
+        ret
+
+;; pmdneo_v2_part_dispatch_note (ADR-0058 γ): A = note、 B = ch_idx、 C = KIND。
+;;   KIND=0 で FM、 KIND=1 で SSG の voice_note_song routine へ jump。
+pmdneo_v2_part_dispatch_note:
+        ld      a, c
+        or      a
+        jr      z, pmdneo_v2_part_dispatch_note_fm
+        ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
+        jp      pmdneo_v2_ssg_voice_note_song
+pmdneo_v2_part_dispatch_note_fm:
+        ld      a, PMDNEO_V2_PART_OFF_NOTE(iy)
+        jp      pmdneo_v2_fm_voice_note_song
+
+;; pmdneo_v2_fm_voice_note_song (ADR-0058 γ、 案 b' 並設): A = song-driven note、
+;;   B = FM ch index。 既存 pmdneo_v2_fm_voice_note は不変。 slot 初期化で
+;;   active ch_idx のみ選択 (= ym2610 silent skip 対象は init 段階で回避)。
+;;   破壊 register: AF/BC/DE/HL。
+pmdneo_v2_fm_voice_note_song:
+        push    af                      ; note 退避
+        push    bc                      ; pmdneo_fm_voice_set は BC 非保存
+        ld      hl, #fm_voice_data_default
+        call    pmdneo_fm_voice_set
+        pop     bc
+        pop     af
+        push    bc                      ; fnumset_fm は BC 非保存
+        call    fnumset_fm              ; A = note、 B = ch
+        pop     bc
+        call    fm_keyon                ; B = ch (BC 保存)
+        ret
+
+;; pmdneo_v2_ssg_voice_note_song (ADR-0058 γ、 案 b' 並設): A = song-driven note、
+;;   B = SSG ch index。 既存 pmdneo_v2_ssg_voice_note は不変。
+;;   破壊 register: AF/BC/DE/HL。
+pmdneo_v2_ssg_voice_note_song:
+        push    bc                      ; fnumset_ssg は BC 非保存
+        call    fnumset_ssg             ; A = note、 B = ch
+        pop     bc
+        call    ssg_keyon               ; B = ch (BC 保存)
+        push    bc                      ; pmdneo_ssg_tone_sync は BC 非保存
+        ld      a, #0x0F                ; volume = 0x0F (= ssg_keyon 既設定値)
+        call    pmdneo_ssg_tone_sync    ; reg 0x07 RMW owner 経由
+        pop     bc
+        ret
+
+;; pmdneo_v2_song_entry (ADR-0058 γ、 案 E'-b): γ 用 entry = init + dispatch 1 回。
+;;   IRQ wiring は δ で別途追加。 破壊 register: AF/BC/DE/HL/IY。
+pmdneo_v2_song_entry:
+        call    pmdneo_v2_song_init
+        call    pmdneo_v2_song_dispatch
+        ret
+
+;; pmdneo_v2_song_fixture_fm_b (ADR-0058 γ): FM ch B 用 fixture MML。
+;;   note byte = 0x42/0x45/0x48 (= roadmap ① 固定 table 0x40/0x44/0x47 と異なる、
+;;   song-driven proof 用)、 length = 0x10 (= 16 tick)、 末尾 0x80 = loop。
+pmdneo_v2_song_fixture_fm_b:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_ssg_g (ADR-0058 γ): SSG ch G 用 fixture MML。
+pmdneo_v2_song_fixture_ssg_g:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+.endif
 
 pmdneo5_clear_part_workarea:
         ld      hl, #part_workarea
