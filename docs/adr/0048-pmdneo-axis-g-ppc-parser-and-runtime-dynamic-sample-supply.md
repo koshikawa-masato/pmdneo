@@ -1,6 +1,6 @@
 # ADR-0048: PMDNEO 軸 G = ADPCM 動的 sample 供給 (= `.PPC` parser + driver runtime selection + asset converter 接続) 設計 (= 軸 G α、 5 sub-sprint 構成、 doc-only filing)
 
-- 状態: **Draft** (= 2026-05-19 33rd session α、 ADR-0043 §決定 2 literal 後続 ADR、 軸 G 新規軸 起票、 Codex layer 2 round 1 approve = 主軸推奨完全一致)
+- 状態: **Accepted** (= 2026-05-24 39th session ζ-ε、 軸 G dynamic supply 完成 milestone = ADR-0048 ζ-α/β/γ/δ-1/δ-2 完走 + 越川氏 ζ-δ-2 audition approve「userジャッジ、 5wavともOKでした」 + user 明示 ζ-ε GO「完走後判断、 Codex Rescue 自律」、 ζ-α 起票時 Draft 状態は §sub-sprint ζ-α 履歴に literal 保存、 Codex layer 2 plan re-review round 2 approve 経由 = main agent autonomous + retrospective なし)
 - 起票日: 2026-05-19
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -1683,3 +1683,94 @@ user judgment literal:
 - **(c) その他 sub-sprint 起票 or 別軸** = ζ-ε 移行前に別 axis (= 例 軸 B / 軸 G 他 sprint) へ進む
 
 main agent autonomous で進めず、 user GO 取得後に着手。
+
+## sub-sprint ζ-ε 完了 (= 2026-05-24 39th session、 ADR-0048 Draft → Accepted 移行 doc-only、 軸 G dynamic supply 完成 milestone literal、 chain-pr-A 5 本目)
+
+### ζ-ε 経緯 (= ζ-δ-2 audition approve + user 明示 ζ-ε 移行 GO + Draft → Accepted GO)
+
+ζ-δ-2 sub-sprint 完了直後 (= commit `a7588d7`、 PR #121 MERGED at `9643e95`) の user prompt literal:
+
+> userは完走後に判断をするため、 そこまでは完全自律でCodex Rescueでのやりとりだけで進めてください。 GOしてください
+
+= ζ-ε 移行 GO + ADR-0048 Draft → Accepted 移行 GO + user 介入は完走報告時のみ + Codex layer 2 default 化規律遵守 literal。 越川氏 ζ-δ-2 audition approve judgment `「userジャッジ、 5wavともOKでした」` (= ADR-0048 §sub-sprint ζ-δ-2 末尾 audition approve judgment literal 引用) を ζ-ε Draft → Accepted 移行 trigger として確定 (= ADR-0048 §「Draft → Accepted 移行 trigger (= ζ-ε)」 literal「ζ-α/β/γ/δ 全完走 + ζ-δ 越川氏 audition approve + user 明示 GO」 3 条件全充足 confirmed)。
+
+### allowed-touch 例外 7 条件 AND (= ζ-δ-2 solo extension 6 条件 + ζ-ε-7 1 件追加、 must-fix #3 反映 literal)
+
+ζ-δ-2 solo extension §allowed-touch 例外 6 条件 (= ζ-β 着手 + user GO + case 選定確定 + audition target + audition reject judgment + user solo wav 要求受領) に対し、 ζ-ε は **「越川氏 ζ-δ-2 audition approve judgment 受領 (= 5 wav 全 OK literal) + user 明示 ζ-ε 移行 GO」** 1 条件 追加 = **7 条件 AND** で Draft → Accepted 移行 doc-only sprint 着手:
+
+1. ζ-β 着手 (= 既、 ζ-α §allowed-touch 例外)
+2. user GO (= 既、 ζ-β 案 W 選定)
+3. case 選定確定 (= 既、 案 W 確定)
+4. audition target (= 既、 ζ-δ-1 option A 確定)
+5. audition reject judgment + 改修方向 spec literal 5 件確定 (= 既、 ζ-δ-2)
+6. user solo wav 要求受領 (= 既、 ζ-δ-2 solo extension)
+7. **越川氏 ζ-δ-2 audition approve judgment + user 明示 ζ-ε 移行 GO** (= 新、 ζ-ε trigger)
+
+allowed-touch scope literal (= ζ-ε):
+
+- driver / verify script / vendor/ / fixture / build flag 全完全不変
+- ADR-0048 既存 sub-sprint section 本文 (= ζ-α/β/γ/δ-1/δ-2 literal) 完全不変、 履歴改変 risk 回避
+- 既存 `fm_voice_data_default` / `fm_voice_data_audition` 完全不可触
+- stash 退避分 5 件 (= FM voice round 2 + audition silent enforcement + verify update + .gitignore AGENTS.md add 等) user 判断軸まで触らない
+- doc-only additive のみ = ADR-0048 状態行 update + 本 sub-sprint ζ-ε section additive + dashboard 3 箇所 update + memory entry 起票 + MEMORY.md index 1 行追加
+
+### ADR additive 内容 enumeration (= doc-only 維持)
+
+| 項目 | 内容 |
+|---|---|
+| ADR-0048 状態行 update (= line 3) | Draft → **Accepted** (= ζ-α 起票時 Draft 状態は §sub-sprint ζ-α 履歴に literal 保存) |
+| ADR-0048 本 sub-sprint ζ-ε 完了 section additive | 本 section literal = (1) ζ-ε 経緯 (2) allowed-touch 例外 7 条件 AND (3) ADR additive 内容 (4) §禁止表現リスト 5 件のうち 2 件解禁 (5) ζ-ε 完了判定 (6) production byte-identical 維持 (7) scope-out 9 項目維持 (8) 残課題 enumeration + Codex layer 2 review chain |
+| `docs/parallel-axes-dashboard.md` § 軸予約表 軸 G 行 update | status column に ζ-ε 完了 + ADR-0048 Accepted 移行 reflect |
+| `docs/parallel-axes-dashboard.md` § ADR 番号予約簿 0048 行 update | 状態 column を「**起票済 + Accepted** (= 39th session ζ-ε、 軸 G dynamic supply 完成 milestone)」 に変更 |
+| `docs/parallel-axes-dashboard.md` § escalation 履歴 ζ-ε entry literal 追加 | 2026-05-24 ζ-ε plan review = round 1 revise → 反映 → round 2 hang (= 4 時間、 規律違反) → option 1 retry = round 2 retry approve |
+| memory entry 新規起票 | `/Users/koshikawamasato/.claude/projects/-Users-koshikawamasato-Projects-pmdneo/memory/project_pmdneo_39th_session_zeta_epsilon_complete.md` (= 39th session ζ chain 完走 milestone + 軸 G dynamic supply 完成 ≠ production-ready 全体達成 / 本番 cmd 切替 / 軸 B 完成 literal) |
+| `MEMORY.md` 1 行 index entry 追加 | ~150 char、 「軸 G dynamic supply 完成 = ADR-0048 Accepted milestone (= 2026-05-24 39th session ζ chain 完走、 ただし production-ready 全体達成 / 本番 cmd 切替 / 軸 B 完成 ≠ literal)」 pattern |
+
+### §禁止表現リスト 5 件のうち 2 件解禁 (= ζ-ε Accepted 移行後の表記制約 update、 must-fix #1 + #2 反映 literal)
+
+ADR-0048 §「禁止表現リスト (= 全 sub-sprint で literal 維持)」 5 件のうち、 ζ-ε Accepted 移行後に **2 件解禁** + **3 件 literal 禁止維持** + **「本番 cmd 切替」 別枠 ≠ literal 維持**:
+
+| 表現 | ζ-α 起票時〜ζ-δ-2 状態 | ζ-ε Accepted 移行後 | 根拠 |
+|---|---|---|---|
+| **「軸 G dynamic supply 完成」** (日本語版) | literal 禁止 | **解禁** | ADR-0048 §「ζ-ε Accepted 移行時の Accepted 表記制約」「ADR-0048 Accepted = 軸 G dynamic supply 完成 (= ζ-α/β/γ/δ/ε 全完走 + audition approve)」 = ζ-ε で全条件充足 |
+| **`axis-G dynamic supply complete`** (英語版) | literal 禁止 | **解禁** (= 日本語版とセット解禁) | 同上 + 日英両版の解禁矛盾 risk 回避 (= Codex layer 2 plan re-review round 1 must-fix #2 反映) |
+| 「軸 G 完成」 | literal 禁止 | **literal 禁止維持** | 「軸 G 完成」 は dynamic supply 単独実装より広い範囲 (= asset converter Phase 4 WebApp 領域 + 別軸 D 等)、 ζ-ε Accepted ≠ 軸 G 全体完成 |
+| 「軸 B 完成」 | literal 禁止 | **literal 禁止維持** | v2 driver の production-ready 化 + 既存 cmd 2 path = Phase 1 PoC base からの switch は ADR-0045 §I-5-b の future 判断、 軸 B は production-ready 化が残る (= dashboard 軸予約表 軸 B 行 literal 継承) |
+| 「production-ready 全体達成」 | literal 禁止 | **literal 禁止維持** | ADR-0056 §決定 3 4 系統全通過 + 越川氏 audition approve 後の future、 ζ-ε Accepted ≠ production-ready 全体達成 |
+
+「本番 cmd 切替」 は §禁止表現リスト枠ではなく、 ADR-0048 §「ζ-ε Accepted 移行時の Accepted 表記制約」 「ζ-ε 完了 = ADR-0048 Accepted = 軸 G dynamic supply 完成 (= ただし production-ready 全体達成 ≠ 「軸 B 完成」 ≠ 本番 cmd 切替、 これらは更に user 判断 gate)」 = ≠ literal で別枠維持 (= Codex layer 2 plan re-review round 1 must-fix #1 反映)。
+
+### ζ-ε 完了判定 literal (= chain-pr-A 5 本目、 doc-only sprint)
+
+- ADR-0048 状態行 line 3 = **Accepted** (= literal update completed)
+- ADR-0048 本 sub-sprint ζ-ε 完了 section additive completed
+- `docs/parallel-axes-dashboard.md` 軸予約表 軸 G 行 + ADR 番号予約簿 0048 行 + escalation 履歴 ζ-ε entry update completed
+- memory entry `project_pmdneo_39th_session_zeta_epsilon_complete.md` 新規起票 completed
+- `MEMORY.md` 1 行 index entry 追加 completed
+- commit + push + PR 作成 + Codex layer 2 implementation review approve + PR merge (= chain-pr-A 5 本目 MERGED) + user 完走報告 (= 後続 step)
+
+### production byte-identical 維持 (= doc-only sprint)
+
+ζ-ε は **doc-only sprint** で driver / verify script / vendor/ / fixture / build flag 全完全不変 = m1 binary byte-identical 維持 (= 通算 sha256 `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 不変)。 production build (= 全 flag 0) + 通常 fixture build (= V2_SONG_FIXTURE=1 + V2_PPC=1 + LEGACY_SKIP=0) + audition / solo fixture build (= LEGACY_SKIP=1) の 3 build mode 全て既存挙動完全維持。
+
+### scope-out 9 項目 + Surge XT / vendor wav retain 等永続維持
+
+ADR-0048 ζ-α/β/γ/δ-1/δ-2 literal 継承の軸 G 永続 scope-out 9 項目 + dashboard § user 明示永続 scope-out 項目 (= Surge XT install / .fxp render / actual render / 軸 A β-3/β-4 / vendor wav 3 件 retain / vendor wav provenance / 軸 C 再オープン / 軸 C δ tempo refinement) + ADR-0048 §軸 G scope-out (= WebApp UI / Surge XT / vendor wav / tempo refinement / 軸 B FM3 4-op / ADR-0043 軸 C 実装 modify) literal 維持。 ζ-ε Accepted 移行は **軸 G dynamic supply (= `.PPC` runtime directory lookup + mapping-B sample selection + 既存 sample_table_id integration) 完成** literal であり、 上記 scope-out 9 項目の解禁ではない。
+
+### 残課題 enumeration (= ζ-ε Accepted ≠ production-ready 全体達成、 user 判断軸)
+
+| 残課題 | 状態 | 解除条件 |
+|---|---|---|
+| production-ready 全体達成 | **未達成** = ζ-ε Accepted ≠ production-ready 全体達成 | ADR-0056 §決定 3 4 系統 (= 実 MML 再生 / 実音 register trace-equivalence / baseline regression / 越川氏 audition) 全通過 + 本番 cmd 切替 user 判断後の future |
+| 本番 cmd 切替 (= 既存 cmd 2 path = Phase 1 PoC base からの v2 driver 経路 switch) | **未着手** = user 判断軸 | ADR-0045 §I-5-b future + ADR-0056 production-ready gate 全通過後 + user 明示 GO |
+| stash 退避分 5 件 (= FM voice round 2 + audition silent enforcement + verify update + .gitignore AGENTS.md add + main/develop branch 系遺産) | **保留** = user 判断軸 | user 明示 (= 破棄 / 部分採用 / 保留継続) |
+| 軸 B sprint chain 残り | **次 session 候補** = 軸 B 実装 sprint chain 7 sprint Accepted 後の production-ready 化 roadmap ⑤+ | user 明示 GO 後の roadmap ⑤+ 起票 |
+| 軸 G 別 sprint 候補 | **defer** = asset converter (= WAV → `.PPC` Phase 4 WebApp 領域、 ADR-0046 候補) / 軸 G dynamic supply 多 entry directory / runtime selection key 拡張 等 | user 明示 GO 後の別軸 / 別 ADR 起票 |
+| 軸 G 永続 scope-out 9 項目 | **維持** | user 明示再開指示のみ (= 33rd session 起点 + dashboard § user 明示永続 scope-out 項目 literal 継承) |
+
+### ζ-ε Codex layer 2 review chain (= round 1 revise + round 2 hang + round 2 retry approve)
+
+- **plan review round 1** = **revise** (= must-fix 3 件 = §禁止表現リスト 5 件と「本番 cmd 切替」 分離 + 日英両版同時解禁明示 + allowed-touch 7 条件目 ζ-ε-7 由来 literal、 nice-to-have 1 件 = memory path literal 明記、 latent-risk 1 件 = CLAUDE.md §併走運用 12 項目 literal、 agentId `affc3ed23f6c142e2`)
+- **plan review round 2 (= 1 回目)** = **hang** (= 4 時間沈黙、 memory `feedback_long_running_verify_polling_hang_detection.md` 5-10 分 hang 判定規律違反、 agentId `adbe7c3e005125c17`)
+- **plan review round 2 (= retry、 user judgment option 1 = 1 回 retry GO 経由)** = **approve** (= must-fix なし + nice-to-have なし + latent-risk なし + 101 秒 return、 agentId `a3aaa00fd4459cd1b`)
+- **implementation review** (= 後続 commit 後投入予定、 main agent autonomous で進める)
