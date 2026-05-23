@@ -227,6 +227,18 @@
         .equ    pmdneo_v2_tempo_acc,           0xFD3F
         .equ    pmdneo_v2_tempo_d,             0xFD40
 
+        ;; ADR-0059 §決定 3 軸 B production-ready roadmap ③ β: ADPCM-B IX shim
+        ;;   既存 adpcmb_keyon (= L3875、 ADR-0043 entry) は IX 経由で PART_OFF_INSTRUMENT
+        ;;   (= offset 31) を read する (= 64 byte/slot 既存 part_workarea layout 前提)。
+        ;;   v2 PartWork compact slot (= 12 byte/slot) は incompatible のため、
+        ;;   v2 driver_state region 内に 32 byte の ADPCM-B IX shim を新設 (= 案 Q)。
+        ;;   shim base = 0xFD41、 size = 32 byte (= PART_OFF_INSTRUMENT offset 31 を
+        ;;   含む最小範囲)、 残 free = 0xFD61-0xFD78 (= 24 byte、 後続軸 future)。
+        ;;   v2 ADPCM-B wrapper (= ADR-0059 γ) が shim PART_OFF_INSTRUMENT(ix) に
+        ;;   default voice index 0 を write 後 IX = shim base で adpcmb_keyon を本体
+        ;;   不可触 call する。 既存 part_workarea (= 0xF820-) は完全不可触。
+        .equ    pmdneo_v2_adpcmb_ix_shim,      0xFD41
+
         ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
         ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
         ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
@@ -248,19 +260,28 @@
         ;;   12 byte compact slot を新設。 slot N の base = pmdneo_v2_partwork_base
         ;;   + N * PMDNEO_V2_PARTWORK_SLOT_SIZE。 後続 γ が本 slot に MML 進行
         ;;   state を read/write、 δ が IRQ 駆動で per-part loop する。
-        ;;   12 byte x PMDNEO_V2_PART_COUNT (= 9) = 108 byte <= 256 byte region。
+        ;;   12 byte x PMDNEO_V2_PART_COUNT (= 11 = FM 6ch + SSG 3ch + ADPCM-B 1 + rhythm 1) = 132 byte <= 256 byte region。
+        ;;   ADR-0059 §決定 2 β で 9 → 11 拡張 (= slot 9 J part = ADPCM-B / slot 10 K part = rhythm)。
+        ;;   残 124 byte (= 256-132) は後続軸 future (= 20 part 想定で 240 byte ≤ 256 byte OK)。
         .equ    PMDNEO_V2_PARTWORK_SLOT_SIZE,  12
-        .equ    PMDNEO_V2_PART_COUNT,          9       ; FM 6ch + SSG 3ch (= roadmap ② scope、 roadmap ③ で ADPCM-B/rhythm 拡張)
+        .equ    PMDNEO_V2_PART_COUNT,          11      ; FM 6ch + SSG 3ch + ADPCM-B 1 + rhythm 1 (= ADR-0059 §決定 2 β、 roadmap ③)
         ;; v2 PartWork compact slot field offset (= slot 先頭からの相対 byte)
         .equ    PMDNEO_V2_PART_OFF_ADDR,       0       ; 2 byte: 現在の MML fetch pointer
         .equ    PMDNEO_V2_PART_OFF_LEN,        2       ; 1 byte: 残り tick counter (= note 持続)
-        .equ    PMDNEO_V2_PART_OFF_NOTE,       3       ; 1 byte: 現在の note byte (= OCT<<4|ONKAI)
+        .equ    PMDNEO_V2_PART_OFF_NOTE,       3       ; 1 byte: 現在の note byte (= OCT<<4|ONKAI、 KIND=3 rhythm では bitmap として解釈 = ADR-0059 §決定 5 案 A)
         .equ    PMDNEO_V2_PART_OFF_CH_IDX,     4       ; 1 byte: chip channel index
-        .equ    PMDNEO_V2_PART_OFF_KIND,       5       ; 1 byte: part kind (= 0 FM / 1 SSG)
+        .equ    PMDNEO_V2_PART_OFF_KIND,       5       ; 1 byte: part kind (= 0 FM / 1 SSG / 2 ADPCM-B / 3 rhythm = ADR-0059 §決定 2 β)
         .equ    PMDNEO_V2_PART_OFF_OCTAVE,     6       ; 1 byte: octave / shift state
         .equ    PMDNEO_V2_PART_OFF_LOOP,       7       ; 2 byte: loop start MML pointer
         .equ    PMDNEO_V2_PART_OFF_FLAGS,      9       ; 1 byte: part flags (= bit0 active)
         ;; offset 10-11 = reserved (= 12 byte slot 端数、 後続 field 用)
+
+        ;; ADR-0059 §決定 2 軸 B production-ready roadmap ③ β: KIND 定数 (= ADPCM-B / rhythm)
+        ;;   既存 KIND=0 FM / KIND=1 SSG は ADR-0058 γ で magic 直接埋込み (= pmdneo_v2_part_dispatch_note
+        ;;   の or a / jr z = KIND=0 判定)、 .equ 化は後続 refactor sprint 候補。 β では新規 KIND=2/3 のみ
+        ;;   .equ 明示化。 γ で pmdneo_v2_part_dispatch_note KIND=2/3 分岐 additive、 δ で同 KIND=3 追加。
+        .equ    PMDNEO_V2_KIND_ADPCMB,         2       ; J part (= ADPCM-B、 ADR-0059 γ で実 dispatch)
+        .equ    PMDNEO_V2_KIND_RHYTHM,         3       ; K part (= rhythm、 ADR-0059 δ で実 dispatch)
 
         ;; ADR-0025 step 11 α: PNE_SAMPLE_DIRECTORY_ENTRY_COUNT
         ;;   directory entry 数 + selector accepted id range の上限を兼ねる EQU 定数
@@ -296,7 +317,8 @@
 ;;;       0xFD3E          pmdneo_v2_song_state (= 1 byte、ADR-0058 δ v2 song dispatch active flag)
 ;;;       0xFD3F          pmdneo_v2_tempo_acc (= 1 byte、ADR-0058 δ v2 tempo subtick accumulator)
 ;;;       0xFD40          pmdneo_v2_tempo_d (= 1 byte、ADR-0058 δ v2 tempo delta)
-;;;       0xFD41 - 0xFD78   free (= 56 bytes、後続 v2 driver_state singleton home)
+;;;       0xFD41 - 0xFD60   pmdneo_v2_adpcmb_ix_shim (= 32 bytes、ADR-0059 §決定 3 β 案 Q ADPCM-B IX shim)
+;;;       0xFD61 - 0xFD78   free (= 24 bytes、後続 v2 driver_state singleton home)
 ;;;   0xFD79 - 0xFE78   v2 PartWork 拡張 region (= 256 bytes、pmdneo_v2_partwork_base)
 ;;;       v2 compact slot = 12 byte/part x PMDNEO_V2_PART_COUNT (= ADR-0058 §決定 3、 slot N = base + N*12)
 ;;;   0xFE79 - 0xFFBF   reserved region (= 327 bytes、pmdneo_v2_reserved_base、後続軸 future)
@@ -2413,7 +2435,8 @@ pmdneo_v2_rhythm_dispatch:
 .if TEST_MODE_V2_SONG_FIXTURE
 
 ;; pmdneo_v2_song_init (ADR-0058 γ): v2 PartWork slot 0 (= FM ch B) + slot 1
-;;   (= SSG ch G) を初期化 + slot 2..8 FLAGS clear。 ADDR/LOOP は fixture MML
+;;   (= SSG ch G) を初期化 + slot 2..(PMDNEO_V2_PART_COUNT-1) FLAGS clear (= γ/δ で
+;;   slot 9 J/slot 10 K active init 追加予定、 ADR-0059 §決定 7 allowed-touch)。 ADDR/LOOP は fixture MML
 ;;   base addr literal、 CH_IDX/KIND は slot 毎、 FLAGS=0x01 で active 化。
 ;;   破壊 register: AF/BC/HL。
 pmdneo_v2_song_init:
@@ -2463,8 +2486,10 @@ pmdneo_v2_song_init:
         inc     hl
         ld      (hl), #1                ; FLAGS = active
 
-        ;; slot 2..8: FLAGS=0 (= 不活性 明示 clear、 他 field は触らない)
-        ld      a, #(PMDNEO_V2_PART_COUNT - 2)          ; loop count = 7
+        ;; slot 2..(PMDNEO_V2_PART_COUNT-1): FLAGS=0 (= 不活性 明示 clear、 他 field は触らない)
+        ;; ADR-0059 β で PART_COUNT 9→11 拡張 = loop count 7 → 9 へ自動追従 (= γ/δ で
+        ;; slot 9 J/slot 10 K active init 追加予定、 dispatch される前に init される)
+        ld      a, #(PMDNEO_V2_PART_COUNT - 2)          ; loop count = 9 (= PART_COUNT 11 - 2)
         ld      hl, #(pmdneo_v2_partwork_base + 2*12 + PMDNEO_V2_PART_OFF_FLAGS)
         ld      bc, #PMDNEO_V2_PARTWORK_SLOT_SIZE
 pmdneo_v2_song_init_clear_loop:

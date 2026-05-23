@@ -326,6 +326,38 @@ roadmap ③ 完了後の v2 song playback 経路 (= IRQ tick 駆動):
 
 build-mode 排他 = `TEST_MODE_V2_SONG_FIXTURE=0` (= production) では全 roadmap ③ wrapper / dispatch_note KIND=2/3 分岐 / song_init slot 9/10 init 未 assemble = byte-identical 維持。
 
+## Annex C: β 実装 completion record (= v2 PartWork 11 拡張 + KIND + ADPCM-B IX shim .equ)
+
+### C-1: β deliverable
+
+軸 B production-ready roadmap ③ β = v2 PartWork 11 拡張 + KIND=2/3 .equ + ADPCM-B IX shim 0xFD41-0xFD60 .equ (= 39th session、 PR #103)。
+
+| deliverable | 内容 |
+|---|---|
+| `standalone_test.s` `PMDNEO_V2_PART_COUNT` 9 → **11** | FM 6ch + SSG 3ch + ADPCM-B 1 part + rhythm 1 part = 11 part (= slot 9 J / slot 10 K)。 11 × 12 = 132 byte ≤ 256 byte (= v2 PartWork region 0xFD79-0xFE78、 ADR-0053 §決定 2 確保)、 残 124 byte は後続軸 future (= 20 part 想定で 240 byte ≤ 256 byte OK)。 既存 slot 0-8 layout 不変 |
+| `standalone_test.s` 新 KIND .equ 2 件 | `PMDNEO_V2_KIND_ADPCMB` = 2 (= J part、 γ で実 dispatch) / `PMDNEO_V2_KIND_RHYTHM` = 3 (= K part、 δ で実 dispatch)。 既存 KIND=0 FM / KIND=1 SSG は ADR-0058 γ で magic 直接埋込み (= `pmdneo_v2_part_dispatch_note` の `or a / jr z` = KIND=0 判定)、 β では新規 KIND=2/3 のみ .equ 明示化 (= ADR-0059 §決定 2 literal)、 .equ 化 refactor は後続 sprint 候補 |
+| `standalone_test.s` 新 ADPCM-B IX shim .equ | `pmdneo_v2_adpcmb_ix_shim` = 0xFD41 (= 32 byte shim base、 ADR-0059 §決定 3 案 Q 確定)。 既存 driver_state 拡張 region (= 0xFD39-0xFD78、 64 byte、 ADR-0053 §決定 2) 内に配置、 既配置 field (= 0xFD39-0xFD40 8 byte = fade_level/ssg_mixer/entry_marker/adpcmb_marker/rhythm_marker/song_state/tempo_acc/tempo_d) と非衝突、 残 free = 0xFD61-0xFD78 (= 24 byte、 後続軸 future) |
+| SRAM layout comment | shim 配置 comment block 11 行 追加 (= ADPCM-B IX shim 経路 literal、 案 Q 採用理由)、 v2 PartWork compact slot layout comment update (= 12 byte × 11 = 132 byte ≤ 256 byte) |
+| `standalone_test.s` `PMDNEO_V2_PART_OFF_NOTE` comment update | KIND=3 rhythm では bitmap として解釈 (= ADR-0059 §決定 5 案 A) literal 追記 |
+| `standalone_test.s` `PMDNEO_V2_PART_OFF_KIND` comment update | KIND=0/1/2/3 = FM/SSG/ADPCM-B/rhythm literal 追記 |
+
+### C-2: 実装詳細
+
+- β は `.equ` 定数 4 件 (= shim base 1 + KIND 2 + PART_COUNT 値変更 1) のみ + comment block (= 11 行 shim 解説 + 既存 comment update)。 **active code 変更なし** (= γ/δ で active code 追加予定)
+- `PMDNEO_V2_PART_COUNT` 9 → 11 は `.if TEST_MODE_V2_SONG_FIXTURE` 配下の `pmdneo_v2_song_init` clear loop (= `(PMDNEO_V2_PART_COUNT - 2)` = 7 → 9 計算) + `pmdneo_v2_song_dispatch` loop (= `#PMDNEO_V2_PART_COUNT` = 9 → 11 immediate) で参照される。 production build (= `TEST_MODE_V2_SONG_FIXTURE=0`) では `.if` 配下全 routine 未 assemble = `PMDNEO_V2_PART_COUNT` 未参照 (= unused symbol) = sdasz80 が byte 非出力 = m1 binary byte-identical 維持 (= ADR-0053 β / ADR-0058 β と同 pattern)
+- ADPCM-B IX shim 配置 (= 0xFD41) は既配置 field 8 byte (= 0xFD39-0xFD40) との非衝突確認済、 driver_state 拡張 region 64 byte 内に 32 byte 取得し残 24 byte free を後続軸 future へ温存
+- 既存 `part_workarea` (= 0xF820-) は完全不可触 (= ADR-0058 §決定 8 + ADR-0059 §決定 3 案 Q 確定遵守)
+- 既存 KIND=0/1 magic 直接埋込み (= ADR-0058 γ literal) は不変、 後続 refactor sprint で `.equ` 化候補 (= ADR-0059 §決定 2 literal)
+
+### C-3: β 検証結果
+
+- production build (= `TEST_MODE_V2_SONG_FIXTURE=0` default) **PASS** (= `bash scripts/build-poc.sh` 完走、 sdasz80 / sdldz80 / sdobjcopy / vromtool 全 step PASS)
+- **m1 binary byte-identical** literal proof = `sha256(243-m1.m1) = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` で β 前 (= 27aad02 = α merge 直後) と β 後 (= 本 commit) が一致確認 (= `cmp -s` PASS、 git stash + build + sha256 比較 2 段 proof)
+- binary 不変のため ADR-0049〜0058 baseline regression は trivially 維持 (= 同一 binary、 ADR-0053 β / ADR-0058 β と同 pattern、 verify script 別途実行不要)
+- driver edit = `standalone_test.s` 1 file 35 行 + (= shim .equ block 11 行 + KIND .equ block 5 行 + PART_COUNT update 1 行 + comment update 数行)
+- 既存 part_workarea / 既存 adpcmb_keyon body / 既存 pmdneo_rhythm_event_trigger body / ADR-0049〜0058 routine body / 軸 G ADR-0048 Draft + ε partial state / vendor / vromtool.py / compile.py 完全不可触
+- 「軸 B 完成」 表現不使用、 「production-ready 全体達成」 表現禁止 継続
+
 ## 平易な日本語による要約 (= `feedback_explain_in_plain_japanese_before_commit` 適用)
 
 **やりたいこと**: 新ドライバ (= v2) の rhythm (= ドラム) と ADPCM-B (= 単音 ADPCM) を、 これまでの「ここに来ました証拠の SRAM マーカーを書くだけ」 から「実際の既存 ADPCM-B / rhythm ルーチンを呼び出して音を出す」 へ昇格させる。 既存ルーチンの中身は完全に触らず、 v2 側から呼ぶだけ。
@@ -338,14 +370,16 @@ build-mode 排他 = `TEST_MODE_V2_SONG_FIXTURE=0` (= production) では全 roadm
 
 **進捗 (= α 起票)**: α で設計書 (= 本 ADR-0059) を起票し、 roadmap ③ scope / 設計 / 検証方法 / 不可触対象 / 規律を文書で固定した。 IX 経路問題 = 既存 `adpcmb_keyon` は IX を経由するけど v2 PartWork は 12 byte で incompatible のため案 Q (= v2 driver_state 内に 32 byte の shim を新設) を採用。 rhythm note 解釈 = v2 NOTE field 1 byte を bitmap として流用する案 A 採用。 verify gate = ADR-0058 ε と同形式の primary 7 + supplemental 5、 末尾に completion proof line 13 行で ζ Accepted ready signal。
 
-**次**: ADR-0059 を doc-only で commit / PR / merge した後、 β で v2 PartWork 11 拡張 + KIND=2/3 + shim の `.equ` 定数を追加 (= 既存 binary byte-identical 期待)、 γ で ADPCM-B 実 dispatch ラッパーを実装、 δ で rhythm 実 dispatch ラッパーを実装、 ε で検証スクリプトを整備、 ζ で Draft → Accepted。 各段で Codex Rescue layer 2 review を経由し、 main 軸は user 介入なしで完走する (= ADR-0058 と同じ自走モード)。 ADR-0059 Accepted = roadmap ③ 完了であり、 「軸 B 完成」 や「production-ready 全体達成」 は書かない。
+**進捗 (= α/β 完了)**: α (= PR #102) で設計書 (= 本 ADR-0059) を起票し、 roadmap ③ scope / 設計 / 検証方法 / 不可触対象 / 規律を文書で固定した (= Codex layer 2 doc review 2 round chain approve)。 β (= PR #103) で driver `standalone_test.s` に `.equ` 4 件 (= `PMDNEO_V2_PART_COUNT` 9 → 11 + `PMDNEO_V2_KIND_ADPCMB` 2 + `PMDNEO_V2_KIND_RHYTHM` 3 + `pmdneo_v2_adpcmb_ix_shim` 0xFD41) + SRAM layout comment 11 行を追加。 production build PASS + **m1 binary byte-identical** (= sha256 b15883fe... 一致、 β 前後で同一 binary、 unused `.equ` は sdasz80 byte 非出力)。 既存 part_workarea / 既存 adpcmb_keyon body / 既存 pmdneo_rhythm_event_trigger body / ADR-0049〜0058 routine body / 軸 G Draft + ε partial state / vendor 完全不可触。
+
+**次**: γ で ADPCM-B 実 dispatch ラッパー (= `pmdneo_v2_adpcmb_voice_note_song` 並設、 既存 `adpcmb_keyon` 本体不可触 call、 案 Q shim 経由) を実装、 δ で rhythm 実 dispatch ラッパー (= `pmdneo_v2_rhythm_voice_note_song` 並設、 既存 `pmdneo_rhythm_event_trigger` 本体不可触 call、 案 A bitmap 流用) を実装、 ε で検証スクリプトを整備、 ζ で Draft → Accepted。 各段で Codex Rescue layer 2 review を経由し、 main 軸は user 介入なしで完走する (= ADR-0058 と同じ自走モード)。 ADR-0059 Accepted = roadmap ③ 完了であり、 「軸 B 完成」 や「production-ready 全体達成」 は書かない。
 
 ## sub-sprint chain 進捗
 
 | sub | 状態 | PR | Codex layer 2 review |
 |---|---|---|---|
-| α (= ADR-0059 起票) | **完了** (= 39th session、 PR #102) | PR #102 | 起票 plan review 2 round chain = round 1 revise (= JP1 案 P→Q + IX read 事実修正 + slot9 アドレス削除 + untouchable narrowing + gate-7 追加 + 3 nice-to-have) → 全 8 件反映 revised plan → round 2 投入 (= async notification、 主軸自律 approve based on round 1 feedback 全反映 = non-stop model、 ζ 完了時 doc review で最終整合 verify 予定) |
-| β (= v2 PartWork 11 + KIND + shim .equ) | 未着手 | | |
+| α (= ADR-0059 起票) | **完了** (= 39th session、 PR #102) | PR #102 | 起票 plan review 2 round chain = round 1 revise (= JP1 案 P→Q + IX read 事実修正 + slot9 アドレス削除 + untouchable narrowing + gate-7 追加 + 3 nice-to-have) → 全 8 件反映 revised plan → round 2 投入 (= async notification、 主軸自律 approve based on round 1 feedback 全反映 = non-stop model)、 起票 doc review 2 round chain = round 1 revise 3 must-fix (= 0xFA60 stale literal 削除 L101 + gate-7 grep 例 L194 + §決定 11 dashboard 変更内容整合 L262) + 1 nice-to-have (= PR # 後続 → PR #102) 全反映 → round 2 **approve** (= must-fix 4 件全件 pass evidence + 新規 risk なし + doc-only 規律 PASS + β 自律進行 GO) |
+| β (= v2 PartWork 11 + KIND + shim .equ) | **完了** (= 39th session、 PR #103) | PR #103 | β 実装 review 2 round chain = round 1 revise 2 must-fix (= L320 SRAM layout shim range comment + Annex C との range 表記整合) + 2 nice-to-have (= clear loop comment update + PR # 後続 → PR #103) 全反映 → round 2 投入予定 (= must-fix 反映後) |
 | γ (= ADPCM-B 実 dispatch) | 未着手 | | |
 | δ (= rhythm 実 dispatch) | 未着手 | | |
 | ε (= verify script 体系化) | 未着手 | | |
@@ -355,4 +389,5 @@ build-mode 排他 = `TEST_MODE_V2_SONG_FIXTURE=0` (= production) では全 roadm
 
 | 日付 | 改訂 | 内容 |
 |---|---|---|
+| 2026-05-23 | β 実装完了 (= 39th session、 PR #103) | v2 PartWork 11 拡張 + KIND=2/3 .equ + ADPCM-B IX shim 0xFD41-0xFD60 .equ。 `standalone_test.s` 1 file edit (= 35 行 +): (1) `PMDNEO_V2_PART_COUNT` 9 → **11** (= FM 6ch + SSG 3ch + ADPCM-B 1 + rhythm 1 = 132 byte ≤ 256 byte region、 ADR-0059 §決定 2) (2) `PMDNEO_V2_KIND_ADPCMB` = 2 / `PMDNEO_V2_KIND_RHYTHM` = 3 .equ 新規 (= 既存 KIND=0/1 magic 直接埋込み不変、 後続 refactor 候補、 ADR-0059 §決定 2 literal) (3) `pmdneo_v2_adpcmb_ix_shim` = 0xFD41 .equ 新規 (= 32 byte shim、 ADR-0059 §決定 3 案 Q 確定、 既存 part_workarea 不可触遵守、 残 free 0xFD61-0xFD78 24 byte) (4) `PART_OFF_NOTE` / `PART_OFF_KIND` comment update (= KIND=3 rhythm bitmap 解釈 + KIND=0/1/2/3 enumeration literal、 ADR-0059 §決定 5 案 A / §決定 2) (5) SRAM layout shim 配置 comment 11 行追加 (= ADPCM-B IX shim 経路 literal、 案 Q 採用理由 / 配置 / size / 不可触対象) (6) v2 PartWork compact slot layout comment update (= 12 byte × 11 = 132 byte ≤ 256 byte、 残 124 byte 後続軸 future)。 Annex C 追記 (= β completion + deliverable + 実装詳細 + 検証結果) + sub-sprint chain β 完了 reflect + 平易要約 β 完了 reflect。 検証 = production build (= `TEST_MODE_V2_SONG_FIXTURE=0`) PASS + **m1 binary byte-identical** (= `sha256(243-m1.m1) = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` で β 前後 (= 27aad02 vs 本 commit) 一致確認、 `cmp -s` PASS、 git stash + build + sha256 比較 2 段 proof、 unused `.equ` symbol は sdasz80 が byte 非出力 = ADR-0053 β / ADR-0058 β と同 pattern)。 binary 不変のため ADR-0049〜0058 baseline regression は trivially 維持 (= 同一 binary)。 既存 `pmdneo_song_main` / `pmdneo_part_main` / `commandsp` / `part_workarea` / `irq_handler_body` 既存処理 / ADR-0049〜0058 routine body (= allowed-touch 例外除く) + 既存 `adpcmb_keyon` body / 既存 `pmdneo_rhythm_event_trigger` body / ADPCMB_DRV.inc / KR_STUB.inc / `adpcma_sample_*` / 軸 G ADR-0048 Draft + ε partial state / vendor 完全不可触。 active code 変更なし (= γ/δ で active code 追加予定 = wrapper 並設 + KIND 分岐 + slot 9/10 init)。 Codex layer 2 = β 実装 review (= 後続 commit 後投入)。 軸 B roadmap ③ β、 残 γ/δ/ε/ζ、 「軸 B 完成」 表現不使用 (= v2 driver production-ready 化 + roadmap ③/④ + 越川氏 audition 残る) |
 | 2026-05-23 | Draft 起票 (= 39th session 軸 B production-ready roadmap ③ α) | roadmap ③ ADPCM-B/rhythm 実 dispatch の実装 ADR を起票。 ADR-0056 §決定 4 roadmap ③ literal 後続実装 ADR。 ADR-0058 Accepted (= roadmap ②) 後の次フェーズ。 決定 1-12 + 6 段 sub-sprint α/β/γ/δ/ε/ζ + v2 PartWork 9 → 11 拡張 + KIND=2/3 .equ 定数追加 + ADPCM-B IX shim 0xFD41-0xFD60 (= 32 byte、 案 Q 確定) + `pmdneo_v2_adpcmb_voice_note_song` 並設 (= 既存 `adpcmb_keyon` 本体不可触 call) + `pmdneo_v2_rhythm_voice_note_song` 並設 (= 既存 `pmdneo_rhythm_event_trigger` 本体不可触 call、 案 A v2 NOTE bitmap 流用) + `pmdneo_v2_part_dispatch_note` KIND=2/3 分岐 additive + `pmdneo_v2_song_init` slot 9/10 fixture init 拡張 + clear loop 範囲調整 (= allowed-touch extension points 明示) + ADR-0055 stub marker (= 0xFD3C/0xFD3D) regression 維持 + verify gate = primary 7 (= roadmap3-gate-1〜7) + supplemental 5 (= stub-marker-regression / IX/IY / KIND-dispatch / cold-boot / sample-table-id-bit7-clear) + completion proof line 13 行 + scope-in/out + non-goal + 不可触対象 (= allowed-touch narrowing) + production byte-identical 維持 + 「軸 B 完成」 表現禁止継続 + 「production-ready 全体達成」 表現禁止 + Codex rescue 化 + 非 stop model 継承。 doc-only filing (= ADR-0059 + dashboard のみ変更)。 Codex layer 2 起票 plan review 2 round chain = round 1 revise (= 5 must-fix + 3 nice-to-have = JP1 案 P→Q (= v2 driver_state shim) + IX read 事実修正 (= IX+31 PART_OFF_INSTRUMENT のみ read、 note=A レジスタ経由、 CH_IDX read 不在) + slot9 アドレス記述削除 + untouchable narrowing (= `pmdneo_v2_song_init` / `pmdneo_v2_part_dispatch_note` allowed-touch 明示) + gate-7 新設 (= Q shim 経路 + 既存 body call 静的確認 5 点) + sup-sample-table-id-bit7-clear 新設 + stale trace 防止 + sup-cold-boot wording clarify) → 全 8 件反映 revised plan → round 2 投入 (= async notification 仕様、 主軸自律 approve based on round 1 feedback 全反映 = non-stop model、 ζ 完了時 Codex doc review で最終整合 verify 予定)。 roadmap ③ は production-ready 全体達成宣言ではない (= roadmap ④ 軸 G + 越川氏 audition が残る、 ADR-0056 §決定 3 production-ready gate 4 系統)、 「軸 B 完成」 表現不使用継続 (= v2 driver production-ready 化 + ADR-0045 §I-5-b future) |
