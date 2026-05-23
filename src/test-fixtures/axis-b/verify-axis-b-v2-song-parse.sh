@@ -123,13 +123,12 @@ echo "=== roadmap ① ref trace 生成 (= γ-2 literal value 比較 ref、 本 s
 YMFM_ROADMAP1_REF="/tmp/v2-song-parse-roadmap1-ref-ymfm.tsv"
 rm -f "$PREPROCESSED"
 PMDNEO_V2_ENTRY_FIXTURE=1 MML_INPUTS=ssg-v0-keyon.mml bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1 \
-  || { ng "γ-2: roadmap ① ref build FAIL"; FAIL=$((FAIL + 1)); }
+  || ng "γ-2: roadmap ① ref build FAIL"
 bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >/dev/null 2>&1 || true
 if [ -f "$YMFM" ]; then
   cp "$YMFM" "$YMFM_ROADMAP1_REF"
 else
   ng "γ-2: roadmap ① ref ymfm-trace 未生成"
-  FAIL=$((FAIL + 1))
 fi
 
 # γ trace の FM ch B fnum write set と roadmap ① ref set を literal 比較
