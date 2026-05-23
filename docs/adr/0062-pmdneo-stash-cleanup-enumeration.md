@@ -208,7 +208,7 @@ ADR-0061 §決定 3 (1) literal 後続 = stash 退避分整理 実作業 ADR を
 
 - ADR-0062 Draft (= PR1、 PR2 で Accepted 移行)
 - stash 5 件本体完全不変 (= PR1 では stash 操作なし)
-- production build PASS + m1 binary byte-identical 維持 (= 通算 sha256 `b15883fe...`)
+- production build artifacts 変更なし + byte-identical 維持期待 (= 通算 sha256 `b15883fe...`)、 diff 範囲 verify + flag 不変 verify が primary gate (= doc-only sprint で driver build 走らないため sha256 再計算不可)
 - ADR-0049〜0061 本文 + 既存 dashboard 0049-0061 行 完全不変
 
 ### 解釈
