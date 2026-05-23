@@ -143,6 +143,12 @@ TEST_MODE_FADE_FIXTURE?=0
 TEST_MODE_V2_ENTRY_FIXTURE?=0
 TEST_MODE_V2_SONG_FIXTURE?=0
 TEST_MODE_AXIS_G_V2_PPC?=0
+TEST_MODE_AXIS_G_AUDITION_REVISE?=0
+TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B?=0
+TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G?=0
+TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB?=0
+TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM?=0
+TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP?=0
 PMDNEO_SED_EXPRS=
 ifeq ($(PMDNEO_CHIP),ym2610b)
 PMDNEO_SED_EXPRS+=-e 's/PMDNEO_TARGET_CHIP_YM2610B, 0/PMDNEO_TARGET_CHIP_YM2610B, 1/'
@@ -179,6 +185,31 @@ endif
 # production は必ず =0、 ADR-0059 roadmap ③ fixture build (= =0 default) との完全分離)
 ifeq ($(TEST_MODE_AXIS_G_V2_PPC),1)
 PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_V2_PPC,       0/TEST_MODE_AXIS_G_V2_PPC,       1/'
+endif
+# ADR-0048 ζ-δ-2 audition fixture revise: audition revise fixture build toggle
+# (= PMDNEO_AXIS_G_AUDITION_REVISE=1 で audition revise fixture build = fm_voice_data_audition swap +
+# length 0x06/0x30/0x14 fixture swap、 ζ-δ-1 audition reject judgment 受領下、 production は必ず =0)
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_REVISE),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_REVISE, 0/TEST_MODE_AXIS_G_AUDITION_REVISE, 1/'
+endif
+# ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag 4 個 (= user 1 パートずつ wav 要求対応)
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B,    0/TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B,    1/'
+endif
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G,   0/TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G,   1/'
+endif
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB,  0/TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB,  1/'
+endif
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM,  0/TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM,  1/'
+endif
+# ADR-0048 ζ-δ-2 dispatch gate finding (= candidate C): audition / solo fixture build 時に
+# legacy pmdneo_song_main 経路 (= IRQ tick L723) を skip = v2 dispatch のみ動作。
+# production build / 通常 fixture build (= =0) は既存挙動完全維持 = byte-identical 維持。
+ifeq ($(TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP),1)
+PMDNEO_SED_EXPRS+=-e 's/TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP,  0/TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP,  1/'
 endif
 ifeq ($(strip $(PMDNEO_SED_EXPRS)),)
 PMDNEO_PREPROCESS_CMD=cp $< $@

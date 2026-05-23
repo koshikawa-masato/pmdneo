@@ -1387,3 +1387,299 @@ user 明示「ADR-0048 はまだ Draft であり、 ζ-ε までは Accepted 扱
 ### ζ-δ-2 待機 (= user 介入必須 sub-sprint)
 
 main agent は ζ-δ-1 完了後、 越川氏 audition session result 報告を待つ。 audition approve → main agent が ADR-0048 ζ-δ section additive で audition result literal + ζ-ε への遷移 (= user GO 必須)。 audition reject → ζ-δ-1 改修 + 再 audition。 partial approve → 部分改修 + 再 audition。 ζ-ε Draft → Accepted 移行は audition approve 後 + user 判断 gate、 main agent autonomous で Accepted 化しない。
+
+## sub-sprint ζ-δ-2 audition reject + audition fixture revise (= 2026-05-23 39th session、 chain-pr-A 4 本目、 user audition reject judgment 受領 + 改修方向 spec literal 5 件確定経由)
+
+### ζ-δ-2 経緯 (= user audition reject judgment literal)
+
+ζ-δ-1 完了後の ζ-δ-2 user audition session で、 越川氏は `/tmp/zeta-delta-audition.wav` に対し下記 judgment を literal で報告した:
+
+- **ADR-0048 は Draft 維持** (= ζ-ε には進まず)
+- **/tmp/zeta-delta-audition.wav は approve しない**
+- **ζ-δ-1 fixture を再設計して再 audition** = audition fixture revise sub-sprint = **ζ-δ-2 起票**
+
+改修方向 (= user 明示 spec literal 5 件):
+
+- **FM B**: 持続音ではなく、 短いアタックの反復音にする
+- **SSG G**: FM と同じく短く区切る
+- **ADPCM-B**: PPC0 → PPC1 → yaml beat marker の順番が分かるようにする
+- **ADPCM-A rhythm**: BD → SD → BD の識別を維持
+- **全体**: 10 秒の中で「4+ 経路が同時に成立している」 と判断しやすい構成にする
+
+改修方向の核心は **音楽的綺麗さ scope-out + 経路聞き分け target**。
+
+### ζ-δ-2 切り分け 5 件 (= main agent ε partial 同形式、 register trace literal 由来)
+
+main agent ζ-δ-1 audition wav register trace 解析:
+
+| 切り分け | 観察値 | 期待値 | 結果 |
+|---|---|---|---|
+| 1. FM B keyon (= reg 0x28 = 0xF1) 件数 | 149 件 | 約 150 件 (= 50 loop × 3 note) | PASS = song-driven keyon 正常 trigger |
+| 2. FM B fnum LSB (= reg 0xA1) uniq | 4 種 (= 0x39 / 0x6A / 0xB6 / 0xD5) | 3 種以上 | PASS = fnum 切替正常動作 |
+| 3. FM B fnum/block MSB (= reg 0xA5) uniq | 2 種 (= 0x1A / 0x1B) | 1-3 種 | PASS = block + fnum upper 切替動作 |
+| 4. FM voice 音色 = `fm_voice_data_default` envelope | DR=0x00 / SR=0x00 / SL=0x00 = sustain hold 持続音色 | percussive 期待 | **finding** = 持続音色 (= default 音色由来 root cause) |
+| 5. wav 長さ = MAME `--wavwrite-seconds 10` cap | 10 秒で wav 強制終了 | 10 秒 audition target | **finding** = wav 末尾で audio 強制 cut off |
+
+切り分け 1/2/3 = **FM B 経路は register level で song-driven 正常動作 confirmed** (= keyon 149 件 ≈ 150 件期待 + fnum 4 種切替)。
+切り分け 4 = `fm_voice_data_default` の envelope 設定 (= DR=0x00 / SR=0x00 / SL=0x00) が「sustain hold 持続音色」 = 「ただの持続音」 の root cause。
+切り分け 5 = 10 秒 wav cap で末尾 cut off = 「途中で切れる」 解釈、 audition target 10 秒以内なら問題なし。
+
+### 改修内容 spec literal (= driver source additive、 4 軸)
+
+| 軸 | 改修内容 | 実装 |
+|---|---|---|
+| **A. FM 新 voice 追加** | `fm_voice_data_audition` block 追加 (= percussive envelope: AR=31 / DR=15 / SR=15 / SL=15 / RR=15、 TL=0x10、 alg=7、 fb=0) + `pmdneo_v2_fm_voice_note_song` wrapper 内 binary toggle で audition fixture build 時のみ swap | `.if TEST_MODE_AXIS_G_AUDITION_REVISE` 配下で voice address swap、 `fm_voice_data_default` 完全不可触維持 |
+| **B. fixture data length 改修** | slot 0 FM B + slot 1 SSG G = length 0x10 → 0x06 (= 約 24 ms = 短いアタック反復)、 slot 9 ADPCM-B PPC = length 0x10 → 0x30 (= 約 130 ms = sample 分離可聴)、 slot 10 ADPCM-A rhythm = length 0x10 → 0x14 (= 約 53 ms = BD/SD 識別維持) | `.if TEST_MODE_AXIS_G_AUDITION_REVISE` 配下で新 fixture block 並設、 既存 fixture 完全不可触維持 |
+| **C. note byte 維持** | slot 9 ADPCM-B = 0x00 / 0x01 / 0x7F (= PPC entry 0 + entry 1 + yaml beat marker、 ζ-δ-1 と同) | PPC entry index range 安全保証 (= 0x00 / 0x01 既知 + 0x7F = ADR-0043 経路) |
+| **D. build flag 追加** | `TEST_MODE_AXIS_G_AUDITION_REVISE` (= default 0)、 `TEST_MODE_AXIS_G_V2_PPC` の上位互換 (= ζ-δ-2 fixture build 時のみ ON、 ζ-δ-2 trigger flag) | `scripts/build-poc.sh` + `vendor/ngdevkit-examples/00-template/build.mk` |
+
+### allowed-touch 例外 5 条件 AND (= ζ-α 4 条件 + audition reject judgment 1 条件 拡張)
+
+ζ-α §allowed-touch 例外 4 条件 (= ζ-β 着手 + user GO + case 選定確定 + audition target = ζ-δ-1 で確立) に対し、 ζ-δ-2 は **「audition reject judgment 受領 + 改修方向 spec literal 5 件確定」** 1 条件 追加 = **5 条件 AND** で audition fixture revise sub-sprint 着手:
+
+1. ζ-β 着手 (= 既)
+2. user GO (= 既、 ζ-β 案 W 選定)
+3. case 選定確定 (= 既、 案 W 確定)
+4. audition target (= 既、 ζ-δ-1 で option A 確定)
+5. **audition reject judgment + 改修方向 spec literal 5 件確定** (= 新、 ζ-δ-2 trigger)
+
+allowed-touch scope literal (= ζ-δ-2):
+
+- 既存 `fm_voice_data_default` 完全不可触
+- 既存 fixture block (= `pmdneo_v2_song_fixture_fm_b` 等) 完全不可触
+- 既存 wrapper routine body (= `pmdneo_v2_fm_voice_note_song` 等) 完全不可触
+- 新規追加のみ = 新 voice block `fm_voice_data_audition` + 新 fixture block 並設 (= `pmdneo_v2_song_fixture_fm_b_audition` 等) + wrapper 内 binary toggle `.if` 配下 additive
+
+### 軸 G 永続 scope-out (= ζ-δ-2 でも維持)
+
+ADR-0048 ε partial 確立 + ζ-α/ζ-β/ζ-γ/ζ-δ-1 維持の 軸 G 永続 scope-out 9 項目 + ADR-0048 ζ-α §禁止表現リスト 5 件 (= 軸 G 完成系 3 件 + 軸 B 完成 + production-ready 全体達成) literal 維持。
+
+### ζ-δ-2 完了判定 (= ζ-δ-1 同形式、 audition fixture revise 完了 = wav 生成 + user 提示 + ζ-δ-2 再 audition session ready)
+
+- driver source 改修 PASS (= ADR additive + driver code additive + verify gate 拡張 + build flag 追加 + audition wav 生成)
+- ζ-δ-2 audition wav (= `/tmp/zeta-delta-2-audition-revise.wav`) 生成完了 = user 再 audition session ready
+- ADR-0048 Draft 維持 = ζ-ε 進まず literal 維持
+- user 再 audition judgment 受領後の path:
+  - **approve** → ADR-0048 ζ-ε 移行 (= user GO 必須、 main agent autonomous で Accepted 化しない)
+  - **reject** → ζ-δ-3 audition fixture revise round 2 起票
+  - **partial approve** → 部分改修 + 再 audition or ζ-ε 移行 (= user 判断)
+
+### ζ-δ-2 solo audition extension (= user 要求「1 パートずつの WAV」 受領下、 same PR additive、 chain-pr-A 4 本目 continuation)
+
+ζ-δ-2 commit + push + PR #121 提示直後の user audition session preparation で、 越川氏は「1 パートずつの WAV を生成して」 と要求 = 4+ 経路同居 wav に加えて per-part solo wav 4 本を user audition material として生成する extension。
+
+#### solo audition spec literal (= 4 per-slot MUTE flag 独立 binary toggle)
+
+| flag | slot | mute 内容 |
+|---|---|---|
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B` | slot 0 (= FM B) | =1 で FLAGS=0 (= inactive) set、 =0 で FLAGS=1 (= 既存 active) 維持 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G` | slot 1 (= SSG G) | 同 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB` | slot 9 (= ADPCM-B PPC) | 同 |
+| `TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM` | slot 10 (= rhythm K) | 同 |
+
+#### 4 solo wav 生成 (= 各 10 秒、 非 commit)
+
+| wav | mute combination | content |
+|---|---|---|
+| `/tmp/zeta-delta-2-solo-fm-b.wav` | mute_ssg=1 + mute_adpcmb=1 + mute_rhythm=1 | FM B solo (= `fm_voice_data_audition` percussive + length 0x06 反復) |
+| `/tmp/zeta-delta-2-solo-ssg-g.wav` | mute_fm=1 + mute_adpcmb=1 + mute_rhythm=1 | SSG G solo (= length 0x06 高頻度反復) |
+| `/tmp/zeta-delta-2-solo-adpcmb.wav` | mute_fm=1 + mute_ssg=1 + mute_rhythm=1 | ADPCM-B PPC solo (= PPC entry 0 → entry 1 → yaml beat marker 0x7F 順序、 length 0x30) |
+| `/tmp/zeta-delta-2-solo-rhythm.wav` | mute_fm=1 + mute_ssg=1 + mute_adpcmb=1 | ADPCM-A rhythm K solo (= BD → SD → BD、 length 0x14) |
+
+#### allowed-touch 例外 5 条件 AND 維持 + per-slot MUTE flag 6 条件目 拡張
+
+ζ-δ-2 ε allowed-touch 例外 5 条件 (= ζ-β 着手 + user GO + case 選定確定 + audition target + audition reject judgment) に加えて、 **user solo wav 要求受領 1 条件目** 追加 = **6 条件 AND** 下で per-slot MUTE flag binary toggle additive:
+
+- 既存 slot init body の FLAGS=1 set 行 1 行を `.if MUTE_<slot>` 配下 binary toggle (= sdasz80 .if 値比較禁止規律遵守)
+- 既存 fixture + voice block + wrapper routine body 完全不可触維持
+- production 時は 4 flag 全 0 = byte-identical 維持 (= m1 sha256 `b15883...4e4` 不変)
+
+#### solo audition extension 完了判定 = 既存 ζ-δ-2 完了判定 + 4 wav 生成
+
+- 4 solo wav (= /tmp/zeta-delta-2-solo-{fm-b,ssg-g,adpcmb,rhythm}.wav) 生成完了
+- production byte-identical 維持 (= m1 sha256 不変)
+- verify-axis-g-zeta-delta-2-audition-revise-dispatch.sh 全 7 gate ALL PASS 維持
+- user 再 audition judgment は 4+ 経路同居 wav (= /tmp/zeta-delta-2-audition-revise.wav) + 4 solo wav の合計 5 wav を audition material として行う
+
+#### solo audition mute 経路の round 1 finding + round 2 fix (= user 「ミュート実装は完了していないのでミュートはされません」 受領下、 fixture-level mute 経路追加)
+
+##### round 1: FLAGS=active 内部 binary toggle 経路 (= 不完全)
+
+ζ-δ-2 solo audition extension 初回実装 (= commit `f7b2e8a` 段階) では、 slot init body 末尾の `FLAGS=active` set 行を `.if MUTE_<slot>` 配下 binary toggle (= inactive/active 切替) で実装した:
+
+```
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+        ld      (hl), #0                ; OFF_FLAGS = inactive
+.else
+        ld      (hl), #1                ; OFF_FLAGS = active
+.endif
+```
+
+この経路は **dispatch loop が slot 巡回時に FLAGS bit0=1 check で skip** することで dispatch_note 不発火を目指したが、 user audition で 「ミュート実装は完了していないのでミュートはされません」 finding 受領。
+
+##### root cause: slot init body 不変 + chip register init 残留
+
+FLAGS=0 set で dispatch loop は skip するが、 **slot init body 自体は assemble される + 既存 cmd 0x05 init 経路の chip register write (= init_chip_ch2_voice / init_adpcmb_beat 等 ADR-0010/0016/0026 確立 init routine) が残留** = 各 ch chip 内部 state が previous state を維持 = audible 残留音。
+
+加えて、 fixture data 自体 (= `pmdneo_v2_song_fixture_fm_b_audition` 等) は assemble + ADDR 等 SRAM に書き込まれている = fixture を IRQ tick で fetch すれば note dispatch が起きる経路は残存 = 完全 mute にならない。
+
+##### round 2 fix: fixture-level mute 経路 (= empty MML 置換)
+
+user 要求 spec 「MML 自体を各パートのみでビルド」 literal を反映、 **fixture data 自体を `.if MUTE_<slot>` 配下で empty MML (= loop terminator 0x80 only) に置換** する経路に変更:
+
+```
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x80                            ; empty MML (= loop terminator only)
+.else
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
+```
+
+これで dispatch_note は note byte = 0x80 で **loop branch のみ = note trigger 起きない** = chip register に keyon write 起きない = 完全 mute。
+
+##### round 1 経路の維持 (= safe redundancy)
+
+round 1 経路 (= FLAGS=active 内部 binary toggle、 commit `f7b2e8a` で導入) は **revert せず維持** = 2 重 mute 経路 (= dispatch skip + fixture empty MML) で safe redundancy。 既存 build で副作用なし (= production 時 4 flag 全 0 = 既存動作)。
+
+##### round 2 fix mute 経路 effective verify (= register trace literal)
+
+各 solo wav build の register trace で「target part のみ active + 他 3 経路は init residual のみ」 を確認:
+
+| solo wav | FM keyon (reg 0x28) | SSG mixer (reg 0x07) | ADPCM-B (reg 0x12-0x15) | ADPCM-A (port B reg 0x100/0x108/0x110/0x118) |
+|---|---|---|---|---|
+| FM B | **420 件** (active) | 4 (residual) | 4 (residual) | 2 (residual) |
+| SSG G | 70 (init residual) | **356 件** (active) | 4 (residual) | 2 (residual) |
+| ADPCM-B PPC | 70 (residual) | 4 (residual) | **208 件** (active) | 2 (residual) |
+| rhythm K | 70 (residual) | 4 (residual) | 4 (residual) | **474 件** (active) |
+
+= **fixture-level mute 経路 effective confirmed** (= target part のみ active + 他 3 経路は cmd 0x05 init 段階の chip register write 数件のみ = audible 影響なし)。
+
+#### round 2 finding: solo fixture に他経路 trigger 混入 (= 「ちゃんと 4 とおりの MML 作成、 ビルドしていますか？ 音が混ざっていますよ」 user finding)
+
+round 2 fix (= fixture-level empty MML 置換) 後の user audition で「FM B solo のはずの wav に ADPCM-A rhythm trigger が混入している」 finding 受領 = audition fixture 品質問題ではなく、 **mute / fixture / dispatch gate の前提確認問題** と認定。
+
+main agent register trace 解析で FM B solo wav に ADPCM-A port B reg 0x100 = 0x01 (= bitmap ch 0 = BD trigger) write が **475 件** 周期発火 confirm。
+
+#### dispatch gate root cause investigation (= user 優先順位 7 件 verify)
+
+main agent dispatch 経路 source 読解で **dispatch loop 2 系統並走** を特定:
+
+| 経路 | 起動 | dispatch loop | MUTE 効力 |
+|---|---|---|---|
+| **v2 dispatch (= ADR-0058 γ)** | `nmi_cmd_5_init_mml_song` 末尾 → `pmdneo_v2_song_entry` → IRQ tick `pmdneo_v2_song_tick` → `pmdneo_v2_song_dispatch_loop` | L2683-2685 で `FLAGS bit0` check + skip (= 正しい) | ✅ MUTE flag 経路 (= 既存 commit `3fefb24` fixture-level empty MML + FLAGS=0) で完全 skip |
+| **legacy dispatch (= 既存本線)** | `nmi_cmd_5_init_mml_song` で K/L-Q part 全部 init → IRQ tick L723 `.if TEST_MODE_CHORD == 5` 配下で `call pmdneo_song_main` | `pmdneo_song_main_loop` で全 part 巡回 + K part = `rhythm_main` → 0xEB rhykey → `pmdneo_rhythm_event_trigger` | ❌ MUTE flag が効かない (= v2 dispatch 経路 dedicated) |
+
+root cause literal: L723 `.if TEST_MODE_CHORD == 5` は memory `feedback_sdas_if_no_value_comparison.md` literal の sdasz80 値比較禁止規律で `.if TEST_MODE_CHORD` 相当に評価 (= TEST_MODE_CHORD = 5 != 0 で true) → legacy `pmdneo_song_main` が IRQ tick で常時 call → K part rhythm を周期 trigger。
+
+#### round 3 fix: candidate C 採用 = `TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP` 新 flag
+
+user 判断 (= 「修正方針は candidate C を推奨」) を受領、 新 flag `TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP` を追加し audition / solo fixture build 時のみ IRQ tick 内 legacy `pmdneo_song_main` call を skip。
+
+##### candidate C 採用理由 (= user 明示 literal)
+
+- audition / solo fixture 専用の目的が flag 名で明確
+- production build への影響を閉じ込めやすい
+- legacy part init を細かく分岐させる candidate B より改修範囲が小さい
+- `TEST_MODE_V2_SONG_FIXTURE` に暗黙で legacy skip を混ぜるより、 専用 flag で意図明確
+- 目的 = 「legacy 経路を壊す」 ではなく「audition fixture で v2 経路だけを分離して聴ける」
+
+##### candidate C 実装内容
+
+1. driver source: `.equ TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP, 0` (= default 0)
+2. IRQ tick L723 内に `.if TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP .else call pmdneo_song_main .endif` binary toggle 追加 (= sdasz80 .if 値比較禁止規律遵守、 既存 `pmdneo_song_main` body 完全不可触)
+3. build flag 追加: `scripts/build-poc.sh` + `vendor/ngdevkit-examples/00-template/build.mk`
+
+##### round 3 fix effective verify (= solo build trace literal)
+
+| solo build (= LEGACY_SKIP=1) | active reg | residual (= silent setup のみ、 audible 影響なし) |
+|---|---|---|
+| FM B | FM_keyon = **358 件** | ADPCM-A = 2 件 (= all stop + clear) / ADPCM-B = 6 / SSG_mix = 1 |
+| SSG G | SSG_mix = 353 + SSG_vol = **355 件** | FM = 6 / ADPCM-B = 6 / ADPCM-A = 2 |
+| ADPCM-B PPC | ADPCM-B = **312 件** | FM = 6 / SSG_mix = 1 / ADPCM-A = 2 |
+| rhythm K | ADPCM-A = **474 件** | FM = 6 / SSG_mix = 1 / ADPCM-B = 6 |
+
+= **legacy dispatch loop の K/L-Q/J/A-I part 周期 trigger 完全停止** confirmed (= ADPCM-A trigger 475 件 → 2 件 silent setup のみ、 audible 影響なし)。
+
+##### user 優先順位 7 件 status (= round 3 fix 後)
+
+| # | 内容 | 状態 |
+|---|---|---|
+| 1 | 総合 audition wav 生成停止 | ✅ uncommitted 退避済 |
+| 2 | 1 パート単位 fixture に切り替え | ✅ MUTE flag + LEGACY_SKIP=1 で 4 solo build |
+| 3 | FM B solo で ADPCM-A/B/SSG write 出ない | ✅ audible trigger 0 件 (= 2/6/1 residual は silent setup) |
+| 4 | rhythm solo で ADPCM-A write のみ | ✅ ADPCM-A active 474 件 + 他 residual silent |
+| 5 | MUTE_RHYTHM=1 で slot 10 dispatch されない | ✅ v2 dispatch L2683-2685 FLAGS check + legacy LEGACY_SKIP=1 で 2 重 skip |
+| 6 | slot 10 fixture が empty MML 0x80 | ✅ preprocess literal `.db 0x80` 確認済 |
+| 7 | KIND=3 dispatch 分岐が FLAGS/MUTE を見ず発火していない | ✅ v2 dispatch FLAGS check 正しい / legacy 経路は LEGACY_SKIP=1 で skip |
+
+##### production / 通常 fixture build 互換維持
+
+- production build (= 全 flag 0): m1 sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` = byte-identical 維持
+- 通常 fixture build (= V2_SONG_FIXTURE=1 + V2_PPC=1 + LEGACY_SKIP=0): 既存挙動完全維持 (= legacy + v2 並走)
+- audition / solo fixture build (= LEGACY_SKIP=1): v2 dispatch のみ動作 = solo trigger 分離
+
+#### fixture 前提確認完了 milestone (= 正式記録、 audition judgment 確定後の ADR 昇格)
+
+user 報告 literal (= 5 wav 提示後の technical confirmation):
+
+> 「きちんと 4 つとも分離している、 混ざっているのは四パート全部混ざっている事を確認できる」
+
+確認できた内容 (= user 明示 4 件):
+
+1. 4 solo wav はきちんと分離している (= LEGACY_SKIP=1 で legacy 経路 skip 機能 confirm)
+2. integration wav では 4 パート全部が混ざっていることを確認できる (= 4+ 経路同居 audition target 達成)
+3. candidate C の legacy skip 方針は、 fixture 分離の目的を満たしている
+4. FM B solo に ADPCM-A rhythm が混入していた問題は、 v2 mute 破綻ではなく legacy dispatch 混入だった、 という解釈が強まる
+
+##### 「準備に留める」 → 「正式記録」 昇格規律 (= ADR 記録タイミング literal)
+
+main agent 前 turn (= commit `c439c77`) で本 milestone を ADR additive、 ただし user literal「ADR に記録する**準備**に**留める**」 (= ADR 本文への formal entry commit する前段階) 解釈不一致で先走り。 user (A) 解釈確定下、 `git revert c439c77` (= commit `c32db2e`、 force push 不使用 + 履歴明確維持) で ADR 外 staging へ一旦退避。 audition judgment 確定後に本 turn で正式記録に昇格 (= main agent「準備」 解釈と user「記録タイミング」 解釈の対照 literal、 後続 sub-sprint への参照可)。
+
+#### ζ-δ-2 audition approve judgment (= user 越川氏明示)
+
+user judgment literal:
+
+> 「userジャッジ、 5wavともOKでした」
+
+= 5 wav (= integration audition + 4 solo) 全部 approve = ζ-δ-2 audition material complete + ζ-δ-2 sub-sprint 完了判定 approve path:
+
+| audition target | judgment |
+|---|---|
+| 4+ 経路同居 (= integration wav、 4 経路同時成立判断可能) | ✅ approve |
+| FM B solo (= percussive 短いアタック反復) | ✅ approve |
+| SSG G solo (= 短く区切る) | ✅ approve |
+| ADPCM-B PPC solo (= PPC0 → PPC1 → yaml beat marker 順序) | ✅ approve |
+| ADPCM-A rhythm solo (= BD → SD → BD 識別) | ✅ approve |
+
+= **ζ-δ-2 audition material spec (= user 要求 5 件 literal + fixture 分離 + dispatch gate isolation) 全部充足** confirmed。
+
+#### ζ-δ-2 sub-sprint 完了 + ζ-ε 移行 GO は user 介入軸
+
+ζ-δ-2 audition approve = **ζ-δ chain (= ζ-α / ζ-β / ζ-γ / ζ-δ-1 / ζ-δ-2) 完了**、 ただし **ζ-ε への移行 + ADR-0048 Draft → Accepted 化** は user 明示 GO 必要 (= ADR-0048 Draft 維持 + ζ-ε 進まず literal 維持):
+
+| 軸 | 状態 |
+|---|---|
+| dispatch gate fix / fixture 分離 verify | ✅ confirm 完了 (= fixture 前提確認完了 milestone) |
+| ζ-δ-2 audition approve judgment | ✅ confirm 完了 (= 5 wav 全部 approve) |
+| ζ-δ chain 完了 (= ζ-α/β/γ/δ-1/δ-2) | ✅ confirm 完了 |
+| ζ-ε 移行 GO | ❌ user 介入軸 (= main agent autonomous で進めず) |
+| ADR-0048 Draft → Accepted 移行 | ❌ user 介入軸 (= ζ-ε 完了後の user GO 必須) |
+| stash 退避分 (= FM voice round 2 + audition silent enforcement + verify update) 扱い | ❌ user 判断軸 (= 破棄 / 部分採用 / 保留) |
+
+##### ζ-δ-2 完了判定 literal (= chain-pr-A 4 本目 audition approve path)
+
+- driver source / build flag / verify gate / wav 生成 = ADR-0048 ζ-δ-2 section literal 完全充足
+- 5 wav (= integration + 4 solo) user approve confirm
+- production byte-identical 維持 (= m1 sha256 `b15883...4e4`)
+- 通常 fixture build 既存挙動完全維持
+- audition / solo fixture build (= LEGACY_SKIP=1) = v2 dispatch 経路分離 fixture 確立
+
+##### 次 step (= user 介入軸の 3 候補)
+
+- **(a) ζ-ε 移行 GO + ADR-0048 Accepted 化判断** = ζ-δ chain 完了確認下、 ζ-ε sub-sprint 起票 + ADR-0048 Accepted 化判断
+- **(b) stash 退避分の扱い judgment** = 破棄 / 部分採用 (= 例 FM voice round 2 のみ採用) / 保留
+- **(c) その他 sub-sprint 起票 or 別軸** = ζ-ε 移行前に別 axis (= 例 軸 B / 軸 G 他 sprint) へ進む
+
+main agent autonomous で進めず、 user GO 取得後に着手。

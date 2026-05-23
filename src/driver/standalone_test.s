@@ -90,6 +90,36 @@
         ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-α §allowed-touch 例外 3 条件 AND 充足下)。
         .equ    TEST_MODE_AXIS_G_V2_PPC,       0
 
+        ;; ADR-0048 ζ-δ-2: 軸 G audition fixture revise toggle (= ζ-δ-1 audition reject +
+        ;;   改修方向 spec literal 5 件確定下、 audition fixture build 時のみ新 percussive
+        ;;   FM voice + length 改修 fixture address swap)。 0 = production (= 完全 byte-identical
+        ;;   維持、 audition fixture 不 assemble)、 1 = ζ-δ-2 audition revise fixture build
+        ;;   (= TEST_MODE_V2_SONG_FIXTURE=1 + TEST_MODE_AXIS_G_V2_PPC=1 と組合せ前提、
+        ;;   fm_voice_data_audition swap + length 0x06/0x30/0x14 fixture swap)。
+        ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 充足下)。
+        .equ    TEST_MODE_AXIS_G_AUDITION_REVISE, 0
+
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag 4 個 (= user 1 パートずつ
+        ;;   wav 要求対応下、 audition revise fixture build 時に slot 0/1/9/10 を独立 inactive
+        ;;   化 = solo audition wav 生成用)。 全 4 flag = 0 default で既存 4 経路同居 audition、
+        ;;   1 flag = 1 で対応 slot inactive (= FLAGS=0 set)、 残 3 経路のみ active = solo audition。
+        ;;   production 時は必ず全 4 flag = 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 下)。
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B,    0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G,   0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB,  0
+        .equ    TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM,  0
+
+        ;; ADR-0048 ζ-δ-2 dispatch gate finding (= user 「音が混ざる」 finding 由来 root cause
+        ;;   investigation 反映、 candidate C 採用): audition / solo fixture 内で legacy
+        ;;   pmdneo_song_main 経路 (= IRQ tick L723 `.if TEST_MODE_CHORD == 5` 配下 call) が
+        ;;   v2 dispatch と並走 = K/L-Q/J/A-I part 周期 trigger が solo fixture に混入する真因。
+        ;;   本 flag=1 で IRQ tick 内 legacy pmdneo_song_main 呼び出しを skip = v2 dispatch 経路
+        ;;   のみ動作 = solo fixture 完全分離。 production build / 通常 fixture build (= flag=0)
+        ;;   は既存挙動完全維持 = byte-identical 維持。
+        ;;   production 時は必ず 0 維持 (= ADR-0048 ζ-δ-2 §allowed-touch 例外 6 条件 AND + user
+        ;;   dispatch gate root cause finding 1 条件 拡張下の binary toggle additive)。
+        .equ    TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP,  0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0
@@ -701,7 +731,15 @@ irq_handler_body:
         add     a, (hl)
         ld      (driver_subtick_acc), a
         jp      nc, irq_done              ; no overflow -> skip song dispatch
+.if TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP
+        ;; ADR-0048 ζ-δ-2 dispatch gate finding 反映 (= candidate C): audition / solo fixture
+        ;;   build 時に legacy pmdneo_song_main 経路を skip = v2 dispatch のみ動作。 既存
+        ;;   pmdneo_song_main body 完全不可触、 IRQ tick 内 .if 配下 call skip = additive 経路。
+        ;;   production build / 通常 fixture build (= flag=0) は既存挙動完全維持
+        ;;   (= byte-identical sha256 維持、 legacy dispatch 経路で song table データを continue 再生)。
+.else
         call    pmdneo_song_main
+.endif
         jp      irq_done
         .endif
 
@@ -1462,6 +1500,24 @@ fm_voice_data_default:
         .db     0x00, 0x00, 0x00, 0x00
         .db     0x0F, 0x0F, 0x0F, 0x0F
         .db     0x07
+
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+;; fm_voice_data_audition (ADR-0048 ζ-δ-2 audition fixture revise): percussive envelope
+;;   = AR=31 / DR=15 / SR=15 / SL=15 / RR=15、 TL=0x10、 alg=7、 fb=0。
+;;   ζ-δ-2 audition fixture build 時のみ pmdneo_v2_fm_voice_note_song wrapper 内
+;;   binary toggle で swap、 既存 fm_voice_data_default (= ADR-0057 β、 DR=0/SR=0/SL=0 の
+;;   sustain hold 持続音色) 完全不可触。 user 要求 spec literal「FM B: 持続音ではなく、
+;;   短いアタックの反復音」 反映 (= ε partial 同形式 root cause = default voice DR=0/SR=0/SL=0)。
+;;   25 byte (= OPN voice format、 pmdneo_fm_voice_set 既存 routine 経由 reg 0x30-0x80/0xB0 emit)。
+fm_voice_data_audition:
+        .db     0x01, 0x01, 0x01, 0x01  ; op DT/MUL = default 同
+        .db     0x10, 0x10, 0x10, 0x10  ; op TL = 0x10 (= -12 dB approx、 audible 維持、 default 0x18 より高出力)
+        .db     0x1F, 0x1F, 0x1F, 0x1F  ; op KS/AR = AR=31 (= 最速 attack、 default 同)
+        .db     0x0F, 0x0F, 0x0F, 0x0F  ; op AM/DR = DR=15 (= 速い decay、 default DR=0 と差別 = percussive 化 root)
+        .db     0x0F, 0x0F, 0x0F, 0x0F  ; op SR = sustain rate 15 (= 速い sustain decay、 default SR=0 と差別 = sustain 即 silent)
+        .db     0xFF, 0xFF, 0xFF, 0xFF  ; op SL/RR = SL=15 + RR=15 (= sustain 即 silent + 速い release、 default SL=0 と差別 = percussive 化 root)
+        .db     0x07                    ; alg/fb = alg=7 (= 全 op carrier、 default 同) + fb=0
+.endif
 
         .org 0x0600
 fm_keyon_values:
@@ -2471,7 +2527,14 @@ pmdneo_v2_rhythm_dispatch:
 pmdneo_v2_song_init:
         ;; slot 0 = pmdneo_v2_partwork_base + 0*12 = 0xFD79 (= FM ch B)
         ld      hl, #pmdneo_v2_partwork_base
+        ;; ADR-0048 ζ-δ-2 audition fixture revise: fixture address binary toggle
+        ;;   AUDITION_REVISE=1 で audition 版 (= length 0x10 → 0x06、 短いアタック反復) swap、
+        ;;   =0 で既存 fixture_fm_b 維持。 sdasz80 .if 値比較禁止規律遵守。
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+        ld      bc, #pmdneo_v2_song_fixture_fm_b_audition
+.else
         ld      bc, #pmdneo_v2_song_fixture_fm_b
+.endif
         ld      (hl), c                 ; OFF_ADDR lo
         inc     hl
         ld      (hl), b                 ; OFF_ADDR hi
@@ -2490,11 +2553,25 @@ pmdneo_v2_song_init:
         inc     hl
         ld      (hl), b                 ; OFF_LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+        ;;   TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B=1 で slot 0 (= FM B) inactive (= FLAGS=0)、
+        ;;   solo audition wav 生成用 (= user 1 パートずつ wav 要求対応)、
+        ;;   既存 ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 下の binary toggle additive
+        ;;   (= sdasz80 .if 値比較禁止規律遵守、 既存 wrapper / fixture / routine body 完全不可触)。
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+        ld      (hl), #0                ; OFF_FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                ; OFF_FLAGS = active
+.endif
 
         ;; slot 1 = pmdneo_v2_partwork_base + 12 = 0xFD85 (= SSG ch G)
         ld      hl, #(pmdneo_v2_partwork_base + 12)
+        ;; ADR-0048 ζ-δ-2 audition fixture revise: fixture address binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+        ld      bc, #pmdneo_v2_song_fixture_ssg_g_audition
+.else
         ld      bc, #pmdneo_v2_song_fixture_ssg_g
+.endif
         ld      (hl), c
         inc     hl
         ld      (hl), b
@@ -2513,7 +2590,12 @@ pmdneo_v2_song_init:
         inc     hl
         ld      (hl), b                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G
+        ld      (hl), #0                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                ; FLAGS = active
+.endif
 
         ;; slot 2..(PMDNEO_V2_PART_COUNT-1): FLAGS=0 (= 不活性 明示 clear、 他 field は触らない)
         ;; ADR-0059 β で PART_COUNT 9→11 拡張 = loop count 7 → 9 へ自動追従 (= γ/δ で
@@ -2533,10 +2615,18 @@ pmdneo_v2_song_init_clear_loop:
         ;; (= ADPCM-B 軸 G PPC 経路) + ADDR を fixture_adpcmb_j_ppc に切替 (binary toggle、
         ;; sdasz80 .if 値比較禁止規律遵守)。 production (= =0) では既存 KIND=2 init 維持。
         ld      hl, #(pmdneo_v2_partwork_base + 9*12)
-.if TEST_MODE_AXIS_G_V2_PPC
-        ld      bc, #pmdneo_v2_song_fixture_adpcmb_j_ppc
+        ;; ADR-0048 ζ-δ-2 audition fixture revise: AUDITION_REVISE=1 で audition 版
+        ;;   (= length 0x10 → 0x30、 PPC entry 0 / entry 1 / yaml beat marker 順序聞き分け
+        ;;   target) swap、 =0 + V2_PPC=1 で ζ-δ-1 fixture_adpcmb_j_ppc 維持、
+        ;;   =0 + V2_PPC=0 で既存 ADR-0059 fixture_adpcmb_j 維持。
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+        ld      bc, #pmdneo_v2_song_fixture_adpcmb_j_ppc_audition
 .else
+  .if TEST_MODE_AXIS_G_V2_PPC
+        ld      bc, #pmdneo_v2_song_fixture_adpcmb_j_ppc
+  .else
         ld      bc, #pmdneo_v2_song_fixture_adpcmb_j
+  .endif
 .endif
         ld      (hl), c                                 ; ADDR lo
         inc     hl
@@ -2560,12 +2650,22 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), b                                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB
+        ld      (hl), #0                                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                                ; FLAGS = active
+.endif
 
         ;; ADR-0059 δ: slot 10 = K part = rhythm active init (= slot 9 init 後 additive)
         ;; slot 10 base = pmdneo_v2_partwork_base + 10 * 12 = 0xFDDD
         ld      hl, #(pmdneo_v2_partwork_base + 10*12)
+        ;; ADR-0048 ζ-δ-2 audition fixture revise: fixture address binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+        ld      bc, #pmdneo_v2_song_fixture_rhythm_k_audition
+.else
         ld      bc, #pmdneo_v2_song_fixture_rhythm_k
+.endif
         ld      (hl), c                                 ; ADDR lo
         inc     hl
         ld      (hl), b                                 ; ADDR hi
@@ -2584,7 +2684,12 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), b                                 ; LOOP hi
         inc     hl
+        ;; ADR-0048 ζ-δ-2 solo audition extension: per-slot MUTE flag binary toggle
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM
+        ld      (hl), #0                                ; FLAGS = inactive (= solo audition mute)
+.else
         ld      (hl), #1                                ; FLAGS = active
+.endif
         ret
 
 ;; pmdneo_v2_song_dispatch (ADR-0058 γ): v2 PartWork slot 0..PMDNEO_V2_PART_COUNT-1
@@ -2738,7 +2843,17 @@ pmdneo_v2_part_dispatch_note_fm:
 pmdneo_v2_fm_voice_note_song:
         push    af                      ; note 退避
         push    bc                      ; pmdneo_fm_voice_set は BC 非保存
+        ;; ADR-0048 ζ-δ-2 audition fixture revise: voice address binary toggle
+        ;;   TEST_MODE_AXIS_G_AUDITION_REVISE=1 で fm_voice_data_audition (= percussive、
+        ;;   AR=31 / DR=15 / SR=15 / SL=15 / RR=15) swap、 =0 で既存 fm_voice_data_default
+        ;;   (= ADR-0057 β、 sustain hold 持続音色) 維持。 routine logic (= push/call/pop 順序)
+        ;;   完全不変、 voice address literal のみ binary toggle (= sdasz80 .if 値比較禁止
+        ;;   規律遵守、 ADR-0048 ζ-δ-2 §allowed-touch 例外 5 条件 AND 下の additive)。
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+        ld      hl, #fm_voice_data_audition
+.else
         ld      hl, #fm_voice_data_default
+.endif
         call    pmdneo_fm_voice_set
         pop     bc
         pop     af
@@ -2953,6 +3068,58 @@ pmdneo_v2_song_fixture_adpcmb_j_ppc:
 ;;   末尾 0x80 = loop。
 pmdneo_v2_song_fixture_rhythm_k:
         .db     0x01, 0x10, 0x02, 0x10, 0x01, 0x10, 0x80
+
+.if TEST_MODE_AXIS_G_AUDITION_REVISE
+;; ADR-0048 ζ-δ-2 audition fixture revise block (= 既存 fixture 完全不可触並設、
+;;   TEST_MODE_AXIS_G_AUDITION_REVISE=1 で song_init binary toggle 経由 swap)。
+;;   user 要求 spec literal 5 件反映:
+;;   - FM B / SSG G: length 0x10 → 0x06 (= 約 24 ms、 短いアタック反復、 default
+;;     percussive voice (= fm_voice_data_audition) と組合せで聞き分け target)
+;;   - ADPCM-B PPC: length 0x10 → 0x30 (= 約 130 ms、 sample 完全再生 + 終端で次 trigger =
+;;     PPC0 → PPC1 → yaml beat marker 順序聞き分け target)
+;;   - ADPCM-A rhythm: length 0x10 → 0x14 (= 約 53 ms、 BD/SD/BD 識別維持 target)
+;;   note byte = 既存 fixture と同 (= PPC entry range 安全 + yaml beat marker 0x7F 維持)。
+;;   末尾 0x80 = loop。
+;; ADR-0048 ζ-δ-2 solo audition extension (= user「MML 自体を各パートのみでビルド」 要求対応):
+;;   TEST_MODE_AXIS_G_AUDITION_MUTE_<slot>=1 で対応 fixture を empty MML (= loop terminator
+;;   0x80 only) に置換 = dispatch_note 経路で loop branch のみ = note trigger 起きない
+;;   = chip register に keyon write 起きない = 完全 mute (= solo audition build = MML レベル分離)。
+;;   既存 MUTE flag (= slot init FLAGS=active 内部 binary toggle) は dispatch skip するが
+;;   slot init body 内で chip state を touch する init 経路の残留可能性あったため fixture
+;;   level mute に経路変更 (= ζ-δ-2 user finding 反映、 commit f7b2e8a の FLAGS 内部 toggle は
+;;   revert 不要 = 重複 mute 経路 = safe redundancy)。
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x80                            ; empty MML (= loop terminator only、 solo audition mute)
+.else
+pmdneo_v2_song_fixture_fm_b_audition:
+        .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
+
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G
+pmdneo_v2_song_fixture_ssg_g_audition:
+        .db     0x80                            ; empty MML
+.else
+pmdneo_v2_song_fixture_ssg_g_audition:
+        .db     0x42, 0x06, 0x45, 0x06, 0x48, 0x06, 0x80
+.endif
+
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB
+pmdneo_v2_song_fixture_adpcmb_j_ppc_audition:
+        .db     0x80                            ; empty MML
+.else
+pmdneo_v2_song_fixture_adpcmb_j_ppc_audition:
+        .db     0x00, 0x30, 0x01, 0x30, 0x7F, 0x30, 0x80
+.endif
+
+.if TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM
+pmdneo_v2_song_fixture_rhythm_k_audition:
+        .db     0x80                            ; empty MML
+.else
+pmdneo_v2_song_fixture_rhythm_k_audition:
+        .db     0x01, 0x14, 0x02, 0x14, 0x01, 0x14, 0x80
+.endif
+.endif
 
 .endif
 
