@@ -211,7 +211,7 @@ build-mode 排他 = 既存 cmd 0x05 song (`TEST_MODE_CHORD==5`) と v2 song を 
 | β (= v2 PartWork compact layout) | **完了** (= 39th session、 PR #97) | PR #97 | β 実装 review approve |
 | γ (= v2 song parse + dispatch wiring) | **完了** (= 39th session、 PR #98) | PR #98 | γ kickoff plan review revise (= 案 b' + 案 E'-b 推奨 + γ-2/γ-3/γ-6 修正 + I-6〜I-9 追加 反映) + γ 実装 review 4 round (= round 1 = 不可触/規律/verify gate revise → 案 b' + E'-b + γ-2 literal value gate + dashboard 予約簿 sync + γ-2 noref fallback risk → ref inline 必須生成 + ref failure 二重カウント除去) → round 4 approve |
 | δ (= IRQ 連携 + tempo) | **完了** (= 39th session、 PR #99) | PR #99 | δ kickoff plan review 4 round (= round 1 revise SRAM 0xFD3D 衝突 + tick 全 exit single epilogue + entry song_init 必須維持 + verify F-a + risk I-10〜I-13 + sub-agent prompt isolation worktree 限定 → round 2 revise cold init 全経路 → round 3 revise δ-10 cmd 0x05 callsite 整合 → round 4 approve) + δ 実装 review 2 round (= round 1 revise δ-3 init-only false PASS → strengthen ADDR lo uniq + LEN uniq → round 2 approve) |
-| ε (= verify script 体系化) | **完了** (= 39th session、 PR #100 push 後確定) | (= push 後 PR 番号確定) | ε kickoff plan review 2 round (= round 1 revise D' completion proof line literal 改訂 + Annex D/E 履歴不変 + Annex F rename 注記 → round 2 approve) + ε 実装 review (= 後続 commit 後投入) |
+| ε (= verify script 体系化) | **完了** (= 39th session、 PR #100) | PR #100 | ε kickoff plan review 2 round (= round 1 revise D' completion proof line literal 改訂 + Annex D/E 履歴不変 + Annex F rename 注記 → round 2 approve) + ε 実装 review 2 round (= round 1 revise stale trace false PASS risk → 3 MAME invocation 全前 `rm -rf $TRACE_DIR` 追加 → round 2 approve) |
 | ζ (= completion + Draft → Accepted 判断) | 未着手 | - | - |
 
 ## Annex D: γ 実装 completion record (= v2 song parse + per-part dispatch wiring)
