@@ -1619,3 +1619,67 @@ user 判断 (= 「修正方針は candidate C を推奨」) を受領、 新 fla
 - production build (= 全 flag 0): m1 sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` = byte-identical 維持
 - 通常 fixture build (= V2_SONG_FIXTURE=1 + V2_PPC=1 + LEGACY_SKIP=0): 既存挙動完全維持 (= legacy + v2 並走)
 - audition / solo fixture build (= LEGACY_SKIP=1): v2 dispatch のみ動作 = solo trigger 分離
+
+#### fixture 前提確認完了 milestone (= 正式記録、 audition judgment 確定後の ADR 昇格)
+
+user 報告 literal (= 5 wav 提示後の technical confirmation):
+
+> 「きちんと 4 つとも分離している、 混ざっているのは四パート全部混ざっている事を確認できる」
+
+確認できた内容 (= user 明示 4 件):
+
+1. 4 solo wav はきちんと分離している (= LEGACY_SKIP=1 で legacy 経路 skip 機能 confirm)
+2. integration wav では 4 パート全部が混ざっていることを確認できる (= 4+ 経路同居 audition target 達成)
+3. candidate C の legacy skip 方針は、 fixture 分離の目的を満たしている
+4. FM B solo に ADPCM-A rhythm が混入していた問題は、 v2 mute 破綻ではなく legacy dispatch 混入だった、 という解釈が強まる
+
+##### 「準備に留める」 → 「正式記録」 昇格規律 (= ADR 記録タイミング literal)
+
+main agent 前 turn (= commit `c439c77`) で本 milestone を ADR additive、 ただし user literal「ADR に記録する**準備**に**留める**」 (= ADR 本文への formal entry commit する前段階) 解釈不一致で先走り。 user (A) 解釈確定下、 `git revert c439c77` (= commit `c32db2e`、 force push 不使用 + 履歴明確維持) で ADR 外 staging へ一旦退避。 audition judgment 確定後に本 turn で正式記録に昇格 (= main agent「準備」 解釈と user「記録タイミング」 解釈の対照 literal、 後続 sub-sprint への参照可)。
+
+#### ζ-δ-2 audition approve judgment (= user 越川氏明示)
+
+user judgment literal:
+
+> 「userジャッジ、 5wavともOKでした」
+
+= 5 wav (= integration audition + 4 solo) 全部 approve = ζ-δ-2 audition material complete + ζ-δ-2 sub-sprint 完了判定 approve path:
+
+| audition target | judgment |
+|---|---|
+| 4+ 経路同居 (= integration wav、 4 経路同時成立判断可能) | ✅ approve |
+| FM B solo (= percussive 短いアタック反復) | ✅ approve |
+| SSG G solo (= 短く区切る) | ✅ approve |
+| ADPCM-B PPC solo (= PPC0 → PPC1 → yaml beat marker 順序) | ✅ approve |
+| ADPCM-A rhythm solo (= BD → SD → BD 識別) | ✅ approve |
+
+= **ζ-δ-2 audition material spec (= user 要求 5 件 literal + fixture 分離 + dispatch gate isolation) 全部充足** confirmed。
+
+#### ζ-δ-2 sub-sprint 完了 + ζ-ε 移行 GO は user 介入軸
+
+ζ-δ-2 audition approve = **ζ-δ chain (= ζ-α / ζ-β / ζ-γ / ζ-δ-1 / ζ-δ-2) 完了**、 ただし **ζ-ε への移行 + ADR-0048 Draft → Accepted 化** は user 明示 GO 必要 (= ADR-0048 Draft 維持 + ζ-ε 進まず literal 維持):
+
+| 軸 | 状態 |
+|---|---|
+| dispatch gate fix / fixture 分離 verify | ✅ confirm 完了 (= fixture 前提確認完了 milestone) |
+| ζ-δ-2 audition approve judgment | ✅ confirm 完了 (= 5 wav 全部 approve) |
+| ζ-δ chain 完了 (= ζ-α/β/γ/δ-1/δ-2) | ✅ confirm 完了 |
+| ζ-ε 移行 GO | ❌ user 介入軸 (= main agent autonomous で進めず) |
+| ADR-0048 Draft → Accepted 移行 | ❌ user 介入軸 (= ζ-ε 完了後の user GO 必須) |
+| stash 退避分 (= FM voice round 2 + audition silent enforcement + verify update) 扱い | ❌ user 判断軸 (= 破棄 / 部分採用 / 保留) |
+
+##### ζ-δ-2 完了判定 literal (= chain-pr-A 4 本目 audition approve path)
+
+- driver source / build flag / verify gate / wav 生成 = ADR-0048 ζ-δ-2 section literal 完全充足
+- 5 wav (= integration + 4 solo) user approve confirm
+- production byte-identical 維持 (= m1 sha256 `b15883...4e4`)
+- 通常 fixture build 既存挙動完全維持
+- audition / solo fixture build (= LEGACY_SKIP=1) = v2 dispatch 経路分離 fixture 確立
+
+##### 次 step (= user 介入軸の 3 候補)
+
+- **(a) ζ-ε 移行 GO + ADR-0048 Accepted 化判断** = ζ-δ chain 完了確認下、 ζ-ε sub-sprint 起票 + ADR-0048 Accepted 化判断
+- **(b) stash 退避分の扱い judgment** = 破棄 / 部分採用 (= 例 FM voice round 2 のみ採用) / 保留
+- **(c) その他 sub-sprint 起票 or 別軸** = ζ-ε 移行前に別 axis (= 例 軸 B / 軸 G 他 sprint) へ進む
+
+main agent autonomous で進めず、 user GO 取得後に着手。
