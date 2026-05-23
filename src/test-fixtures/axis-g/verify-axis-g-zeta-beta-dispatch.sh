@@ -36,7 +36,7 @@
 #   - set -euo pipefail + ok/ng helper + FAIL counter
 #   - 全 MAME invocation 前に rm -rf $TRACE_DIR (= stale trace false PASS 防止)
 #   - 末尾 production build 復帰 (= production byte-identical 維持)
-#   - completion proof line 16 行 (= FAIL=0 通過時のみ literal 出力)
+#   - completion proof line 18 行 (= primary 8 + supplemental 5 + ζ-δ 新 2 gate + artifact 1 + audio scope 1 + ready signal 1、 FAIL=0 通過時のみ literal 出力)
 #
 # usage: bash src/test-fixtures/axis-g/verify-axis-g-zeta-beta-dispatch.sh
 
@@ -272,6 +272,11 @@ ZD_YAML_WRAPPER_CP=$(awk '
   flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_done:/{exit}
   flag && /cp[ \t]+#0x7F/{print "ok"; exit}
 ' "$LST_ZB")
+ZD_YAML_WRAPPER_JR=$(awk '
+  /pmdneo_v2_adpcmb_voice_note_song_ppc:/{flag=1; next}
+  flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_done:/{exit}
+  flag && /jr[ \t]+z,[ \t]+pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat/{print "ok"; exit}
+' "$LST_ZB")
 ZD_YAML_WRAPPER_XOR=$(awk '
   /pmdneo_v2_adpcmb_voice_note_song_ppc_yaml_beat:/{flag=1; next}
   flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_call:/{exit}
@@ -282,10 +287,10 @@ ZD_YAML_WRAPPER_LD=$(awk '
   flag && /pmdneo_v2_adpcmb_voice_note_song_ppc_call:/{exit}
   flag && /ld[ \t]+\(driver_pne_sample_table_id\),[ \t]*a/{print "ok"; exit}
 ' "$LST_ZB")
-if [ "$LOWER7_UNIQ" -ge 2 ] && [ "$ZD_YAML_FIXTURE_BYTE" -ge 1 ] && [ "$ZD_YAML_WRAPPER_CP" = "ok" ] && [ "$ZD_YAML_WRAPPER_XOR" = "ok" ] && [ "$ZD_YAML_WRAPPER_LD" = "ok" ]; then
-  ok "zeta-delta-yaml-beat-marker: lower 7 bit uniq ${LOWER7_UNIQ} (>= 2) + 0x7F fixture byte 静的存在 + wrapper cp #0x7F + xor a + ld (driver_pne_sample_table_id),a 3 命令 sequence 静的存在 (= ADR-0048 ζ-δ option A yaml beat marker route proof)"
+if [ "$LOWER7_UNIQ" -ge 2 ] && [ "$ZD_YAML_FIXTURE_BYTE" -ge 1 ] && [ "$ZD_YAML_WRAPPER_CP" = "ok" ] && [ "$ZD_YAML_WRAPPER_JR" = "ok" ] && [ "$ZD_YAML_WRAPPER_XOR" = "ok" ] && [ "$ZD_YAML_WRAPPER_LD" = "ok" ]; then
+  ok "zeta-delta-yaml-beat-marker: lower 7 bit uniq ${LOWER7_UNIQ} (>= 2) + 0x7F fixture byte 静的存在 + wrapper cp #0x7F + jr z + xor a + ld (driver_pne_sample_table_id),a 4 命令 sequence 静的存在 (= ADR-0048 ζ-δ option A yaml beat marker route proof + branch 命令明示確認)"
 else
-  ng "zeta-delta-yaml-beat-marker 不成立 (lower7=${LOWER7_UNIQ} / fixture_0x7F=${ZD_YAML_FIXTURE_BYTE} / cp=${ZD_YAML_WRAPPER_CP:-none} / xor=${ZD_YAML_WRAPPER_XOR:-none} / ld=${ZD_YAML_WRAPPER_LD:-none})"
+  ng "zeta-delta-yaml-beat-marker 不成立 (lower7=${LOWER7_UNIQ} / fixture_0x7F=${ZD_YAML_FIXTURE_BYTE} / cp=${ZD_YAML_WRAPPER_CP:-none} / jr=${ZD_YAML_WRAPPER_JR:-none} / xor=${ZD_YAML_WRAPPER_XOR:-none} / ld=${ZD_YAML_WRAPPER_LD:-none})"
 fi
 
 # ============================================================
@@ -334,7 +339,7 @@ else
 fi
 
 # ============================================================
-# 集計 + completion proof line 16 行
+# 集計 + completion proof line 18 行
 # ============================================================
 echo ""
 if [ "$FAIL" -eq 0 ]; then
