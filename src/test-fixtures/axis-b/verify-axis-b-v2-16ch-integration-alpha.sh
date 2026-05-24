@@ -113,7 +113,7 @@ build_and_trace_v2_only() {
   fi
   cp "$YMFM" "$ymfm_out"
   cp "$ZMEM" "$zmem_out"
-  ok "env $label build + trace OK (chip=$chip、 ymfm=$(wc -l < "$ymfm_out" | tr -d ' ') lines、 zmem=$(wc -l < "$zmem_out" | tr -d ' ') lines)"
+  ok "env ${label} build + trace OK (chip=${chip}, ymfm=$(wc -l < "$ymfm_out" | tr -d ' ') lines, zmem=$(wc -l < "$zmem_out" | tr -d ' ') lines)"
 }
 
 build_and_trace_pmddotnet_mml() {
@@ -136,19 +136,19 @@ build_and_trace_pmddotnet_mml() {
 
   rm -f "$PREPROCESSED"
   if ! PMDDOTNET_MML="$mml_path" PMDDOTNET_MODE="$mode" PMDDOTNET_DLL="$PMDDOTNET_DLL" PMDNEO_USE_PMDDOTNET=1 bash scripts/build-poc.sh --chip "$chip" >"$ALPHA_OUT_DIR/env-${label}-build.log" 2>&1; then
-    ng "env $label PMDDOTNET_MML build FAIL (chip=$chip、 mode=$mode、 mml=$mml_path)、 build log = $ALPHA_OUT_DIR/env-${label}-build.log"
+    ng "env ${label} PMDDOTNET_MML build FAIL (chip=${chip}, mode=${mode}, mml=${mml_path}), build log = $ALPHA_OUT_DIR/env-${label}-build.log"
     return 1
   fi
 
   rm -rf "$TRACE_DIR"
   bash scripts/run-mame.sh --headless --trace --wavwrite --wavwrite-seconds 5 >"$ALPHA_OUT_DIR/env-${label}-mame.log" 2>&1 || true
   if [ ! -f "$YMFM" ] || [ ! -f "$ZMEM" ]; then
-    ng "env $label trace 未生成 (chip=$chip、 mode=$mode、 mml=$mml_path)、 mame log = $ALPHA_OUT_DIR/env-${label}-mame.log"
+    ng "env ${label} trace 未生成 (chip=${chip}, mode=${mode}, mml=${mml_path}), mame log = $ALPHA_OUT_DIR/env-${label}-mame.log"
     return 1
   fi
   cp "$YMFM" "$ymfm_out"
   cp "$ZMEM" "$zmem_out"
-  ok "env $label build + trace OK (chip=$chip、 mode=$mode、 mml=$(basename "$mml_path")、 ymfm=$(wc -l < "$ymfm_out" | tr -d ' ') lines、 zmem=$(wc -l < "$zmem_out" | tr -d ' ') lines)"
+  ok "env ${label} build + trace OK (chip=${chip}, mode=${mode}, mml=$(basename "$mml_path"), ymfm=$(wc -l < "$ymfm_out" | tr -d ' ') lines, zmem=$(wc -l < "$zmem_out" | tr -d ' ') lines)"
 }
 
 # ============================================================
