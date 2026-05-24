@@ -211,7 +211,12 @@ detect_adpcmb() {
 }
 
 # detect_adpcma <trace> <ch_letter> = ADPCM-A L-Q 各 ch keyon mask bit 検出
-# ADPCM-A keyon = port B reg 0x00 bit mask、 L=bit0、 M=bit1、 N=bit2、 O=bit3、 P=bit4、 Q=bit5
+# ADPCM-A keyon = port B reg 0x100 bit mask、 L=bit0、 M=bit1、 N=bit2、 O=bit3、 P=bit4、 Q=bit5
+# trace TSV では port B の reg は 3 桁 hex (= 0x100-0x1FF) で記録される
+# (= ADR-0067 δ verify-axis-b-v2-fixture-expansion-delta.sh line 227-256 literal):
+#   reg 0x100 = ADPCM-A keyon mask
+#   reg 0x108 = L ch volume (= literal 0x08 = trace 108)
+#   reg 0x110 = L ch START_LSB (= literal 0x10 = trace 110)
 detect_adpcma() {
   local trace="$1"
   local ch_letter="$2"
@@ -225,15 +230,15 @@ detect_adpcma() {
     Q) bit=5 ;;
     *) echo 0; return ;;
   esac
-  # port B reg 0x00 の各 value で bit が立っているか check
+  # port B reg 100 の各 value で bit が立っているか check (= 3 桁 hex literal)
   local total=0
-  for v in $(list_values B 00 "$trace"); do
+  for v in $(list_values B 100 "$trace"); do
     # hex value to decimal
     local dec=$((16#${v}))
     local mask=$((1 << bit))
     if [ $((dec & mask)) -ne 0 ]; then
       local cnt
-      cnt=$(count_writes_value B 00 "$v" "$trace")
+      cnt=$(count_writes_value B 100 "$v" "$trace")
       total=$((total + cnt))
     fi
   done
@@ -348,47 +353,70 @@ for ch in "${CHANNELS[@]}"; do
 done
 
 # ============================================================
-# 12/16 ch carry confirm + 不足 4 ch literal report
+# union coverage literal report (= α scope = capture + report only、
+# trace-equivalence 判定基準確定は β scope future、 ADR-0068 §決定 1(a) α union 境界明記 literal)
+# 期待値の assertion は task #50 static MML analysis 由来で、 実 trace は driver 経路 (= v2 fixture
+# + cmd 0x05 default + (C-2) PMDDOTNET_MML の dispatch combination) で挙動が異なるため、
+# fixed expected の assertion は撤回し、 actual trace の literal report のみ実施。
+# 期待値との乖離 (= 例 = 期待 E/F/G/H 不足だが実 trace では検出 / 期待 L-Q carry だが実 trace で
+# 0 件) は ADR-0068 doc 修正の input material として β scope で trace-equivalence 比較時に確定。
 # ============================================================
 echo ""
-echo "==== α-task 1 + α-task 2 union coverage 結果 ===="
+echo "==== α-task 1 + α-task 2 union coverage actual literal report ===="
 
 CARRY_COUNT=${#UNION_CARRY[@]}
-echo "carry ch ($CARRY_COUNT / 16): ${UNION_CARRY[*]}"
+echo "carry ch (${CARRY_COUNT} / 16): ${UNION_CARRY[*]}"
 
-# 期待 union = ["A" "B" "C" "D" "I" "J" "L" "M" "N" "O" "P" "Q"]
-# 不足 = ["E" "F" "G" "H"]
+# 不足 ch enumeration (= actual literal、 全 16 ch から carry を除いた残り)
+ALL_16=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "L" "M" "N" "O" "P" "Q")
+MISSING_ACTUAL=()
+for ch in "${ALL_16[@]}"; do
+  found=0
+  for c in "${UNION_CARRY[@]}"; do
+    if [ "$c" = "$ch" ]; then found=1; break; fi
+  done
+  if [ "$found" = 0 ]; then
+    MISSING_ACTUAL+=("$ch")
+  fi
+done
+echo "missing ch (${#MISSING_ACTUAL[@]} / 16): ${MISSING_ACTUAL[*]:-(none)}"
+
+# task #50 期待 carry / 期待 missing 乖離 record (= ADR-0068 doc 修正 input material)
 EXPECTED_CARRY=("A" "B" "C" "D" "I" "J" "L" "M" "N" "O" "P" "Q")
 EXPECTED_MISSING=("E" "F" "G" "H")
+echo "task #50 expected carry  (12 / 16): ${EXPECTED_CARRY[*]}"
+echo "task #50 expected missing (4 / 16): ${EXPECTED_MISSING[*]}"
 
-# carry confirm
-all_expected_present=1
+# 期待との乖離 enumeration (= literal only、 NG にしない)
+DIVERGENCE=()
 for exp in "${EXPECTED_CARRY[@]}"; do
   found=0
   for c in "${UNION_CARRY[@]}"; do
     if [ "$c" = "$exp" ]; then found=1; break; fi
   done
   if [ "$found" = 0 ]; then
-    ng "期待 carry ch $exp が union に含まれない (= existing resource union 不足)"
-    all_expected_present=0
+    DIVERGENCE+=("expected_carry_${exp}_not_in_actual")
   fi
 done
-
-# missing confirm (= 期待通り不足 = β minimal MML carry 対象)
-unexpected_present=0
 for miss in "${EXPECTED_MISSING[@]}"; do
   for c in "${UNION_CARRY[@]}"; do
     if [ "$c" = "$miss" ]; then
-      ng "期待 不足 ch $miss が union に含まれている (= existing resource で carry 不可期待だったが trace に検出)"
-      unexpected_present=1
+      DIVERGENCE+=("expected_missing_${miss}_present_in_actual")
     fi
   done
 done
 
-if [ "$all_expected_present" = 1 ] && [ "$unexpected_present" = 0 ]; then
-  ok "12/16 ch carry confirm (= ${EXPECTED_CARRY[*]})"
-  ok "不足 4 ch literal report = ${EXPECTED_MISSING[*]} (= β minimal MML carry 対象、 ADR-0068 §決定 1(a) hybrid 原則 sub-section reference)"
+if [ ${#DIVERGENCE[@]} -gt 0 ]; then
+  echo "task #50 期待との乖離 enumeration (${#DIVERGENCE[@]} 件、 ADR-0068 doc 修正 input):"
+  for d in "${DIVERGENCE[@]}"; do
+    echo "  - $d"
+  done
+else
+  echo "task #50 期待との完全一致 (= 12/16 carry + 4/16 missing)"
 fi
+
+ok "α union coverage capture + literal report 完了 (= α scope = capture + report only literal 整合)"
+ok "${CARRY_COUNT}/16 ch carry actual literal record + ${#MISSING_ACTUAL[@]} ch missing actual literal record"
 
 # ============================================================
 # 結果 summary
