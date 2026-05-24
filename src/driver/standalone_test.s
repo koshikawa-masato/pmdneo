@@ -2609,34 +2609,16 @@ pmdneo_v2_song_init_clear_loop:
         dec     a
         jr      nz, pmdneo_v2_song_init_clear_loop
 
-        ;; ADR-0067 α: slot 2 = FM ch A active init (= clear loop 後 additive、 ADR-0058 γ
-        ;;   slot 0/1 pattern + ADR-0059 γ-δ slot 9/10 pattern 継承、 ch_idx + KIND 変更)。
-        ;;   ADR-0006 §B chip 制約 = ym2610 target では FM A は init せず stream 読捨 = trace
-        ;;   に keyon 出ない expected (= 非可聴)、 ym2610b target で audible (= ADR-0067 δ
-        ;;   gate-3 別 build verify)。 既存 _fm_b / _ssg_g / _adpcmb_j / _rhythm_k 完全不変。
-        ld      hl, #(pmdneo_v2_partwork_base + 2*12)
-        ld      bc, #pmdneo_v2_song_fixture_fm_a
-        ld      (hl), c                                 ; ADDR lo
-        inc     hl
-        ld      (hl), b                                 ; ADDR hi
-        inc     hl
-        ld      (hl), #0                                ; LEN
-        inc     hl
-        ld      (hl), #0                                ; NOTE
-        inc     hl
-        ld      (hl), #0                                ; CH_IDX = 0 (= FM ch A、 ym2610b audible)
-        inc     hl
-        ld      (hl), #0                                ; KIND = 0 (= FM)
-        inc     hl
-        ld      (hl), #0                                ; OCTAVE
-        inc     hl
-        ld      (hl), c                                 ; LOOP lo
-        inc     hl
-        ld      (hl), b                                 ; LOOP hi
-        inc     hl
-        ld      (hl), #1                                ; FLAGS = active
+        ;; ADR-0067 α: FM 残 5 ch active init (= clear loop 後 additive、 ADR-0058 γ slot 0/1
+        ;;   pattern + ADR-0059 γ-δ slot 9/10 pattern 継承、 ch_idx + KIND + chip target 別
+        ;;   active policy)。 ADR-0058 γ comment「slot 初期化で active ch_idx のみ選択 (= ym2610
+        ;;   silent skip 対象は init 段階で回避)」 + ADR-0006 §B chip 制約 (= ym2610 で FM A/D/F
+        ;;   非可聴 = init せず stream 読捨) 遵守 = slot 2/4/6 (= FM A/D/F) は
+        ;;   `.if PMDNEO_TARGET_CHIP_YM2610B` 配下のみ active 化 (= ym2610b build で全 5 ch active、
+        ;;   ym2610 production default では slot 3/5 = FM C/E のみ active + slot 2/4/6 = clear
+        ;;   loop で FLAGS=0 default 維持)。 既存 _fm_b / _ssg_g / _adpcmb_j / _rhythm_k 完全不変。
 
-        ;; ADR-0067 α: slot 3 = FM ch C active init (= ym2610 / ym2610b 両 target で audible)。
+        ;; slot 3 = FM ch C active init (= ym2610 / ym2610b 両 target audible、 無条件 active)
         ld      hl, #(pmdneo_v2_partwork_base + 3*12)
         ld      bc, #pmdneo_v2_song_fixture_fm_c
         ld      (hl), c
@@ -2659,31 +2641,7 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), #1                                ; FLAGS = active
 
-        ;; ADR-0067 α: slot 4 = FM ch D active init (= ADR-0006 §B chip 制約 = ym2610 で非可聴、
-        ;;   ym2610b で audible)。
-        ld      hl, #(pmdneo_v2_partwork_base + 4*12)
-        ld      bc, #pmdneo_v2_song_fixture_fm_d
-        ld      (hl), c
-        inc     hl
-        ld      (hl), b
-        inc     hl
-        ld      (hl), #0
-        inc     hl
-        ld      (hl), #0
-        inc     hl
-        ld      (hl), #3                                ; CH_IDX = 3 (= FM ch D、 ym2610b audible)
-        inc     hl
-        ld      (hl), #0                                ; KIND = 0
-        inc     hl
-        ld      (hl), #0
-        inc     hl
-        ld      (hl), c
-        inc     hl
-        ld      (hl), b
-        inc     hl
-        ld      (hl), #1                                ; FLAGS = active
-
-        ;; ADR-0067 α: slot 5 = FM ch E active init (= ym2610 / ym2610b 両 target で audible)。
+        ;; slot 5 = FM ch E active init (= ym2610 / ym2610b 両 target audible、 無条件 active)
         ld      hl, #(pmdneo_v2_partwork_base + 5*12)
         ld      bc, #pmdneo_v2_song_fixture_fm_e
         ld      (hl), c
@@ -2696,6 +2654,58 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), #4                                ; CH_IDX = 4 (= FM ch E)
         inc     hl
+        ld      (hl), #0                                ; KIND = 0 (= FM)
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+.if PMDNEO_TARGET_CHIP_YM2610B
+        ;; ADR-0067 α: ym2610b 限定 active init (= ADR-0058 γ comment「slot 初期化で active
+        ;;   ch_idx のみ選択」 + ADR-0006 §B 「ym2610 で A/D は init せず stream 読捨」 整合)。
+        ;;   slot 2 (= FM A) / slot 4 (= FM D) / slot 6 (= FM F) を ym2610b build でのみ active 化、
+        ;;   ym2610 build (= production default) では clear loop で FLAGS=0 default 維持。
+
+        ;; slot 2 = FM ch A active init (= ym2610b 限定)
+        ld      hl, #(pmdneo_v2_partwork_base + 2*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_a
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0                                ; CH_IDX = 0 (= FM ch A、 ym2610b audible)
+        inc     hl
+        ld      (hl), #0                                ; KIND = 0 (= FM)
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; slot 4 = FM ch D active init (= ym2610b 限定)
+        ld      hl, #(pmdneo_v2_partwork_base + 4*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_d
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #3                                ; CH_IDX = 3 (= FM ch D、 ym2610b audible)
+        inc     hl
         ld      (hl), #0
         inc     hl
         ld      (hl), #0
@@ -2706,8 +2716,7 @@ pmdneo_v2_song_init_clear_loop:
         inc     hl
         ld      (hl), #1                                ; FLAGS = active
 
-        ;; ADR-0067 α: slot 6 = FM ch F active init (= ADR-0006 §B chip 制約 = ym2610 で非可聴、
-        ;;   ym2610b で audible)。
+        ;; slot 6 = FM ch F active init (= ym2610b 限定)
         ld      hl, #(pmdneo_v2_partwork_base + 6*12)
         ld      bc, #pmdneo_v2_song_fixture_fm_f
         ld      (hl), c
@@ -2729,6 +2738,7 @@ pmdneo_v2_song_init_clear_loop:
         ld      (hl), b
         inc     hl
         ld      (hl), #1                                ; FLAGS = active
+.endif
 
         ;; ADR-0059 γ: slot 9 = J part = ADPCM-B active init (= clear loop 後 additive)
         ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDE5
