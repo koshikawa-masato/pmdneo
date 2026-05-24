@@ -1,31 +1,36 @@
 #!/usr/bin/env bash
 #
 # PMDNEO ADR-0068 sub-sprint α verify script = (a) 実 MML 再生 統合 verify
-# (= existing resource activation = 既存 candidate K=3 union + α-task 1 rhythm-only proof、
-#   10 env × 2 trace 種 = 20 trace file capture + union coverage 統合 report)
+# (= K+L-Q candidate distinctness proof + A-J default integration trace、
+#   plan v7 = 40th session driver ground truth based、 10 env × 2 trace 種 = 20 trace file
+#   capture + 16/16 ch carry actual literal record + 三分割 wording report)
 #
-# verify scope: ADR-0068 §決定 2 α row literal (= plan v6-revised diff 3):
-#   α-task 1 = rhythm-only proof (= src/test-fixtures/step5/l-q-rhythm-song.mml、 ADPCM-A L-Q)
-#   α-task 2 = existing resource activation = 既存 candidate K=3 union:
-#     - vendor/PMDDotNET/SAMPLE2-baseline.mml (= FM A/B/C + SSG I + ADPCM-A L)
-#     - vendor/PMDDotNET/test-aes-ad.mml      (= FM A/B/D)
-#     - src/test-fixtures/step4/j-part-g.mml  (= ADPCM-B J)
+# verify scope: ADR-0068 §決定 2 α row plan v7 literal:
+#   α-task 1 = L-Q distinctness primary (= src/test-fixtures/step5/l-q-rhythm-song.mml、 L-Q 6 part each driven)
+#   α-task 2 = L-Q distinctness alternative + step5b proof + A-J default baseline:
+#     - src/test-fixtures/step5/l-q-tutti.mml          (= L-Q 6 part 同時 keyon)
+#     - src/test-fixtures/step11/l-q-rhythm-song-step5b.mml (= L-Q 6 part driven step5b proof)
+#     - vendor/PMDDotNET/SAMPLE2-baseline.mml          (= A-J default integration baseline、 plan v7 baseline 比較対象)
+#
+# plan v6-revised candidate selection (= SAMPLE2-baseline / test-aes-ad / j-part-g) = retired
+#   (= A-J part 由来 distinctness 想定が driver ground truth で wrong = test01/test02 default 駆動固定、
+#   plan v7 で K+L-Q distinct candidate に再選定)。 K distinctness は β scope future。
 #
 # build mode (= ADR-0068 §決定 3 literal):
 #   (B) v2 only trace capture: PMDNEO_V2_SONG_FIXTURE=1 + PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP=1
 #   (C-2) PMDDOTNET_MML:       PMDDOTNET_MML=<path> + PMDDOTNET_MODE=<N|B> + PMDNEO_USE_PMDDOTNET=1
 #
-# 10 env literal (= ADR-0068 §決定 2 α row 「10 env × ymfm/z80-mem 2 trace 種 = 20 trace file」):
-#   env # 1 = (B) v2-only ym2610
-#   env # 2 = (B) v2-only ym2610b
-#   env # 3 = (C-2) α-task 1 rhythm-only ym2610  (= l-q-rhythm-song、 mode B)
-#   env # 4 = (C-2) α-task 1 rhythm-only ym2610b (= 同、 mode B)
-#   env # 5 = (C-2) α-task 2 SAMPLE2-baseline ym2610  (= mode B、 ABCI+L)
-#   env # 6 = (C-2) α-task 2 SAMPLE2-baseline ym2610b (= 同、 mode B)
-#   env # 7 = (C-2) α-task 2 test-aes-ad ym2610  (= mode N、 ABD)
-#   env # 8 = (C-2) α-task 2 test-aes-ad ym2610b (= 同、 mode N)
-#   env # 9 = (C-2) α-task 2 j-part-g ym2610  (= mode N、 J)
-#   env #10 = (C-2) α-task 2 j-part-g ym2610b (= 同、 mode N)
+# 10 env literal (= ADR-0068 §決定 2 α row plan v7「10 env × ymfm/z80-mem 2 trace 種 = 20 trace file」):
+#   env # 1 = (B) v2-only ym2610                            (= ADR-0067 fixture 駆動 baseline 11 active slot)
+#   env # 2 = (B) v2-only ym2610b                           (= ADR-0067 fixture 駆動 baseline 14 active slot)
+#   env # 3 = (C-2) α-task 1 l-q-rhythm-song ym2610 (mode=B) (= L-Q distinctness primary)
+#   env # 4 = (C-2) α-task 1 l-q-rhythm-song ym2610b (mode=B) (= 同)
+#   env # 5 = (C-2) α-task 2 l-q-tutti ym2610 (mode=B)       (= L-Q distinctness alternative = 6 ch 同時)
+#   env # 6 = (C-2) α-task 2 l-q-tutti ym2610b (mode=B)      (= 同)
+#   env # 7 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610 (mode=B) (= L-Q distinctness step5b proof)
+#   env # 8 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610b (mode=B) (= 同)
+#   env # 9 = (C-2) A-J default integration baseline ym2610 = SAMPLE2-baseline (mode=B) (= A-J default 比較対象)
+#   env #10 = (C-2) A-J default integration baseline ym2610b = SAMPLE2-baseline (mode=B) (= 同)
 #
 # 16 ch enumeration (= ADR-0068 §決定 1(a) hybrid 原則 sub-section 表 literal):
 #   FM (6 ch = A-F):       chip A/B/C/D/E/F (= MML part A-F、 port A reg 0x28 keyon F0-F6)
@@ -271,29 +276,34 @@ build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/src/test-fixtures/step5/l-q-r
 echo "---- env # 4 = (C-2) α-task 1 rhythm-only ym2610b (mode=B) ----"
 build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/src/test-fixtures/step5/l-q-rhythm-song.mml" B "04-rhythmonly-ym2610b" || true
 
-# ----- env # 5 = (C-2) α-task 2 SAMPLE2-baseline ym2610 (mode=B) -----
-echo "---- env # 5 = (C-2) α-task 2 SAMPLE2-baseline ym2610 (mode=B) ----"
-build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/vendor/PMDDotNET/SAMPLE2-baseline.mml" B "05-sample2-ym2610" || true
+# plan v7 candidate selection (= K+L-Q distinctness focus、 既存 src/test-fixtures L-Q part 持ち 3 candidate):
+#   - l-q-tutti (= L-Q 6 part 同時 keyon)
+#   - l-q-rhythm-song-step5b (= L-Q 6 part 駆動 step5b proof)
+# K distinctness candidate は β scope future (= K part 単独 MML 探索 + 追加判断)
 
-# ----- env # 6 = (C-2) α-task 2 SAMPLE2-baseline ym2610b (mode=B) -----
-echo "---- env # 6 = (C-2) α-task 2 SAMPLE2-baseline ym2610b (mode=B) ----"
-build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/vendor/PMDDotNET/SAMPLE2-baseline.mml" B "06-sample2-ym2610b" || true
+# ----- env # 5 = (C-2) α-task 2 l-q-tutti ym2610 (mode=B) -----
+echo "---- env # 5 = (C-2) α-task 2 l-q-tutti ym2610 (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/src/test-fixtures/step5/l-q-tutti.mml" B "05-lqtutti-ym2610" || true
 
-# ----- env # 7 = (C-2) α-task 2 test-aes-ad ym2610 (mode=N) -----
-echo "---- env # 7 = (C-2) α-task 2 test-aes-ad ym2610 (mode=N) ----"
-build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/vendor/PMDDotNET/test-aes-ad.mml" N "07-testaesad-ym2610" || true
+# ----- env # 6 = (C-2) α-task 2 l-q-tutti ym2610b (mode=B) -----
+echo "---- env # 6 = (C-2) α-task 2 l-q-tutti ym2610b (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/src/test-fixtures/step5/l-q-tutti.mml" B "06-lqtutti-ym2610b" || true
 
-# ----- env # 8 = (C-2) α-task 2 test-aes-ad ym2610b (mode=N) -----
-echo "---- env # 8 = (C-2) α-task 2 test-aes-ad ym2610b (mode=N) ----"
-build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/vendor/PMDDotNET/test-aes-ad.mml" N "08-testaesad-ym2610b" || true
+# ----- env # 7 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610 (mode=B) -----
+echo "---- env # 7 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610 (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/src/test-fixtures/step11/l-q-rhythm-song-step5b.mml" B "07-lqstep5b-ym2610" || true
 
-# ----- env # 9 = (C-2) α-task 2 j-part-g ym2610 (mode=N) -----
-echo "---- env # 9 = (C-2) α-task 2 j-part-g ym2610 (mode=N) ----"
-build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/src/test-fixtures/step4/j-part-g.mml" N "09-jpartg-ym2610" || true
+# ----- env # 8 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610b (mode=B) -----
+echo "---- env # 8 = (C-2) α-task 2 l-q-rhythm-song-step5b ym2610b (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/src/test-fixtures/step11/l-q-rhythm-song-step5b.mml" B "08-lqstep5b-ym2610b" || true
 
-# ----- env # 10 = (C-2) α-task 2 j-part-g ym2610b (mode=N) -----
-echo "---- env # 10 = (C-2) α-task 2 j-part-g ym2610b (mode=N) ----"
-build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/src/test-fixtures/step4/j-part-g.mml" N "10-jpartg-ym2610b" || true
+# ----- env # 9 = (C-2) A-J default integration baseline ym2610 = SAMPLE2-baseline (= 既存 A-J part 由来 = default driven、 plan v7 baseline 比較対象) -----
+echo "---- env # 9 = (C-2) A-J default integration baseline ym2610 = SAMPLE2-baseline (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610 "$PMDNEO_ROOT/vendor/PMDDotNET/SAMPLE2-baseline.mml" B "09-sample2-baseline-ym2610" || true
+
+# ----- env # 10 = (C-2) A-J default integration baseline ym2610b = SAMPLE2-baseline -----
+echo "---- env # 10 = (C-2) A-J default integration baseline ym2610b = SAMPLE2-baseline (mode=B) ----"
+build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/vendor/PMDDotNET/SAMPLE2-baseline.mml" B "10-sample2-baseline-ym2610b" || true
 
 # ============================================================
 # union coverage report (= 16 ch enumeration + 12/16 carry confirm + 不足 4 ch literal)
@@ -303,8 +313,8 @@ echo "==== union coverage report (= 16 ch × 10 env) ===="
 
 # 16 ch × 10 env matrix
 ENVS=("01-v2only-ym2610" "02-v2only-ym2610b" "03-rhythmonly-ym2610" "04-rhythmonly-ym2610b" \
-      "05-sample2-ym2610" "06-sample2-ym2610b" "07-testaesad-ym2610" "08-testaesad-ym2610b" \
-      "09-jpartg-ym2610" "10-jpartg-ym2610b")
+      "05-lqtutti-ym2610" "06-lqtutti-ym2610b" "07-lqstep5b-ym2610" "08-lqstep5b-ym2610b" \
+      "09-sample2-baseline-ym2610" "10-sample2-baseline-ym2610b")
 
 # 16 ch identifier list (= MML part letter)
 CHANNELS=("A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "L" "M" "N" "O" "P" "Q")
