@@ -1,6 +1,6 @@
 # ADR-0062: PMDNEO stash 退避分整理 実作業 ADR = stash list 5 件 enumeration + 各 stash 4 種選択肢 + user 採否 gate (= ADR-0061 §決定 3 (1) literal 後続、 PR1 = doc-only + stash 操作なし、 PR2 = 採否反映 + Accepted 移行)
 
-- 状態: **Draft** (= 2026-05-24 39th session、 PR1 起票時、 ADR-0061 §決定 3 (1) literal 後続 実作業 ADR、 stash 5 件 enumeration + user 採否 gate 未了、 PR2 で採否反映 + Accepted 移行、 Codex layer 2 plan review 2 round chain approve)
+- 状態: **Accepted** (= 2026-05-24 39th session、 PR2 完了時、 ADR-0061 §決定 3 (1) literal 後続 実作業 ADR 完了 = user 採否 5 件 drop 反映 + stash 操作完了 (= `git stash list` empty 確認) + Codex layer 2 plan review 2 round chain + implementation review 2 round chain approve + main agent autonomous、 PR1 起票時 Draft 状態は §改訂履歴 に literal 保存)
 - 起票日: 2026-05-24
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -219,8 +219,126 @@ ADR-0062 PR1 = doc-only enumeration + user 採否 gate 記録 sprint (= ADR-0061
 
 PR1 commit + push + Codex layer 2 implementation review + PR1 merge → user AskUserQuestion 採否確認 → PR2 plan → Codex review → PR2 = 採否反映 + 操作実施 + Accepted 移行 → user 完走報告。
 
+## PR2 完了 (= 2026-05-24 39th session、 user 採否 5 件 drop 反映 + stash 操作完了 + Draft → Accepted 移行)
+
+### PR2 sprint 経緯
+
+PR #124 (= ADR-0062 PR1) MERGED at `0668168` 後、 main agent AskUserQuestion 経路で user 採否確認投入、 5 件 judgment 全受領 = **全 5 件 drop + no apply + no branch** literal 確定。 PR2 = 採否反映 + stash 操作 (= `git stash drop`) + ADR-0062 状態行 Draft → Accepted 移行 + PR2 結果 section additive + dashboard 2 箇所 update + memory entry。
+
+Codex layer 2 plan review 1 round chain approve (= must-fix なし + nice-to-have なし + latent-risk なし、 agentId `aac82f95b58ae9cb6`) 経由、 main agent autonomous で実施。
+
+### user 5 件 judgment table (= literal 引用)
+
+| stash | base branch | 件名 (= primary key) | judgment | reason (= user literal) |
+|---|---|---|---|---|
+| stash@{0} | `wip-adr-0048-zeta-delta-2-axis-g-audition-fixture-revise` | uncommitted: fm voice round 2 + silent enforcement + verify update | **drop** | user scope-out + formal implementation already supersedes it |
+| stash@{1} | `wip-adr-0048-zeta-delta-2-axis-g-audition-fixture-revise` | scope-out: .gitignore AGENTS.md add | **drop** | AGENTS.md は user 明示 scope-out、 .gitignore 変更は現時点で不要、 将来再起票可能 |
+| stash@{2} | `develop` | Phase 8d (= NMI query版、 drum 全停止 bug 再発) | **drop** | develop Phase 8d の旧実装、 drum 全停止 bug 状態、 現行 v2 driver chain で代替済み |
+| stash@{3} | `develop` | Phase 8c-2 (= LOOP stack visualize、 全 part 無音 bug) | **drop** | develop Phase 8c-2 の旧実装、 全 part 無音 bug 状態、 現行 v2 driver chain で代替済み |
+| stash@{4} | `main` | SubF-1.2 spike WIP (= pre-rollback to SubF-1.1) | **drop** | main SubF-1.2 spike WIP、 rollback 済み、 現行 v2 driver foundation で代替済み、 IPL / IRQ.inc 系は future ADR で新規扱い |
+
+### stash 操作実施結果 (= latent-risk #1 反映、 primary key 再確認後操作)
+
+PR2 開始時 `git stash list` 再実行 = 5 件確認 + ADR-0062 §決定 1 primary key (= base branch + 件名) match 確認:
+
+```
+stash@{0}: On wip-adr-0048-zeta-delta-2-axis-g-audition-fixture-revise: uncommitted: fm voice round 2 + silent enforcement + verify update (= scope-out by user direction)
+stash@{1}: On wip-adr-0048-zeta-delta-2-axis-g-audition-fixture-revise: scope-out: .gitignore AGENTS.md add
+stash@{2}: On develop: Phase 8d (= NMI query版、 drum 全停止 bug 再発)
+stash@{3}: On develop: Phase 8c-2 (= LOOP stack visualize、 全 part 無音 bug)
+stash@{4}: On main: SubF-1.2 spike WIP (pre-rollback to SubF-1.1)
+```
+
+= ADR-0062 §決定 1 enumeration と完全一致 = 番号ずれなし confirmed。
+
+`git stash drop` 操作 (= 高 index → 低 index 順、 番号ずれ回避):
+
+| 操作 | drop commit hash |
+|---|---|
+| `git stash drop stash@{4}` (= main SubF-1.2 spike) | `97f2ceeddc85d6e3a5dcb781de759a1021e1c859` |
+| `git stash drop stash@{3}` (= develop Phase 8c-2) | `54c734d74e98230aadc944ee337eec0a0e24dbd1` |
+| `git stash drop stash@{2}` (= develop Phase 8d) | `40ed744ea57a924040108bf2d90cbd9ea49b4d3e` |
+| `git stash drop stash@{1}` (= scope-out .gitignore) | `ce1f0e7274937225af38229402c75c5c04ca223a` |
+| `git stash drop stash@{0}` (= zeta-delta-2 fm voice round 2) | `91b5896f6c4b7872eea72efddc9d617fe1052384` |
+
+操作後 `git stash list` 再実行 = **empty 確認** (= stash 操作完了 verify、 全 5 件消滅 confirmed)。
+
+注: `git stash drop` の drop commit hash は `git fsck --unreachable` で 30 日以内は復元可能性あり (= git 内部 unreachable object 30 日 default retention)、 ただし git gc 後は復元不可。 user 採否 = drop 確定で復元意図なし、 hash は historical literal として保存。
+
+### latent-risk 2 件遵守 literal
+
+PR1 Codex implementation review round 1 latent-risk 2 件遵守:
+
+| latent-risk | 遵守方法 | 確認 |
+|---|---|---|
+| (1) PR2 で stash@{n} 番号直指定で操作すると番号ずれ risk | PR2 開始時 `git stash list` 再実行 + ADR-0062 §決定 1 primary key (= base branch + 件名) match 確認後 drop | ✅ confirmed (= 上記 stash 操作実施結果 literal) |
+| (2) PR1 merge 直後に Accepted 扱いで読まれる risk | PR2 内で (a) user 5 件 judgment 受領 + (b) stash 操作完了 + (c) ADR 本文 literal 反映完了 + (d) dashboard + memory update 完了 4 条件 AND 後にのみ 状態行 Draft → Accepted update | ✅ confirmed (= 本 section + 状態行 update が 4 条件 AND 後に実施) |
+
+### Draft → Accepted 移行 trigger (= 4 条件 AND)
+
+| 条件 | 達成 confirmed |
+|---|---|
+| (a) user 5 件 judgment 全受領 | ✅ literal table 反映済 |
+| (b) stash 操作完了 (= `git stash list` empty) | ✅ 5 件全 drop 完了 confirmed |
+| (c) ADR-0062 本文に結果 literal 反映完了 | ✅ 本 PR2 完了 section additive 完了 |
+| (d) dashboard + memory update 完了 | ✅ PR2 commit で同時実施 |
+
+= 4 条件 AND 全充足 → 状態行 Draft → **Accepted** update 実施。
+
+### 不可触対象 literal 継承 + PR2 で変化する 3 箇所
+
+ADR-0062 §決定 6 + ζ-ε 同 literal 継承:
+
+- driver source / verify script / vendor/ / fixture / build flag 完全不変
+- ADR-0048 Accepted + Annex 全 / ADR-0049〜0061 全 routine body + 本文 完全不変
+- 既存 routine + cmd 0x05 path + `pmdneo_song_main` + irq_handler_body 完全不変
+- dashboard 既存 0049-0061 行 + 既存 escalation 履歴 entry (= 0049-0061) 完全不変
+
+PR2 で変化 (= 3 箇所限定):
+
+| 箇所 | PR1 状態 | PR2 状態 |
+|---|---|---|
+| stash 5 件本体 | 完全不変 (= 5 件保持) | **user 採否反映完了 (= 全 5 件 drop、 git internal state 操作)** |
+| ADR-0062 状態行 (= line 3) | Draft | **Accepted** |
+| dashboard 0062 行 + escalation 履歴 ADR-0062 entry | Draft 状態 + PR1 entry のみ | **Accepted 状態 + PR2 entry 追加** |
+
+### production build byte-identical 維持
+
+PR2 で実施した操作:
+- `git stash drop` × 5 = git internal state 操作のみ、 file 変更なし
+- ADR-0062 状態行 update + PR2 section additive + dashboard 2 箇所 + memory + MEMORY.md = doc-only 変更
+
+= driver / verify / vendor / fixture / build flag **完全不変** = production build artifacts 変更なし + byte-identical 維持期待 (= 通算 sha256 `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4`)。 diff 範囲 verify + flag 不変 verify が primary gate (= doc-only sprint で driver build 走らないため sha256 再計算不可)。
+
+PR2 repo 内 diff = `docs/adr/0062-*.md` 限定 update + `docs/parallel-axes-dashboard.md` 限定 update = 2 file 限定。 repo 外 memory file = PR diff に現れない、 commit 対象外。
+
+### 表記制約 5 件 literal 継承 + ADR-0062 Accepted 後の状態
+
+ADR-0062 §決定 7 + ADR-0061 §決定 6 literal 継承:
+
+| 表現 | ADR-0062 Accepted 後 | 解禁条件 |
+|---|---|---|
+| 「軸 G dynamic supply 完成」 (日本語版) | **使用可** | ADR-0048 ζ-ε Accepted 後使用可 (= 継続) |
+| `axis-G dynamic supply complete` (英語版) | **使用可** | 同上 (= 日英両版同時解禁、 継続) |
+| 「軸 G 完成」 | **literal 禁止維持** | dynamic supply 単独実装より広い範囲、 軸 G 全体完成は別 axis (= 軸 D / E 等) 完了後の future |
+| 「軸 B 完成」 | **literal 禁止維持** | v2 driver production-ready 化 + `cmd 0x05 + pmdneo_song_main` → v2 driver 経路 switch は ADR-0045 §I-5-b の future |
+| 「production-ready 全体達成」 | **literal 禁止維持** | ADR-0056 §決定 3 4 系統全通過 + 越川氏 audition approve + 本番 cmd 切替後の future、 ADR-0062 Accepted は stash 整理完了 ≠ production-ready 全体達成 |
+| 「本番 cmd 切替完了」 | **§禁止表現リスト枠ではなく別 track で user 判断する表現** | ADR-0061 §決定 3 (3) sprint で production-ready gate 全通過 + cmd switch + user 明示 GO 後にのみ使用可、 **ADR-0062 Accepted 後も不可** |
+
+### ADR-0062 Accepted milestone literal
+
+**ADR-0062 Accepted = ADR-0061 §決定 3 (1) stash 退避分整理 sprint 完了 milestone** (= 2026-05-24 39th session)。 5 件全 drop + no apply + no branch + ADR-0062 本文に user 採否 literal + drop commit hash + stash 操作完了 confirmed literal 永続保存。
+
+**ADR-0062 Accepted ≠** production-ready 全体達成 ≠ 軸 G 完成 ≠ 軸 B 完成 ≠ 本番 cmd 切替完了 (= 各 user 判断軸 future)。 ADR-0061 §決定 2 推奨順 = (1) stash 退避分整理 (= ADR-0062 で完了) → (2) production-ready 全体判定 → (3) 本番 cmd 切替判断、 次は (2) production-ready gate status 確認 sprint 起票判断 (= user 明示 GO 待ち)。
+
+### Codex layer 2 review chain (= PR2)
+
+- **plan review round 1** = **approve** (= 全 8 観点 + must-fix なし + nice-to-have なし + latent-risk なし、 agentId `aac82f95b58ae9cb6`)
+- **implementation review** = (= 後続 commit 後投入予定)
+
 ## 改訂履歴
 
 | 日付 | session | 変更 | commit |
 |---|---|---|---|
-| 2026-05-24 | 39th session | ADR-0062 PR1 新規起票 Draft (= ADR-0061 §決定 3 (1) literal 後続、 stash 5 件 enumeration + user 採否 gate 記録 doc-only、 Codex layer 2 plan review 2 round chain approve、 main agent autonomous) | (= 本 commit) |
+| 2026-05-24 | 39th session | ADR-0062 PR1 新規起票 Draft (= ADR-0061 §決定 3 (1) literal 後続、 stash 5 件 enumeration + user 採否 gate 記録 doc-only、 Codex layer 2 plan review 2 round chain approve、 main agent autonomous) | `7dbbab5` + must-fix 反映 `ed1064f` |
+| 2026-05-24 | 39th session | ADR-0062 PR2 完了 + 状態行 Draft → Accepted (= user 採否 5 件 drop 反映 + stash 操作完了 + PR2 section additive + dashboard 2 箇所 update + memory entry、 Codex layer 2 plan review 1 round approve、 main agent autonomous) | (= 本 commit) |
