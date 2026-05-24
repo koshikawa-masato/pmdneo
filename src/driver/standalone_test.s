@@ -2740,6 +2740,59 @@ pmdneo_v2_song_init_clear_loop:
         ld      (hl), #1                                ; FLAGS = active
 .endif
 
+        ;; ADR-0067 β: SSG 残 2 ch active init (= clear loop 後 additive、 ADR-0058 γ slot 1 (SSG G)
+        ;;   pattern 継承)。 SSG H/I は ADR-0006 §B 制約対象外 (= ym2610 / ym2610b 両 audible) =
+        ;;   無条件 active (= `.if PMDNEO_TARGET_CHIP_YM2610B` 配下不要)。 既存 _ssg_g 完全不変。
+        ;;   LATENT-RISK 1 mitigation literal = slot 7/8 base literal は計算結果正確値使用
+        ;;   (= 既存 slot 10 stale comment line 2792 「0xFDDD」 は 0xFD79+0x78=0xFDF1 と相違、
+        ;;   既存 routine body 不変ルールで修正は β scope-out、 slot 7/8 では正確 literal 使用)。
+
+        ;; slot 7 = pmdneo_v2_partwork_base + 7*12 = 0xFDCD (= SSG ch H、 主軸計算 verified)
+        ld      hl, #(pmdneo_v2_partwork_base + 7*12)
+        ld      bc, #pmdneo_v2_song_fixture_ssg_h
+        ld      (hl), c                                 ; ADDR lo
+        inc     hl
+        ld      (hl), b                                 ; ADDR hi
+        inc     hl
+        ld      (hl), #0                                ; LEN
+        inc     hl
+        ld      (hl), #0                                ; NOTE
+        inc     hl
+        ld      (hl), #1                                ; CH_IDX = 1 (= SSG ch H)
+        inc     hl
+        ld      (hl), #1                                ; KIND = 1 (= SSG)
+        inc     hl
+        ld      (hl), #0                                ; OCTAVE
+        inc     hl
+        ld      (hl), c                                 ; LOOP lo
+        inc     hl
+        ld      (hl), b                                 ; LOOP hi
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; slot 8 = pmdneo_v2_partwork_base + 8*12 = 0xFDD9 (= SSG ch I、 主軸計算 verified)
+        ld      hl, #(pmdneo_v2_partwork_base + 8*12)
+        ld      bc, #pmdneo_v2_song_fixture_ssg_i
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #2                                ; CH_IDX = 2 (= SSG ch I)
+        inc     hl
+        ld      (hl), #1                                ; KIND = 1 (= SSG)
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
         ;; ADR-0059 γ: slot 9 = J part = ADPCM-B active init (= clear loop 後 additive)
         ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDE5
         ;; ADR-0048 ζ-β 案 W: TEST_MODE_AXIS_G_V2_PPC=1 で slot 9 KIND=2 → KIND=4
@@ -3192,6 +3245,20 @@ pmdneo_v2_song_fixture_fm_f:
 
 ;; pmdneo_v2_song_fixture_ssg_g (ADR-0058 γ): SSG ch G 用 fixture MML。
 pmdneo_v2_song_fixture_ssg_g:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; ADR-0067 β: SSG 残 2 ch (= H/I) 用 fixture MML。 既存 _ssg_g 同 pattern
+;;   (= note byte 0x42/0x45/0x48 + length 0x10 + 末尾 0x80 loop)。 SSG H/I は
+;;   ym2610 / ym2610b 両 audible (= ADR-0006 §B 制約対象外)。 ADR-0067 = ADR-0064 §決定 7
+;;   ADR-0067+ 実作業群 の 1 本目 = driver fixture 拡張専用 (= 統合 verify は ADR-0068
+;;   候補 future)。 既存 fixture (= _fm_b / _ssg_g / _adpcmb_j / _rhythm_k / _fm_a/c/d/e/f) 完全不変。
+
+;; pmdneo_v2_song_fixture_ssg_h (ADR-0067 β): SSG ch H 用 fixture MML。
+pmdneo_v2_song_fixture_ssg_h:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_ssg_i (ADR-0067 β): SSG ch I 用 fixture MML。
+pmdneo_v2_song_fixture_ssg_i:
         .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
 
 ;; pmdneo_v2_song_fixture_adpcmb_j (ADR-0059 γ): J part = ADPCM-B 用 fixture MML。

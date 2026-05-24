@@ -354,9 +354,51 @@ ADR-0067 Draft 起票 ≠ roadmap ⑤ 統合 verify 完了 ≠ production-ready 
 
 PR 作成 (= 起票 + sub-sprint α 着手 PR = doc + 実装) + Codex layer 2 implementation review + **main agent 経路で PR merge** (= Codex 越権 merge 禁止規律遵守) + user 完走報告。 sub-sprint α 完走後、 β/γ/δ/ε 各 PR を continue。 ADR-0067 ε Accepted 後、 ADR-0068 候補 (= 16 ch 統合 verify ADR) 起票判断 (= user 明示 GO 必須)。
 
+## Annex β: β 実装 completion record (= SSG 残 2 ch fixture + slot 7-8 active init)
+
+### 実装内容 (= driver source `src/driver/standalone_test.s` `.if TEST_MODE_V2_SONG_FIXTURE` 配下 additive)
+
+- slot 7 (= SSG ch H、 ch_idx 1、 KIND=1) active init = ym2610b α block end と既存 slot 9 init の間に additive (= 無条件 active = ADR-0006 §B 制約対象外、 ym2610 / ym2610b 両 audible)
+- slot 8 (= SSG ch I、 ch_idx 2、 KIND=1) active init = slot 7 init 直後 additive (= 無条件 active 同)
+- `pmdneo_v2_song_fixture_ssg_h` 新規 .db literal (= `0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80`、 既存 `_ssg_g` 同 pattern) = 既存 `_ssg_g` .db 直後 additive
+- `pmdneo_v2_song_fixture_ssg_i` 新規 .db literal (= 同上) = `_ssg_h` 直後 additive
+
+### 配置 base address (= LATENT-RISK 1 mitigation literal、 Codex round 1 反映)
+
+- slot 7 base = `pmdneo_v2_partwork_base + 7*12` = **0xFDCD** (= 主軸計算 verified、 0xFD79 + 0x54)
+- slot 8 base = `pmdneo_v2_partwork_base + 8*12` = **0xFDD9** (= 主軸計算 verified、 0xFD79 + 0x60)
+- 既存 slot 10 comment line 2792「0xFDDD」 は stale literal (= 0xFD79 + 0x64、 実 expression emit 値 = 0xFDF1 = 0xFD79 + 0x78、 ADR-0059 δ 時点の comment typo、 既存 routine body 不変ルールで β scope-out、 slot 7/8 では計算結果 literal 正確値使用)
+
+### verify gate 結果 (= ADR-0067 § verify gate sub-sprint β gate literal、 α 同 gate set 適用)
+
+- production default build (= `TEST_MODE_V2_SONG_FIXTURE=0`) sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 verified (= 通算 ADR-0058〜0064〜0067 α 継承、 β 改変後も literal 一致 confirmed)
+- v2 only trace capture build (= `TEST_MODE_V2_SONG_FIXTURE=1` + `TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP=1`) build PASS verified (= `verify-axis-b-v2-song-playback.sh` 内 ε fixture build step pass)
+- .org section overflow なし verified (= `verify-axis-b-v2-song-playback.sh` roadmap2-gate-6 (a) literal pass = 15 routine 全 >= 0x0610 + 0x0066 セクション max addr < 0x0100、 β PR 必須 gate = ADR-0067 §決定 5 round 5 latent-risk 2 反映)
+- 既存 `verify-axis-b-v2-song-playback.sh` 10 gate (= roadmap2-gate-1〜6 + sup-IX/IY + sup-TIMER-B + sup-γ-pattern + sup-cold-boot) ALL PASS 維持 verified (= LATENT-RISK 2 mitigation literal = 既存 script label checks は `_fm_b` / `_ssg_g` のみ、 SSG H/I active 化の trace 確認は δ scope、 β は維持確認のみ)
+
+### Codex layer 2 review chain
+
+- plan review chain:
+  - round 1 **revise** (= must-fix 1 = Annex β 追加要求 + nice-to-have 0 + latent-risk 2 = slot 10 stale comment 警戒 + verify script label scope、 agentId `a3120f8d13f068af1`、 job `task-mpjd6dlm-5b546s`、 elapsed 2m 1s)
+  - round 2 **approve** (= must-fix 0 + nice-to-have 0 + latent-risk 1 = α 漏れ追跡 ε 引き継ぎ文言、 plan v2 = Annex β literal 追加 + LATENT-RISK 1/2 明示 mitigation 反映、 agentId `a7a70830496954f89`、 job `task-mpjdnj85-qijit0`、 elapsed 2m、 越権操作なし confirmed)
+- implementation review chain: (= 後続、 PR 作成後投入)
+
+### α 漏れ補完 (= ε retrospective 候補、 ADR-0058/0059 Annex pattern 整合、 Codex round 2 LATENT-RISK 1 反映 ε 引き継ぎ文言強化)
+
+- α PR (= bfd4009 + 159c05f + merge 378850b) では ADR-0067 §決定 10 line 215 plan literal「+ Annex α」 が doc に section 追加されなかった漏れ (= ADR-0067 本文に `## Annex` section 全て不在 = Annex A ground truth / Annex B 構成図 / Annex α 全て漏れ、 β PR で初の `## Annex β` section 追加)
+- β PR では Annex β 単独追加 = α 漏れの retrospective 補完は ε で行う default candidate (= ε で Annex A/B/α/β/γ/δ/ε 全 section 統合追加、 ADR-0058 Annex G ζ Accepted 移行時に retrospective 補完 pattern 候補継承)
+- **ε 担当者引き継ぎ literal**: ε sub-sprint 担当者 (= 主軸 Claude Code or 後続 session) は本 § Annex β「α 漏れ補完」 sub-section を **ε retrospective 補完 default candidate** として参照し、 ε PR で次の Annex section を統合追加する (= ADR-0067 完走時の Annex 構造): (1) Annex A = ADR-0067 ground truth (= 既存 4 ch fixture cover + 16 ch 要求の矛盾) / (2) Annex B = 構成図 (= 16 ch fixture chip target 別 active policy 図) / (3) Annex α = α 完了 record (= FM 残 5 ch + slot 2-6 + chip target 別 active policy) / (4) Annex β = 本 section (= 既存維持) / (5) Annex γ = γ PR で追加 (= rhythm K full bitmap) / (6) Annex δ = δ PR で追加 (= 機能 verify only 6 gate) / (7) Annex ε = ε 完了確認 + Draft → Accepted。 ε 担当者は本引き継ぎ literal を ε PR review chain literal で reference + ADR-0058 Annex G / ADR-0059 Annex G retrospective 補完 pattern を継承する。
+
+### 状態維持
+
+- ADR-0067 Draft 維持 (= ε まで Draft、 § 決定 1〜12 本文不変)
+- 「16 ch fixture 拡張完了」 wording = β 完走では未解禁、 ε Accepted 後使用可 + 併記必須 (= ADR-0067 §決定 6 表記制約 literal)
+- 「roadmap ⑤ 統合 verify 完了」 / 「(a)(b)(c) 3 gate 統合 verify 完了」 wording = ADR-0067 完全禁止維持
+
 ## 改訂履歴
 
 | 日付 | session | 変更 | commit |
 |---|---|---|---|
 | 2026-05-24 | 39th session | ADR-0067 新規起票 Draft (= ADR-0064 §決定 7 ADR-0067+ 実作業群 の 1 本目、 driver fixture 拡張専用 ADR、 sub-sprint α/β/γ/δ/ε chain、 起票 + sub-sprint α 着手 PR、 Codex layer 2 plan review 5 round chain = round 1-4 revise + round 4 escalation user option Z 採用 + round 5 approve、 nice-to-have 2 + latent-risk 2 全 ADR 本文反映、 chip target 制約 ADR-0006 §B 継承 literal、 「roadmap ⑤ 統合 verify 完了」 wording 完全禁止、 「16 ch fixture 拡張完了」 = ε Accepted 後使用可解禁表現候補) | (= 初版 commit `bfd4009`) |
 | 2026-05-24 | 39th session | Codex layer 2 implementation review round 6 revise 反映 (= must-fix 2 (= slot 2/4/6 chip target 別 active policy + dashboard 0065/0066 placeholder 行追加) + nice-to-have 2 (= ADR comment chip 制約整合 + α gate-5 partial PASS 注記) 全反映、 §決定 2 sub-sprint α scope row 更新 + §決定 12 chip target 別 active policy literal 全面書き換え + § verify gate sub-sprint α gate-5 注記追加、 driver source slot 3/5 = 無条件 active + slot 2/4/6 = `.if PMDNEO_TARGET_CHIP_YM2610B` 配下 active 化 修正、 ADR-0058 γ comment「slot 初期化で active ch_idx のみ選択 (= ym2610 silent skip 対象は init 段階で回避)」 遵守、 production sha256 = `b15883fe...` 維持 confirmed、 ym2610 v2 fixture build sha256 = `33dfce3e...` (= chip target fix 反映後の新値、 ym2610 では slot 2/4/6 init 未 assemble)、 latent-risk 1 (= chip 別 active policy literal 固定) + latent-risk 2 (= dashboard 番号順 = 既存運用整合) mitigation 反映) | (= round 6 反映 commit、 後続) |
+| 2026-05-24 | 39th session | ADR-0067 sub-sprint β = SSG 残 2 ch (= H/I) fixture 追加 + slot 7-8 active init 追加 完走 milestone (= driver `src/driver/standalone_test.s` `.if TEST_MODE_V2_SONG_FIXTURE` 配下 additive、 SSG H/I 無条件 active = ADR-0006 §B 制約対象外 ym2610 / ym2610b 両 audible、 既存 `_ssg_g` / `_fm_b` / `_adpcmb_j` / `_rhythm_k` / α 追加 `_fm_a/c/d/e/f` 完全不変、 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 verified、 v2 fixture build PASS、 .org section overflow なし verified、 既存 `verify-axis-b-v2-song-playback.sh` 10 gate ALL PASS 維持 verified、 § Annex β section 新規追加 (= ADR-0058/0059 Annex C pattern 継承)、 α 漏れ補完は ε retrospective 候補 default + ε 担当者引き継ぎ literal 強化 (= Codex round 2 LATENT-RISK 1 反映)、 Codex layer 2 plan review 2 round chain (= round 1 revise must-fix 1 = Annex β 追加要求 + latent-risk 2 + round 2 approve must-fix 0 + latent-risk 1 = α 漏れ追跡 ε 引き継ぎ) 全反映 + 越権操作なし confirmed、 ADR-0067 Draft 維持) | (= β commit hash 後続、 PR # 後続) |
