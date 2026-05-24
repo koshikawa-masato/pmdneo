@@ -2848,7 +2848,13 @@ pmdneo_v2_song_init_clear_loop:
 .if TEST_MODE_AXIS_G_AUDITION_REVISE
         ld      bc, #pmdneo_v2_song_fixture_rhythm_k_audition
 .else
-        ld      bc, #pmdneo_v2_song_fixture_rhythm_k
+        ;; ADR-0067 γ: slot 10 ADDR pointer switch (= `_rhythm_k` → `_rhythm_k_full`)。
+        ;;   既存 `_rhythm_k` (= BD→SD→BD 3 段 bitmap) は完全不変、 拡張版
+        ;;   `_rhythm_k_full` (= BD/SD/CYM/HH/TOM/RIM 順次 trigger 6 段 bitmap) へ
+        ;;   pointer のみ切替 (= ADR-0067 §決定 7 allowed-touch literal「slot 10 ADDR を
+        ;;   `_rhythm_k` → `_rhythm_k_full` 切替、 γ で literal 化」 範囲内)。
+        ;;   AUDITION_REVISE=1 audition 経路 (= 上の `_rhythm_k_audition`) は完全保護。
+        ld      bc, #pmdneo_v2_song_fixture_rhythm_k_full
 .endif
         ld      (hl), c                                 ; ADDR lo
         inc     hl
@@ -3294,6 +3300,26 @@ pmdneo_v2_song_fixture_adpcmb_j_ppc:
 ;;   末尾 0x80 = loop。
 pmdneo_v2_song_fixture_rhythm_k:
         .db     0x01, 0x10, 0x02, 0x10, 0x01, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_rhythm_k_full (ADR-0067 γ): K part = rhythm 全 6 ch active 化用
+;;   fixture MML。 既存 `_rhythm_k` (= BD→SD→BD 3 段 bitmap) を ADPCM-A 全 6 ch 順次
+;;   trigger 6 段に widen (= ADR-0067 §決定 2 γ row「ADPCM-A 全 6 ch active 化」 literal、
+;;   案 A per-bit 順次 trigger judgment = Codex layer 2 plan review γ round 1 approve confirmed
+;;   = simultaneous 0x3F より安全 (= simultaneous combo は既存 routine scope-out)、 既存
+;;   `_rhythm_k` BD→SD→BD per-bit pattern 整合継承)。
+;;   bitmap convention 継承 (= ADR-0059 §決定 5 案 A literal): bit 0 = BD / bit 1 = SD /
+;;   bit 2 = CYM / bit 3 = HH / bit 4 = TOM / bit 5 = RIM。 length 0x10 = 16 tick (= 既存
+;;   `_rhythm_k` 同 BPM)、 末尾 0x80 = loop marker (= bit 7 set)。
+;;   parser alternation 順序: note (<0x80) → length → note (<0x80) → length → ... → 0x80 loop
+;;   (= note byte 0x10 = TOM bitmap と length byte 0x10 = 16 tick は alternation 位置で区別)、
+;;   ADR-0059 既存 parser pattern + 既存 `_rhythm_k` 動作実績ベース安全 (= γ plan review confirmed)。
+;;   既存 `pmdneo_v2_song_fixture_rhythm_k` 完全不変 (= γ allowed-touch literal「拡張版 additive」)、
+;;   slot 10 ADDR pointer のみ `_rhythm_k_full` へ切替 (= AUDITION_REVISE=0 default 経路のみ)。
+;;   trace 確認は δ scope (= 「新規 rhythm K full trace 確認は δ scope」 wording 維持 =
+;;   γ plan review LATENT-RISK 1 反映、 既存 verify script label checks は `_fm_b`/`_ssg_g` のみ
+;;   = γ は維持確認のみ + δ で全 16 ch trace 取得)。
+pmdneo_v2_song_fixture_rhythm_k_full:
+        .db     0x01, 0x10, 0x02, 0x10, 0x04, 0x10, 0x08, 0x10, 0x10, 0x10, 0x20, 0x10, 0x80
 
 .if TEST_MODE_AXIS_G_AUDITION_REVISE
 ;; ADR-0048 ζ-δ-2 audition fixture revise block (= 既存 fixture 完全不可触並設、
