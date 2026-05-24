@@ -1,6 +1,6 @@
 # ADR-0062: PMDNEO stash 退避分整理 実作業 ADR = stash list 5 件 enumeration + 各 stash 4 種選択肢 + user 採否 gate (= ADR-0061 §決定 3 (1) literal 後続、 PR1 = doc-only + stash 操作なし、 PR2 = 採否反映 + Accepted 移行)
 
-- 状態: **Accepted** (= 2026-05-24 39th session、 PR2 完了時、 ADR-0061 §決定 3 (1) literal 後続 実作業 ADR 完了 = user 採否 5 件 drop 反映 + stash 操作完了 (= `git stash list` empty 確認) + Codex layer 2 plan review 2 round chain + implementation review 2 round chain approve + main agent autonomous、 PR1 起票時 Draft 状態は §改訂履歴 に literal 保存)
+- 状態: **Accepted** (= 2026-05-24 39th session、 PR2 完了時、 ADR-0061 §決定 3 (1) literal 後続 実作業 ADR 完了 = user 採否 5 件 drop 反映 + stash 操作完了 (= `git stash list` empty 確認)、 Codex layer 2 review chain = PR1 plan review 2 round + PR1 implementation review 2 round + PR2 plan review 1 round (= 計 5 round approve)、 PR2 implementation review は本 PR 起票後投入 (= 後続、 本 ADR Accepted は 4 条件 AND = user judgment + stash 操作完了 + ADR 本文反映 + dashboard/memory update 全充足下の confidence assertion、 PR2 merge 後に implementation review 結果を §Codex layer 2 review chain §PR2 に反映)、 main agent autonomous、 PR1 起票時 Draft 状態は §改訂履歴 に literal 保存)
 - 起票日: 2026-05-24
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
