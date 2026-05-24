@@ -2609,6 +2609,127 @@ pmdneo_v2_song_init_clear_loop:
         dec     a
         jr      nz, pmdneo_v2_song_init_clear_loop
 
+        ;; ADR-0067 α: slot 2 = FM ch A active init (= clear loop 後 additive、 ADR-0058 γ
+        ;;   slot 0/1 pattern + ADR-0059 γ-δ slot 9/10 pattern 継承、 ch_idx + KIND 変更)。
+        ;;   ADR-0006 §B chip 制約 = ym2610 target では FM A は init せず stream 読捨 = trace
+        ;;   に keyon 出ない expected (= 非可聴)、 ym2610b target で audible (= ADR-0067 δ
+        ;;   gate-3 別 build verify)。 既存 _fm_b / _ssg_g / _adpcmb_j / _rhythm_k 完全不変。
+        ld      hl, #(pmdneo_v2_partwork_base + 2*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_a
+        ld      (hl), c                                 ; ADDR lo
+        inc     hl
+        ld      (hl), b                                 ; ADDR hi
+        inc     hl
+        ld      (hl), #0                                ; LEN
+        inc     hl
+        ld      (hl), #0                                ; NOTE
+        inc     hl
+        ld      (hl), #0                                ; CH_IDX = 0 (= FM ch A、 ym2610b audible)
+        inc     hl
+        ld      (hl), #0                                ; KIND = 0 (= FM)
+        inc     hl
+        ld      (hl), #0                                ; OCTAVE
+        inc     hl
+        ld      (hl), c                                 ; LOOP lo
+        inc     hl
+        ld      (hl), b                                 ; LOOP hi
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; ADR-0067 α: slot 3 = FM ch C active init (= ym2610 / ym2610b 両 target で audible)。
+        ld      hl, #(pmdneo_v2_partwork_base + 3*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_c
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0                                ; LEN
+        inc     hl
+        ld      (hl), #0                                ; NOTE
+        inc     hl
+        ld      (hl), #2                                ; CH_IDX = 2 (= FM ch C)
+        inc     hl
+        ld      (hl), #0                                ; KIND = 0 (= FM)
+        inc     hl
+        ld      (hl), #0                                ; OCTAVE
+        inc     hl
+        ld      (hl), c                                 ; LOOP lo
+        inc     hl
+        ld      (hl), b                                 ; LOOP hi
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; ADR-0067 α: slot 4 = FM ch D active init (= ADR-0006 §B chip 制約 = ym2610 で非可聴、
+        ;;   ym2610b で audible)。
+        ld      hl, #(pmdneo_v2_partwork_base + 4*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_d
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #3                                ; CH_IDX = 3 (= FM ch D、 ym2610b audible)
+        inc     hl
+        ld      (hl), #0                                ; KIND = 0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; ADR-0067 α: slot 5 = FM ch E active init (= ym2610 / ym2610b 両 target で audible)。
+        ld      hl, #(pmdneo_v2_partwork_base + 5*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_e
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #4                                ; CH_IDX = 4 (= FM ch E)
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
+        ;; ADR-0067 α: slot 6 = FM ch F active init (= ADR-0006 §B chip 制約 = ym2610 で非可聴、
+        ;;   ym2610b で audible)。
+        ld      hl, #(pmdneo_v2_partwork_base + 6*12)
+        ld      bc, #pmdneo_v2_song_fixture_fm_f
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #5                                ; CH_IDX = 5 (= FM ch F、 ym2610b audible)
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), #0
+        inc     hl
+        ld      (hl), c
+        inc     hl
+        ld      (hl), b
+        inc     hl
+        ld      (hl), #1                                ; FLAGS = active
+
         ;; ADR-0059 γ: slot 9 = J part = ADPCM-B active init (= clear loop 後 additive)
         ;; slot 9 base = pmdneo_v2_partwork_base + 9 * 12 = 0xFDE5
         ;; ADR-0048 ζ-β 案 W: TEST_MODE_AXIS_G_V2_PPC=1 で slot 9 KIND=2 → KIND=4
@@ -3029,6 +3150,34 @@ pmdneo_v2_song_tick_done:
 ;;   note byte = 0x42/0x45/0x48 (= roadmap ① 固定 table 0x40/0x44/0x47 と異なる、
 ;;   song-driven proof 用)、 length = 0x10 (= 16 tick)、 末尾 0x80 = loop。
 pmdneo_v2_song_fixture_fm_b:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; ADR-0067 α: FM 残 5 ch (= A/C/D/E/F) 用 fixture MML。 既存 _fm_b 同 pattern
+;;   (= note byte 0x42/0x45/0x48 + length 0x10 + 末尾 0x80 loop)。 ADR-0006 §B chip 制約 =
+;;   ym2610 target (= PMDNEO_TARGET_CHIP_YM2610B==0、 production default) では FM A/D/F
+;;   init せず stream 読捨 = trace に keyon 出ない expected (= 非可聴)、 ym2610b target
+;;   (= ==1、 別 build) で全 5 ch audible (= ADR-0067 δ gate-3 別 build verify)。 ADR-0067 = ADR-0064
+;;   §決定 7 ADR-0067+ 実作業群 の 1 本目 = driver fixture 拡張専用 (= 統合 verify は ADR-0068
+;;   候補 future)。 既存 fixture (= _fm_b / _ssg_g / _adpcmb_j / _rhythm_k) 完全不変。
+
+;; pmdneo_v2_song_fixture_fm_a (ADR-0067 α): FM ch A 用 fixture MML。 ym2610 で非可聴、 ym2610b で audible。
+pmdneo_v2_song_fixture_fm_a:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_fm_c (ADR-0067 α): FM ch C 用 fixture MML。 ym2610 / ym2610b 両 audible。
+pmdneo_v2_song_fixture_fm_c:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_fm_d (ADR-0067 α): FM ch D 用 fixture MML。 ym2610 で非可聴、 ym2610b で audible。
+pmdneo_v2_song_fixture_fm_d:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_fm_e (ADR-0067 α): FM ch E 用 fixture MML。 ym2610 / ym2610b 両 audible。
+pmdneo_v2_song_fixture_fm_e:
+        .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
+
+;; pmdneo_v2_song_fixture_fm_f (ADR-0067 α): FM ch F 用 fixture MML。 ym2610 で非可聴、 ym2610b で audible。
+pmdneo_v2_song_fixture_fm_f:
         .db     0x42, 0x10, 0x45, 0x10, 0x48, 0x10, 0x80
 
 ;; pmdneo_v2_song_fixture_ssg_g (ADR-0058 γ): SSG ch G 用 fixture MML。
