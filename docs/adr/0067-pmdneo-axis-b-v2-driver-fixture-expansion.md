@@ -434,6 +434,73 @@ PR 作成 (= 起票 + sub-sprint α 着手 PR = doc + 実装) + Codex layer 2 im
 - 「roadmap ⑤ 統合 verify 完了」 / 「(a)(b)(c) 3 gate 統合 verify 完了」 wording = ADR-0067 完全禁止維持
 - 「all 6 ADPCM-A trace verified」 / 「全 6 ch ADPCM-A 実音 verified」 等 trace 完了表現 = γ 完走では使用不可 (= δ scope = Codex γ plan review LATENT-RISK 1 反映)
 
+## Annex δ: δ 実装 completion record (= 全 16 ch fixture 駆動 trace gate verify、 機能 verify only、 6 gate 全 PASS)
+
+### 実装内容 (= 新規 verify script、 driver source 完全不変)
+
+- 新規 verify script: `src/test-fixtures/axis-b/verify-axis-b-v2-fixture-expansion-delta.sh` (= ADR-0067 §決定 7 allowed-touch literal「driver source 完全不変、 新規 verify script のみ」 遵守)
+- 既存 verify script (= `verify-axis-b-v2-song-playback.sh` 等 ADR-0049〜0059 全) 完全不変
+- driver source (= `src/driver/standalone_test.s` slot init / fixture data / 既存 routine) 完全不変
+
+### 6 gate literal (= ADR-0067 §決定 5 literal)
+
+| gate # | scope | 実行値 |
+|---|---|---|
+| gate-1 | production sha256 維持 | `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` literal 一致 (= 通算 ADR-0058〜0064〜0067 α/β/γ 継承、 δ 改変なし = 新規 verify script のみ追加) |
+| gate-2 | v2 fixture build PASS + active slot driven (= chip target 別) | ym2610 = 8 slot (= FM B/C/E + SSG G/H/I + ADPCM-B J + rhythm K) + ym2610b = 11 slot (= + FM A/D/F = chip target 別 active policy ADR-0067 §決定 12 整合) |
+| gate-3 | 全 16 ch chip 別代表 register literal 期待値出力 | FM (= ym2610 B/C/E + ym2610b A/D/F port A reg 0x28 keyon value F1/F2/F5 + F0/F4/F6) + SSG (= G/H/I tone period port A reg 0x00-0x05 + mixer 0x07 + volume 0x08-0x0A) + ADPCM-B (= port A reg 0x10 keyon bit 7 + 0x11 pan + 0x12/0x13 start + 0x14/0x15 stop + 0x19/0x1A delta-N + 0x1B volume) + ADPCM-A (= L ch 固定 6 drum trigger = port B reg 0x100 keyon mask 0x01 x 66 件 + 0x108 vol 0xDF x 66 件 + 0x110 START_LSB uniq 6/66 件 + 0x118 START_MSB 0x00 x 66/66 件 + 0x120 STOP_LSB uniq 6/66 件 + 0x128 STOP_MSB 0x00 x 66/66 件) 全 PASS |
+| gate-4 | .org section overflow なし | 0x0066 セクション max addr `0x0000FD` < 0x0100 (= overflow なし、 K full bitmap 拡張後も維持) |
+| gate-5 | representative 2 script regression | `verify-axis-b-v2-song-playback.sh` (= ADR-0058 ε 体系化 10 gate + transitively `verify-axis-b-fm-ssg-real-sound.sh` = ADR-0049〜0057 transitively cover) + `verify-axis-b-v2-roadmap3-dispatch.sh` (= ADR-0059 ε) 両 ALL PASS |
+| gate-6 | IRQ tick 処理量 trace window 適合 | actual IRQ count = **2270 件** (= threshold >= 2000 PASS、 γ baseline 2261 件から +9 件 = β/γ active 追加で dispatch loop 微増、 -12% 余白十分) |
+
+### 重要仕様明示 (= ADR-0067 §決定 5 literal vs 実 driver 整合)
+
+#### ADPCM-A L ch 固定 + sample addr 差分仕様 (= Codex plan review round 1/2 must-fix 反映)
+
+ADR-0067 §決定 5 gate-3 ADPCM-A literal「per-ch keyon 0x00 (= bit set per ch) + per-ch start LSB/MSB 0x10-0x15 系 + per-ch stop LSB/MSB 0x18-0x1D 系 + per-ch volume 0x08-0x0D + master volume 0x01」 は **ADR 起票時の理論的 register map**。 実 driver `pmdneo_rhythm_event_trigger` (= `src/driver/standalone_test.s:5295-5345`) = **L ch (= ch 0) 固定** + 各 drum sample addr 差分仕様 (= ADR-0026 §決定 4「L ch (= ch 0) 暫定占有 scaffold」 由来)。 各 drum BD/SD/CYM/HH/TOM/RIM は同 6 件 register write を ym2610_write_port_b 経由で発行:
+
+- port B reg 0x10 (= START_LSB) = drum 別 sample addr 差分 (= 6 drum で unique value 6 件)
+- port B reg 0x18 (= START_MSB) = **全 drum 0x00 固定** (= sample 16-bit space 内、 既存 step12/13/17 verify literal 整合)
+- port B reg 0x20 (= STOP_LSB) = drum 別差分 (= unique 6 件)
+- port B reg 0x28 (= STOP_MSB) = 全 drum 0x00 固定
+- port B reg 0x08 = vol/pan 0xDF 固定 (= 0xC0 pan | 0x1F vol)
+- port B reg 0x00 = keyon mask 0x01 (= L ch bit 0、 全 drum 共通)
+
+ADR 修正は scope-out (= ADR-0067 §決定 1〜12 本文不変規律遵守)、 本 Annex δ で literal 化。
+
+#### FM keyon 全 ch port A reg 0x28 一本仕様 (= Codex plan review round 1 must-fix 2 反映)
+
+FM keyon = 全 ch port A reg 0x28 一本 (= `fm_keyon_values` F0/F1/F2/F4/F5/F6、 `src/driver/standalone_test.s:1238/1523`)。 port B 経由は fnum/TL 等 ch >= 3 のみ (= `src/driver/standalone_test.s:1045/4397`、 ym2610b 限定)。
+
+#### gate-5 scope literal limit (= Codex plan review round 1 must-fix 3 反映)
+
+ADR-0067 §決定 5 gate-5 literal「ADR-0049〜0059 既存 verify script ALL PASS 維持」 を **v2 driver 関連 representative 2 script** で direct cover、 他 ADR-0049〜0057 系 verify script (= mute / fade / tone-enable / sram-placement / axis-connection / v2-entry 等) は production sha256 維持 (= gate-1) によって m1 ROM byte-identical = ADR-0049〜0057 全 routine byte-identical proof = transitively regression OK。
+
+### trace TSV format literal
+
+- ymfm-trace.tsv: `# write_idx\tport\treg\tvalue`
+- port A = chip register 0x00-0xFF (= FM 1-3 ch + SSG + ADPCM-B)
+- port B = chip register 0x100-0x1FF (= ADPCM-A + FM 4-6 ch ym2610b 限定 = 3 桁 hex 表記)
+- ADR-0067 §決定 5 gate-3 ADPCM-A literal「0x00/0x10/0x18 系」 は driver source level の reg literal、 trace TSV では port B 3 桁 hex (= 0x100/0x110/0x118 系) で記録
+
+### Codex layer 2 review chain
+
+- plan review chain: round 1 **revise** (= must-fix 3 = ADPCM-A per-ch expected 不整合 + FM port B keyon 誤り + gate-5 範囲狭い + nh 1 + lr 0、 agentId `a17acc836d9dadd6f`、 elapsed 4m 31s) → round 2 **revise** (= must-fix 1 = ADPCM-A MSB unique >= 6 false FAIL 修正、 既存 step12/13/17 verify literal 整合、 agentId `a34c78814c619f335`、 elapsed 2m 0s) → round 3 **approve** (= must-fix 0 + nh 0 + lr 0、 既存 step verify literal 完全整合 confirmed、 agentId `a1189768f6a4522fb`、 elapsed 1m 14s)
+- implementation review chain: (= 後続、 PR 作成後投入)
+
+### α 漏れ補完継承 (= Annex β「α 漏れ補完」 sub-section 継承、 ε retrospective 候補 default 維持)
+
+- δ では α 漏れに対する新規 issue なし、 β/γ literal「ε 担当者引き継ぎ literal 強化」 継承維持
+
+### 状態維持
+
+- ADR-0067 **Draft 維持** (= ε まで Draft、 § 決定 1〜12 本文不変)
+- 「16 ch fixture 拡張完了」 wording = **δ 完走では未解禁** (= ε Accepted 後使用可 + 併記必須)
+- 「trace-equivalence 完了」 wording = **使用不可** (= ADR-0068 候補 future、 δ は機能 verify only)
+- 「roadmap ⑤ 統合 verify 完了」 / 「(a)(b)(c) 3 gate 統合 verify 完了」 = ADR-0067 完全禁止維持
+- 「production-ready 全体達成」 / 「軸 B 完成」 = literal 禁止維持
+- **δ 新規解禁表現**: 「全 16 ch trace 取得」 / 「機能 verify 完了」 = δ scope literal で使用可 (= 主軸 judgment + Codex round 3 approve confirmed)
+
 ## 改訂履歴
 
 | 日付 | session | 変更 | commit |
@@ -441,4 +508,5 @@ PR 作成 (= 起票 + sub-sprint α 着手 PR = doc + 実装) + Codex layer 2 im
 | 2026-05-24 | 39th session | ADR-0067 新規起票 Draft (= ADR-0064 §決定 7 ADR-0067+ 実作業群 の 1 本目、 driver fixture 拡張専用 ADR、 sub-sprint α/β/γ/δ/ε chain、 起票 + sub-sprint α 着手 PR、 Codex layer 2 plan review 5 round chain = round 1-4 revise + round 4 escalation user option Z 採用 + round 5 approve、 nice-to-have 2 + latent-risk 2 全 ADR 本文反映、 chip target 制約 ADR-0006 §B 継承 literal、 「roadmap ⑤ 統合 verify 完了」 wording 完全禁止、 「16 ch fixture 拡張完了」 = ε Accepted 後使用可解禁表現候補) | (= 初版 commit `bfd4009`) |
 | 2026-05-24 | 39th session | Codex layer 2 implementation review round 6 revise 反映 (= must-fix 2 (= slot 2/4/6 chip target 別 active policy + dashboard 0065/0066 placeholder 行追加) + nice-to-have 2 (= ADR comment chip 制約整合 + α gate-5 partial PASS 注記) 全反映、 §決定 2 sub-sprint α scope row 更新 + §決定 12 chip target 別 active policy literal 全面書き換え + § verify gate sub-sprint α gate-5 注記追加、 driver source slot 3/5 = 無条件 active + slot 2/4/6 = `.if PMDNEO_TARGET_CHIP_YM2610B` 配下 active 化 修正、 ADR-0058 γ comment「slot 初期化で active ch_idx のみ選択 (= ym2610 silent skip 対象は init 段階で回避)」 遵守、 production sha256 = `b15883fe...` 維持 confirmed、 ym2610 v2 fixture build sha256 = `33dfce3e...` (= chip target fix 反映後の新値、 ym2610 では slot 2/4/6 init 未 assemble)、 latent-risk 1 (= chip 別 active policy literal 固定) + latent-risk 2 (= dashboard 番号順 = 既存運用整合) mitigation 反映) | (= round 6 反映 commit、 後続) |
 | 2026-05-24 | 39th session | ADR-0067 sub-sprint β = SSG 残 2 ch (= H/I) fixture 追加 + slot 7-8 active init 追加 完走 milestone (= driver `src/driver/standalone_test.s` `.if TEST_MODE_V2_SONG_FIXTURE` 配下 additive、 SSG H/I 無条件 active = ADR-0006 §B 制約対象外 ym2610 / ym2610b 両 audible、 既存 `_ssg_g` / `_fm_b` / `_adpcmb_j` / `_rhythm_k` / α 追加 `_fm_a/c/d/e/f` 完全不変、 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 verified、 v2 fixture build PASS、 .org section overflow なし verified、 既存 `verify-axis-b-v2-song-playback.sh` 10 gate ALL PASS 維持 verified、 § Annex β section 新規追加 (= ADR-0058/0059 Annex C pattern 継承)、 α 漏れ補完は ε retrospective 候補 default + ε 担当者引き継ぎ literal 強化 (= Codex round 2 LATENT-RISK 1 反映)、 Codex layer 2 plan review 2 round chain (= round 1 revise must-fix 1 = Annex β 追加要求 + latent-risk 2 + round 2 approve must-fix 0 + latent-risk 1 = α 漏れ追跡 ε 引き継ぎ) 全反映 + 越権操作なし confirmed、 ADR-0067 Draft 維持) | (= β commit `a71f32a` + dashboard fix `2190388`、 PR #129 MERGED at `be453e3`) |
-| 2026-05-24 | 39th session | ADR-0067 sub-sprint γ = rhythm K bitmap full 拡張 (= ADPCM-A 全 6 ch active 化、 案 A per-bit 順次 trigger 6 段 bitmap = BD/SD/CYM/HH/TOM/RIM) + slot 10 fixture pointer switch (= `_rhythm_k` → `_rhythm_k_full`、 AUDITION_REVISE=0 default 経路のみ、 AUDITION_REVISE=1 audition 経路完全保護) 完走 milestone (= driver `src/driver/standalone_test.s` `.if TEST_MODE_V2_SONG_FIXTURE` 配下 additive + 1 行 edit、 既存 `_rhythm_k` 完全不変、 既存 `_fm_b` / `_ssg_g` / `_adpcmb_j` / α 追加 `_fm_a/c/d/e/f` / β 追加 `_ssg_h/_ssg_i` 完全不変、 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 verified、 v2 fixture build PASS、 .org section overflow なし verified、 既存 `verify-axis-b-v2-song-playback.sh` 10 gate ALL PASS 維持 verified、 § Annex γ section 新規追加 (= β Annex pattern 継承、 6 sub-section = 実装内容 + 配置 + bitmap convention + verify gate + Codex review chain + α 漏れ補完継承 + 状態維持)、 Codex layer 2 plan review 1 round approve (= must-fix 0 + nh 1 = β 後 line ref stale 非 blocker + lr 1 = wording「新規 rhythm K full trace 確認は δ scope」 維持、 bitmap parser 安全性 confirmed + 案 A judgment confirmed) + 越権操作なし confirmed、 ADR-0067 Draft 維持) | (= γ commit hash 後続、 PR # 後続) |
+| 2026-05-24 | 39th session | ADR-0067 sub-sprint γ = rhythm K bitmap full 拡張 (= ADPCM-A 全 6 ch active 化、 案 A per-bit 順次 trigger 6 段 bitmap = BD/SD/CYM/HH/TOM/RIM) + slot 10 fixture pointer switch (= `_rhythm_k` → `_rhythm_k_full`、 AUDITION_REVISE=0 default 経路のみ、 AUDITION_REVISE=1 audition 経路完全保護) 完走 milestone (= driver `src/driver/standalone_test.s` `.if TEST_MODE_V2_SONG_FIXTURE` 配下 additive + 1 行 edit、 既存 `_rhythm_k` 完全不変、 既存 `_fm_b` / `_ssg_g` / `_adpcmb_j` / α 追加 `_fm_a/c/d/e/f` / β 追加 `_ssg_h/_ssg_i` 完全不変、 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 verified、 v2 fixture build PASS、 .org section overflow なし verified、 既存 `verify-axis-b-v2-song-playback.sh` 10 gate ALL PASS 維持 verified、 § Annex γ section 新規追加 (= β Annex pattern 継承、 6 sub-section = 実装内容 + 配置 + bitmap convention + verify gate + Codex review chain + α 漏れ補完継承 + 状態維持)、 Codex layer 2 plan review 1 round approve (= must-fix 0 + nh 1 = β 後 line ref stale 非 blocker + lr 1 = wording「新規 rhythm K full trace 確認は δ scope」 維持、 bitmap parser 安全性 confirmed + 案 A judgment confirmed) + 越権操作なし confirmed、 ADR-0067 Draft 維持) | (= γ commit `aeae373`、 PR #130 MERGED at `b9a5411`) |
+| 2026-05-24 | 39th session | ADR-0067 sub-sprint δ = 全 16 ch fixture 駆動 trace gate verify (= 機能 verify only、 trace-equivalence は ADR-0068 future) + 新規 verify script `verify-axis-b-v2-fixture-expansion-delta.sh` 実装 (= 6 gate literal = sha256 + active slot driven + 全 16 ch chip 別代表 register + .org overflow + representative 2 script regression + IRQ tick 処理量) 完走 milestone (= driver source 完全不変 = ADR-0067 §決定 7 allowed-touch literal「driver source 完全不変、 新規 verify script のみ」 遵守、 既存 ADR-0049〜0059 verify script 全て不変、 6 gate 全 PASS verified = production sha256 `b15883fe...` 維持 + ym2610 active 8 slot + ym2610b active 11 slot + 全 16 ch chip 別 register literal (= FM port A 0x28 keyon F0-F6 + SSG port A 0x00-0x05 tone + 0x07 mixer + 0x08-0x0A volume + ADPCM-B port A 0x10-0x1B + ADPCM-A port B 0x100/0x108/0x110/0x118/0x120/0x128 L ch 固定 + sample addr 差分 + MSB 0x00 固定) + .org max 0x0000FD < 0x0100 + representative 2 script ALL PASS + IRQ count 2270 (>= 2000) + ADR-0067 §決定 5 ADPCM-A literal vs 実 driver L ch 固定仕様の差分を Annex δ literal 化 (= ADR-0026 §決定 4 L ch 暫定占有 scaffold 由来、 ADR 修正 scope-out) + FM keyon 全 ch port A reg 0x28 一本仕様 literal 化 + gate-5 scope literal limit (= v2 driver 関連 representative 2 script direct cover + 他 script は production sha256 維持で transitively regression OK)、 § Annex δ section 新規追加 (= 7 sub-section = 実装内容 + 6 gate literal + 重要仕様明示 + trace TSV format literal + Codex review chain + α 漏れ補完継承 + 状態維持)、 Codex layer 2 plan review 3 round chain (= round 1 revise must-fix 3 ADPCM-A 不整合 + FM port 誤り + gate-5 範囲狭い + 1 nh + 0 lr + round 2 revise must-fix 1 MSB unique false FAIL + round 3 approve must-fix 0 + nh 0 + lr 0) 全反映 + 越権操作なし confirmed、 ADR-0067 Draft 維持) | (= δ commit hash 後続、 PR # 後続) |
