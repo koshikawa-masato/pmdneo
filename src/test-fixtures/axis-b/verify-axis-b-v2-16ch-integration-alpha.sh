@@ -134,8 +134,18 @@ build_and_trace_pmddotnet_mml() {
     return 1
   fi
 
+  # PMDDotNETConsole は CRLF 必須 (= memory feedback_pmddotnet_mml_authoring_rules.md literal)。
+  # LF only file (= src/test-fixtures 配下自作 fixture 例 j-part-g.mml) は line 2 で parse error。
+  # 既存 file 不変 + on-the-fly CRLF 変換 tmp file 経由で PMDDOTNET_MML に渡す。
+  local mml_to_use="$mml_path"
+  if ! file "$mml_path" 2>&1 | grep -q "CRLF"; then
+    local mml_crlf="$ALPHA_OUT_DIR/env-${label}-crlf-$(basename "$mml_path")"
+    sed -e 's/$/\r/' "$mml_path" > "$mml_crlf"
+    mml_to_use="$mml_crlf"
+  fi
+
   rm -f "$PREPROCESSED"
-  if ! PMDDOTNET_MML="$mml_path" PMDDOTNET_MODE="$mode" PMDDOTNET_DLL="$PMDDOTNET_DLL" PMDNEO_USE_PMDDOTNET=1 bash scripts/build-poc.sh --chip "$chip" >"$ALPHA_OUT_DIR/env-${label}-build.log" 2>&1; then
+  if ! PMDDOTNET_MML="$mml_to_use" PMDDOTNET_MODE="$mode" PMDDOTNET_DLL="$PMDDOTNET_DLL" PMDNEO_USE_PMDDOTNET=1 bash scripts/build-poc.sh --chip "$chip" >"$ALPHA_OUT_DIR/env-${label}-build.log" 2>&1; then
     ng "env ${label} PMDDOTNET_MML build FAIL (chip=${chip}, mode=${mode}, mml=${mml_path}), build log = $ALPHA_OUT_DIR/env-${label}-build.log"
     return 1
   fi
@@ -302,9 +312,9 @@ for env in "${ENVS[@]}"; do
   printf " %5s |" "${env%%-*}"
 done
 printf " union\n"
-printf "----+"
-for _ in "${ENVS[@]}"; do printf "-------+"; done
-printf "------\n"
+printf '%s' "----+"
+for _ in "${ENVS[@]}"; do printf '%s' "-------+"; done
+printf '%s\n' "------"
 
 for ch in "${CHANNELS[@]}"; do
   printf " %s  |" "$ch"
