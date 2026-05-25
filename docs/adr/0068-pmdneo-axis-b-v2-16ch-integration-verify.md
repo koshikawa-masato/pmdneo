@@ -208,7 +208,7 @@ ADR-0068 で使用する build mode (= ADR-0067 §決定 4 (A)/(B) 継承 + (C-1
 - env = `PMDDOTNET_MML=<MML path> PMDDOTNET_MODE=<N|B> PMDDOTNET_DLL=<dll path> PMDNEO_USE_PMDDOTNET=1 bash scripts/build-poc.sh --chip <ym2610|ym2610b>`
 - `PMDDOTNET_MODE` (= N/B、 default N) = ADPCM-A 経路使用切替 (= B = ADPCM-A 経路、 N = ADPCM-A 経路なし)
 - `PMDDotNETConsole.dll` (= `vendor/PMDDotNET/PMDDotNETConsole/bin/Release/net6.0/PMDDotNETConsole.dll`) 必要
-- α env # 3-6 で主軸使用
+- α env # 3-10 で主軸使用 (= plan v7 = 10 env literal 整合)
 
 ### 決定 4: trace-equivalence 定義 literal (= ADR-0056 §決定 3-a / ADR-0064 §決定 1(b) literal 継承)
 
