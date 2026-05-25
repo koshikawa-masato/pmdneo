@@ -485,7 +485,9 @@ K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part な
 | 9 | `518b7ef` | dashboard 0068 行 status column + escalation 履歴 40th session α PR2 entry |
 | 10 | `2b81da6` | Codex impl-review round 1 finding 反映 (= must-fix 3 + nh 1 + lr 2 = SAMPLE2-baseline 解釈訂正 + stale wording cleanup + commit chain 表 update + 行数 update + PASS wording 明示 + production sha256 wording 明示) |
 | 11 | `adedc66` | Codex impl-review round 2 finding 反映 (= must-fix 4 + nh 1 = verify script header / report ラベル plan v6 残存 cleanup + dashboard 0068 行 wording 併記 + ADR doc 「K+L-Q distinctness proof」 5 箇所一括置換 + PR1 平易要約欄 wording 併記) |
-| 12 | (= 本 commit) | Codex impl-review round 3 finding 反映 (= must-fix 3 + nh/lr 0 = 「distinctness proof」 残存 3 箇所 → 「distinctness capture」 置換 + commit chain table 10 件 → 12 件 update + 行数 459 → 466 訂正) |
+| 12 | `2f3b3d1` | Codex impl-review round 3 finding 反映 (= must-fix 3 + nh/lr 0 = 「distinctness proof」 残存 3 箇所 → 「distinctness capture」 置換 + commit chain table 10 件 → 12 件 update + 行数 459 → 466 訂正) |
+| 13 | `e2c57fe` | Codex impl-review round 4 finding 反映 (= must-fix 1 + lr 1 advisory = ADR doc line 76 §決定 1(a) (a) gate scope literal 変数名 `AXIS_G_AUDITION_LEGACY_SKIP=1` → `TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP=1` 統一 + verify script env var transform 関係明示) |
+| 14 | (= 本 commit) | Codex impl-review round 5 finding 反映 (= must-fix 1 + nh/lr 0 = Annex α commit chain table 12 件 → 14 件 update = round 3 commit hash 確定 + round 4 e2c57fe + round 5 本 commit 追加) |
 
 **機械復旧 default rule (= [[long-running-hang-auto-recovery-rule]]) 適用実証**:
 - Codex round 2 hang 22m 55s cancel + retry 1 回成功 (= revise judgment 取得)
