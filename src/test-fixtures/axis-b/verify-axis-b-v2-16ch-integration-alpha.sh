@@ -38,19 +38,24 @@
 #   ADPCM-B (1 ch = J):    MML part J (= port A reg 0x10-0x1C ADPCM-B start)
 #   ADPCM-A (6 ch = L-Q):  MML part L-Q (= port B reg 0x00 keyon mask bit 0-5)
 #
-# α union expected coverage (= task #50 ground truth):
-#   FM: A, B, C, D       (= 不足 E, F)
-#   SSG: I               (= 不足 G, H)
-#   ADPCM-B: J           (= OK)
-#   ADPCM-A: L, M, N, O, P, Q (= OK)
-#   合計: 12 / 16 ch carry confirm + 不足 4 ch (= FM E/F + SSG G/H) literal 報告
-#   = ADR-0068 §決定 1(a) hybrid 原則 sub-section literal: 残 4 ch は β minimal MML 例外許可 carry
+# α actual coverage (= plan v7 = 40th session driver source ground truth 確認結果):
+#   FM (6 ch = A-F): A, B, C, D, E, F (= 全 carry、 (B) v2 fixture + (C-2) test01/test02 default driven)
+#   SSG (3 ch = G-I): G, H, I         (= 全 carry、 同上)
+#   ADPCM-B (1 ch = J): J             (= carry、 同上)
+#   ADPCM-A (6 ch = L-Q): L, M, N, O, P, Q (= 全 carry、 (B) v2 `_rhythm_k_full` + (C-2) pmddotnet_song L-Q candidate distinct)
+#   合計: 16 / 16 ch carry actual literal record
+#   = ADR-0068 §決定 1(a) driver source dispatch ground truth + plan v7 K+L-Q distinctness focus
+#   = plan v6 旧期待 (= 12/16 carry + 不足 4 ch FM E/F + SSG G/H 想定) は driver ground truth で retired
+#     (= A-J 全 default driven、 minimal MML 例外許可不要、 hybrid 原則 sub-section = unused 化)
 #
-# α 完了判定 (= ADR-0068 §決定 2 α row 完了判定 literal):
+# α 完了判定 (= ADR-0068 §決定 2 α row plan v7 literal):
 #   - α-task 1 + α-task 2 両完了 (= 10 env 全 build + trace OK)
-#   - 12/16 ch carry confirm (= existing resource union)
-#   - 不足 4 ch literal 報告 (= FM E/F + SSG G/H)
-#   - 残 4 ch β minimal MML carry plan literal (= ADR-0068 §決定 1(a) hybrid 原則 sub-section reference)
+#   - K+L-Q candidate distinctness capture + report (= L-Q 3 種類 distinct pattern A/B/C 確認、
+#     A pattern = MML note 数差分 / B pattern = 6 ch 同時 keyon / C pattern = baseline init keyon)
+#   - A-J default integration trace record (= default 同一 8/2 pattern literal)
+#   - 16/16 ch carry actual literal record (= 三分割 wording 整合)
+#   - 「16ch full candidate distinctness 完了」 = literal 禁止維持 (= A-J distinctness は ADR-0069 候補 future)
+#   - distinctness 判定 assertion は β scope future (= α は capture + report only)
 #
 # driver touch なし (= ADR-0068 §決定 5 (ii) runtime/driver allowed-touch = 完全不変、
 #   既存 fixture / 既存 verify script / 既存 build flag / vendor 完全不変、
@@ -306,7 +311,7 @@ echo "---- env # 10 = (C-2) A-J default integration baseline ym2610b = SAMPLE2-b
 build_and_trace_pmddotnet_mml ym2610b "$PMDNEO_ROOT/vendor/PMDDotNET/SAMPLE2-baseline.mml" B "10-sample2-baseline-ym2610b" || true
 
 # ============================================================
-# union coverage report (= 16 ch enumeration + 12/16 carry confirm + 不足 4 ch literal)
+# union coverage report (= 16 ch enumeration + actual carry literal record、 plan v7 = capture + report only)
 # ============================================================
 echo ""
 echo "==== union coverage report (= 16 ch × 10 env) ===="
@@ -391,11 +396,13 @@ for ch in "${ALL_16[@]}"; do
 done
 echo "missing ch (${#MISSING_ACTUAL[@]} / 16): ${MISSING_ACTUAL[*]:-(none)}"
 
-# task #50 期待 carry / 期待 missing 乖離 record (= ADR-0068 doc 修正 input material)
+# plan v6 旧期待値 (= retired by plan v7 driver source ground truth、 record for historical reference only)
+# = task #50 static MML 解釈時の期待 carry / 期待 missing、 driver ground truth 確定で全部 default driven 判明
 EXPECTED_CARRY=("A" "B" "C" "D" "I" "J" "L" "M" "N" "O" "P" "Q")
 EXPECTED_MISSING=("E" "F" "G" "H")
-echo "task #50 expected carry  (12 / 16): ${EXPECTED_CARRY[*]}"
-echo "task #50 expected missing (4 / 16): ${EXPECTED_MISSING[*]}"
+echo "plan v6 旧期待値 (= retired by plan v7、 historical reference):"
+echo "  expected carry  (12 / 16): ${EXPECTED_CARRY[*]}"
+echo "  expected missing (4 / 16): ${EXPECTED_MISSING[*]}"
 
 # 期待との乖離 enumeration (= literal only、 NG にしない)
 DIVERGENCE=()
