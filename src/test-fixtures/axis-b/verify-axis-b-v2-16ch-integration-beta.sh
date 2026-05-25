@@ -23,7 +23,7 @@
 #   axis C: distinctness comparison (= β scope 主軸)
 #     C-1 L-Q candidate distinctness = α capture 3 pattern A/B/C
 #     C-2 A-J default carry baseline = 全 env A-J default driven literal
-#     C-3 K distinct candidate       = β 新規 bitmap pair representative 3 件
+#     C-3 K candidate trigger 出現確認 = β 新規 bitmap pair representative 3 件 (= trigger 出現確認 limit、 真の trace distinct は ADR-0069 候補 future defer)
 #
 # verify gate 9 件 (= sub-step 含む 14 step、 ADR-0068 Annex β β-4 literal):
 #   gate 1 = (B) v2-only build mode + trace capture 2 env
@@ -45,7 +45,7 @@
 #     gate 9c = sha256 command = sha256sum
 #     gate 9d = expected hash = b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4
 #
-# K distinct candidate (= bitmap pair representative 3 件、 Codex round 1 must-fix 2 反映):
+# K candidate (= bitmap pair representative 3 件、 trigger 出現確認 limit、 真の trace distinct は ADR-0069 候補 future defer、 Codex plan round 1 must-fix 2 反映 + impl-review round 2 must-fix 1 wording 統一):
 #   env # 11,12 = src/test-fixtures/step18/k03.mml (= bitmap pair representative variant 1)
 #   env # 13,14 = src/test-fixtures/step18/k11.mml (= bitmap pair representative variant 2)
 #   env # 15,16 = src/test-fixtures/step18/k21.mml (= bitmap pair representative variant 3)
@@ -230,7 +230,7 @@ detect_adpcma() {
 # ============================================================
 mkdir -p "$BETA_OUT_DIR"
 echo "==== ADR-0068 sub-sprint β verify (= K+L-Q register behavior normalized comparison) ===="
-echo "==== 3 axis + 8 sub-category trace-equivalence 判定基準 + K candidate distinct + α trace input ===="
+echo "==== 3 axis + 8 sub-category trace-equivalence 判定基準 + K candidate trigger 出現確認 + α trace input ===="
 echo "==== output dir = $BETA_OUT_DIR , alpha trace input = $ALPHA_OUT_DIR ===="
 date "+START %Y-%m-%dT%H:%M:%S"
 
@@ -365,7 +365,7 @@ fi
 # β 新規 trace capture (= K candidate 3 件 × chip 2 種 = 6 env、 trace file 12 件)
 # ============================================================
 echo ""
-echo "==== β 新規 trace capture (= K distinct candidate 3 件 × chip 2 種 = 6 env) ===="
+echo "==== β 新規 trace capture (= K bitmap pair representative candidate 3 件 × chip 2 種 = 6 env、 trigger 出現確認 limit) ===="
 
 # env # 11-12 = (C-2) k03 ym2610/ym2610b (= bitmap pair representative variant 1)
 echo "---- env # 11 = (C-2) k03 ym2610 (mode=B) = bitmap pair representative variant 1 ----"
@@ -498,7 +498,7 @@ A3A_UNINTENDED=0
 for env in "${BETA_ENVS[@]}"; do
   trace="$BETA_OUT_DIR/env-${env}-ymfm.tsv"
   [ ! -f "$trace" ] && continue
-  # K+L-Q distinct candidate trace で、 ADPCM-A L-Q いずれかに keyon write が存在することを期待
+  # K+L-Q candidate trace で、 ADPCM-A L-Q いずれかに keyon write が存在することを期待
   # (= K candidate は K part 単独 = ADPCM-A 駆動、 L-Q いずれかが必ず carry)
   adpcma_total=0
   for ch in L M N O P Q; do
