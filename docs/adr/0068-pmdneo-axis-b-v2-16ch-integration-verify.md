@@ -919,6 +919,67 @@ ADR-0068 Draft 起票 ≠ 「roadmap ⑤ 統合 verify 完了」 (= ε Accepted 
 
 PR1 merge 後 (= 既完了)、 sub-sprint α 実装 PR2 を別 task chain で完走 (= plan v7 = K+L-Q distinctness capture + A-J default integration trace、 16/16 carry actual + L-Q candidate 3 種類 distinct pattern + 三分割 wording 整合、 distinctness 判定 assertion は β scope future)。 α 完走後 β/γ/δ/ε 各 PR を continue。 ADR-0068 ε Accepted 後、 ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= plan v7 新規追加、 driver 拡張 sprint = A-J candidate distinctness 実現) 起票判断 (= 各 user 明示 GO 必須)。
 
+## γ PR4 完走 update (= 2026-05-25 40th session、 平易要約 update)
+
+### γ でやりたかったこと
+
+ADR-0068 §決定 2 γ row literal「全 verify script 統合 ALL PASS = production binary 1 件に対して全 verify を 1 batch 実行 + 統合 report」 を実装 + γ scope 限定 baseline regression gate 統合 verify ALL PASS literal 達成。 (c) baseline regression gate (= ADR-0056 §決定 3 (c)) の repo 内 verify を 1 batch で通す + completion proof 統合 report 出力。
+
+### γ 前提
+
+- α PR2 完走 (= PR #134 MERGED at `3c59d93`、 K+L-Q candidate distinctness capture + A-J default integration trace + 16/16 carry actual + 三分割 wording 整合)
+- β PR3 完走 (= PR #135 MERGED at `7335da9`、 K+L-Q distinctness range trace-equivalence literal 達成 + 9 gate ALL PASS + K trace 同一 finding → ADR-0069 候補 future defer literal)
+- ADR-0067 ε Accepted (= 16 ch fixture 拡張完了 milestone、 併記必須)
+- user 明示 GO「質疑あれば全て Codex Rescue で回答を得て、 完全自律で完走まで GO」 = main agent autonomous 完走 default
+
+### γ でやったこと
+
+- γ kickoff plan v4 起草 + Codex layer 2 plan review 4 round chain approve (= round 1-3 revise + round 4 approve、 must-fix 8 + nh 6 + lr 6 全反映)
+- γ branch `wip-adr-0068-gamma-impl` (= base `7335da9`) 作成
+- commit 1 `3b1a026` = ADR doc 3 箇所同時 update (= §決定 1(c) + §決定 2 γ row + §決定 6 表記制約) + Annex γ skeleton 主要 fill + 改訂履歴 γ entry
+- commit 2 `b39c7ec` = γ verify script `verify-axis-b-v2-16ch-integration-gamma.sh` 新規実装 307 行 (= 6 gate + representative direct invoke + per-script log + 三分割 wording + prohibited wording self-check 7 件全件 + allowlist 拡張 + NOT-COMPLETE 7 行 + sha256 pre/post)
+- γ self-test 1 で β script gate 8d (= β branch parent commit literal verify = 3c59d93) が γ 統合 regression 経路 (= HEAD 7335da9) で merge_conflict 誤発火 finding 検出
+- Codex layer 2 plan review re-review 4 round chain (= round 5-7 revise + round 8 approve plan v8) = β script representative regression 除外 5 → 4 script、 §決定 5 (ii) β script 完全不変原則遵守、 β scope coverage は ADR Annex β literal で別途確保 (= 9 gate ALL PASS + K trace 同一 finding + β 完走 wording 解禁)
+- commit 3 `fc2320d` = self-test 1 finding 反映 + plan v5 → v8 (= ADR doc 12 箇所 + γ verify script 7 箇所 update)
+- self-test 2 で gate 4 bash 3.2 多バイト文字 parameter expansion bug 発覚 (= `local var="$arg"` + 多バイト char 値 + nounset + glob match)
+- self-test 3 で gate 4 allowlist 不足 (= enumeration list / array entry / 限定 / 検査 wording context) で false positive 7 件発覚
+- commit 4 `60101a2` = γ verify script bug fix 2 件 + allowlist 5 件追加 + Annex γ fill 完成 + 改訂履歴 γ bug fix entry
+- self-test 4 = 6 gate ALL PASS literal 達成 = 22 OK count + 0 NG count
+- commit 5 (= 本 commit) = dashboard 0068 行 status update + escalation 履歴 γ PR4 entry 追加 + β entry reviewed column update (= pending → approve) + 平易要約 γ context 追記
+
+### γ 結果
+
+- ADR-0068 γ PR4 commit chain 5 完走 (= 3b1a026 / b39c7ec / fc2320d / 60101a2 / 本 commit)
+- γ verify script self-test 4 = 6 gate ALL PASS literal 達成:
+  - gate 1: (A) production default ym2610 pre-build sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 一致 PASS
+  - gate 2: representative 4/4 ALL PASS (= alpha exit=0 + delta exit=0 + song-playback exit=0 + roadmap3 exit=0)
+  - gate 3: 三分割 wording (= 16ch integration trace 完了 + K+L-Q candidate distinctness 完了 + A-J default carry 確認) PASS
+  - gate 4: prohibited wording self-check 7 件全件 all allowlisted PASS
+  - gate 5: NOT-COMPLETE 7 行 literal output 完了 PASS
+  - gate 6: post-representative-script sha256 = `b15883fe...` 一致 = production binary 復元 confirm PASS
+- 通算 sha256 `b15883fe...` 維持 confirmed (= gate 1 pre + gate 6 post 両方一致)
+- driver / α script / β script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex / 軸 G ε partial state placement 完全不変 confirm (= §決定 5 (ii) + §決定 7 literal 遵守)
+- Codex layer 2 plan review 計 8 round chain (= plan v4 round 4 approve + γ self-test 1 finding 反映 plan v8 round 8 approve)、 must-fix 計 13 + nh 計 10 + lr 計 11 全反映、 全 review-only + 越権操作なし confirmed
+
+### γ 解釈
+
+ADR-0068 γ PR4 完走 = 「ADR-0068 γ 完了」 wording 解禁条件達成 = γ scope 限定 baseline regression gate 統合 verify ALL PASS literal。 ただし併記必須維持:
+- 「roadmap ⑤ 統合 verify 完了」 = ε まで禁止維持
+- 「trace-equivalence 完了」 single wording = ε まで禁止維持
+- 「16ch full candidate distinctness 完了」 = ADR-0069 候補 future literal 禁止維持
+- 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」 = literal 禁止維持
+
+γ scope = baseline regression gate 統合 verify、 representative direct invoke 4 script + transitively regression OK pattern (= ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承)、 β script 除外 = §決定 5 (ii) 不可触原則遵守 + β scope coverage は ADR Annex β literal で別途確保。
+
+ADR-0068 γ PR4 完走 ≠ ε Accepted ≠ roadmap ⑤ 統合 verify 完了 ≠ production-ready 全体達成 ≠ 軸 B 完成 ≠ 本番 cmd 切替完了 (= 各 user 判断軸 future)。
+
+### γ 完走後の次
+
+γ PR4 commit chain 完走 (= 本 commit 5) 後、 Codex layer 2 impl-review + main agent 経路で γ PR4 merge + user 完走報告。 γ Accepted 後 (= γ PR4 merge 後):
+- δ (= 統合 report + 残課題 enumeration、 ADR-0065/0066/0069 起票判断 material) 起票判断 = user 明示 GO 必須
+- ε (= Draft → Accepted + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須) は δ 完走後
+- ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= driver 拡張 sprint = A-J candidate distinctness 実現) = 各 user 明示 GO 必須
+
 ## 改訂履歴
 
 | 日付 | session | 変更 | commit |
