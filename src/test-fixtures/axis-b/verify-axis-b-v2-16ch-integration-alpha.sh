@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # PMDNEO ADR-0068 sub-sprint α verify script = (a) 実 MML 再生 統合 verify
-# (= K+L-Q candidate distinctness proof + A-J default integration trace、
+# (= K+L-Q candidate distinctness capture + A-J default integration trace、
 #   plan v7 = 40th session driver ground truth based、 10 env × 2 trace 種 = 20 trace file
 #   capture + 16/16 ch carry actual literal record + 三分割 wording report)
 #
