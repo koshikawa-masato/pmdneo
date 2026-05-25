@@ -184,18 +184,21 @@ if [ -s "$ADR_DIFF_RAW" ]; then
 fi
 ok "gate 4: ADR doc PR4 +追加行抽出 = $ADR_DIFF_LINES 行 (= scan target 範囲限定 confirmed)"
 
-# allowlist 判定 function (= context substring match)
+# allowlist 判定 function (= context substring match、 bash 3.2 多バイト文字 parameter expansion bug 回避で
+#  全 ${word} braces 明示 + local declaration assignment 分離)
 is_allowlisted() {
-    local line="$1"
-    local word="$2"
-    # exact substring allowlist patterns:
-    if [[ "$line" == *"NOT-COMPLETE $word"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 wording 禁止"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 = literal 禁止"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 = ADR-0069 候補 future"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 = ADR-0068 ε Accepted future"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 = ADR-0066 候補 future"* ]]; then return 0; fi
-    if [[ "$line" == *"「$word」 = ε まで禁止"* ]]; then return 0; fi
+    local line
+    local word
+    line="$1"
+    word="$2"
+    # exact substring allowlist patterns (= bash 3.2 compat = ${word} braces 明示):
+    if [[ "$line" == *"NOT-COMPLETE ${word}"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 wording 禁止"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 = literal 禁止"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 = ADR-0069 候補 future"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 = ADR-0068 ε Accepted future"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 = ADR-0066 候補 future"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」 = ε まで禁止"* ]]; then return 0; fi
     if [[ "$line" == *"${word}条件"* ]]; then return 0; fi
     if [[ "$line" == *"${word}ではない"* ]]; then return 0; fi
     if [[ "$line" == *"${word}達成ではない"* ]]; then return 0; fi
@@ -203,10 +206,14 @@ is_allowlisted() {
     if [[ "$line" == *"禁止維持"* ]]; then return 0; fi
     if [[ "$line" == *"prohibited wording"* ]]; then return 0; fi
     if [[ "$line" == *"PROHIBITED_WORDINGS"* ]]; then return 0; fi
-    # negation context (= round 3 nh 1 反映)
-    if [[ "$line" == *"$word\""* ]] && [[ "$line" == *"未達"* ]]; then return 0; fi
     # 「<word> | literal 禁止維持」 wording 禁止 table row 場合 (= §決定 6 sub-section table cell)
-    if [[ "$line" == *"「$word」"* ]] && [[ "$line" == *"literal 禁止維持"* ]]; then return 0; fi
+    if [[ "$line" == *"「${word}」"* ]] && [[ "$line" == *"literal 禁止維持"* ]]; then return 0; fi
+    # self-test 3 finding 反映 allowlist 追加 (= enumeration list context + array declaration context):
+    if [[ "$line" == *"「${word}」 / "* ]]; then return 0; fi
+    if [[ "$line" == *" / 「${word}」"* ]]; then return 0; fi
+    if [[ "$line" == *"    \"${word}\""* ]]; then return 0; fi
+    if [[ "$line" == *"${word} 限定"* ]]; then return 0; fi
+    if [[ "$line" == *"検査 wording"* ]]; then return 0; fi
     return 1
 }
 
