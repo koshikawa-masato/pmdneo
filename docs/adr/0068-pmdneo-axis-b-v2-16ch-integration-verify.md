@@ -610,9 +610,55 @@ ADR-0068 §決定 2 β row literal + plan v3 拡張:
 
 = β scope 採用 = 3 件 (= k03/k11/k21)、 6 env 追加、 env 計 = α 10 + β K 6 = 16 env。 残 8 件 = β γ optional or ADR-0069 候補 future。
 
-#### β-6 = 状態維持 + Codex layer 2 plan review + commit chain literal (= self-test 後 fill)
+##### K trace 同一 finding (= 40th session β self-test retry 3 で発覚、 重要 finding)
 
-(= self-test + bug fix + Annex β fill 完走後に commit chain literal fill)
+self-test retry 3 結果 = **全 6 env (= k03/k11/k21 × ym2610/ym2610b) で trace 同一 pattern** (= L=3 + M-Q 各 1 = total 8 件):
+
+| env | candidate | L | M | N | O | P | Q | total |
+|---|---|---|---|---|---|---|---|---|
+| 11 | k03 ym2610 | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+| 12 | k03 ym2610b | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+| 13 | k11 ym2610 | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+| 14 | k11 ym2610b | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+| 15 | k21 ym2610 | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+| 16 | k21 ym2610b | 3 | 1 | 1 | 1 | 1 | 1 | 8 |
+
+期待 vs 実:
+- 期待 = k03/k11/k21 で異なる bitmap pattern → 異なる L-Q write pattern (= MML 上 bitmap pair pattern 差を駆動)
+- 実 = driver K dispatch 後 trace 同一 (= MML 上 bitmap pair pattern 差は driver dispatch で吸収、 L-Q keyon は全 candidate 同一)
+
+結論:
+- axis C-3 K distinct candidate gate 7 PASS 判定の literal 意味 = **「K candidate trigger 出現確認 (= L-Q いずれかに keyon write 出現)」 limit**
+- 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は **β scope 内で未達成** (= driver K dispatch normalization で吸収)
+- 真の K distinct 達成は **driver 拡張 (= K bitmap pattern 別 dispatch) + 別 MML required** = **ADR-0069 候補 future へ defer**
+
+β scope 完走 wording の reflexion:
+- 「K candidate trigger 出現確認」 = β acceptable (= K MML 由来で L-Q keyon が L=3 + M-Q 各 1 件 trigger される、 driver K bitmap → ADPCM-A keyon 経路機能 verify literal)
+- 「K bitmap pair representative variant 1/2/3 distinct」 = β 内 NOT acceptable、 ADR-0069 候補 future
+- 「K+L-Q distinctness range trace-equivalence literal 達成」 = β 完走 wording 解禁 (= L-Q candidate distinctness 3 pattern A/B/C + K candidate trigger 出現確認 + A-J default carry baseline 確認、 「真の K distinct」 含まない明示)
+
+#### β-6 = 状態維持 + Codex layer 2 plan review + commit chain literal (= self-test 完走後 fill)
+
+##### 状態維持 confirm (= ADR-0068 §決定 7 不可触対象 literal)
+
+- driver source `src/driver/standalone_test.s` 完全不変
+- ADR-0067 fixture (= `_fm_a/b/c/d/e/f` + `_ssg_g/h/i` + `_adpcmb_j` + `_rhythm_k_full` 等) 完全不変
+- 既存 verify script (= ADR-0049〜0067 全 + α script = verify-axis-b-v2-16ch-integration-alpha.sh) 完全不変
+- 既存 build flag 完全不変 (= 新規 flag 追加なし)
+- vendor 完全不変
+- ADR-0048〜0067 本文 + Annex 完全不変
+- 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
+- **production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 実測 confirm** (= gate 9 (A) production default build + sha256 literal 一致 PASS、 §決定 10 全 sub-sprint 共通 gate 整合)
+
+##### commit chain literal (= β PR3 commit chain 5 commit + bug fix integrated)
+
+| # | commit | 内容 |
+|---|---|---|
+| 1 | `e486a7c` | ADR doc β scope literal + Annex β skeleton fill (= §決定 1(b) β scope literal + §決定 2 β row update + Annex β 8 sub-section literal + 改訂履歴 β entry) |
+| 2 | `40410f7` | β verify script 新規実装 705 行 (= 9 gate + 14 step + 3 axis + 8 sub-category + K candidate 3 件 + `--refresh-alpha` option) |
+| 3 | `5d73611` | β verify script bug fix 2 件 + self-test PASS = 9 gate ALL PASS (= 全角「、」 2 箇所 + bash 3.2 `declare -A` → case 関数置換、 self-test retry 3 PASS confirmed、 K trace 同一 finding 検出) |
+| 4 | (= 本 commit) | Annex β fill 完成 (= β-5 K trace 同一 finding literal 追加 + β-6 状態維持 + commit chain literal + § 改訂履歴 β bug fix entry) |
+| 5 | (= 次 commit) | dashboard + memory + 平易要約 |
 
 #### β-7 = lr 2 件補強 literal (= Codex round 3 approve 後の情報提供反映)
 
@@ -711,3 +757,4 @@ PR1 merge 後 (= 既完了)、 sub-sprint α 実装 PR2 を別 task chain で完
 | 2026-05-24 | 40th session | ADR-0068 α scope 再定義 plan v5 → v6-revised revise (= ADR-0067 Accepted「16 ch fixture 拡張完了」 milestone 前提、 task #50 candidate 探索結果 union 12/16 ch carry + 不足 4 ch = FM E/F + SSG G/H 判明、 user 明示 40th session option 2 採用 = hybrid 方針 = existing resource activation 原則維持 + 不足 ch 限定 minimal MML 例外許可 + 16ch 方針縮小なし + β で minimal MML 4 件追加 carry、 §決定 1(a) α union 境界明記 + hybrid 原則 sub-section 追記 (= K=3 candidate 12/16 coverage 表 literal + β minimal MML 候補 enumeration) + §決定 2 α/β/γ row 再定義 + §決定 5 PR2-PR6 PMDNEO_* prefix 統一 + line 60/97/204/347 20 trace 化整合、 Codex layer 2 plan review 5 round chain = round 1 revise must-fix 2 + nh 2 + lr 2 (= a493861afdfd58d95) + round 2 attempt hang 22m 55s cancel (= task-mpjuqshs-fyavhn) + round 2 retry --fresh = revise must-fix 3 (= diff 未反映 = 計画書 review か実反映 review かの解釈ズレ、 main agent 自律判断「計画書 review、 ADR 反映は PR2 commit で実施」、 a18ab6af2bce91b3b)、 越権操作なし confirmed、 機械復旧 default rule 適用 (= [[long-running-hang-auto-recovery-rule]] 初実証)) | (= 本 PR2 commit chain 内) |
 | 2026-05-25 | 40th session | ADR-0068 α scope 再定義 plan v6-revised → v7 (= self-test 完走 + driver source ground truth 4 件 finding 確定後 user 明示 option 4 採用 = driver line 1741-1888 で A-J 10 part 常に test01/test02 default 駆動 / K+L-Q 7 part のみ PMDNEO_USE_PMDDOTNET 切替で pmddotnet_song 由来、 全 (A)/(B)/(C-1)/(C-2) build mode で A-J candidate dispatch 不可、 plan v6-revised hybrid 原則 sub-section = unused 化 (= 不足 4 ch FM E/F + SSG G/H は default driven で常時 carry、 minimal MML 不要)、 §決定 1(a) driver source dispatch ground truth + 全 build mode carrier 差分 table + 40th session self-test actual trace literal + K=3 candidate plan v7 update literal 追記、 §決定 2 α/β/γ row plan v7 = K+L-Q distinctness capture + A-J default integration trace / 三分割 wording 必須、 §決定 6 表記制約 plan v7 = 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」 + 「16ch integration trace 完了」 = ε Accepted 後解禁 + 併記必須、 「16ch full candidate distinctness 完了」 = literal 禁止維持 (= ADR-0069 候補 future)、 §決定 9 ADR-0069 候補 = driver 拡張 sprint literal 追加。 verify script bug fix 4 件 (= 全角 「、」 4 件 + printf 「-」 escape + CRLF on-the-fly 変換 helper + detect_adpcma reg 100 = 3 桁 hex 修正) + assertion softening (= α scope = capture + report only literal 整合)。 機械復旧 default rule (= [[long-running-hang-auto-recovery-rule]]) 適用 = Codex round 2 hang 22m 55s cancel + retry / verify script bug 4 件 cancel + retry chain、 user 介入 = 設計判断 (= hybrid → option 2 → option 4) のみ。 plan v7 scope 縮小 (= 16/16 carry → K+L-Q distinctness focus) ただし 16ch 方針自体は維持 (= ADR-0069 候補で完成、 ADR-0068 scope の 16ch integration trace は actual 達成) | (= 本 PR2 commit chain 内、 commit 66f8b6f / 0613e5a / 38444a4 / b2767aa / c36301f 経由) |
 | 2026-05-25 | 40th session | ADR-0068 β kickoff plan v3 確定 = trace-equivalence 判定基準確定 + 比較実行 scope literal (= K+L-Q register behavior の normalized comparison、 ADR-0064 §決定 1(b) 16ch 同時 trace 比較とは別 wording、 §決定 1(b) β scope literal 整合)、 §決定 1(b) β scope literal sub-section 追記 + §決定 2 β row update (= 3 axis + 8 sub-category + K candidate trace 12 file 追加 + verify gate 9 件 = 14 step) + Annex β fill 8 sub-section (= β-1 scope / β-2 trace-equivalence 判定基準 = 3 axis + 8 sub-category literal / β-3 配置 = 16 env literal + 12 trace 追加 / β-4 verify gate 9 件 + sub-step 14 step / β-5 K distinct candidate 探索結果 + β scope 採否 = bitmap pair representative 3 件採用 + future 8 件 / β-6 状態維持 + commit chain literal (= self-test 後 fill) / β-7 lr 2 件補強 = α trace stale 非停止 risk + base SHA 不一致復旧フロー literal / β-8 Codex layer 2 plan review chain 3 round)。 Codex layer 2 plan review 3 round chain = round 1 revise (= must-fix 3 + nh 3 + lr 3、 production sha256 β 実測 + K candidate wording 修正 + trace-equivalence subtype 1 invariant/intended/zmem 分離、 agentId `a687604717a024fd4`) + round 2 revise (= must-fix 2 + nh 3 + lr 2、 8 sub-category 数え方明示 + gate 8 stale 対策固定、 agentId `a365c311820484805`) + round 3 **approve** (= must-fix 0 + nh 0 + lr 2 情報提供、 agentId `ab716011d8cec2170`)、 must-fix 計 5 件 + nh 計 6 件 + lr 計 7 件 全 ADR 本文反映、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 user 明示 GO「β 起票から開始」 + 機械復旧 default rule [[long-running-hang-auto-recovery-rule]] 継承 | (= 本 PR3 commit chain 内) |
+| 2026-05-25 | 40th session | ADR-0068 β verify script bug fix 2 件 + self-test PASS = 9 gate ALL PASS + K trace 同一 finding 検出 = (1) bug fix 全角 「、」 2 箇所 → 半角 「 , 」 + 英文化 (= α script 同 bug pattern 再導入、 line 234 + 291) + (2) bug fix bash 3.2 `declare -A` (associative array) 非対応 → case 関数 `get_pattern()` で置換 (= macOS default bash 互換)、 self-test retry 3 PASS confirmed (= 9 gate ALL PASS、 FAIL count = 0、 axis A-3a unintended diff 0 件 literal confirm、 axis C-1 L-Q distinctness 8/8 + C-2 A-J default carry 10/10 + C-3 K candidate trigger 出現 6/6、 axis B-1 zmem 別 file 出力 PASS、 gate 9 production sha256 `b15883fe...` 実測一致 confirm)。 **重要 finding (= K trace 同一)** = 全 6 env (= k03/k11/k21 × ym2610/ym2610b) で trace 同一 pattern (= L=3 + M-Q 各 1 = total 8 件)、 期待 (= k03/k11/k21 で異なる bitmap pattern → 異なる L-Q write pattern) vs 実 (= driver K dispatch 後 trace 同一)、 driver K dispatch normalization で MML 上 bitmap pair pattern 差を吸収。 結論 = axis C-3 K distinct candidate gate 7 PASS = 「K candidate trigger 出現確認 (= L-Q いずれかに keyon write 出現)」 limit、 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は β scope 内で未達成 (= driver 拡張 + 別 MML required = ADR-0069 候補 future defer literal)。 β 完走 wording 解禁 = 「K+L-Q distinctness range trace-equivalence literal 達成」 (= L-Q candidate distinctness 3 pattern A/B/C + K candidate trigger 出現確認 + A-J default carry baseline 確認、 「真の K distinct」 含まない明示) | (= 本 PR3 commit chain 内 commit `5d73611` + 本 commit) |
