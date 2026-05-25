@@ -163,6 +163,12 @@ plan v7 candidate selection = **K + L-Q part 持ち MML** に再選定:
 - trace-equivalence 定義 (= 決定 4 literal、 ADR-0056 §決定 3-a 継承): 完全 byte-identical ではなく、 意図した v2 差分許容、 意図しない差分不可、 byte-identical は acceptable pass case の 1 つ
 - 完了判定: 全 ch trace-equivalence 確認 + 意図しない差分なし literal 確認
 
+##### β scope literal (= 40th session β kickoff plan v3 確定、 Codex round 2 nh 3 反映、 round 1 lr 1 起源)
+
+β scope の trace-equivalence は **K+L-Q register behavior の normalized comparison** (= K+L-Q distinctness 範囲限定)、 ADR-0064 §決定 1(b)「v2 / 既存 driver 両経路 16 ch 同時 register write trace 比較」 とは別 wording。 理由 = (B) v2-only fixture trace と (C-2) PMDDOTNET_MML trace は同一入力曲ではない (= 別 input source、 v2 fixture data 内蔵 vs PMDDOTNET compile .M binary)、 同一入力曲での 16ch 同時 trace 比較は driver source 拡張後 (= ADR-0069 候補 future) 達成可能。 β = K+L-Q range で「同一 path 上の candidate distinct pattern」 + 「(B) と (C-2) の path 別 invariant + intended diff 確認」 limit。
+
+β 完走後解禁 wording = 「K+L-Q distinctness range trace-equivalence literal 達成」 (= β scope 限定明記必須)。 「trace-equivalence 完了」 (= 単独 wording) は ε Accepted 後解禁 + 併記必須 (= §決定 6 表記制約)。
+
 #### (c) baseline regression gate 統合 verify
 - scope: 全 verify script suite を 1 batch で production binary 1 件に対して通す + ALL PASS 確認
 - 完了判定: 全 verify script ALL PASS literal 確認 + completion proof 統合 report
@@ -175,7 +181,7 @@ plan v7 candidate selection = **K + L-Q part 持ち MML** に再選定:
 | sub | scope | 関連 gate | 完了判定 |
 |---|---|---|---|
 | α | (a) 実 MML 再生 統合 verify = **K+L-Q candidate distinctness capture + A-J default integration trace** (= plan v7 = 40th session driver ground truth based、 distinctness 判定 assertion は β scope future)。 candidate = `src/test-fixtures/step5/l-q-rhythm-song.mml` + `src/test-fixtures/step5/l-q-tutti.mml` + `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` (= K=3 L-Q distinct candidate)、 K distinctness は β scope future。 10 env × ymfm/z80-mem 2 trace 種 capture = 20 trace file + literal report | (a) | K+L-Q distinctness capture (= 各 candidate L-Q trace 個別記録) + A-J default integration trace record (= default 同一 8/2 pattern literal) + 16/16 ch carry actual literal record |
-| β | (b) trace-equivalence 判定基準確定 + 比較実行 = 意図した v2 差分 / 意図しない差分 enumeration literal + α 取得 trace 20+ 件を input として **K+L-Q candidate distinctness comparison** + A-J default carry baseline 比較 + K distinct candidate (= K part 単独 MML) 探索 / 追加判断 | (b) | K+L-Q distinctness 範囲で trace-equivalence 確認 + A-J default carry baseline 確認 + 意図しない差分なし literal 確認 |
+| β | (b) trace-equivalence 判定基準確定 + 比較実行 = **3 axis + 8 sub-category** (= axis A YMFM register equivalence primary gate + axis B zmem diagnostic record-only + axis C K+L-Q distinctness comparison primary scope、 plan v3 = β kickoff plan Codex 3 round chain approve 経由)。 α 取得 trace 20 件 (= α PR2 結果) + β 新規 K candidate trace 12 件 (= step18/k03/k11/k21 = bitmap pair representative variant 1/2/3、 6 env × 2 chip × 2 trace 種) を input、 計 32 trace file。 **K+L-Q register behavior normalized comparison** (= β scope 限定明記、 ADR-0064 §決定 1(b) 16ch 同時 trace 比較とは別 wording、 §決定 1(b) β scope literal 整合) + A-J default carry baseline 比較 + K distinct candidate β scope 採用判断完了 (= bitmap pair representative 3 件採用、 残 8 件 future)。 verify gate = 9 件 (= sub-step 含む 14 step) ALL PASS = gate 1-7 axis A/B/C judgment + gate 8 α trace provenance 4 step + gate 9 (A) production sha256 literal 実測 confirm | (b) | 9 gate ALL PASS + axis A-3a unintended diff 0 件 literal + axis B zmem 別 file diagnostic + axis C K+L-Q distinct pattern acceptable literal + α trace provenance 4 step + (A) production sha256 literal `b15883fe...` 実測 confirm |
 | γ | (c) 全 verify script 統合 ALL PASS = production binary 1 件に対して全 verify を 1 batch 実行 + 統合 report | (c) | 全 verify script ALL PASS literal 確認 + completion proof 統合 report (= 「16ch integration trace 完了」 + 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」 三分割 wording 必須、 「16ch full candidate distinctness 完了」 wording 禁止 = A-J distinctness は ADR-0069 候補 future) |
 | δ | 統合 report 作成 + 残課題 enumeration (= ADR-0065/0066 起票判断 material) | - | 統合 report literal + 残課題 literal |
 | ε | Draft → Accepted 移行 + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal (= 併記必須) | - | Accepted 移行完了 milestone |
@@ -495,9 +501,150 @@ K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part な
 - user 介入 = 設計判断 (= hybrid → option 2 → option 4) のみ
 - main agent 自律 = bug fix 6 commit + plan v7 doc update + Annex α fill + dashboard / memory update + Codex impl-review
 
-### Annex β: β 実装 completion record (= β PR3 で fill = trace-equivalence 判定基準確定 + 比較実行)
+### Annex β: β 実装 completion record (= β kickoff plan v3 確定後、 trace-equivalence 判定基準確定 + 比較実行)
 
-(= β PR3 で 6 sub-section literal fill)
+#### β-1 = scope literal (= β kickoff plan v3、 Codex layer 2 plan review 3 round chain approve 後)
+
+ADR-0068 §決定 2 β row literal + plan v3 拡張:
+- 主軸: (b) trace-equivalence 判定基準確定 + 比較実行
+- trace-equivalence の β scope literal: **K+L-Q register behavior の normalized comparison** (= §決定 1(b) β scope literal 整合)
+- 範囲: K+L-Q distinctness 範囲のみ (= A-J default carry baseline は record only、 A-J full candidate distinctness は ADR-0069 候補 future)
+
+β sub-task (= 5 件):
+1. trace-equivalence 判定基準 literal 定義 (= 3 axis + 8 sub-category)
+2. K+L-Q candidate distinctness comparison 実装 + 比較実行
+3. A-J default carry baseline comparison 実装 + 比較実行
+4. K distinct candidate (= step18/k03/k11/k21 = bitmap pair representative 3 件) β scope 追加実装
+5. literal report (= 各 axis 比較結果 + axis A-3a unintended diff 0 件 confirm + β 完了判定)
+
+#### β-2 = trace-equivalence 判定基準 literal (= 3 axis + 8 sub-category、 Codex round 2 must-fix 1 反映で数え方明示)
+
+##### axis A: YMFM register-level equivalence (= primary gate)
+
+| sub | label | 内容 | judgment |
+|---|---|---|---|
+| A-1 | invariant | 両 path で完全一致期待 = chip init register set + chip target active slot (= ADR-0006 §B 整合) | 対象 |
+| A-2 | intended diff | 意図した v2 差分、 register state 収束許容 = dispatch order (= v2 dispatcher vs 既存 cmd 0x05 + pmdneo_song_main) + 同一 register への redundant write | 対象 |
+| A-3a | unintended diff | 全部 0 件期待、 primary gate strict = 同一 ch register write 値欠落 + 同一 ch register write 値誤値 + extra write + keyon count/timing 差 + final state 差 + unintended silent write (= 音響状態を変える silent-looking write、 round 1 nh 1 強調) | 対象 |
+| A-3b | neutral/report bucket | 最終 register state + keyon/timing に影響しない同値再書込、 報告のみ (= round 2 must-fix 1 反映で labeling 明示) | **外 (= record-only)** |
+
+##### axis B: zmem diagnostic (= YMFM register equivalence 外、 副次レポート、 round 2 nh 2 反映で別 file 分離)
+
+| sub | label | 内容 | judgment |
+|---|---|---|---|
+| B-1 | PartWork layout diff | v2 compact layout vs PMDDotNET/default、 expected noise。 output = `/tmp/pmdneo-adr-0068-beta/zmem-diagnostic-report.tsv` 別 file 出力、 verify summary は path + 「judgment 外」 のみ表示 | **外 (= record-only、 axis A/C の PASS/FAIL と混ぜない)** |
+
+##### axis C: distinctness comparison (= β scope 主軸)
+
+| sub | label | 内容 | judgment |
+|---|---|---|---|
+| C-1 | L-Q candidate distinctness | α capture 3 pattern A/B/C = env # 3,4 (l-q-rhythm-song = pattern A) / env # 5,6 (l-q-tutti = pattern B) / env # 7,8 (l-q-rhythm-song-step5b = pattern A) / env # 9,10 (SAMPLE2-baseline = pattern C)。 「L-Q distinct pattern として acceptable」 literal 確定 | 対象 |
+| C-2 | A-J default carry baseline | 全 env A-J default driven literal 確認 = FM A/D = 0/61 (chip 別) + B/C/E/F = 8 / SSG = 2 / ADPCM-B = 2。 「A-J default carry baseline 確認」 literal 達成 | 対象 |
+| C-3 | K distinct candidate | β 新規 capture、 bitmap pair representative 3 件 = env # 11,12 (k03 = variant 1) / env # 13,14 (k11 = variant 2) / env # 15,16 (k21 = variant 3)。 「K distinct pattern として acceptable」 literal 確定 (= bitmap pair reach / high-bit coverage 差 representative) | 対象 |
+
+##### 数え方 literal (= round 2 must-fix 1 反映)
+
+- 3 axis = axis A + axis B + axis C
+- 8 sub-category = A-1 + A-2 + A-3a + A-3b + B-1 + C-1 + C-2 + C-3
+- judgment 対象 = A-1 + A-2 + A-3a + C-1 + C-2 + C-3 = **6 sub-category**
+- judgment 外 record-only = A-3b + B-1 = **2 sub-category**
+
+#### β-3 = 配置 (= 新規 verify script + ADR doc β scope literal + 既存 driver / 既存 verify script / 既存 build flag / vendor / 既存 fixture 完全不変)
+
+- **新規 verify script**: `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-beta.sh` (= α script pattern 継承 + K candidate 3 件追加 + 3 axis 8 sub-category gate + `--refresh-alpha` option、 行数 TBD)
+- **ADR-0068 doc 修正**: §決定 1(b) β scope literal 追記 + §決定 2 β row update + Annex β fill + 改訂履歴 β entry
+- **env literal (= 16 env)**:
+  - env # 1-10 = α 流用 (= `/tmp/pmdneo-adr-0068-alpha/env-*-*.tsv` 20 file) or β 内 `--refresh-alpha` で再 capture
+  - env # 11 = (C-2) k03 ym2610 (mode=B)
+  - env # 12 = (C-2) k03 ym2610b (mode=B)
+  - env # 13 = (C-2) k11 ym2610 (mode=B)
+  - env # 14 = (C-2) k11 ym2610b (mode=B)
+  - env # 15 = (C-2) k21 ym2610 (mode=B)
+  - env # 16 = (C-2) k21 ym2610b (mode=B)
+- **driver / 既存 verify script / vendor / 既存 fixture / 既存 build flag 完全不変** (= ADR-0068 §決定 5 (ii) literal)
+- **トレース出力**:
+  - β 新規 trace = `/tmp/pmdneo-adr-0068-beta/env-<NN>-<label>-{ymfm,zmem}.tsv` 計 12 file (= 6 env × 2 trace 種)
+  - axis B zmem diagnostic = `/tmp/pmdneo-adr-0068-beta/zmem-diagnostic-report.tsv` 1 file (= 別 file 出力、 judgment 外)
+- **α trace input** = `/tmp/pmdneo-adr-0068-alpha/env-*-*.tsv` 20 file (= gate 8 provenance check で stale 判定)
+
+#### β-4 = verify gate 9 件 (= sub-step 含む 14 step、 Codex round 1-2 finding 全反映)
+
+| gate | 内容 |
+|---|---|
+| gate 1 | (B) v2-only build mode + trace capture 2 env (= α 流用 or `--refresh-alpha` 再 capture) |
+| gate 2 | (C-2) PMDDOTNET_MML K+L-Q candidate trace 比較 (= env # 3-10 + # 11-16) |
+| gate 3 | A-J default carry baseline 全 env 同一 pattern 確認 (= axis C-2 judgment) |
+| gate 4 | axis A YMFM register equivalence (= A-1 invariant + A-2 intended diff + A-3a unintended literal + A-3b record-only) |
+| gate 5 | axis A-3a unintended diff 0 件 literal confirm (= primary gate strict) |
+| gate 6 | axis B-1 zmem diagnostic 別 report file output + summary path 表示のみ (= judgment 外、 round 2 nh 2 反映) |
+| gate 7 | axis C K+L-Q distinctness 範囲 acceptable confirm (= C-1 + C-2 + C-3) |
+| gate 8 | α trace input provenance check (= 4 step 細分、 round 2 must-fix 2 + lr 2 反映) |
+| gate 8a | 20 trace file 存在 confirm (= `/tmp/pmdneo-adr-0068-alpha/env-*-{ymfm,zmem}.tsv`) |
+| gate 8b | ENVS array 完全一致 (= α script literal `01-v2only-ym2610` 〜 `10-sample2-baseline-ym2610b`) |
+| gate 8c | mtime window check (= default 24 時間以内、 違反は warning level + `--refresh-alpha` option 案内、 escalate しない) |
+| gate 8d | β branch parent commit literal verify (= `git merge-base HEAD wip-pmddotnet-opnb-extension` = `3c59d93` 一致 confirm、 不一致時 escalate `merge_conflict`、 round 2 lr 1 反映) |
+| gate 8 option `--refresh-alpha` | β script に flag 追加 (= 指定時 α verify script を再実行して trace 再生成) |
+| gate 9 | (A) production default build + sha256 literal 実測 confirm (= round 1 must-fix 1 + round 2 nh 1 反映、 ADR-0068 §決定 10 全 sub-sprint 共通 gate 整合) |
+| gate 9a | build command literal = `bash scripts/build-poc.sh --chip ym2610` (= 全 fixture toggle off で production default build) |
+| gate 9b | artifact path literal = `vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` |
+| gate 9c | sha256 command literal = `sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` |
+| gate 9d | expected hash literal = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` (= ADR-0067 ε milestone 通算 sha256) |
+
+= 9 gate (= sub-step 含む 14 step) ALL PASS で β 完走 milestone。
+
+#### β-5 = K distinct candidate 探索結果 + β scope 採否 (= round 2 nh 3 反映)
+
+| candidate | path | K part 内容 | β scope 採否 | rationale |
+|---|---|---|---|---|
+| step18/k03.mml | 2-bit simultaneous pair | bitmap pair representative variant 1 | **採用** | bitmap pair reach 代表 1 |
+| step18/k11.mml | 2-bit simultaneous pair | bitmap pair representative variant 2 | **採用** | bitmap pair reach 代表 2 |
+| step18/k21.mml | 2-bit simultaneous pair | bitmap pair representative variant 3 | **採用** | bitmap pair reach 代表 3 |
+| step18/k05.mml | 2-bit simultaneous pair | future-ready | optional | β γ optional or future ADR |
+| step18/k09.mml | 2-bit simultaneous pair | future-ready | optional | 同上 |
+| step12/k-br-only.mml | 1-bit single drum | `K \b` = BD 単独 | future | bitmap pair representative 主軸でない |
+| step13/k-sr-only.mml | 1-bit single drum | `K \s` = snare 単独 | future | 同上 |
+| step14/k-hr-only.mml | 1-bit single drum | `K \h` = hi-hat 単独 | future | 同上 |
+| step15/k-cr-only.mml | 1-bit single drum | `K \c` = cymbal 単独 | future | 同上 |
+| step16/k-tr-only.mml | 1-bit single drum | `K \t` = tom 単独 | future | 同上 |
+| step17/k-ir-only.mml | 1-bit single drum | `K \i` = rim 単独 | future | 同上 |
+
+= β scope 採用 = 3 件 (= k03/k11/k21)、 6 env 追加、 env 計 = α 10 + β K 6 = 16 env。 残 8 件 = β γ optional or ADR-0069 候補 future。
+
+#### β-6 = 状態維持 + Codex layer 2 plan review + commit chain literal (= self-test 後 fill)
+
+(= self-test + bug fix + Annex β fill 完走後に commit chain literal fill)
+
+#### β-7 = lr 2 件補強 literal (= Codex round 3 approve 後の情報提供反映)
+
+##### lr 1: α trace stale 非停止 risk
+- gate 8c mtime window check で違反時 = warning level + `--refresh-alpha` option 案内
+- β script header に「α trace stale 判定時は `--refresh-alpha` option 使用推奨」 message literal 出力
+- 開発者使い忘れ防止: gate 8c warning は強調 message 出力 (= `WARN` 接頭辞 + `--refresh-alpha` 案内文 literal)
+
+##### lr 2: base SHA 不一致時復旧フロー literal
+- gate 8d で `git merge-base HEAD wip-pmddotnet-opnb-extension = 3c59d93` 不一致時 = escalate `merge_conflict`
+- 復旧フロー:
+  - (a) main agent autonomous: `git rebase wip-pmddotnet-opnb-extension` 試行 (= conflict なし PASS)
+  - (b) escalate: rebase conflict / scope 変更 risk / 設計判断必要 = user 上げ
+
+#### β-8 = Codex layer 2 plan review chain (= 3 round chain、 全 review-only + 越権操作なし confirmed)
+
+| round | judgment | finding 要点 | agentId |
+|---|---|---|---|
+| 1 | revise | must-fix 3 = production sha256 β 内実測 + K candidate density wording 修正 + trace-equivalence subtype 1 invariant/intended/zmem 分離 + nh 3 + lr 3 | `a687604717a024fd4` |
+| 2 | revise | must-fix 2 = 3 axis + 8 sub-category 数え方明示 (= A-3a/A-3b 分割) + gate 8 mtime threshold + stale 対策固定 + nh 3 + lr 2 | `a365c311820484805` |
+| 3 | **approve** | must-fix 0 + nh 0 + lr 2 情報提供 (= α trace stale 使い忘れ risk + base SHA 不一致時復旧フロー、 β-7 で literal 反映) | `ab716011d8cec2170` |
+
+= 3 round chain、 全 review-only 遵守 confirmed + 越権操作なし。 must-fix 計 5 件 + nh 計 6 件 + lr 計 7 件 (= 3 round 累積) 全 ADR 本文反映。
+
+冒頭 6 件 literal 強調 (= memory `feedback_codex_layer2_review_no_commit_authority.md` 39th session ADR-0062 PR2 越権 merge 事例後の規律強化):
+- Codex layer 2 is review-only
+- Do NOT commit
+- Do NOT modify files
+- Do NOT create branches
+- Do NOT merge PRs
+- Do NOT run GitHub write operations
+- Return only review judgment and findings
 
 ### Annex γ: γ 実装 completion record (= γ PR4 で fill = 全 verify script 統合 ALL PASS)
 
@@ -563,3 +710,4 @@ PR1 merge 後 (= 既完了)、 sub-sprint α 実装 PR2 を別 task chain で完
 | 2026-05-24 | 39th session | ADR-0068 新規起票 Draft (= doc-only PR1、 ADR-0064 §決定 7 ADR-0067+ 実作業群 の 2 本目、 16 ch 統合 verify ADR、 cmd 0x05 経路 vs v2 経路 trace-equivalence 比較、 sub-sprint α/β/γ/δ/ε chain literal、 build mode (A)/(B)/(C-1)/(C-2) 4 mode literal、 trace-equivalence 定義 literal、 allowed-touch 3 段分類 literal、 表記制約 + 新規解禁表現候補 literal、 Annex skeleton 起票時起草 (= α 漏れ補完 retrospective 起票時 prevention)、 Codex layer 2 plan review 4 round chain = round 1-3 revise + round 4 approve、 must-fix 計 7 件 + nh 計 4 件 + lr 計 3 件 全反映、 越権操作なし confirmed、 user 明示 GO option 1 PR1/PR2 段階分離 採用) | (= 起票 commit 後続) |
 | 2026-05-24 | 40th session | ADR-0068 α scope 再定義 plan v5 → v6-revised revise (= ADR-0067 Accepted「16 ch fixture 拡張完了」 milestone 前提、 task #50 candidate 探索結果 union 12/16 ch carry + 不足 4 ch = FM E/F + SSG G/H 判明、 user 明示 40th session option 2 採用 = hybrid 方針 = existing resource activation 原則維持 + 不足 ch 限定 minimal MML 例外許可 + 16ch 方針縮小なし + β で minimal MML 4 件追加 carry、 §決定 1(a) α union 境界明記 + hybrid 原則 sub-section 追記 (= K=3 candidate 12/16 coverage 表 literal + β minimal MML 候補 enumeration) + §決定 2 α/β/γ row 再定義 + §決定 5 PR2-PR6 PMDNEO_* prefix 統一 + line 60/97/204/347 20 trace 化整合、 Codex layer 2 plan review 5 round chain = round 1 revise must-fix 2 + nh 2 + lr 2 (= a493861afdfd58d95) + round 2 attempt hang 22m 55s cancel (= task-mpjuqshs-fyavhn) + round 2 retry --fresh = revise must-fix 3 (= diff 未反映 = 計画書 review か実反映 review かの解釈ズレ、 main agent 自律判断「計画書 review、 ADR 反映は PR2 commit で実施」、 a18ab6af2bce91b3b)、 越権操作なし confirmed、 機械復旧 default rule 適用 (= [[long-running-hang-auto-recovery-rule]] 初実証)) | (= 本 PR2 commit chain 内) |
 | 2026-05-25 | 40th session | ADR-0068 α scope 再定義 plan v6-revised → v7 (= self-test 完走 + driver source ground truth 4 件 finding 確定後 user 明示 option 4 採用 = driver line 1741-1888 で A-J 10 part 常に test01/test02 default 駆動 / K+L-Q 7 part のみ PMDNEO_USE_PMDDOTNET 切替で pmddotnet_song 由来、 全 (A)/(B)/(C-1)/(C-2) build mode で A-J candidate dispatch 不可、 plan v6-revised hybrid 原則 sub-section = unused 化 (= 不足 4 ch FM E/F + SSG G/H は default driven で常時 carry、 minimal MML 不要)、 §決定 1(a) driver source dispatch ground truth + 全 build mode carrier 差分 table + 40th session self-test actual trace literal + K=3 candidate plan v7 update literal 追記、 §決定 2 α/β/γ row plan v7 = K+L-Q distinctness capture + A-J default integration trace / 三分割 wording 必須、 §決定 6 表記制約 plan v7 = 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」 + 「16ch integration trace 完了」 = ε Accepted 後解禁 + 併記必須、 「16ch full candidate distinctness 完了」 = literal 禁止維持 (= ADR-0069 候補 future)、 §決定 9 ADR-0069 候補 = driver 拡張 sprint literal 追加。 verify script bug fix 4 件 (= 全角 「、」 4 件 + printf 「-」 escape + CRLF on-the-fly 変換 helper + detect_adpcma reg 100 = 3 桁 hex 修正) + assertion softening (= α scope = capture + report only literal 整合)。 機械復旧 default rule (= [[long-running-hang-auto-recovery-rule]]) 適用 = Codex round 2 hang 22m 55s cancel + retry / verify script bug 4 件 cancel + retry chain、 user 介入 = 設計判断 (= hybrid → option 2 → option 4) のみ。 plan v7 scope 縮小 (= 16/16 carry → K+L-Q distinctness focus) ただし 16ch 方針自体は維持 (= ADR-0069 候補で完成、 ADR-0068 scope の 16ch integration trace は actual 達成) | (= 本 PR2 commit chain 内、 commit 66f8b6f / 0613e5a / 38444a4 / b2767aa / c36301f 経由) |
+| 2026-05-25 | 40th session | ADR-0068 β kickoff plan v3 確定 = trace-equivalence 判定基準確定 + 比較実行 scope literal (= K+L-Q register behavior の normalized comparison、 ADR-0064 §決定 1(b) 16ch 同時 trace 比較とは別 wording、 §決定 1(b) β scope literal 整合)、 §決定 1(b) β scope literal sub-section 追記 + §決定 2 β row update (= 3 axis + 8 sub-category + K candidate trace 12 file 追加 + verify gate 9 件 = 14 step) + Annex β fill 8 sub-section (= β-1 scope / β-2 trace-equivalence 判定基準 = 3 axis + 8 sub-category literal / β-3 配置 = 16 env literal + 12 trace 追加 / β-4 verify gate 9 件 + sub-step 14 step / β-5 K distinct candidate 探索結果 + β scope 採否 = bitmap pair representative 3 件採用 + future 8 件 / β-6 状態維持 + commit chain literal (= self-test 後 fill) / β-7 lr 2 件補強 = α trace stale 非停止 risk + base SHA 不一致復旧フロー literal / β-8 Codex layer 2 plan review chain 3 round)。 Codex layer 2 plan review 3 round chain = round 1 revise (= must-fix 3 + nh 3 + lr 3、 production sha256 β 実測 + K candidate wording 修正 + trace-equivalence subtype 1 invariant/intended/zmem 分離、 agentId `a687604717a024fd4`) + round 2 revise (= must-fix 2 + nh 3 + lr 2、 8 sub-category 数え方明示 + gate 8 stale 対策固定、 agentId `a365c311820484805`) + round 3 **approve** (= must-fix 0 + nh 0 + lr 2 情報提供、 agentId `ab716011d8cec2170`)、 must-fix 計 5 件 + nh 計 6 件 + lr 計 7 件 全 ADR 本文反映、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 user 明示 GO「β 起票から開始」 + 機械復旧 default rule [[long-running-hang-auto-recovery-rule]] 継承 | (= 本 PR3 commit chain 内) |
