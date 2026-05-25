@@ -339,6 +339,7 @@ echo ""
 echo "gate 8c: mtime window check (= default 24 時間以内、 違反は WARN level + --refresh-alpha 案内、 escalate しない)"
 NOW=$(date +%s)
 STALE_FILES=()
+GATE_8C_STALE=0  # impl-review round 1 lr 1 反映 = summary 行で stale 発生時 literal 反映
 for env in "${ALPHA_ENVS[@]}"; do
   for kind in ymfm zmem; do
     local_file="$ALPHA_OUT_DIR/env-${env}-${kind}.tsv"
@@ -352,6 +353,7 @@ for env in "${ALPHA_ENVS[@]}"; do
 done
 
 if [ ${#STALE_FILES[@]} -gt 0 ]; then
+  GATE_8C_STALE=1  # impl-review round 1 lr 1 反映 = summary 行へ反映
   warn "gate 8c α trace stale (${#STALE_FILES[@]} 件、 24h window 超過): ${STALE_FILES[*]:0:3}..."
   warn "α trace stale 判定 = --refresh-alpha option 使用推奨 (= lr 1 反映、 強調 WARN message)"
   warn "ただし escalate しない (= gate 8c warning level、 round 2 must-fix 2 反映)"
@@ -643,9 +645,12 @@ else
   ng "axis C-2 A-J default carry baseline = ${C2_PASS} / ${C2_TOTAL} env default driven (= 部分 fail)"
 fi
 
-# axis C-3 K distinct candidate (= β 新規 capture、 bitmap pair representative 3 件)
+# axis C-3 K candidate trigger 出現確認 (= β 新規 capture、 bitmap pair representative 3 件、
+# K trace 同一 finding 後 wording = 「K candidate trigger 出現確認」 limit
+# 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は β scope 内未達成
+# = ADR-0069 候補 future defer literal、 Codex impl-review round 1 must-fix 1 反映)
 echo ""
-echo "---- axis C-3 K distinct candidate (= β 新規 capture、 bitmap pair representative 3 件) ----"
+echo "---- axis C-3 K candidate trigger 出現確認 (= β 新規 capture、 bitmap pair representative 3 件、 trace 同一 finding 反映で wording = trigger 出現確認 limit) ----"
 
 # k03 = bitmap pair variant 1、 k11 = variant 2、 k21 = variant 3
 # 各 K candidate で ADPCM-A L-Q 全 ch の keyon write が出現 (= K rhythm bitmap → ADPCM-A keyon)
@@ -668,9 +673,9 @@ for env in "${BETA_ENVS[@]}"; do
   fi
 done
 if [ "$C3_PASS" -eq "$C3_TOTAL" ] && [ "$C3_TOTAL" -gt 0 ]; then
-  ok "axis C-3 K distinct candidate = ${C3_PASS} / ${C3_TOTAL} env bitmap pair representative distinct pattern (= acceptable literal)"
+  ok "axis C-3 K candidate trigger 出現確認 = ${C3_PASS} / ${C3_TOTAL} env (= L-Q いずれかに keyon write 出現、 acceptable literal) -- 注: trace 同一 (= driver K dispatch normalization で bitmap pattern 差吸収)、 真の K bitmap pair representative variant 1/2/3 trace distinct は ADR-0069 候補 future defer"
 else
-  warn "axis C-3 K distinct candidate = ${C3_PASS} / ${C3_TOTAL} env bitmap pair (= 部分 acceptable)"
+  warn "axis C-3 K candidate trigger 出現確認 = ${C3_PASS} / ${C3_TOTAL} env (= 部分 acceptable)"
 fi
 
 # ============================================================
@@ -688,7 +693,11 @@ echo "gate 4 = axis A YMFM register equivalence (= A-1 + A-2 + A-3a literal + A-
 echo "gate 5 = axis A-3a unintended diff 0 件 literal confirm: $([ "$A3A_UNINTENDED" -eq 0 ] && echo PASS || echo NG)"
 echo "gate 6 = axis B-1 zmem diagnostic 別 report file: $ZMEM_DIAGNOSTIC_REPORT (= judgment 外)"
 echo "gate 7 = axis C K+L-Q distinctness 範囲 acceptable confirm: C-1 ${C1_PASS}/${C1_TOTAL} + C-2 ${C2_PASS}/${C2_TOTAL} + C-3 ${C3_PASS}/${C3_TOTAL}"
-echo "gate 8 = α trace input provenance check (= 4 step): 8a/8b/8c/8d 全 PASS"
+if [ "$GATE_8C_STALE" = "1" ]; then
+  echo "gate 8 = α trace input provenance check (= 4 step): 8a/8b/8d PASS + 8c WARN (= stale、 --refresh-alpha 推奨、 escalate しない、 impl-review round 1 lr 1 反映で summary に literal 反映)"
+else
+  echo "gate 8 = α trace input provenance check (= 4 step): 8a/8b/8c/8d 全 PASS"
+fi
 echo "gate 9 = (A) production sha256 literal 実測 confirm: $EXPECTED_PROD_SHA PASS"
 echo ""
 echo "FAIL count = $FAIL"
@@ -699,7 +708,7 @@ if [ "$FAIL" -eq 0 ]; then
   echo "    9 gate ALL PASS = trace-equivalence 判定基準 3 axis + 8 sub-category literal 達成"
   echo "    axis A-3a unintended diff 0 件 literal confirm"
   echo "    axis B-1 zmem diagnostic 別 file output (= judgment 外、 record-only)"
-  echo "    axis C K+L-Q distinct pattern acceptable (= K bitmap pair representative 3 件 + L-Q 3 pattern + A-J default carry baseline)"
+  echo "    axis C K+L-Q acceptable (= L-Q distinct pattern A/B/C + K candidate trigger 出現確認 + A-J default carry baseline、 真の K bitmap pair representative variant 1/2/3 trace distinct は ADR-0069 候補 future defer)"
   echo "    「16ch full candidate distinctness 完了」 wording 禁止維持 (= A-J distinctness は ADR-0069 候補 future)"
   echo "    「trace-equivalence 完了」 (= 単独 wording) 禁止維持 (= ε Accepted 後解禁 + 併記必須)"
   echo "    β 完走後解禁 wording = 「K+L-Q distinctness range trace-equivalence literal 達成」 (= β scope 限定明記必須)"
