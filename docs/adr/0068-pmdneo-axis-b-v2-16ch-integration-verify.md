@@ -368,9 +368,126 @@ PR1 (= 本 PR) verify gate (= doc-only、 build 不要):
 
 (= 16 ch 統合 verify 全体図 + build mode (A)/(B)/(C-1)/(C-2) matrix + chip target 別 trace + PMDDOTNET_MODE matrix + trace TSV format literal を ε で fill)
 
-### Annex α: α 実装 completion record (= α PR2 で fill = α-task 1 rhythm-only proof + α-task 2 全 16 ch candidate 探索)
+### Annex α: α 実装 completion record (= plan v7 = K+L-Q distinctness proof + A-J default integration trace)
 
-(= α PR2 で 6 sub-section literal fill = 実装内容 + 配置 + α-task 1 結果 + α-task 2 結果 + Codex review chain + 状態維持)
+#### α-1 = scope literal (= plan v7 = K+L-Q distinctness proof + A-J default integration trace)
+
+ADR-0068 §決定 2 α row plan v7 literal:
+- α-task 1 = L-Q distinctness primary = `src/test-fixtures/step5/l-q-rhythm-song.mml` (= L-Q 6 part each driven)
+- α-task 2 = L-Q distinctness alternative + step5b proof + A-J default integration baseline:
+  - `src/test-fixtures/step5/l-q-tutti.mml` (= L-Q 6 part 同時 keyon)
+  - `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` (= L-Q 6 part driven step5b proof)
+  - `vendor/PMDDotNET/SAMPLE2-baseline.mml` (= A-J default integration baseline)
+- K distinctness candidate = β scope future (= K part 単独 MML 探索 + 追加判断)
+
+α scope = capture + report only (= ADR-0068 §決定 1(a) α union 境界明記 literal、 trace-equivalence 判定は β scope)。
+
+#### α-2 = 配置 (= 新規 verify script + ADR doc plan v7 + 既存 candidate MML / 既存 driver / 既存 build flag 完全不変)
+
+- **新規 verify script**: `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-alpha.sh` (= +417 行、 ADR-0067 δ pattern 継承)
+- **ADR-0068 doc**: plan v7 update (= §決定 1(a) + §決定 2 + §決定 6 + §決定 9 + Annex α fill + 改訂履歴 plan v7 entry)
+- **build mode env literal** (= 10 env):
+  - env # 1-2 = (B) v2-only = `PMDNEO_V2_SONG_FIXTURE=1 PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP=1 bash scripts/build-poc.sh --chip <ym2610|ym2610b>`
+  - env # 3-10 = (C-2) PMDDOTNET_MML = `PMDDOTNET_MML=<path> PMDDOTNET_MODE=B PMDDOTNET_DLL=<dll path> PMDNEO_USE_PMDDOTNET=1 bash scripts/build-poc.sh --chip <ym2610|ym2610b>`
+- **driver / 既存 verify / vendor / 既存 fixture / 既存 build flag 完全不変** (= ADR-0068 §決定 5 (ii) literal)
+- **トレース出力**: `/tmp/pmdneo-adr-0068-alpha/env-<NN>-<label>-{ymfm,zmem}.tsv` 計 20 file (= 10 env × 2 trace 種)
+
+#### α-3 = K+L-Q distinctness proof 結果 (= L-Q candidate 3 種類 distinct trace 確認)
+
+ADPCM-A port B reg 0x100 (= keyon mask) bit 別 detection literal:
+
+| env | MML | L (bit 0) | M (bit 1) | N (bit 2) | O (bit 3) | P (bit 4) | Q (bit 5) | pattern |
+|---|---|---|---|---|---|---|---|---|
+| 03-rhythmonly-ym2610 | l-q-rhythm-song | 9 | 9 | 17 | 5 | 3 | 2 | A (= MML note 数差分) |
+| 04-rhythmonly-ym2610b | 同上 | 9 | 9 | 17 | 5 | 3 | 2 | A (= chip target 同等) |
+| 05-lqtutti-ym2610 | l-q-tutti | 2 | 2 | 2 | 2 | 2 | 2 | B (= 6 ch 同時 keyon) |
+| 06-lqtutti-ym2610b | 同上 | 2 | 2 | 2 | 2 | 2 | 2 | B |
+| 07-lqstep5b-ym2610 | l-q-rhythm-song-step5b | 9 | 9 | 17 | 5 | 3 | 2 | A (= MML body 同一) |
+| 08-lqstep5b-ym2610b | 同上 | 9 | 9 | 17 | 5 | 3 | 2 | A |
+| 09-sample2-baseline-ym2610 | SAMPLE2-baseline | 1 | 1 | 1 | 1 | 1 | 1 | C (= L のみ MML、 M-Q init keyon 1 件) |
+| 10-sample2-baseline-ym2610b | 同上 | 1 | 1 | 1 | 1 | 1 | 1 | C |
+
+= **3 種類 distinct pattern (A/B/C) 確認** (= K+L-Q candidate distinctness 達成):
+- pattern A = note 数差分由来 distinctness (= l-q-rhythm-song / l-q-rhythm-song-step5b 同 MML body)
+- pattern B = 6 ch 同時 keyon distinctness (= l-q-tutti = 各 ch 1 note の同時 trigger)
+- pattern C = baseline + init keyon (= SAMPLE2-baseline = L のみ MML 由来 + M-Q init keyon)
+
+K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part なし、 β scope future。
+
+#### α-4 = A-J default integration trace record (= default driven trace literal 同一 pattern)
+
+全 (C-2) env (= env # 3-10) で A-J 部分 trace は **同一 default pattern**:
+
+| ch | env # 3-10 共通 writes (= ym2610 active のみ) | 由来 |
+|---|---|---|
+| A (FM A) | 0 (= ym2610 では init guard、 ym2610b で 61) | ADR-0006 §B 整合 |
+| B (FM B) | 8 | test01/test02 default driven |
+| C (FM C) | 8 | 同上 |
+| D (FM D) | 0 (= ym2610 では init guard、 ym2610b で 61) | ADR-0006 §B 整合 |
+| E (FM E) | 8 | test01/test02 default driven |
+| F (FM F) | 8 (= ym2610b で 8 + ym2610 で 8、 ADR-0006 §B 整合) | 同上 |
+| G/H/I (SSG) | 各 2 | 同上 |
+| J (ADPCM-B) | 2 | 同上 |
+
+= **A-J default integration trace 確認** (= A-J carry は default driven、 candidate MML 関与なし)。
+
+#### α-5 = 16/16 ch carry actual literal record (= plan v7 整合 三分割 wording)
+
+| chip 軸 | actual carry (= 全 env で carry) | 由来 |
+|---|---|---|
+| FM (6 ch = A-F) | A B C D E F | (B) v2 fixture + (C-2) test01/test02 default |
+| SSG (3 ch = G-I) | G H I | 同上 |
+| ADPCM-B (1 ch = J) | J | 同上 |
+| ADPCM-A (6 ch = L-Q) | L M N O P Q | (B) v2 `_rhythm_k_full` + (C-2) pmddotnet_song L-Q candidate distinct |
+| **合計** | **16 / 16** | 既存 default + ADR-0067 fixture 拡張完了 baseline + plan v7 K+L-Q candidate distinct |
+
+= **16ch integration trace 完了 (= 三分割 wording 整合)**:
+- 「16ch integration trace 完了」 ✓
+- 「K+L-Q candidate distinctness 完了」 ✓ (= L-Q 3 種類 distinct pattern 確認、 K は β future)
+- 「A-J default carry 確認」 ✓ (= default driven trace 同一 pattern 確認)
+- 「16ch full candidate distinctness 完了」 = literal 禁止維持 (= A-J distinctness は ADR-0069 候補 future)
+
+#### α-6 = 状態維持 + Codex review + commit chain literal
+
+**状態維持 confirm** (= ADR-0068 §決定 7 不可触対象 literal):
+- driver source `src/driver/standalone_test.s` 完全不変
+- ADR-0067 fixture (= `_fm_a/b/c/d/e/f` + `_ssg_g/h/i` + `_adpcmb_j` + `_rhythm_k_full` 等) 完全不変
+- 既存 verify script (= ADR-0049〜0067 全) 完全不変
+- 既存 build flag 完全不変 (= 新規 flag 追加なし)
+- vendor 完全不変
+- ADR-0048〜0067 本文 + Annex 完全不変
+- 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
+- **production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待** (= (A) production default build で literal 一致、 α PR2 では (B)/(C-2) build mode のみ使用、 production build artifacts 不変)
+
+**Codex layer 2 plan review chain (= plan v6-revised + plan v7 経緯)**:
+
+| round | judgment | finding 要点 | agentId |
+|---|---|---|---|
+| plan v6-revised round 1 | revise | must-fix 2 + nh 2 + lr 2 (= line 60/97/204/347 整合 + β/γ で残 4 ch trace-equivalence carry 方法 + nh + lr) | `a493861afdfd58d95` |
+| plan v6-revised round 2 attempt | hang 22m 55s cancel | log mtime 20m 停止 + phase=verifying 固定 (= 機械復旧 default rule 該当、 cancel 後 retry) | `task-mpjuqshs-fyavhn` |
+| plan v6-revised round 2 retry | revise | must-fix 3 (= 「diff 未反映 = 計画書 review か実反映 review かの解釈ズレ」、 main agent 自律「計画書 review、 ADR 反映は PR2 commit で実施」) | `a18ab6af2bce91b3b` |
+| plan v7 (= 本 α) | (impl-review 別途) | self-test 完走 + driver source ground truth 4 件 finding 確定 + user 明示 option 4 採用 = K+L-Q distinctness 再定義 | (= 本 commit 後 impl-review 別途 round 起票) |
+
+= plan review chain = 全 review-only + 越権操作なし confirmed。 plan v7 impl-review は本 commit chain 後 別途 round。
+
+**commit chain literal (= α PR2)**:
+
+| # | commit | 内容 |
+|---|---|---|
+| 1 | `66f8b6f` | ADR doc plan v6-revised 7 件 diff 反映 |
+| 2 | `0613e5a` | verify script 新規 +403 lines |
+| 3 | `38444a4` | 全角 「、」 4 件 → 半角 fix |
+| 4 | `b2767aa` | printf '----+' + CRLF on-the-fly 変換 helper fix |
+| 5 | `c36301f` | detect_adpcma reg 100 (= 3 桁 hex) + assertion softening |
+| 6 | `ab542bf` | plan v6-revised → plan v7 = K+L-Q distinctness 再定義 |
+| 7 | `5072116` | summary stale wording fix (= plan v7 整合) |
+| 8 | (= 本 commit、 + dashboard / memory commit 後続) | Annex α fill |
+
+**機械復旧 default rule (= [[long-running-hang-auto-recovery-rule]]) 適用実証**:
+- Codex round 2 hang 22m 55s cancel + retry 1 回成功 (= revise judgment 取得)
+- verify script bug 4 件 cancel + 修正 retry chain (= 全角 / printf / CRLF / detect_adpcma)
+- user 介入 = 設計判断 (= hybrid → option 2 → option 4) のみ
+- main agent 自律 = bug fix 6 commit + plan v7 doc update + Annex α fill + dashboard / memory update + Codex impl-review
 
 ### Annex β: β 実装 completion record (= β PR3 で fill = trace-equivalence 判定基準確定 + 比較実行)
 
