@@ -176,7 +176,9 @@ memory 規律遵守:
   - 旧 sha256 維持運用順序 4 選択肢 (= parallel 起票時の選択肢) は obsolete = 順序固定 dependency に統一
 - 各 user 明示 GO 必須 (= ADR-0064 §決定 8 literal、 main agent autonomous で進めない)
 
-#### ADR-0069 parallel 起票時の sha256 維持運用順序 (= latent risk 1 反映、 Codex finding literal)
+#### ADR-0069 parallel 起票時の sha256 維持運用順序 (= **OBSOLETE = 2026-05-25 40th session β PR3 halt で確定無効**、 historical record)
+
+> **OBSOLETE NOTICE**: 以下の subsection は β PR3 halt (= driver capability 制約発覚 + user option 3 採用 = ADR-0069 → ADR-0065 β/δ 順序固定 dependency 確定) により **完全に無効**。 新 dependency = ADR-0069 先行完走後 ADR-0065 β/δ 再開 (= 順序固定、 並行進行不可、 4 選択肢 obsolete)。 historical context として記録のみ残す (= 起票時点 plan の literal record)。
 
 ADR-0069 = driver 拡張 (= A-J candidate distinctness + K bitmap pair distinct) は driver source 変更が必須 = production sha256 衝突 risk。 ADR-0065 sub-sprint 進行中 (= δ audition session 実施前後) で ADR-0069 driver 拡張 commit を同時実施すると次 risk:
 
@@ -185,13 +187,13 @@ ADR-0069 = driver 拡張 (= A-J candidate distinctness + K bitmap pair distinct)
 | sha256 衝突 | ADR-0065 production binary (= 越川氏 audition 対象) と ADR-0069 driver 拡張後 binary の sha256 不一致 |
 | audition 結果整合性 | ADR-0065 δ で audition した binary と ADR-0069 完走後 binary が異なる場合、 audition decision の意味曖昧化 |
 
-運用順序選択肢 (= **user 明示 GO 必須**、 main agent autonomous で進めない):
-1. ADR-0065 ε Accepted 後に ADR-0069 起票 (= sha256 carry literal 固定)
-2. ADR-0069 完走後に ADR-0065 δ audition session 実施 (= 拡張後 binary で audition)
-3. ADR-0065 δ 前に ADR-0069 完走 (= 同 2 と同じ、 user 明示 GO 順序)
-4. ADR-0065 ε Accepted + ADR-0069 別 ADR-0065 拡張 entry (= 拡張後 binary で再 audition session 必要、 別 sprint)
+旧運用順序選択肢 (= **OBSOLETE**、 β PR3 halt で無効化 = ADR-0069 → ADR-0065 β/δ 順序固定 dependency 確定):
+1. ~~ADR-0065 ε Accepted 後に ADR-0069 起票~~ (= obsolete、 β halt で ADR-0069 先行確定)
+2. ~~ADR-0069 完走後に ADR-0065 δ audition session 実施~~ (= obsolete、 順序固定 dependency 確定済)
+3. ~~ADR-0065 δ 前に ADR-0069 完走~~ (= obsolete、 順序固定 dependency 確定済)
+4. ~~ADR-0065 ε Accepted + ADR-0069 別 ADR-0065 拡張 entry~~ (= obsolete、 β halt で order 一本化)
 
-= user 明示 GO 必須 (= ADR-0066/0069 候補 起票判断と同)、 ADR-0065 と ADR-0069 の並行進行は user 判断軸。
+= **新 dependency 確定 (= 2026-05-25 40th session β PR3 halt)**: ADR-0069 → ADR-0065 β/δ 順序固定、 並行進行不可、 4 選択肢全 obsolete。 ADR-0069 完走後 ADR-0065 β/δ 再開時に sha256 carry literal は再確定 (= ADR-0069 完走後 driver 拡張後 binary を audition baseline として新規確定 必要可能性)。
 
 ### 決定 10: production sha256 維持 mandatory (= 全 sub-sprint 共通 gate)
 
