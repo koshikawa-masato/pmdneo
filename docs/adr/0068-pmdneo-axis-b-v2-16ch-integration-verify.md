@@ -874,7 +874,8 @@ PASS sha256-post: b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561
 |---|---|---|
 | round 1 反映 | `d798a21` | Codex layer 2 impl-review round 1 finding 反映 (= revise judgment must-fix 1 + nh 2 全反映、 lr 1 継続監視、 agentId `a7ec395ff32cfb510`) = Annex γ-3 見出し「5 script」 → 「4 script」 修正 + Annex γ-2 「行数 TBD」 → 「307 → 325 行 evolution」 update + dashboard γ PR4 + β PR3 entry 内 commit 5 wording「memory」 → 「escalation 履歴」 update (= memory は repo 外、 PR diff 対象外明示) + 改訂履歴 γ impl-review round 1 entry 追加 |
 | round 2 反映 | `ab3b29d` | Codex layer 2 impl-review round 2 finding 反映 (= revise judgment must-fix 1、 commit chain 件数 mismatch 5 → 6 update、 agentId `a72621a6d6d2de0bd`) = Annex γ-6 commit chain literal 6 entry update + 平易要約「commit chain 6 完走」 update + γ 完走後の次「本 commit 6」 update。 ただし本 update 自体が self-referential commit chain table update を引き起こす finding (= round 3 で再 mismatch 検出)、 round 3 反映で historical record 分離方式に refactor |
-| round 3 反映 (= 本 commit) | (= 本 commit) | Codex layer 2 impl-review round 3 finding 反映 (= revise judgment must-fix 1、 commit chain 件数 6 → 7 update + self-referential 無限再帰回避方式 refactor、 agentId `a0386dec89731f2d1`) = commit chain literal sub-section を (a) plan v8 historical record 5 commit + (b) impl-review 反映追加 commit chain 別 sub-section に分離 + dashboard / 平易要約 / γ 完走後の次 wording も「plan v8 5 + impl-review N 反映」 形式に統一、 self-referential 無限再帰回避 + literal record 整合 |
+| round 3 反映 | `9f33843` | Codex layer 2 impl-review round 3 finding 反映 (= revise judgment must-fix 1、 commit chain 件数 6 → 7 update + self-referential 無限再帰回避方式 refactor、 agentId `a0386dec89731f2d1`) = commit chain literal sub-section を (a) plan v8 historical record 5 commit + (b) impl-review 反映追加 commit chain 別 sub-section に分離 + dashboard / 平易要約 / γ 完走後の次 wording も「plan v8 5 + impl-review N 反映」 形式に統一、 self-referential 無限再帰回避 + literal record 整合 |
+| round 4 反映 (= 本 commit) | (= 本 commit) | Codex layer 2 impl-review round 4 finding 反映 (= revise judgment must-fix 1、 round 3 reference の literal hash 確定 update (= 「本 commit」 → `9f33843`)、 agentId `a593148f4340d756d`) = Annex γ-6 (b) sub-section 内 round 3 entry の commit hash literal 確定 + 平易要約 round 3 reference literal 確定 + lr 1 継続監視。 round 4 反映 hash 自身は本 commit の self-referential なため確定不可、 round 5 で確定 update 期待 (= 「本 commit」 wording 維持 = 各 round 反映時に直前 round の commit hash を確定する pattern) |
 
 ### Annex δ: δ 統合 report + 残課題 enumeration (= δ PR5 で fill)
 
@@ -959,7 +960,7 @@ ADR-0068 §決定 2 γ row literal「全 verify script 統合 ALL PASS = product
 
 ### γ 結果
 
-- ADR-0068 γ PR4 commit chain = plan v8 historical 5 commit (= 3b1a026 / b39c7ec / fc2320d / 60101a2 / 8c1d5ec) + impl-review 反映追加 commit chain (= round 1 `d798a21` + round 2 `ab3b29d` + round 3 本 commit + 以降 round N 期待 approve まで継続)、 self-referential 無限再帰回避方式 (= round 3 反映で historical record 分離 refactor)
+- ADR-0068 γ PR4 commit chain = plan v8 historical 5 commit (= 3b1a026 / b39c7ec / fc2320d / 60101a2 / 8c1d5ec) + impl-review 反映追加 commit chain (= round 1 `d798a21` + round 2 `ab3b29d` + round 3 `9f33843` + round 4 本 commit + 以降 round N 期待 approve まで継続)、 self-referential 無限再帰回避方式 (= round 3 反映で historical record 分離 refactor + round 4+ 反映で直前 round commit hash 確定 update pattern)
 - γ verify script self-test 4 = 6 gate ALL PASS literal 達成:
   - gate 1: (A) production default ym2610 pre-build sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 一致 PASS
   - gate 2: representative 4/4 ALL PASS (= alpha exit=0 + delta exit=0 + song-playback exit=0 + roadmap3 exit=0)
