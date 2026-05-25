@@ -1,6 +1,6 @@
 # ADR-0068: PMDNEO 軸 B v2 driver 16 ch 統合 verify ADR (= ADR-0064 §決定 7 ADR-0067+ 実作業群 の 2 本目、 roadmap ⑤ 統合 verify 本体、 cmd 0x05 経路 vs v2 経路 trace-equivalence 比較)
 
-- 状態: **Draft** (= 2026-05-24 39th session、 ADR-0068 起票 doc-only PR1 + sub-sprint chain α/β/γ/δ/ε 起票、 起票 doc-only 1 PR (= ADR-0064 plan/実作業分離 pattern 整合)、 ADR-0067 同 chain pattern 継承、 Codex layer 2 plan review 4 round chain (= round 1-3 revise + round 4 approve)、 must-fix 計 7 件 (= build mode 分離 + allowed-touch 分類 + ε 解禁併記必須 + 「16 ch fixture 拡張完了」 併記 2 段化 + legacy MML candidate 修正 + path 修正 + ch coverage 表記修正) + nice-to-have 計 4 件 + latent-risk 計 3 件 全反映、 越権操作なし confirmed、 ADR-0064 §決定 3 sub-sprint plan literal 継承 + ADR-0067 fixture 拡張完了 milestone 前提)
+- 状態: **Draft + α 完了 (= PR #134 MERGED at 3c59d93) + β 完了 (= PR #135 MERGED at 7335da9、 K+L-Q distinctness range trace-equivalence literal 達成、 K trace 同一 finding 検出 → ADR-0069 候補 future defer literal) + γ PR4 進行中 (= 2026-05-25 40th session、 baseline regression gate 統合 verify、 representative direct invoke 5 script + transitively regression OK pattern、 Codex layer 2 plan review 4 round chain = round 1-3 revise + round 4 approve、 must-fix 計 8 + nh 計 6 + lr 計 6 全反映、 越権操作なし confirmed)** (= 2026-05-24 39th session、 ADR-0068 起票 doc-only PR1 + sub-sprint chain α/β/γ/δ/ε 起票、 起票 doc-only 1 PR (= ADR-0064 plan/実作業分離 pattern 整合)、 ADR-0067 同 chain pattern 継承、 Codex layer 2 plan review 4 round chain (= round 1-3 revise + round 4 approve)、 must-fix 計 7 件 (= build mode 分離 + allowed-touch 分類 + ε 解禁併記必須 + 「16 ch fixture 拡張完了」 併記 2 段化 + legacy MML candidate 修正 + path 修正 + ch coverage 表記修正) + nice-to-have 計 4 件 + latent-risk 計 3 件 全反映、 越権操作なし confirmed、 ADR-0064 §決定 3 sub-sprint plan literal 継承 + ADR-0067 fixture 拡張完了 milestone 前提)
 - 起票日: 2026-05-24
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -170,7 +170,7 @@ plan v7 candidate selection = **K + L-Q part 持ち MML** に再選定:
 β 完走後解禁 wording = 「K+L-Q distinctness range trace-equivalence literal 達成」 (= β scope 限定明記必須)。 「trace-equivalence 完了」 (= 単独 wording) は ε Accepted 後解禁 + 併記必須 (= §決定 6 表記制約)。
 
 #### (c) baseline regression gate 統合 verify
-- scope: 全 verify script suite を 1 batch で production binary 1 件に対して通す + ALL PASS 確認
+- scope: 全 verify script suite を 1 batch で production binary 1 件に対して通す + ALL PASS 確認 (= **representative direct invoke + transitively regression OK pattern**、 ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承、 representative 5 script = `verify-axis-b-v2-16ch-integration-alpha.sh` + `verify-axis-b-v2-16ch-integration-beta.sh` + `verify-axis-b-v2-fixture-expansion-delta.sh` + `verify-axis-b-v2-song-playback.sh` + `verify-axis-b-v2-roadmap3-dispatch.sh`、 ADR-0049〜0057 系 verify script 全 transitively regression OK = production sha256 維持 m1 ROM byte-identical)
 - 完了判定: 全 verify script ALL PASS literal 確認 + completion proof 統合 report
 
 #### (d) 越川氏 audition gate = ADR-0065 候補 scope-out
@@ -182,7 +182,7 @@ plan v7 candidate selection = **K + L-Q part 持ち MML** に再選定:
 |---|---|---|---|
 | α | (a) 実 MML 再生 統合 verify = **K+L-Q candidate distinctness capture + A-J default integration trace** (= plan v7 = 40th session driver ground truth based、 distinctness 判定 assertion は β scope future)。 candidate = `src/test-fixtures/step5/l-q-rhythm-song.mml` + `src/test-fixtures/step5/l-q-tutti.mml` + `src/test-fixtures/step11/l-q-rhythm-song-step5b.mml` (= K=3 L-Q distinct candidate)、 K distinctness は β scope future。 10 env × ymfm/z80-mem 2 trace 種 capture = 20 trace file + literal report | (a) | K+L-Q distinctness capture (= 各 candidate L-Q trace 個別記録) + A-J default integration trace record (= default 同一 8/2 pattern literal) + 16/16 ch carry actual literal record |
 | β | (b) trace-equivalence 判定基準確定 + 比較実行 = **3 axis + 8 sub-category** (= axis A YMFM register equivalence primary gate + axis B zmem diagnostic record-only + axis C K+L-Q distinctness comparison primary scope、 plan v3 = β kickoff plan Codex 3 round chain approve 経由)。 α 取得 trace 20 件 (= α PR2 結果) + β 新規 K candidate trace 12 件 (= step18/k03/k11/k21 = bitmap pair representative candidate variant 1/2/3、 6 env × 2 chip × 2 trace 種) を input、 計 32 trace file。 **K+L-Q register behavior normalized comparison** (= β scope 限定明記、 ADR-0064 §決定 1(b) 16ch 同時 trace 比較とは別 wording、 §決定 1(b) β scope literal 整合) + A-J default carry baseline 比較 + K candidate β scope 採用判断完了 (= bitmap pair representative 3 件採用、 残 8 件 future、 trigger 出現確認 limit、 真の trace distinct は ADR-0069 候補 future defer)。 verify gate = 9 件 (= sub-step 含む 14 step) ALL PASS = gate 1-7 axis A/B/C judgment + gate 8 α trace provenance 4 step + gate 9 (A) production sha256 literal 実測 confirm | (b) | 9 gate ALL PASS + axis A-3a unintended diff 0 件 literal + axis B zmem 別 file diagnostic + axis C K+L-Q acceptable literal (= L-Q distinct pattern A/B/C + K candidate trigger 出現確認、 真の K trace distinct は ADR-0069 候補 future defer) + α trace provenance 4 step + (A) production sha256 literal `b15883fe...` 実測 confirm |
-| γ | (c) 全 verify script 統合 ALL PASS = production binary 1 件に対して全 verify を 1 batch 実行 + 統合 report | (c) | 全 verify script ALL PASS literal 確認 + completion proof 統合 report (= 「16ch integration trace 完了」 + 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」 三分割 wording 必須、 「16ch full candidate distinctness 完了」 wording 禁止 = A-J distinctness は ADR-0069 候補 future) |
+| γ | (c) 全 verify script 統合 ALL PASS = production binary 1 件に対して全 verify を 1 batch 実行 + 統合 report (= **representative direct invoke 5 script + transitively regression OK pattern**、 ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承、 sha256 直接 confirm は ym2610 chip target のみ + ym2610b は representative scripts 内既存 chip target coverage で推移的保証) | (c) | 全 verify script ALL PASS literal 確認 + completion proof 統合 report (= 「16ch integration trace 完了」 + 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」 三分割 wording 必須 = γ completion proof 内 context-bound 使用 OK / single isolated wording は ε まで禁止維持、 「16ch full candidate distinctness 完了」 wording 禁止 = A-J distinctness は ADR-0069 候補 future、 「roadmap ⑤ 統合 verify 完了」 = ε まで禁止 明示、 6 gate = gate 1 pre-build sha256 + gate 2 representative regression 5 script ALL PASS + per-script log + gate 3 三分割 wording report + gate 4 禁止 wording self-check 7 件全件 + allowlist 拡張 + gate 5 NOT-COMPLETE 7 行 + gate 6 post-script sha256 復元 confirm) |
 | δ | 統合 report 作成 + 残課題 enumeration (= ADR-0065/0066 起票判断 material) | - | 統合 report literal + 残課題 literal |
 | ε | Draft → Accepted 移行 + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal (= 併記必須) | - | Accepted 移行完了 milestone |
 
@@ -270,6 +270,25 @@ trace-equivalence 判定 criteria:
 | 「軸 B 完成」 | literal 禁止維持 | literal 禁止維持 | v2 driver production-ready 化 + 本番 cmd 切替後 future |
 | 「軸 G 完成」 | literal 禁止維持 | literal 禁止維持 | 軸 G 全体完成は別 axis 完了後 future |
 | 「本番 cmd 切替完了」 | literal 禁止維持 | literal 禁止維持 | ADR-0066 候補完了後のみ |
+
+#### γ Accepted 後の追加 context (= γ PR4 確定、 plan v4 round 4 approve 反映)
+
+γ PR4 merge 後 (= main agent 経路 merge 完了後) の使用可・禁止 context literal:
+
+| 表現 | γ Accepted 後 | ε Accepted 後 |
+|---|---|---|
+| 「16ch integration trace 完了」 | γ completion proof 内 **context-bound 使用 OK** (= verify script 内 / Annex γ 内 / 改訂履歴 γ entry 内 / 平易要約 γ context 内)、 single isolated wording は ε まで禁止維持 | 解禁 + 併記必須 |
+| 「K+L-Q candidate distinctness 完了」 | 同上 (= γ completion proof 内 context-bound 使用 OK) | 解禁 + 併記必須 |
+| 「A-J default carry 確認」 | 同上 (= γ completion proof 内 context-bound 使用 OK) | 解禁 (= 単独使用 OK) |
+| 「16ch full candidate distinctness 完了」 | literal 禁止維持 (= ADR-0069 候補 future) | literal 禁止維持 (= ADR-0069 候補 future) |
+| 「roadmap ⑤ 統合 verify 完了」 | literal 禁止維持 (= **ε まで禁止 明示**) | 解禁 + 併記必須 |
+| 「trace-equivalence 完了」 single wording | literal 禁止維持 (= ε まで禁止 明示) | 解禁 + 併記必須 |
+| 「production-ready 全体達成」 | literal 禁止維持 | literal 禁止維持 |
+| 「軸 B 完成」 | literal 禁止維持 | literal 禁止維持 |
+| 「軸 G 完成」 | literal 禁止維持 | literal 禁止維持 |
+| 「本番 cmd 切替完了」 | literal 禁止維持 | literal 禁止維持 |
+
+γ 完走後解禁 wording = 「ADR-0068 γ 完了」 (= γ baseline regression gate 統合 verify ALL PASS literal、 γ scope 限定、 representative direct invoke 5 script + transitively regression OK pattern)。
 
 #### gate verify criteria (= ADR-0067 §決定 6 ε gate-3 pattern 継承)
 - 禁止 wording は **肯定表現として使わない**
@@ -692,9 +711,134 @@ self-test retry 3 結果 = **全 6 env (= k03/k11/k21 × ym2610/ym2610b) で tra
 - Do NOT run GitHub write operations
 - Return only review judgment and findings
 
-### Annex γ: γ 実装 completion record (= γ PR4 で fill = 全 verify script 統合 ALL PASS)
+### Annex γ: γ 実装 completion record (= γ PR4 で fill = 全 verify script 統合 ALL PASS、 representative direct invoke + transitively regression OK pattern、 Codex layer 2 plan review 4 round chain approve 後)
 
-(= γ PR4 で 6 sub-section literal fill)
+#### γ-1 = scope literal (= γ kickoff plan v4、 Codex layer 2 plan review 4 round chain approve 後)
+
+ADR-0068 §決定 2 γ row literal + plan v4 拡張:
+- 主軸: (c) baseline regression gate 統合 verify
+- 範囲: representative direct invoke 5 script + transitively regression OK pattern (= ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承)
+- production sha256 維持 = ym2610 chip target 直接 confirm + ym2610b 推移性保証
+
+γ 完了判定 = 6 gate ALL PASS + 三分割 wording integrated completion proof report literal output + 7 件全件 禁止 wording self-check + NOT-COMPLETE 7 行 literal output。
+
+#### γ-2 = 配置 (= 新規 γ verify script + ADR doc 3 箇所同時 update + dashboard + 既存 driver / 既存 verify script / 既存 build flag / vendor / 既存 fixture / α script / β script 完全不変)
+
+- **新規 verify script**: `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-gamma.sh` (= 行数 TBD、 α/β script pattern 継承)
+- **ADR-0068 doc 修正**: §決定 1(c) + §決定 2 γ row + §決定 6 表記制約 3 箇所同時 update + Annex γ fill + 改訂履歴 γ entry + 平易要約 γ context
+- **dashboard 0068 行 status column update + escalation 履歴 γ PR4 entry 1 row**
+- **トレース出力**: per-script log = `/tmp/pmdneo-adr-0068-gamma/<script-basename>.log` 計 5 file (= representative 5 script 各 1 log)
+- **driver / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / α script / β script / ADR-0048〜0067 本文 + Annex 完全不変** (= ADR-0068 §決定 5 (ii) literal)
+
+#### γ-3 = representative regression 5 script + per-script log
+
+representative direct invoke (= 5 script):
+
+| # | script | 由来 ADR |
+|---|---|---|
+| 1 | `verify-axis-b-v2-16ch-integration-alpha.sh` | ADR-0068 α 直接 dependency |
+| 2 | `verify-axis-b-v2-16ch-integration-beta.sh` | ADR-0068 β 直接 dependency |
+| 3 | `verify-axis-b-v2-fixture-expansion-delta.sh` | ADR-0067 δ 16 ch fixture 拡張完了 baseline |
+| 4 | `verify-axis-b-v2-song-playback.sh` | ADR-0058 ε 10 gate baseline |
+| 5 | `verify-axis-b-v2-roadmap3-dispatch.sh` | ADR-0059 ε 12 gate baseline |
+
+transitively regression (= ADR-0049〜0057 系 verify script 全) = production sha256 維持 = m1 ROM byte-identical 経由で transitively regression OK literal。
+
+per-script log path = `/tmp/pmdneo-adr-0068-gamma/<script-basename>.log` (= self-test 完走後 PASS / FAIL 切り分け logfile 保存)。
+
+#### γ-4 = production sha256 維持 (= pre + post 両方 confirm)
+
+- 通算 sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 mandatory
+- gate 1 pre-build sha256 (= ym2610 (A) production default build) 実測 confirm
+- gate 6 post-representative-script sha256 (= ym2610 (A) production default build 再実行) 復元 confirm = representative script 内非 production build 後 production binary 復元 literal
+- ym2610b は representative scripts 内既存 chip target 駆動 (= 特に α/β script は ym2610 + ym2610b 両 capture) 経由で推移的保証 = γ scope 内独立 sha256 confirm なし
+
+#### γ-5 = 三分割 wording integrated completion proof report + 禁止 wording self-check
+
+verify script 末尾 exact literal output (= 6 gate + NOT-COMPLETE 7 行):
+
+```
+=== ADR-0068 γ baseline regression gate completion proof ===
+PASS sha256-pre: b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4 (= (A) production default ym2610)
+PASS representative-1: verify-axis-b-v2-16ch-integration-alpha.sh exit=0 log=/tmp/pmdneo-adr-0068-gamma/verify-axis-b-v2-16ch-integration-alpha.log
+PASS representative-2: verify-axis-b-v2-16ch-integration-beta.sh exit=0 log=/tmp/pmdneo-adr-0068-gamma/verify-axis-b-v2-16ch-integration-beta.log
+PASS representative-3: verify-axis-b-v2-fixture-expansion-delta.sh exit=0 log=/tmp/pmdneo-adr-0068-gamma/verify-axis-b-v2-fixture-expansion-delta.log
+PASS representative-4: verify-axis-b-v2-song-playback.sh exit=0 log=/tmp/pmdneo-adr-0068-gamma/verify-axis-b-v2-song-playback.log
+PASS representative-5: verify-axis-b-v2-roadmap3-dispatch.sh exit=0 log=/tmp/pmdneo-adr-0068-gamma/verify-axis-b-v2-roadmap3-dispatch.log
+PASS three-section-wording 16ch integration trace 完了
+PASS three-section-wording K+L-Q candidate distinctness 完了
+PASS three-section-wording A-J default carry 確認
+NOT-COMPLETE 16ch full candidate distinctness 完了 (= ADR-0069 候補 future、 driver 拡張 sprint required)
+NOT-COMPLETE roadmap ⑤ 統合 verify 完了 (= ADR-0068 ε Accepted future)
+NOT-COMPLETE trace-equivalence 完了 single wording (= ADR-0068 ε Accepted future)
+NOT-COMPLETE production-ready 全体達成 (= 4 gate + audition + cmd 切替 future)
+NOT-COMPLETE 軸 B 完成 (= v2 production-ready 化 + cmd 切替後 future)
+NOT-COMPLETE 軸 G 完成 (= 軸 G 全体完成は別 axis 完了後 future)
+NOT-COMPLETE 本番 cmd 切替完了 (= ADR-0066 候補 future)
+PASS sha256-post: b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4 (= representative script 内非 production build 後 (A) production default ym2610 復元 confirm)
+=== ADR-0068 γ baseline regression gate ALL PASS ===
+```
+
+禁止 wording self-check (= 7 件全件、 scan target literal 固定 + 範囲限定):
+- scan target = (a) `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-gamma.sh` 全行 + (b) `docs/adr/0068-pmdneo-axis-b-v2-16ch-integration-verify.md` の PR4 更新箇所 (= `git diff wip-pmddotnet-opnb-extension..HEAD` で +追加行抽出)
+- 検査 wording 7 件 = 「16ch full candidate distinctness 完了」 / 「roadmap ⑤ 統合 verify 完了」 / 「trace-equivalence 完了」 / 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」
+- allowlist pattern (= exact substring exclusion):
+  - `NOT-COMPLETE <禁止 wording>` (= completion proof 内否定行)
+  - `「<禁止 wording>」 wording 禁止` (= 表記制約 reference context)
+  - `「<禁止 wording>」 = literal 禁止` (= 表記制約 reference context)
+  - `「<禁止 wording>」 = ADR-0069 候補 future` (= 16ch full candidate distinctness 限定)
+  - `「<禁止 wording>」 = ADR-0068 ε Accepted future`
+  - `「<禁止 wording>」 = ADR-0066 候補 future` (= 本番 cmd 切替完了 限定)
+  - `<禁止 wording>条件` (= 比較・条件文脈、 round 3 nh 1 反映)
+  - `<禁止 wording>ではない` (= 否定文脈)
+  - `<禁止 wording>達成ではない` (= 否定文脈)
+  - `禁止 wording check` (= self-check context)
+  - `禁止維持` (= 表記制約 context)
+  - `prohibited wording` (= 英文 reference context)
+- expected count after exclusion = 各 wording 0
+- 不一致時 FAIL + violation line literal output
+
+#### γ-6 = 状態維持 + Codex layer 2 plan review chain + commit chain literal (= self-test 完走後 fill)
+
+##### 状態維持 confirm (= ADR-0068 §決定 7 不可触対象 literal)
+
+- driver source `src/driver/standalone_test.s` 完全不変
+- ADR-0067 fixture (= 全 16 ch fixture data + slot 2-10 init + pointer switch) 完全不変
+- 既存 verify script (= ADR-0049〜0067 全 + α script + β script) 完全不変
+- 既存 build flag 完全不変 (= 新規 flag 追加なし)
+- vendor 完全不変
+- ADR-0048〜0067 本文 + Annex 完全不変
+- 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
+- production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 実測 confirm (= gate 1 pre + gate 6 post 両方 PASS、 §決定 10 全 sub-sprint 共通 gate 整合)
+
+##### Codex layer 2 plan review chain (= 4 round、 全 review-only + 越権操作なし confirmed)
+
+| round | judgment | finding 要点 | agentId |
+|---|---|---|---|
+| 1 | revise | must-fix 3 = ADR γ row literal 乖離 + completion proof exact literal underspecified + memory commit chain 内/外 矛盾、 nh 2 + lr 2 | `a3a27e8e2dfee977a` |
+| 2 | revise | must-fix 3 = ADR doc 更新範囲 狭い + prohibited wording check grep 1 件 → 7 件全件 + NOT-COMPLETE 6 行 vs 禁止 literal 7 件 不一致、 nh 2 + lr 2 | `a1c4721bf1f66a5a6` |
+| 3 | revise | must-fix 2 = gate 1 と chip target 境界矛盾 + scan target ADR doc 全体 false positive risk、 nh 1 + lr 1 | `a836738a32ccf5bdc` |
+| 4 | **approve** | must-fix 0 + nh 1 (= prohibited wording 配列 context literal 必須) + lr 1 (= git diff base ref 確認) | `a5e3502b12fb6bbfb` |
+
+= 4 round chain、 全 review-only 遵守 confirmed + 越権操作なし。 must-fix 計 8 件 + nh 計 6 件 + lr 計 6 件 全 ADR / verify script 反映。
+
+冒頭 6 件 literal 強調 (= memory `feedback_codex_layer2_review_no_commit_authority.md` 39th session ADR-0062 PR2 越権 merge 事例後の規律強化):
+- Codex layer 2 is review-only
+- Do NOT commit
+- Do NOT modify files
+- Do NOT create branches
+- Do NOT merge PRs
+- Do NOT run GitHub write operations
+- Return only review judgment and findings
+
+##### commit chain literal (= γ PR4 commit chain 4 commit)
+
+| # | commit | 内容 |
+|---|---|---|
+| 1 | (= 本 commit) | ADR doc γ scope literal + Annex γ skeleton fill (= §決定 1(c) + §決定 2 γ row + §決定 6 表記制約 3 箇所同時 update + Annex γ 6 sub-section skeleton + 改訂履歴 γ entry) |
+| 2 | (= 次 commit) | γ verify script 新規実装 |
+| 3 | (= 次 commit) | self-test 反映 + 必要なら bug fix + Annex γ fill 完成 + 改訂履歴 γ bug fix entry update |
+| 4 | (= 次 commit) | dashboard 0068 行 status update + escalation 履歴 γ PR4 entry + 平易要約 |
 
 ### Annex δ: δ 統合 report + 残課題 enumeration (= δ PR5 で fill)
 
@@ -760,3 +904,4 @@ PR1 merge 後 (= 既完了)、 sub-sprint α 実装 PR2 を別 task chain で完
 | 2026-05-25 | 40th session | ADR-0068 β PR3 Codex impl-review round 2 finding 反映 (= revise judgment must-fix 1、 agentId `ae0979991bedde96d`、 review-only 越権操作なし confirmed) = round 1 must-fix 1「K distinct candidate / distinct pattern wording 統一」 未完了の残存 wording 修正 = β verify script line 26 (header comment C-3) + line 48 (K candidate section header) + line 233 (echo header section) + line 368 (capture section header) + line 501 (axis A-3a internal comment) で「K distinct candidate」 → 「K candidate」 / 「K candidate trigger 出現確認」 統一 + ADR doc line 168 (§決定 1(b) β scope literal) + line 184 (§決定 2 β row) + line 517 (β-1 sub-task 4) + line 595 (β-5 section header) + line 631 (β-5 axis C-3 PASS 判定) で同様 wording 統一 + 改訂履歴 line 761 「結論 = axis C-3 K distinct candidate gate 7 PASS」 → 「結論 = axis C-3 K candidate gate 7 PASS (= historical record、 旧 wording 注記付き)」。 L-Q 「distinct pattern A/B/C」 (= α plan v7 wording、 acceptable) と K「trigger 出現確認」 (= driver K dispatch normalization で trace 同一、 真の trace distinct は ADR-0069 候補 future defer) を厳密分離。 syntax check PASS、 driver / α script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex 完全不変、 越権操作なし維持 | (= 本 PR3 commit chain 内 commit 7 追加) |
 | 2026-05-25 | 40th session | ADR-0068 β PR3 Codex impl-review round 1 finding 反映 (= revise judgment must-fix 1 + nh 1 + lr 1、 agentId `a4de707f82e1a0e4e`、 review-only 越権操作なし confirmed) = (1) must-fix 1 K trace 同一 finding 後 wording 不整合修正 = β verify script C-3 PASS message + ADR §決定 2 β-2 axis C-3 row で「K distinct candidate」 / 「distinct pattern」 残存 wording → 「K candidate trigger 出現確認」 統一 (= L-Q いずれかに keyon write 出現 limit、 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は ADR-0069 候補 future defer literal、 driver K dispatch normalization で bitmap pattern 差吸収) + verify summary echo 行 wording update + (2) nh 1 行数 mismatch literal = 「commit 40410f7 時点 705 行、 後続 bug fix + impl-review 反映で現 HEAD 720 行」 commit chain table 内 evolution literal 追加 + (3) lr 1 gate 8c stale warning summary 反映 = `GATE_8C_STALE` variable track + summary 行 conditional 化 (= stale 発生時「8a/8b/8d PASS + 8c WARN (= stale、 --refresh-alpha 推奨、 escalate しない)」 literal、 PASS 誤読 risk 低減)。 driver / α script / 既存 verify / 既存 build flag / vendor / ADR-0048〜0067 完全不変、 越権操作なし維持 | (= 本 PR3 commit chain 内 commit 6 追加) |
 | 2026-05-25 | 40th session | ADR-0068 β verify script bug fix 2 件 + self-test PASS = 9 gate ALL PASS + K trace 同一 finding 検出 = (1) bug fix 全角 「、」 2 箇所 → 半角 「 , 」 + 英文化 (= α script 同 bug pattern 再導入、 line 234 + 291) + (2) bug fix bash 3.2 `declare -A` (associative array) 非対応 → case 関数 `get_pattern()` で置換 (= macOS default bash 互換)、 self-test retry 3 PASS confirmed (= 9 gate ALL PASS、 FAIL count = 0、 axis A-3a unintended diff 0 件 literal confirm、 axis C-1 L-Q distinctness 8/8 + C-2 A-J default carry 10/10 + C-3 K candidate trigger 出現 6/6、 axis B-1 zmem 別 file 出力 PASS、 gate 9 production sha256 `b15883fe...` 実測一致 confirm)。 **重要 finding (= K trace 同一)** = 全 6 env (= k03/k11/k21 × ym2610/ym2610b) で trace 同一 pattern (= L=3 + M-Q 各 1 = total 8 件)、 期待 (= k03/k11/k21 で異なる bitmap pattern → 異なる L-Q write pattern) vs 実 (= driver K dispatch 後 trace 同一)、 driver K dispatch normalization で MML 上 bitmap pair pattern 差を吸収。 結論 = axis C-3 K candidate gate 7 PASS = 「K candidate trigger 出現確認 (= L-Q いずれかに keyon write 出現)」 limit (= 旧 wording 「axis C-3 K distinct candidate gate 7 PASS」 は impl-review round 2 wording 統一で 「K candidate」 に統一済)、 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は β scope 内で未達成 (= driver 拡張 + 別 MML required = ADR-0069 候補 future defer literal)。 β 完走 wording 解禁 = 「K+L-Q distinctness range trace-equivalence literal 達成」 (= L-Q candidate distinctness 3 pattern A/B/C + K candidate trigger 出現確認 + A-J default carry baseline 確認、 「真の K distinct」 含まない明示) | (= 本 PR3 commit chain 内 commit `5d73611` + 本 commit) |
+| 2026-05-25 | 40th session | ADR-0068 γ kickoff plan v4 確定 + γ PR4 起票 = baseline regression gate 統合 verify (= ADR-0056 §決定 3 (c)、 representative direct invoke 5 script + transitively regression OK pattern、 ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承)、 §決定 1(c) + §決定 2 γ row + §決定 6 表記制約 3 箇所同時 update (= 「γ completion proof 内だけ三分割 wording context-bound 使用 OK」 + 「roadmap ⑤ 統合 verify 完了は ε まで禁止」 明示) + Annex γ skeleton 起票時起草 (= γ-1 〜 γ-6 6 sub-section literal、 representative 5 script + per-script log + sha256 pre+post + 三分割 wording integrated completion proof report + 禁止 wording self-check 7 件全件 + allowlist 拡張 + NOT-COMPLETE 7 行 + 状態維持 + commit chain literal) + 状態行 update (= Draft + α 完了 + β 完了 + γ PR4 進行中)。 Codex layer 2 plan review 4 round chain = round 1 revise (= must-fix 3 + nh 2 + lr 2、 agentId `a3a27e8e2dfee977a`) + round 2 revise (= must-fix 3 + nh 2 + lr 2、 agentId `a1c4721bf1f66a5a6`、 ADR doc 更新範囲 狭い + grep 1 件 → 7 件全件 + NOT-COMPLETE 6 → 7 行整合) + round 3 revise (= must-fix 2 + nh 1 + lr 1、 agentId `a836738a32ccf5bdc`、 chip target 境界統一 + scan target 範囲限定) + round 4 **approve** (= must-fix 0 + nh 1 + lr 1、 agentId `a5e3502b12fb6bbfb`、 prohibited wording 配列 context literal + git diff base ref 確認の advisory)、 must-fix 計 8 件 + nh 計 6 件 + lr 計 6 件 全 ADR 反映、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 user 明示 GO「質疑あれば全て Codex Rescue で回答を得て、 完全自律で完走まで GO」 = main agent autonomous 完走 default + 機械復旧 default rule [[long-running-hang-auto-recovery-rule]] 継承 | (= 本 PR4 commit chain 内 commit 1) |
