@@ -1,18 +1,27 @@
 #!/usr/bin/env bash
 #
 # PMDNEO ADR-0068 sub-sprint γ verify script = baseline regression gate 統合 verify
-# (= ADR-0056 §決定 3 (c) baseline regression gate、 representative direct invoke 5 script +
+# (= ADR-0056 §決定 3 (c) baseline regression gate、 representative direct invoke 4 script +
 #   transitively regression OK pattern、 ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4
-#   確立 pattern 継承)
+#   確立 pattern 継承、 plan v8 round 8 approve)
 #
 # verify scope: ADR-0068 §決定 2 γ row literal 6 gate:
 #   gate 1 = (A) production default ym2610 pre-build sha256 literal `b15883fe...` 一致 confirm
-#   gate 2 = representative regression 5 script direct invoke ALL PASS + per-script log file
+#   gate 2 = representative regression 4 script direct invoke ALL PASS + per-script log file
 #     - representative-1 = verify-axis-b-v2-16ch-integration-alpha.sh (= ADR-0068 alpha)
-#     - representative-2 = verify-axis-b-v2-16ch-integration-beta.sh (= ADR-0068 beta)
-#     - representative-3 = verify-axis-b-v2-fixture-expansion-delta.sh (= ADR-0067 delta)
-#     - representative-4 = verify-axis-b-v2-song-playback.sh (= ADR-0058 epsilon)
-#     - representative-5 = verify-axis-b-v2-roadmap3-dispatch.sh (= ADR-0059 epsilon)
+#     - representative-2 = verify-axis-b-v2-fixture-expansion-delta.sh (= ADR-0067 delta)
+#     - representative-3 = verify-axis-b-v2-song-playback.sh (= ADR-0058 epsilon)
+#     - representative-4 = verify-axis-b-v2-roadmap3-dispatch.sh (= ADR-0059 epsilon)
+#
+#   beta script (= verify-axis-b-v2-16ch-integration-beta.sh) は本 γ representative regression
+#   から除外 (= ADR-0068 §決定 5 (ii) beta script 完全不変原則遵守、 内部修正不可)。
+#   理由 = beta script gate 8d (= beta branch parent commit literal verify = 3c59d93) は beta
+#   branch 内部 self-test 専用仕様で、 γ branch HEAD (= 7335da9 = beta merge commit) 経路で
+#   merge_conflict 誤発火検出 (= γ self-test 1 で顕在化)。 ADR-0068 Annex β β-7 lr 2 復旧フロー
+#   (a) rebase 不適用 = beta merge 完了で git history 線形分岐済。 beta scope 確認は ADR
+#   Annex β literal (= β-1〜β-8 8 sub-section + 9 gate ALL PASS + K trace 同一 finding +
+#   β 完走 wording 解禁) で別途確保済、 transitively regression は production sha256 維持
+#   (= m1 ROM byte-identical) で carry。
 #   gate 3 = 三分割 wording integrated completion proof report literal output
 #   gate 4 = 禁止 wording self-check 7 件全件 + allowlist pattern 除外 + scan target 範囲限定
 #     - scan target = (a) 本 γ verify script 全行 + (b) ADR-0068 doc PR4 更新箇所のみ
@@ -46,10 +55,12 @@ PREPROCESSED="vendor/ngdevkit-examples/00-template/build/standalone_test.preproc
 LOG_DIR="/tmp/pmdneo-adr-0068-gamma"
 mkdir -p "$LOG_DIR"
 
-# representative regression 5 script enumeration (= ADR-0068 γ §決定 3、 plan v4 round 1 approve)
+# representative regression 4 script enumeration (= ADR-0068 γ §決定 1(c) + §決定 2 γ row、
+#  plan v8 round 8 approve、 beta script 除外 = ADR-0068 §決定 5 (ii) beta script 完全不変
+#  原則遵守、 beta script gate 8d は beta branch 内部 self-test 専用仕様、 γ 統合 regression
+#  経路で merge_conflict 誤発火検出 = γ self-test 1 finding 反映)
 REPRESENTATIVE_SCRIPTS=(
     "src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-alpha.sh"
-    "src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-beta.sh"
     "src/test-fixtures/axis-b/verify-axis-b-v2-fixture-expansion-delta.sh"
     "src/test-fixtures/axis-b/verify-axis-b-v2-song-playback.sh"
     "src/test-fixtures/axis-b/verify-axis-b-v2-roadmap3-dispatch.sh"
@@ -107,9 +118,9 @@ else
     echo "    expected = $EXPECTED_SHA256" >&2
 fi
 
-# === gate 2: representative regression 5 script direct invoke + per-script log ===
+# === gate 2: representative regression 4 script direct invoke + per-script log ===
 echo ""
-echo "=== gate 2: representative regression 5 script direct invoke + per-script log ==="
+echo "=== gate 2: representative regression 4 script direct invoke + per-script log ==="
 
 SUMMARY_LINES=()
 PASS_COUNT=0
@@ -137,10 +148,10 @@ for IDX in "${!REPRESENTATIVE_SCRIPTS[@]}"; do
     fi
 done
 
-if [ "$PASS_COUNT" = "5" ]; then
-    ok "gate 2: representative 5/5 ALL PASS"
+if [ "$PASS_COUNT" = "4" ]; then
+    ok "gate 2: representative 4/4 ALL PASS"
 else
-    ng "gate 2: representative $PASS_COUNT/5 PASS (= 5 件 ALL PASS 要件未達)"
+    ng "gate 2: representative $PASS_COUNT/4 PASS (= 4 件 ALL PASS 要件未達)"
 fi
 
 # === gate 3: 三分割 wording integrated completion proof ===
@@ -295,7 +306,7 @@ echo "PASS sha256-post: $POST_SHA256 (= representative script 内非 production 
 if [ "$FAIL" = "0" ] && [ "$PROHIB_FAIL" = "0" ]; then
     echo "=== ADR-0068 γ baseline regression gate ALL PASS ==="
     echo ""
-    echo "summary: 6 gate ALL PASS (= gate 1 sha256-pre + gate 2 representative 5/5 + gate 3 三分割 wording + gate 4 prohibited wording self-check 7/7 + gate 5 NOT-COMPLETE 7 行 + gate 6 sha256-post)"
+    echo "summary: 6 gate ALL PASS (= gate 1 sha256-pre + gate 2 representative 4/4 + gate 3 三分割 wording + gate 4 prohibited wording self-check 7/7 + gate 5 NOT-COMPLETE 7 行 + gate 6 sha256-post)"
     echo "「ADR-0068 γ 完了」 = γ scope 限定 baseline regression gate 統合 verify ALL PASS literal 達成"
     echo "(= 「roadmap ⑤ 統合 verify 完了」 / 「trace-equivalence 完了」 single wording / 「production-ready 全体達成」 / 「軸 B 完成」 / 「本番 cmd 切替完了」 = ε Accepted / ADR-0066 候補 future、 「16ch full candidate distinctness 完了」 = ADR-0069 候補 future、 prohibited wording 禁止維持)"
     exit 0
