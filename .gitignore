@@ -152,3 +152,4 @@ vendor/pmdmini-patched/
 
 # 音色検証 local DB (= ADR-0005)
 /data/
+audition/

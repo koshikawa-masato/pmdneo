@@ -61,7 +61,7 @@ ADR-0065 scope = **(d) 越川氏 audition gate = production-ready 経路 (= v2 d
 
 | sub | scope | user 介入 | 完了判定 | 関連 ADR |
 |---|---|---|---|---|
-| α | audition session 準備 doc-only = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義 (= 決定 11) | optional | build 環境 + emulator + format 確定 literal | ADR-0058 + ADR-0059 完成済確認 |
+| α | audition session 準備 doc-only = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義 (= 決定 11) | optional | **α 完了 (= 本 PR2)** = build 環境 + emulator + format 確定 literal record (= Annex α fill 6 sub-section、 ADR-0041 §決定 4-3 主軸 fallback approve plan v1 + retrospective Codex review 必須) | ADR-0058 + ADR-0059 完成済確認 |
 | β | audition material 選定 doc-only = ADR-0067 fixture vs PMDDotNET 既存 MML vs 新規 MML trade-off + 選定 literal | optional | material 選定 literal + 採用根拠 record | ADR-0067 ε 既存 fixture + ADR-0068 16 ch integration trace 既存 |
 | γ | acceptance gate criteria 定義 doc-only = pairwise + individual + 全 reject 3 軸 schema 整合 + 判定 framework literal (= 決定 4) | optional | criteria literal + 判定 framework 確定 | memory 3 件 regulation cite |
 | δ | **audition session 実施** + record 取得 + finding literal + acceptance decision (= **user 介入 mandatory**、 越川氏 listening + judgment) | **mandatory (= aesthetic / ADR-0041 §決定 5 `audit_gate` escalation 該当)** | audition record + acceptance decision (= aesthetic accept / revise required / 全 reject) | ADR-0058 + ADR-0059 + ADR-0067 ε + ADR-0068 ε 完走前提 |
@@ -297,9 +297,162 @@ placeholder (= ε で fill)。
 
 placeholder (= ε で fill)。
 
-### Annex α: sub-sprint α audition session 準備 doc-only (= α PR2 で fill)
+### Annex α: sub-sprint α audition session 準備 doc-only (= α PR2 で fill 完了)
 
-placeholder。
+#### α-1: production binary build 確認方針
+
+production-ready 経路 build = (A) production default build mode (= ADR-0068 §決定 3 (A) literal 整合)。
+
+- build script: `scripts/build-poc.sh` (= 既存、 不変)
+- build command literal: `bash scripts/build-poc.sh --chip ym2610` (= ym2610 production default、 ADR-0006 §B chip target literal 整合)
+- sha256 確認 mandatory: `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` (= ADR-0065 §決定 10 整合)
+- build artifact: production binary ROM file (= `build/poc/` 配下、 既存 build output 経路)
+- ADR-0067 ε / ADR-0068 ε で確立した build pattern 継承
+
+#### α-2: MAME / emulator 環境確認方針
+
+- MAME version: 既存 PMDNEO repo 内で使用中の MAME version (= 具体 version literal は δ session 実施時に確定 = α では「最新使用 version + audition session 全体で同一 version 使用 mandatory」 方針確定)
+- MAME command literal:
+  - 既存 `scripts/run-mame.sh` reference (= 不変)
+  - audio render flag literal: `-wavwrite <output.wav>` (= MAME standard wavwrite)
+- ROM path + load 方法: MAME `-rompath <build artifact dir>` + ROM file load
+- audio output method: MAME wavwrite (= memory `project_mame_headless_recording_mode.md` 確立 mode 整合)
+  - SDL_VIDEODRIVER=dummy + -video none + -sound coreaudio + -samplerate 48000 (= headless 録音 mode literal)
+- driver / chip target: ym2610 production default (= ADR-0006 §B literal)
+- emulator 環境完全 reproducible: MAME version + flag + ROM 完全 literal record (= δ session 実施時の environment snapshot 取得 mandatory)
+
+#### α-3: audio render の前提
+
+- ADR-0058 = roadmap ② song parse + IRQ tick 完成済 (= production-ready 経路前提条件)
+- ADR-0059 = roadmap ③ ADPCM-B/rhythm 実 dispatch 完成済 (= production-ready 経路前提条件)
+- ADR-0067 = 16 ch fixture 拡張完了 (= 機能 verify only base、 16 ch carry 可能 driver state)
+- ADR-0068 = 16 ch 統合 verify 完了 (= K+L-Q distinctness + A-J default integration trace + (a)(b)(c) 3 gate 統合 verify)
+- audition material: **β PR3 で選定** (= α では「audition material を rendering する build 環境を確定」 のみ)
+- audio output spec: sample rate 48 kHz / 16-bit / 2ch (= MAME wavwrite default、 memory `project_mame_headless_recording_mode.md` 整合)
+- 1 audition material = 1 wav file (= MAME `-wavwrite <output.wav>` 経由)
+- 録音時間: audition material の playback duration full 録音 (= MAME `-seconds_to_run <N>` 適切設定、 N 値は β material 選定後 決定)
+
+#### α-4: audition record format (= ADR-0065 §決定 11 整合、 nice-to-have 反映)
+
+##### text record file structure (= repo 内、 PR diff 対象)
+
+- markdown audition session report: `audition/YYYY-MM-DD/session-N/report.md` path schema (= 例示、 実 path は δ session 実施時に確定)
+- JSONL aesthetic finding: `audition/YYYY-MM-DD/session-N/findings.jsonl` path schema
+
+##### markdown audition session report format literal
+
+```markdown
+# Audition Session N (YYYY-MM-DD)
+
+## Session 概要
+- audition material: <material-id-list>
+- 越川氏 listening 環境: <emulator + MAME version + audio output 環境>
+- 主軸 record 担当: Claude Code
+
+## audition material
+
+### <material-id>
+- source: <ADR-0067 fixture / PMDDotNET 既存 MML / 新規 MML>
+- wav: <audition/.../material.wav> (= repo 外 artifact)
+- duration: <seconds>
+
+## 経緯
+- <user listening + judgment 経緯 literal>
+
+## finding
+- <aesthetic finding text> (= 越川氏 judgment + comment)
+
+## acceptance decision
+- decision: <aesthetic_accept | revise_required | all_reject>
+- rationale: <decision の理由 literal>
+- 次 action: <ADR-0065 ε 移行 / 別 ADR 起票判断 / 別軸 redesign>
+```
+
+##### JSONL aesthetic finding format literal
+
+1 finding = 1 JSONL row schema:
+```jsonl
+{"timestamp": "YYYY-MM-DDTHH:MM:SSZ", "session_id": "<session-id>", "material_id": "<material-id>", "finding_text": "<越川氏 finding 自然言語>", "acceptance_decision": "aesthetic_accept|revise_required|all_reject", "rationale": "<decision rationale literal>"}
+```
+
+##### wav file storage (= repo 外 artifact 配置、 nice-to-have 1 反映)
+
+- wav file path schema: `audition/YYYY-MM-DD/session-N/<material-id>.wav` (= 例示、 実 path は δ で決定)
+- repo 外 artifact 配置: `.gitignore` で `audition/` directory excluded (= 本 α PR2 commit chain 内で `.gitignore` update)
+- 別 storage: local file system or 別 archive (= PMDNEO repo に commit しない、 repo bloat 回避)
+- 既存 PMDNEO repo pattern (= vendor wav 等 untracked retain) 整合
+
+#### α-5: 越川氏 judgment 記録形式 (= ADR-0065 §決定 4 整合)
+
+##### aesthetic finding text format
+
+- 自然言語 (= 越川氏 judgment + comment + finding text)
+- 文体: 主軸 record draft 起草時の literal verbatim (= 越川氏発言を主軸が record として書き起こす)
+- 長さ: 制約なし (= 越川氏 finding の質に応じる)
+
+##### acceptance decision enum (= ADR-0065 §決定 4 acceptance framework 3 軸独立 schema)
+
+| enum value | 内容 |
+|---|---|
+| `aesthetic_accept` | user 明示 OK = production-ready 経路 audition session approve (= ADR-0065 §決定 4 (1)) |
+| `revise_required` | aesthetic finding + driver/MML fix 必要 = 別 ADR 起票 (= ADR-0065 §決定 4 (2)) |
+| `all_reject` | production-ready 経路 audition 不合格 → 別軸 redesign (= ADR-0065 §決定 4 (3)) |
+
+##### judgment 入力 method (= 主軸起草 → user confirm process)
+
+1. δ session 実施前:
+   - 主軸が audition material build + render 実行 + wav 取得
+   - 主軸が audition session report draft 起草 (= report.md + findings.jsonl skeleton)
+2. δ session 実施中:
+   - 越川氏 listening (= wav 再生 + emulator playback)
+   - 越川氏 judgment + finding 口頭 or text 入力
+   - 主軸が record draft に finding text + acceptance decision 入力
+3. δ session 実施後:
+   - 主軸 record draft 完成 → 越川氏 review approve
+   - 越川氏修正指示 (= 必要なら record text 修正)
+   - δ PR5 commit (= record file + JSONL + dashboard update)
+- judgment 主体: 越川氏 (= user 本人)
+- 記録主体: 主軸 Claude Code
+- commit 主体: 主軸 (= 越川氏 review approve 後)
+
+##### memory 規律遵守 (= ADR-0065 §決定 4 cite)
+
+- `feedback_metric_pass_is_not_aesthetic_pass.md` = metric ≠ aesthetic、 metric pass で aesthetic accept 宣言禁止
+- `feedback_preference_learning_beats_metric_correlation.md` = pairwise comparison + reject label 別軸
+- `feedback_relative_preference_vs_absolute_acceptance.md` = pairwise + individual + 全 reject 3 軸独立 schema
+- `feedback_ai_engineering_gate_before_human_audition.md` = AI engineering 検査 → human aesthetic audition 順序固定 (= ADR-0067/0068 engineering verify → ADR-0065 human audition)
+
+#### α-6: 不可触対象 literal (= ADR-0065 §決定 7 整合)
+
+##### 完全不変 (= α PR2 で touch しない)
+
+- driver source (= `src/driver/standalone_test.s`)
+- α script / β script / γ script / 既存 verify script (= ADR-0049〜0068 全)
+- vendor
+- ADR-0067 fixture (= `_fm_a/b/c/d/e/f` + `_ssg_g/h/i` + `_adpcmb_j` + `_rhythm_k` + `_rhythm_k_full` 等)
+- ADR-0067 slot init (= slot 0-10 init + chip target 別 active policy + pointer switch)
+- 既存 build flag (= 新規 flag 追加なし)
+- ADR-0041〜0068 本文 + Annex (= ADR-0068 既存 Annex α/β/γ/δ + Annex A/B/ε 完全不変)
+- ADR-0065 §決定 1-12 本文 / §verify gate / §Codex layer 2 plan review chain / Annex skeleton (= A/B/β/γ/δ/ε placeholder) 完全不変
+- 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
+- production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 mandatory (= α で再 build しない doc-only sprint、 ADR-0065 §決定 10 整合)
+
+##### α PR2 で touch する範囲
+
+- ADR-0065 file: Annex α fill 6 sub-section + §決定 2 α row update + 改訂履歴 α entry + 平易要約 α context section
+- dashboard: 0065 行 status column α 完了 entry update + escalation 履歴 α PR2 entry 追加
+- `.gitignore`: `audition/` excluded entry 追加 (= 新規 entry、 nice-to-have 反映)
+
+#### α PR2 Codex layer 2 plan review chain (= 主軸 fallback approve plan v1、 ADR-0041 §決定 4-3 適用、 Codex unavailable + retrospective Codex review 必須)
+
+| round | judgment | 主体 | finding 要点 |
+|---|---|---|---|
+| 1 | (Codex unavailable) | Codex layer 2 起動失敗 | Codex companion 安全性分類器 (claude-opus-4-7) 一時障害 1 回目失敗 = `claude-opus-4-7[1m] is temporarily unavailable` error |
+| 1 retry | (Codex unavailable) | Codex layer 2 起動失敗 | 同障害 2 回連続失敗 = CLAUDE.md §長時間 task hang 自動復旧 rule「retry も hang した」 user escalation 該当 |
+| fallback | **approve plan v1** | 主軸 Claude Code | 主軸独立 review (= 6 axis = A scope / B α-1 build / C α-2 emulator / D α-3 render + α-4 record format / E α-5 judgment / F α-6 不可触対象 + commit chain 全 OK = approve 判断)、 latent risk 1 件 (= MAME version literal specificity、 plan v1 内 abstract OK + δ で具体 version 確定 natural) は retrospective Codex review で再確認 |
+| retrospective | (= TBD、 Codex 復旧後) | Codex layer 2 | Codex companion 復旧後に retrospective review 実施必須 (= ADR-0041 §決定 4-3 literal)、 主軸 fallback judgment 事後 confirm + latent risk 1 件 再 review |
+
+= 主軸 fallback approve 1 件 + retrospective Codex review TBD。 ADR-0068 ε で確立した「主軸 fallback + retrospective Codex review」 pattern (= ADR-0041 §決定 4-3 full cycle 完走実証完了) 継承 = doc-only sprint + scope 明確 + retrospective review 必須が成立条件。 user 明示 option B 採用 (= 40th session ADR-0065 α PR2 plan review 2 回連続 Codex unavailable 後 escalation 経路)、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed (= 主軸 fallback でも commit 権限分離維持)。
 
 ### Annex β: sub-sprint β audition material 選定 doc-only (= β PR3 で fill)
 
@@ -322,6 +475,7 @@ placeholder。
 | 日付 | session | 内容 | commit |
 |---|---|---|---|
 | 2026-05-25 | 40th session | ADR-0065 起票 Draft = roadmap ⑥ audition ADR (= 越川氏 audition gate、 aesthetic gate、 production-ready 経路 audition session approve = ADR-0056 §決定 3-b literal、 ADR-0063 §(d) literal、 ADR-0064 §決定 7 番号予約消化、 ADR-0067 残課題 + ADR-0068 §決定 9 ADR-0065 候補後続、 集約 HEAD `037cd3e`、 doc-only 起票 PR1 = ADR-0067/0068 起票 pattern 継承、 Codex layer 2 plan review 1 round approve = must-fix 0 + nice-to-have 1 件 (= PR5 wav repo 外 artifact 配置 = §決定 11 + §決定 5 (i)/(iii) 反映) + latent risk 1 件 (= ADR-0069 parallel 起票時 sha256 維持運用順序 4 選択肢 + user 明示 GO 必須 = §決定 9 反映) 全反映、 agentId `afbed0b24a60caa41`、 越権操作なし confirmed)。 ADR doc 修正範囲 = (1) ADR-0065 file 新規 (= 12 決定 + Annex skeleton A/B/α/β/γ/δ/ε + 改訂履歴 + 平易要約) + (2) dashboard 0065 行 update (= 「未起票」 → 「Draft 起票」 + 12 決定 literal + 表記制約 + 不可触対象 + Codex layer 2 plan review 1 round approve literal) + (3) dashboard escalation 履歴 ADR-0065 entry 1 row 追加 + (4) memory 起票 (= 新 memory `project_pmdneo_adr_0065_initiated.md` + MEMORY.md index 1 行追加、 repo 外 PR 対象外)。 sub-sprint chain α/β/γ/δ/ε 5 段 plan literal (= α audition session 準備 + β material 選定 + γ acceptance gate criteria + δ audition session 実施 (= user 介入 mandatory) + ε Accepted 移行) + PR chain plan 6 PR + production sha256 維持 mandatory (= `b15883fe...` 通算維持、 driver 不変) + 表記制約 (= 起票時点 禁止 6 件 + ε Accepted 後解禁候補 3 件 + 禁止維持 5 件) + acceptance framework 3 軸 (= pairwise + individual + 全 reject) memory 規律遵守 + audition record format (= text markdown + JSONL + wav repo 外 artifact) + 番号 chronology rationale (= ADR-0064 §決定 7 整合)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex 完全不変、 production sha256 = `b15883fe...` 維持期待 (= ADR-0065 で再 build しない、 §決定 10 整合)、 commit chain = 単一 commit (= 本 commit) | (= 本 PR1 commit chain 内 commit 1) |
+| 2026-05-25 | 40th session | ADR-0065 sub-sprint α PR2 = audition session 準備 doc-only sprint (= ADR-0065 §決定 2 α row literal 継承 = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義 (= 決定 11)、 PR #140 MERGED at `c3ed5e0` 後続、 集約 HEAD `c3ed5e0`、 Codex layer 2 plan review 主軸 fallback approve plan v1 = ADR-0041 §決定 4-3 適用 (= Codex companion 安全性分類器 (claude-opus-4-7) 一時障害 2 回連続失敗 = `claude-opus-4-7[1m] is temporarily unavailable` error = CLAUDE.md §長時間 task hang 自動復旧 rule「retry も hang した」 user escalation 該当、 user 明示 option B = ADR-0041 §決定 4-3 fallback + retrospective Codex review 必須 採用、 doc-only sprint + scope 明確 + retrospective review 必須が fallback 適用根拠、 主軸 Claude Code が plan v1 を独立 review = 6 axis (= A scope literal coverage + B α-1 production binary build + C α-2 MAME / emulator + D α-3 audio render + α-4 record format + E α-5 judgment 記録形式 + F α-6 不可触対象 + commit chain) 全 OK = approve 判断、 must-fix 0 + nice-to-have 0 + latent risk 1 件 = MAME version literal specificity (= α では abstract OK + δ で具体 version 確定 natural) は retrospective Codex review で再確認)、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed (= 主軸 fallback でも commit 権限分離維持)、 40th session ε で確立した「主軸 fallback + retrospective Codex review」 pattern (= ADR-0041 §決定 4-3 full cycle 完走実証完了) 継承)。 ADR doc 修正範囲 = (1) §決定 2 α row update (= 「α 完了 (= 本 PR2) = build 環境 + emulator + format 確定 literal record (= Annex α fill 6 sub-section、 ADR-0041 §決定 4-3 主軸 fallback approve plan v1 + retrospective Codex review 必須)」) + (2) Annex α fill = 6 sub-section literal (= α-1 production binary build 確認方針 = (A) production default + sha256 確認 mandatory + build script `scripts/build-poc.sh` reference + α-2 MAME / emulator 環境確認方針 = MAME version + command `scripts/run-mame.sh` + audio render flag `-wavwrite` + headless 録音 mode `project_mame_headless_recording_mode.md` 整合 + chip target ym2610 production default + α-3 audio render の前提 = ADR-0058/0059/0067/0068 base + 48 kHz/16-bit/2ch spec + α-4 audition record format = markdown report path schema + JSONL aesthetic finding schema literal + wav repo 外 artifact 配置 (= `.gitignore` audition/ excluded 反映) + α-5 越川氏 judgment 記録形式 = aesthetic finding text + acceptance decision enum (= aesthetic_accept / revise_required / all_reject) + judgment 入力 method (= 主軸起草 → user confirm process 3 段階) + memory 4 件 regulation cite + α-6 不可触対象 literal + α PR2 touch 範囲 + α PR2 Codex layer 2 plan review chain literal (= 4 round = round 1 unavailable + round 1 retry unavailable + fallback 主軸 approve + retrospective TBD)) + (3) 改訂履歴 α entry 追加 (= 本 entry) + (4) 平易要約 α context section 追加 (= α PR2 完走 update 6 構造)。 dashboard 修正範囲 = (5) 0065 行 status column update (= 「Draft 起票」 → 「Draft + α 完了」 + α 完了 entry literal) + (6) escalation 履歴 α PR2 entry 1 row 新規追加 (= ADR-0065 PR1 entry 直前 = 最新位置)。 `.gitignore` 修正 = (7) `audition/` directory excluded entry 1 行追加 (= 新規、 nice-to-have 反映 = repo 外 artifact 配置 path 安全化)。 memory 修正 = (8) `project_pmdneo_adr_0065_initiated.md` α 完走 entry 追加 (= repo 外、 PR diff 対象外、 主軸直接 Write/Edit)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex / ADR-0068 既存 Annex α/β/γ/δ + Annex A/B/ε / ADR-0065 §決定 1-12 本文 / §verify gate / §Codex layer 2 plan review chain / Annex skeleton 他 sub-section 完全不変 = doc-only sprint。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= α で再 build しない、 §決定 10 整合)。 commit chain = 単一 commit (= 本 commit、 ADR-0065 PR1 同 pattern 継承)。 後続 = retrospective Codex review (= Codex 復旧後) + main agent 経路 merge + user 完走報告、 sub-sprint β PR3 起票判断 = user 明示 GO 必須、 ADR-0066/0069 候補 起票判断 = 各 user 明示 GO 必須 | (= 本 PR2 commit chain 内 commit 1) |
 
 ## 平易要約
 
@@ -366,3 +520,53 @@ placeholder。
 - Codex layer 2 impl-review on PR1 + approve loop
 - main agent 経路 merge
 - 続行 = sub-sprint α PR2 起票判断 (= user 明示 GO 必須、 ADR-0065 ε まで完走後 ADR-0066 起票判断 + ADR-0069 parallel 起票判断 user 明示 GO)
+
+## α PR2 平易要約 (= audition session 準備 doc-only sprint)
+
+### α でやりたいこと
+
+ADR-0065 §決定 2 α row literal「audition session 準備 doc-only = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義」 を実装する。 越川氏 audition session を実施するための前準備として「どう build するか」 「どう emulator で audio render するか」 「どう record するか」 を ADR-0065 Annex α に literal 確定する。 driver / verify / vendor は touch しない doc-only sprint。
+
+### α 前提
+
+- ADR-0065 = Draft 起票完了 (= PR #140 MERGED at `c3ed5e0`)
+- ADR-0058 + ADR-0059 = production-ready 経路 (= v2 driver 経路) 完成済
+- ADR-0067 = 16 ch fixture 拡張完了 + ADR-0068 = 16 ch 統合 verify 完了 (= engineering verify base)
+- 既存 build script (= `scripts/build-poc.sh`) + 既存 MAME script (= `scripts/run-mame.sh`) 不変前提
+- memory `project_mame_headless_recording_mode.md` MAME headless 録音 mode 既確立 base
+- production sha256 = `b15883fe...` 維持 mandatory (= ADR-0065 §決定 10 整合)
+- user 明示 α scope 6 項目受領 (= 40th session ADR-0065 PR1 完走後 AskUserQuestion option 1)
+- Codex companion 安全性分類器一時障害 2 回連続失敗 = ADR-0041 §決定 4-3 fallback regime 適用 (= ADR-0068 ε で実証済 pattern)
+
+### α でやったこと
+
+- ADR-0065 plan v1 起草 (= 6 sub-section α-1 build / α-2 emulator / α-3 audio render 前提 / α-4 record format / α-5 judgment 記録形式 / α-6 不可触対象)
+- Codex layer 2 plan review 投入試行 = Codex companion 一時障害で 2 回連続失敗 = user escalation 該当
+- user 明示 option B 採用 = ADR-0041 §決定 4-3 fallback + retrospective Codex review 必須 適用
+- 主軸 fallback review approve plan v1 (= 6 axis 全 OK = scope literal coverage / α-1 build / α-2 emulator / α-3+α-4 render+format / α-5 judgment / α-6 不可触対象+commit chain、 must-fix 0 + nice-to-have 0 + latent risk 1 = MAME version literal specificity (= α では abstract OK + δ で具体 version 確定 natural))
+- α branch `wip-adr-0065-alpha-impl` (= base `c3ed5e0`) 作成
+- commit 1 (= 本 commit) = ADR-0065 修正 = §決定 2 α row update + Annex α fill 6 sub-section + 改訂履歴 α entry + 平易要約 α context section + dashboard 0065 行 status column update + dashboard escalation 履歴 α PR2 entry 1 row 追加 + `.gitignore` `audition/` excluded entry 追加 (= nice-to-have 反映)
+- memory `project_pmdneo_adr_0065_initiated.md` α 完走 entry 追加 (= 別途、 repo 外、 PR diff 対象外、 主軸直接 Write/Edit)
+
+### α 結果
+
+- ADR-0065 = Draft + α 完了 milestone (= main agent 経路 merge 後確定)
+- Annex α fill = 6 sub-section literal record (= build + emulator + audio render 前提 + audition record format + judgment 記録形式 + 不可触対象)
+- `.gitignore` `audition/` directory excluded (= wav repo 外 artifact 配置 path 安全化)
+- production sha256 = `b15883fe...` 維持期待 (= α で再 build しない、 §決定 10 整合)
+- driver / verify / vendor / fixture / build flag / 既存 Annex 完全不変 confirm
+
+### α 解釈
+
+- α PR2 = audition session 準備 doc-only = β material 選定 + γ acceptance gate criteria 確定の前段階
+- α 完了 = audition session を実施するための環境 + format が確定した状態
+- 「(d) audition gate 達成」 / 「越川氏 audition approve」 / 「roadmap ⑥ audition 完了」 wording は依然 literal 禁止維持 (= ε Accepted 後解禁候補 = δ acceptance accept 前提)
+- ADR-0065 ε Accepted (= 全 sub-sprint 完走後 = future) も literal future
+- ADR-0041 §決定 4-3 fallback regime 2 回目適用 (= ε PR6 で full cycle 完走実証 + 本 α PR2 で 2 回目実証、 pattern 安定化)
+
+### α 完走後の次
+
+- α PR2 commit + push + PR 起票
+- retrospective Codex review (= Codex 復旧後、 主軸 fallback judgment 事後 confirm + latent risk 1 件再 review)
+- main agent 経路 merge
+- 続行 = sub-sprint β PR3 起票判断 (= user 明示 GO 必須、 audition material 選定 doc-only = ADR-0067 fixture vs PMDDotNET 既存 MML vs 新規 MML trade-off)、 ADR-0066/0069 候補 起票判断 = 各 user 明示 GO 必須
