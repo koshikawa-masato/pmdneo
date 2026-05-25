@@ -432,17 +432,25 @@ ok "${CARRY_COUNT}/16 ch carry actual literal record + ${#MISSING_ACTUAL[@]} ch 
 # 結果 summary
 # ============================================================
 echo ""
-echo "==== ADR-0068 sub-sprint α verify summary ===="
+echo "==== ADR-0068 sub-sprint α verify summary (= plan v7 K+L-Q distinctness focus) ===="
 date "+END %Y-%m-%dT%H:%M:%S"
-echo "trace files = $(ls "$ALPHA_OUT_DIR"/env-*-ymfm.tsv 2>/dev/null | wc -l | tr -d ' ') / 10 ymfm + $(ls "$ALPHA_OUT_DIR"/env-*-zmem.tsv 2>/dev/null | wc -l | tr -d ' ') / 10 zmem (= 期待 10+10 = 20 file)"
-echo "carry ch = $CARRY_COUNT / 16"
-echo "不足 ch (= β minimal MML carry 対象) = ${EXPECTED_MISSING[*]}"
+# trace file count = ENVS array 内 env のみ正確 count (= plan v6-revised stale trace と混同回避)
+ymfm_actual=0
+zmem_actual=0
+for env in "${ENVS[@]}"; do
+  [ -f "$ALPHA_OUT_DIR/env-${env}-ymfm.tsv" ] && ymfm_actual=$((ymfm_actual + 1))
+  [ -f "$ALPHA_OUT_DIR/env-${env}-zmem.tsv" ] && zmem_actual=$((zmem_actual + 1))
+done
+echo "trace files (= ENVS array exact match) = ${ymfm_actual} / 10 ymfm + ${zmem_actual} / 10 zmem (= 期待 10+10 = 20 file)"
+echo "carry ch actual = ${CARRY_COUNT} / 16"
+echo "missing ch actual = ${#MISSING_ACTUAL[@]} / 16 (= ${MISSING_ACTUAL[*]:-(none)})"
 echo "FAIL count = $FAIL"
 
 if [ "$FAIL" -eq 0 ]; then
   echo ""
-  echo "OK  α verify PASS (= 10 env × 2 trace = 20 file capture + 12/16 ch carry confirm + 不足 4 ch literal report)"
-  echo "    残 4 ch (= ${EXPECTED_MISSING[*]}) は β minimal MML carry plan (= ADR-0068 §決定 1(a) hybrid 原則 sub-section literal)"
+  echo "OK  α verify PASS (= 10 env × 2 trace = 20 file capture + ${CARRY_COUNT}/16 ch carry actual literal record + α scope capture + report only)"
+  echo "    plan v7 三分割 wording 整合 = 「16ch integration trace 完了」 + 「K+L-Q candidate distinctness 完了」 + 「A-J default carry 確認」"
+  echo "    「16ch full candidate distinctness 完了」 wording 禁止 (= A-J distinctness は ADR-0069 候補 future、 ADR-0068 §決定 6 plan v7 literal)"
   exit 0
 else
   echo ""
