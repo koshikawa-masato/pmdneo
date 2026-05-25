@@ -231,7 +231,7 @@ detect_adpcma() {
 mkdir -p "$BETA_OUT_DIR"
 echo "==== ADR-0068 sub-sprint β verify (= K+L-Q register behavior normalized comparison) ===="
 echo "==== 3 axis + 8 sub-category trace-equivalence 判定基準 + K candidate distinct + α trace input ===="
-echo "==== output dir = $BETA_OUT_DIR、 α trace input = $ALPHA_OUT_DIR ===="
+echo "==== output dir = $BETA_OUT_DIR , alpha trace input = $ALPHA_OUT_DIR ===="
 date "+START %Y-%m-%dT%H:%M:%S"
 
 # ============================================================
@@ -288,7 +288,7 @@ echo "gate 8d: actual = $ACTUAL_BASE_COMMIT_SHORT"
 echo "gate 8d: expected = $EXPECTED_BASE_COMMIT"
 if [ "$ACTUAL_BASE_COMMIT_SHORT" != "$EXPECTED_BASE_COMMIT" ]; then
   ng "gate 8d β branch parent commit 不一致 (= escalate \`merge_conflict\`、 復旧フロー = (a) main agent rebase 試行 / (b) user 上げ、 ADR-0068 Annex β β-7 lr 2 literal)"
-  echo "ESCALATE merge_conflict = β branch parent != $EXPECTED_BASE_COMMIT、 base SHA 不一致時復旧フロー要発動"
+  echo "ESCALATE merge_conflict = beta branch parent != $EXPECTED_BASE_COMMIT , base SHA mismatch recovery flow required"
   exit 1
 fi
 ok "gate 8d β branch parent commit 一致 confirm = $EXPECTED_BASE_COMMIT"
@@ -586,9 +586,15 @@ echo "---- axis C-1 L-Q candidate distinctness (= pattern A/B/C 整合 confirm) 
 # pattern A = note 数差分由来 (= l-q-rhythm-song = env # 3,4 + l-q-rhythm-song-step5b = env # 7,8)
 # pattern B = 6 ch 同時 keyon (= l-q-tutti = env # 5,6)
 # pattern C = baseline init keyon (= SAMPLE2-baseline = env # 9,10)
-declare -A PATTERN
-PATTERN[03]=A; PATTERN[04]=A; PATTERN[05]=B; PATTERN[06]=B
-PATTERN[07]=A; PATTERN[08]=A; PATTERN[09]=C; PATTERN[10]=C
+# bash 3.2 互換 = case 関数で associative array 代替
+get_pattern() {
+  case "$1" in
+    03|04|07|08) echo A ;;
+    05|06) echo B ;;
+    09|10) echo C ;;
+    *) echo "?" ;;
+  esac
+}
 
 C1_PASS=0; C1_TOTAL=0
 for env in 03-rhythmonly-ym2610 04-rhythmonly-ym2610b 05-lqtutti-ym2610 06-lqtutti-ym2610b 07-lqstep5b-ym2610 08-lqstep5b-ym2610b 09-sample2-baseline-ym2610 10-sample2-baseline-ym2610b; do
@@ -598,7 +604,7 @@ for env in 03-rhythmonly-ym2610 04-rhythmonly-ym2610b 05-lqtutti-ym2610 06-lqtut
   # L ch (= bit 0) keyon count
   l_count=$(detect_adpcma "$trace" L)
   env_num="${env%%-*}"
-  pat="${PATTERN[$env_num]:-?}"
+  pat=$(get_pattern "$env_num")
   case "$pat" in
     A) [ "$l_count" -ge 5 ] && C1_PASS=$((C1_PASS + 1)) ;;
     B) [ "$l_count" -ge 2 ] && [ "$l_count" -le 5 ] && C1_PASS=$((C1_PASS + 1)) ;;
