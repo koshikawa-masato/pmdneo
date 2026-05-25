@@ -254,9 +254,9 @@ detect_adpcma() {
 # main
 # ============================================================
 mkdir -p "$ALPHA_OUT_DIR"
-echo "==== ADR-0068 sub-sprint α verify (= plan v6-revised) ===="
-echo "==== existing resource activation = K=3 candidate + α-task 1 rhythm-only proof ===="
-echo "==== 10 env × 2 trace = 20 trace file capture + union coverage report ===="
+echo "==== ADR-0068 sub-sprint α verify (= plan v7 K+L-Q distinctness focus) ===="
+echo "==== K+L-Q candidate distinctness capture + A-J default integration trace + 16ch integration trace ===="
+echo "==== 10 env × 2 trace = 20 trace file capture + union coverage report (= capture + report only、 distinctness 判定 assertion は β scope) ===="
 echo "==== output dir = $ALPHA_OUT_DIR ===="
 date "+START %Y-%m-%dT%H:%M:%S"
 

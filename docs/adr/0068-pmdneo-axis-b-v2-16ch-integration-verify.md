@@ -137,7 +137,7 @@ candidate distinctness (= K + L-Q 7 part のみ可能、 A-J = default 同一):
 |---|---|---|---|
 | 03 rhythm-only ym2610 | l-q-rhythm-song.mml | L=9 M=9 N=17 O=5 P=3 Q=2 (= MML 由来 distinct) | A=0 B=8 C=8 D=0 E=8 F=8 G=2 H=2 I=2 J=2 (= default 同一) |
 | 04 rhythm-only ym2610b | 同上 | 同上 | A=8 D=8 F=8 + 他同上 (= ym2610b chip target 差) |
-| 05 SAMPLE2-baseline | (L only) | L=1 M=1 N=1 O=1 P=1 Q=1 (= L のみ MML 由来 + M-Q init keyon) | 同上 default 8/2 pattern |
+| 05 SAMPLE2-baseline | (L-Q 全 empty、 `ABCI L` 行の L は loop start mark = ADPCM-A part body 不在) | L=1 M=1 N=1 O=1 P=1 Q=1 (= 全 init keyon 1 件のみ、 MML 由来 distinct なし) | 同上 default 8/2 pattern |
 | 07 test-aes-ad | (L-Q empty) | L=1 M=1 N=1 O=1 P=1 Q=1 (= 全 init keyon のみ) | 同上 |
 | 09 j-part-g | (L-Q empty) | 同上 | 同上 |
 
@@ -145,7 +145,7 @@ candidate distinctness (= K + L-Q 7 part のみ可能、 A-J = default 同一):
 
 plan v6-revised candidate selection (= SAMPLE2-baseline / test-aes-ad / j-part-g) は **A-J part 由来 distinctness 想定** で wrong:
 
-- SAMPLE2-baseline (= FM A/B/C + SSG I + ADPCM-A L) → A-J 部分は default driven、 L only distinct
+- SAMPLE2-baseline (= FM A/B/C + SSG I、 `ABCI L` 行の L は PMD MML loop start mark = ADPCM-A L part body 不在、 Codex impl-review round 1 must-fix 2 反映で訂正) → A-J 部分は default driven、 L-Q 全 distinct なし
 - test-aes-ad (= FM A/B/D) → 全 default driven、 L-Q distinct なし
 - j-part-g (= ADPCM-B J) → 全 default driven、 L-Q distinct なし
 
@@ -287,7 +287,7 @@ trace-equivalence 判定 criteria:
 | PR # | scope | content type |
 |---|---|---|
 | **PR1 (= 本 PR)** | ADR-0068 doc 起票 doc-only (= 12 決定 + Annex skeleton + dashboard + memory) | doc-only |
-| PR2 | sub-sprint α = (a) 実 MML 再生 統合 verify = 新規 verify script + α-task 1 rhythm-only proof + α-task 2 existing resource activation K=3 union 12/16 ch carry confirm + 20 trace capture (= 10 env × 2 trace 種) + literal report + Annex α | 実装 + doc |
+| PR2 | sub-sprint α = (a) 実 MML 再生 統合 verify = 新規 verify script + α-task 1 L-Q distinctness primary (= l-q-rhythm-song) + α-task 2 L-Q distinctness alternative + step5b proof + A-J default integration baseline (= plan v7、 SAMPLE2-baseline / l-q-tutti / l-q-rhythm-song-step5b) + 20 trace capture (= 10 env × 2 trace 種) + literal report + Annex α、 actual 結果 = 16/16 carry actual + L-Q candidate 3 種類 distinct pattern + A-J default integration trace 確認 | 実装 + doc |
 | PR3 | sub-sprint β = (b) trace-equivalence 判定基準確定 + 比較実行 + Annex β | 実装 + doc |
 | PR4 | sub-sprint γ = (c) 全 verify script 統合 ALL PASS + Annex γ | 実装 + doc |
 | PR5 | sub-sprint δ = 統合 report + 残課題 enumeration + Annex δ | doc 主体 |
@@ -384,7 +384,7 @@ ADR-0068 §決定 2 α row plan v7 literal:
 
 #### α-2 = 配置 (= 新規 verify script + ADR doc plan v7 + 既存 candidate MML / 既存 driver / 既存 build flag 完全不変)
 
-- **新規 verify script**: `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-alpha.sh` (= +417 行、 ADR-0067 δ pattern 継承)
+- **新規 verify script**: `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-alpha.sh` (= 459 行、 ADR-0067 δ pattern 継承、 Codex impl-review round 1 nh 1 反映で行数更新)
 - **ADR-0068 doc**: plan v7 update (= §決定 1(a) + §決定 2 + §決定 6 + §決定 9 + Annex α fill + 改訂履歴 plan v7 entry)
 - **build mode env literal** (= 10 env):
   - env # 1-2 = (B) v2-only = `PMDNEO_V2_SONG_FIXTURE=1 PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP=1 bash scripts/build-poc.sh --chip <ym2610|ym2610b>`
@@ -404,13 +404,13 @@ ADPCM-A port B reg 0x100 (= keyon mask) bit 別 detection literal:
 | 06-lqtutti-ym2610b | 同上 | 2 | 2 | 2 | 2 | 2 | 2 | B |
 | 07-lqstep5b-ym2610 | l-q-rhythm-song-step5b | 9 | 9 | 17 | 5 | 3 | 2 | A (= MML body 同一) |
 | 08-lqstep5b-ym2610b | 同上 | 9 | 9 | 17 | 5 | 3 | 2 | A |
-| 09-sample2-baseline-ym2610 | SAMPLE2-baseline | 1 | 1 | 1 | 1 | 1 | 1 | C (= L のみ MML、 M-Q init keyon 1 件) |
+| 09-sample2-baseline-ym2610 | SAMPLE2-baseline | 1 | 1 | 1 | 1 | 1 | 1 | C (= L-Q 全 empty、 `ABCI L` 行の L は loop start mark = ADPCM-A part body 不在、 全 6 ch init keyon 1 件のみ、 Codex impl-review round 1 must-fix 2 反映で訂正) |
 | 10-sample2-baseline-ym2610b | 同上 | 1 | 1 | 1 | 1 | 1 | 1 | C |
 
-= **3 種類 distinct pattern (A/B/C) 確認** (= K+L-Q candidate distinctness 達成):
+= **3 種類 distinct pattern (A/B/C) capture + report 完了** (= α scope = capture + report only literal 整合、 distinctness 判定 assertion は β scope = trace-equivalence 判定基準確定 + 比較実行 future、 Codex impl-review round 1 lr 1 反映で「distinctness proof」 wording を「distinct pattern capture + report」 に明確化):
 - pattern A = note 数差分由来 distinctness (= l-q-rhythm-song / l-q-rhythm-song-step5b 同 MML body)
 - pattern B = 6 ch 同時 keyon distinctness (= l-q-tutti = 各 ch 1 note の同時 trigger)
-- pattern C = baseline + init keyon (= SAMPLE2-baseline = L のみ MML 由来 + M-Q init keyon)
+- pattern C = baseline + init keyon (= SAMPLE2-baseline = L-Q 全 empty、 `ABCI L` 行の L は PMD MML loop start mark = ADPCM-A part body 不在、 全 6 ch init keyon 1 件のみ、 Codex impl-review round 1 must-fix 2 反映で訂正)
 
 K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part なし、 β scope future。
 
@@ -457,7 +457,7 @@ K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part な
 - vendor 完全不変
 - ADR-0048〜0067 本文 + Annex 完全不変
 - 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
-- **production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待** (= (A) production default build で literal 一致、 α PR2 では (B)/(C-2) build mode のみ使用、 production build artifacts 不変)
+- **production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= 文書記録のみ、 (A) production default build 実 verify は γ scope future = Codex impl-review round 1 lr 2 反映)** (= α PR2 では (B)/(C-2) build mode のみ使用、 production build artifacts 不変期待、 (A) build mode 実 sha256 確認 + 一致 verify は γ baseline regression gate で実行 予定)
 
 **Codex layer 2 plan review chain (= plan v6-revised + plan v7 経緯)**:
 
@@ -481,7 +481,9 @@ K (= rhythm K bitmap) distinctness は本 α では 候補 MML 全て K part な
 | 5 | `c36301f` | detect_adpcma reg 100 (= 3 桁 hex) + assertion softening |
 | 6 | `ab542bf` | plan v6-revised → plan v7 = K+L-Q distinctness 再定義 |
 | 7 | `5072116` | summary stale wording fix (= plan v7 整合) |
-| 8 | (= 本 commit、 + dashboard / memory commit 後続) | Annex α fill |
+| 8 | `e6f9cbc` | Annex α fill 6 sub-section |
+| 9 | `518b7ef` | dashboard 0068 行 status column + escalation 履歴 40th session α PR2 entry |
+| 10 | (= 本 commit) | Codex impl-review round 1 finding 反映 (= must-fix 3 + nh 1 + lr 2 = SAMPLE2-baseline 解釈訂正 + stale wording cleanup + commit chain 表 update + 行数 update + PASS wording 明示 + production sha256 wording 明示) |
 
 **機械復旧 default rule (= [[long-running-hang-auto-recovery-rule]]) 適用実証**:
 - Codex round 2 hang 22m 55s cancel + retry 1 回成功 (= revise judgment 取得)
@@ -548,7 +550,7 @@ ADR-0068 Draft 起票 ≠ 「roadmap ⑤ 統合 verify 完了」 (= ε Accepted 
 
 ### 次
 
-PR1 (= 本 PR) merge 後、 sub-sprint α 実装 PR2 を別 task chain で起票 (= ADR-0068 §決定 2 α scope literal = α-task 1 rhythm-only proof + α-task 2 existing resource activation K=3 union 12/16 ch carry confirm + 20 trace capture (= 10 env × 2 trace 種、 K=3 candidate + α-task 1) + literal report)。 α 完走後 β/γ/δ/ε 各 PR を continue。 ADR-0068 ε Accepted 後、 ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) 起票判断 (= 各 user 明示 GO 必須)。
+PR1 merge 後 (= 既完了)、 sub-sprint α 実装 PR2 を別 task chain で完走 (= plan v7 = K+L-Q distinctness proof + A-J default integration trace、 16/16 carry actual + L-Q candidate 3 種類 distinct pattern + 三分割 wording 整合)。 α 完走後 β/γ/δ/ε 各 PR を continue。 ADR-0068 ε Accepted 後、 ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= plan v7 新規追加、 driver 拡張 sprint = A-J candidate distinctness 実現) 起票判断 (= 各 user 明示 GO 必須)。
 
 ## 改訂履歴
 
