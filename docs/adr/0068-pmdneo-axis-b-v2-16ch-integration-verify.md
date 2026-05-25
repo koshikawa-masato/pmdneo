@@ -856,15 +856,16 @@ PASS sha256-post: b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561
 - Do NOT run GitHub write operations
 - Return only review judgment and findings
 
-##### commit chain literal (= γ PR4 commit chain 5 commit、 plan v8 で 4 → 5 commit に拡張 = self-test 1 finding 反映 commit 追加)
+##### commit chain literal (= γ PR4 commit chain 6 commit、 plan v8 で 4 → 5 commit に拡張 + impl-review round 1 反映で 5 → 6 commit に追加拡張)
 
 | # | commit | 内容 |
 |---|---|---|
 | 1 | `3b1a026` | ADR doc γ scope literal + Annex γ skeleton 主要 fill (= §決定 1(c) + §決定 2 γ row + §決定 6 表記制約 3 箇所同時 update + Annex γ 6 sub-section + 改訂履歴 γ entry) |
 | 2 | `b39c7ec` | γ verify script 新規実装 307 行 |
 | 3 | `fc2320d` | self-test 1 finding 反映 + plan v5 → v8 (= β script representative 除外 = 5 → 4 script、 §決定 5 (ii) 不可触原則遵守、 ADR doc 12 箇所 update + γ verify script 7 箇所 update、 Codex layer 2 plan review round 5-7 revise + round 8 approve plan v8) |
-| 4 | (= 本 commit) | γ verify script bug fix 2 件 (= self-test 3/4 finding 反映) + Annex γ fill 完成 update (= commit hash literal + self-test 4 結果 6 gate ALL PASS literal) + 改訂履歴 γ bug fix entry update。 bug fix 内容 = (a) bash 3.2 多バイト文字 parameter expansion bug 回避 = `local var="$arg"` declaration assignment 分離 + 全 `${word}` braces 明示、 (b) allowlist 5 件追加 = 「<word> /」 enumeration list context + 「/ 「<word>」」 + array entry `    "<word>"` + 「<word> 限定」 limitation context + 「検査 wording」 reference context。 self-test 4 結果 = 6 gate ALL PASS + NG count 0 + 22 OK count |
-| 5 | (= 次 commit) | dashboard 0068 行 status update + escalation 履歴 γ PR4 entry + 平易要約 |
+| 4 | `60101a2` | γ verify script bug fix 2 件 (= self-test 2/3 finding 反映) + Annex γ fill 完成 update (= commit hash literal + self-test 4 結果 6 gate ALL PASS literal) + 改訂履歴 γ bug fix entry update。 bug fix 内容 = (a) bash 3.2 多バイト文字 parameter expansion bug 回避 = `local var="$arg"` declaration assignment 分離 + 全 `${word}` braces 明示、 (b) allowlist 5 件追加 = 「<word> /」 enumeration list context + 「/ 「<word>」」 + array entry `    "<word>"` + 「<word> 限定」 limitation context + 「検査 wording」 reference context。 self-test 4 結果 = 6 gate ALL PASS + NG count 0 + 22 OK count |
+| 5 | `8c1d5ec` | dashboard 0068 行 status update + escalation 履歴 γ PR4 entry + 平易要約 γ context 追記 |
+| 6 | (= 本 commit、 impl-review round 1 反映追加) | Codex layer 2 impl-review round 1 finding 反映 (= revise judgment must-fix 1 + nh 2 全反映、 lr 1 継続監視、 agentId `a7ec395ff32cfb510`) = Annex γ-3 見出し「5 script」 → 「4 script」 修正 + Annex γ-2 「行数 TBD」 → 「307 → 325 行 evolution」 update + dashboard γ PR4 + β PR3 entry 内 commit 5 wording「memory」 → 「escalation 履歴」 update (= memory は repo 外、 PR diff 対象外明示) + 改訂履歴 γ impl-review round 1 entry 追加 |
 
 ### Annex δ: δ 統合 report + 残課題 enumeration (= δ PR5 で fill)
 
@@ -949,7 +950,7 @@ ADR-0068 §決定 2 γ row literal「全 verify script 統合 ALL PASS = product
 
 ### γ 結果
 
-- ADR-0068 γ PR4 commit chain 5 完走 (= 3b1a026 / b39c7ec / fc2320d / 60101a2 / 本 commit)
+- ADR-0068 γ PR4 commit chain 6 完走 (= 3b1a026 / b39c7ec / fc2320d / 60101a2 / 8c1d5ec / d798a21 + 本 commit 追加 = round 1 反映 + round 2 期待 approve)
 - γ verify script self-test 4 = 6 gate ALL PASS literal 達成:
   - gate 1: (A) production default ym2610 pre-build sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 一致 PASS
   - gate 2: representative 4/4 ALL PASS (= alpha exit=0 + delta exit=0 + song-playback exit=0 + roadmap3 exit=0)
@@ -975,7 +976,7 @@ ADR-0068 γ PR4 完走 ≠ ε Accepted ≠ roadmap ⑤ 統合 verify 完了 ≠ 
 
 ### γ 完走後の次
 
-γ PR4 commit chain 完走 (= 本 commit 5) 後、 Codex layer 2 impl-review + main agent 経路で γ PR4 merge + user 完走報告。 γ Accepted 後 (= γ PR4 merge 後):
+γ PR4 commit chain 完走 (= 本 commit 6 = plan v8 5-commit + impl-review round 1 反映 1 commit) 後、 Codex layer 2 impl-review round 2 期待 approve + main agent 経路で γ PR4 merge + user 完走報告。 γ Accepted 後 (= γ PR4 merge 後):
 - δ (= 統合 report + 残課題 enumeration、 ADR-0065/0066/0069 起票判断 material) 起票判断 = user 明示 GO 必須
 - ε (= Draft → Accepted + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須) は δ 完走後
 - ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= driver 拡張 sprint = A-J candidate distinctness 実現) = 各 user 明示 GO 必須
