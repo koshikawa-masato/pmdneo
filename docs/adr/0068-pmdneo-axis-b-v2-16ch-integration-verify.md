@@ -1,6 +1,6 @@
 # ADR-0068: PMDNEO 軸 B v2 driver 16 ch 統合 verify ADR (= ADR-0064 §決定 7 ADR-0067+ 実作業群 の 2 本目、 roadmap ⑤ 統合 verify 本体、 cmd 0x05 経路 vs v2 経路 trace-equivalence 比較)
 
-- 状態: **Draft + α 完了 (= PR #134 MERGED at 3c59d93) + β 完了 (= PR #135 MERGED at 7335da9、 K+L-Q distinctness range trace-equivalence literal 達成、 K trace 同一 finding 検出 → ADR-0069 候補 future defer literal) + γ PR4 進行中 (= 2026-05-25 40th session、 baseline regression gate 統合 verify、 representative direct invoke 4 script + transitively regression OK pattern (= β script 除外 = §決定 5 (ii) 不可触原則遵守、 β scope 確認は ADR Annex β literal で別途確保)、 Codex layer 2 plan review 8 round chain = round 1-3 revise + round 4 approve plan v4 + γ self-test 1 finding 反映 + round 5-7 revise + round 8 approve plan v8、 must-fix 計 13 + nh 計 10 + lr 計 11 全反映、 越権操作なし confirmed)** (= 2026-05-24 39th session、 ADR-0068 起票 doc-only PR1 + sub-sprint chain α/β/γ/δ/ε 起票、 起票 doc-only 1 PR (= ADR-0064 plan/実作業分離 pattern 整合)、 ADR-0067 同 chain pattern 継承、 Codex layer 2 plan review 4 round chain (= round 1-3 revise + round 4 approve)、 must-fix 計 7 件 (= build mode 分離 + allowed-touch 分類 + ε 解禁併記必須 + 「16 ch fixture 拡張完了」 併記 2 段化 + legacy MML candidate 修正 + path 修正 + ch coverage 表記修正) + nice-to-have 計 4 件 + latent-risk 計 3 件 全反映、 越権操作なし confirmed、 ADR-0064 §決定 3 sub-sprint plan literal 継承 + ADR-0067 fixture 拡張完了 milestone 前提)
+- 状態: **Draft + α 完了 (= PR #134 MERGED at 3c59d93) + β 完了 (= PR #135 MERGED at 7335da9、 K+L-Q distinctness range trace-equivalence literal 達成、 K trace 同一 finding 検出 → ADR-0069 候補 future defer literal) + γ 完了 (= PR #136 MERGED at `ef87dcb`、 baseline regression gate 統合 verify ALL PASS literal、 6 gate ALL PASS、 representative direct invoke 4 script + transitively regression OK pattern (= β script 除外 = §決定 5 (ii) 不可触原則遵守、 β scope coverage は ADR Annex β literal で別途確保)、 通算 sha256 `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持 confirmed) + δ PR5 進行中 (= 2026-05-25 40th session、 統合 report + 残課題 enumeration doc-only sprint、 driver / α script / β script / γ script / ADR-0067 fixture / 既存 verify / 既存 build flag / vendor / ADR-0048〜0067 / ADR-0068 既存 Annex α/β/γ 本文 / 軸 G ε partial state placement 完全不変、 Codex layer 2 plan review round 1 **approve** (= must-fix 0 + nh 3 + lr 3 全反映、 agentId `ad78bc3e6e2e6928a`)、 越権操作なし confirmed)** (= 2026-05-24 39th session、 ADR-0068 起票 doc-only PR1 + sub-sprint chain α/β/γ/δ/ε 起票、 起票 doc-only 1 PR (= ADR-0064 plan/実作業分離 pattern 整合)、 ADR-0067 同 chain pattern 継承、 Codex layer 2 plan review 4 round chain (= round 1-3 revise + round 4 approve)、 must-fix 計 7 件 (= build mode 分離 + allowed-touch 分類 + ε 解禁併記必須 + 「16 ch fixture 拡張完了」 併記 2 段化 + legacy MML candidate 修正 + path 修正 + ch coverage 表記修正) + nice-to-have 計 4 件 + latent-risk 計 3 件 全反映、 越権操作なし confirmed、 ADR-0064 §決定 3 sub-sprint plan literal 継承 + ADR-0067 fixture 拡張完了 milestone 前提)
 - 起票日: 2026-05-24
 - 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 ADR-0041 §決定 4-3 主軸 fallback default 規律)
 - 関連 ADR:
@@ -289,6 +289,37 @@ trace-equivalence 判定 criteria:
 | 「本番 cmd 切替完了」 | literal 禁止維持 | literal 禁止維持 |
 
 γ 完走後解禁 wording = 「ADR-0068 γ 完了」 (= γ baseline regression gate 統合 verify ALL PASS literal、 γ scope 限定、 representative direct invoke 4 script + transitively regression OK pattern、 β script 除外 = §決定 5 (ii) 遵守 + β scope coverage は ADR Annex β literal で別途確保)。
+
+#### δ Accepted 後の追加 context (= δ PR5 確定、 plan v1 round 1 approve 反映、 LR1「同段落で ε まで禁止 wording 併記必須」 反映)
+
+δ PR5 merge 後 (= main agent 経路 merge 完了後) の使用可・禁止 context literal:
+
+| 表現 | δ Accepted 後 (= δ PR5 merge 後) | ε Accepted 後 |
+|---|---|---|
+| 「ADR-0068 γ 完了」 | 使用可 (= 継承) | 使用可 (= 継承) |
+| 「16ch integration trace 完了」 | γ completion proof 内 context-bound 使用 OK (= 継承)、 single isolated wording は ε まで禁止維持 | 解禁 + 併記必須 |
+| 「K+L-Q candidate distinctness 完了」 | 同上 (= 継承) | 解禁 + 併記必須 |
+| 「A-J default carry 確認」 | 同上 (= 継承) | 解禁 (= 単独使用 OK) |
+| **「ADR-0068 δ 完了」 (= δ PR5 新規解禁表現)** | **使用可、 ただし併記必須 = 同段落で「roadmap ⑤ 統合 verify 完了は ε まで禁止維持」 literal 併記** | 使用可、 ただし併記必須 update |
+| 「16ch full candidate distinctness 完了」 | literal 禁止維持 (= ADR-0069 候補 future) | literal 禁止維持 (= ADR-0069 候補 future) |
+| 「roadmap ⑤ 統合 verify 完了」 | literal 禁止維持 (= ε まで禁止 明示) | 解禁 + 併記必須 |
+| 「trace-equivalence 完了」 single wording | literal 禁止維持 (= ε まで禁止 明示) | 解禁 + 併記必須 |
+| 「production-ready 全体達成」 | literal 禁止維持 | literal 禁止維持 |
+| 「軸 B 完成」 | literal 禁止維持 | literal 禁止維持 |
+| 「軸 G 完成」 | literal 禁止維持 | literal 禁止維持 |
+| 「本番 cmd 切替完了」 | literal 禁止維持 | literal 禁止維持 |
+
+##### 「ADR-0068 δ 完了」 wording 解禁条件 literal (= δ PR5 merge 後、 LR1 反映 = 同段落併記必須)
+
+- δ scope 限定 = 統合 report + 残課題 enumeration 完了 literal
+- **同段落併記必須 (= LR1 = Codex round 1 lr 1 反映、 ε 前倒し完了読み下し risk 回避)**:
+  - 「ADR-0068 ε Accepted ではない」 (= ε PR6 で別途 Accepted 移行 future)
+  - **「roadmap ⑤ 統合 verify 完了」 = ε まで禁止維持** (= 同段落 literal 併記必須、 ε Accepted 後解禁 + 併記必須 update)
+  - 「trace-equivalence 完了」 single wording = ε まで禁止維持
+  - 「16ch full candidate distinctness 完了」 = ADR-0069 候補 future literal 禁止維持
+  - 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」 = literal 禁止維持
+
+δ 完走後解禁 wording = 「ADR-0068 δ 完了」 (= δ scope 限定 = 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material 完了 literal、 LR1 同段落併記必須)。
 
 #### gate verify criteria (= ADR-0067 §決定 6 ε gate-3 pattern 継承)
 - 禁止 wording は **肯定表現として使わない**
@@ -877,9 +908,232 @@ PASS sha256-post: b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561
 | round 3 反映 | `9f33843` | Codex layer 2 impl-review round 3 finding 反映 (= revise judgment must-fix 1、 commit chain 件数 6 → 7 update + self-referential 無限再帰回避方式 refactor、 agentId `a0386dec89731f2d1`) = commit chain literal sub-section を (a) plan v8 historical record 5 commit + (b) impl-review 反映追加 commit chain 別 sub-section に分離 + dashboard / 平易要約 / γ 完走後の次 wording も「plan v8 5 + impl-review N 反映」 形式に統一、 self-referential 無限再帰回避 + literal record 整合 |
 | round 4 反映 (= 本 commit) | (= 本 commit) | Codex layer 2 impl-review round 4 finding 反映 (= revise judgment must-fix 1、 round 3 reference の literal hash 確定 update (= 「本 commit」 → `9f33843`)、 agentId `a593148f4340d756d`) = Annex γ-6 (b) sub-section 内 round 3 entry の commit hash literal 確定 + 平易要約 round 3 reference literal 確定 + lr 1 継続監視。 round 4 反映 hash 自身は本 commit の self-referential なため確定不可、 round 5 で確定 update 期待 (= 「本 commit」 wording 維持 = 各 round 反映時に直前 round の commit hash を確定する pattern) |
 
-### Annex δ: δ 統合 report + 残課題 enumeration (= δ PR5 で fill)
+### Annex δ: δ 統合 report + 残課題 enumeration (= δ PR5 で fill = 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material、 Codex layer 2 plan review round 1 approve plan v1 + nh 3 + lr 3 全反映)
 
-(= δ PR5 で literal fill = 統合 report + 残課題 enumeration ADR-0065/0066 起票判断 material)
+#### δ-1 = scope literal (= ADR-0068 §決定 2 δ row literal 継承、 doc-only sprint)
+
+δ scope = **統合 report + 残課題 enumeration (= ADR-0065/0066/0069 起票判断 material)** doc-only sprint:
+
+1. (i) 統合 report = α/β/γ 3 sub-sprint 結果 enumeration + integration milestone literal
+2. (ii) roadmap ⑤ 完了前状態の明確化 (= 「roadmap ⑤ 統合 verify 完了」 wording = ε まで禁止維持 literal 強調、 (a)(b)(c) 3 gate 結果別 status enumeration)
+3. (iii) 残課題 enumeration = ADR-0065/0066/0069 起票判断 material (= 各 scope literal + 解禁 wording 条件 + user 明示 GO 必須 literal)
+4. (iv) Annex δ fill = δ-1 (= scope literal) + δ-2 (= 統合 report) + δ-3 (= 残課題 enumeration) + δ-4 (= 状態維持 + Codex layer 2 plan review chain + commit chain literal)
+
+δ Accepted (= δ PR5 merge 後) ≠ ADR-0068 ε Accepted (= ε PR6 で別途) ≠ roadmap ⑤ 統合 verify 完了 (= ε Accepted 後解禁 + 併記必須)。
+
+#### δ-2 = 統合 report = α/β/γ 3 sub-sprint 結果 enumeration + integration milestone literal
+
+##### δ-2-1 = α PR2 結果 literal (= K+L-Q candidate distinctness capture + A-J default integration trace)
+
+| 項目 | 結果 |
+|---|---|
+| PR | #134 MERGED at `3c59d93` |
+| 完了日 | 2026-05-25 (= 40th session) |
+| scope | (a) 実 MML 再生 統合 verify = K+L-Q candidate distinctness capture + A-J default integration trace (= plan v7 = 40th session driver ground truth based) |
+| 新規 verify script | `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-alpha.sh` (= 466 行) |
+| trace capture | 20 file (= 10 env × ymfm/zmem 2 trace 種) |
+| K+L-Q distinctness pattern | A (= note 数差分由来 = l-q-rhythm-song / l-q-rhythm-song-step5b) + B (= 6 ch 同時 keyon = l-q-tutti) + C (= baseline + init keyon = SAMPLE2-baseline) = **3 pattern capture 確認** |
+| A-J default integration trace | 全 (C-2) env で同一 default pattern 確認 (= FM A/D = 0/61 chip 別 + B/C/E/F = 8 + SSG = 2 + ADPCM-B = 2) |
+| 16/16 ch carry actual | FM A-F + SSG G-I + ADPCM-B J + ADPCM-A L-Q = 全 16 ch carry 確認 |
+| 三分割 wording | 「16ch integration trace 完了」 ✓ + 「K+L-Q candidate distinctness 完了」 ✓ + 「A-J default carry 確認」 ✓ + 「16ch full candidate distinctness 完了」 = literal 禁止維持 (= ADR-0069 候補 future) |
+| Codex layer 2 review | plan review 5 round chain + impl-review 5 round chain 全 approve = 全 review-only + 越権操作なし confirmed |
+| 通算 sha256 | `b15883fe...` 維持 confirmed |
+
+= **「ADR-0068 α 完了」 wording 解禁 + 16ch integration trace + K+L-Q candidate distinctness + A-J default carry 三分割 wording 整合**。 distinctness 判定 assertion は β scope future (= β-2 で 3 axis + 8 sub-category trace-equivalence 判定基準 確定)。
+
+##### δ-2-2 = β PR3 結果 literal (= K+L-Q distinctness range trace-equivalence + 9 gate ALL PASS + K trace 同一 finding → ADR-0069 候補 future defer literal)
+
+| 項目 | 結果 |
+|---|---|
+| PR | #135 MERGED at `7335da9` |
+| 完了日 | 2026-05-25 (= 40th session) |
+| scope | (b) trace-equivalence 判定基準確定 + 比較実行 = K+L-Q register behavior の normalized comparison (= ADR-0064 §決定 1(b) β scope literal 整合) |
+| 新規 verify script | `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-beta.sh` (= 720 行 現 HEAD = bug fix + impl-review 反映後) |
+| trace 入力 | α capture 20 file + β 新規 12 file (= K candidate bitmap pair representative variant 1/2/3 = k03/k11/k21、 6 env × 2 trace 種) = 計 32 trace file |
+| trace-equivalence 判定基準 | 3 axis + 8 sub-category (= axis A YMFM register 4 sub = A-1 invariant + A-2 intended diff + A-3a unintended primary + A-3b neutral record-only + axis B zmem diagnostic record-only + axis C distinctness 3 sub = C-1 L-Q + C-2 A-J + C-3 K) |
+| verify gate | 9 件 (= sub-step 含む 14 step) ALL PASS = axis A-3a unintended diff 0 件 literal confirm + axis B zmem 別 file diagnostic + axis C K+L-Q acceptable literal + α trace provenance 4 step + (A) production sha256 literal `b15883fe...` 実測 confirm |
+| 重要 finding | K trace 同一 (= k03/k11/k21 全 6 env trace 同一 pattern L=3 + M-Q 各 1 = total 8 件、 driver K dispatch normalization で MML 上 bitmap pair pattern 差吸収) = 真の「K bitmap pair representative variant 1/2/3 trace distinct」 は **β scope 内未達成** = **ADR-0069 候補 future defer literal** (= LR2 反映 = A-J candidate distinctness と K bitmap pair distinct は粒度別 sub-finding として明示) |
+| β scope acceptable literal | axis C-3 K candidate gate 7 PASS = 「K candidate trigger 出現確認 (= L-Q いずれかに keyon write 出現)」 limit (= driver K dispatch normalization で吸収、 真の K bitmap pair variant distinct は ADR-0069 候補 future defer) |
+| Codex layer 2 review | plan review 3 round chain + impl-review 2 round chain 全 approve = 全 review-only + 越権操作なし confirmed |
+| 通算 sha256 | `b15883fe...` 維持 confirmed (= gate 9 (A) production default build 実測一致) |
+
+= **「ADR-0068 β 完了」 wording 解禁 + 「K+L-Q distinctness range trace-equivalence literal 達成」 (= β scope 限定明記必須、 真の K distinct 含まない明示)**。
+
+##### δ-2-3 = γ PR4 結果 literal (= baseline regression gate 統合 verify ALL PASS + representative direct invoke 4 script + 6 gate ALL PASS)
+
+| 項目 | 結果 |
+|---|---|
+| PR | #136 MERGED at `ef87dcb` |
+| 完了日 | 2026-05-25 (= 40th session) |
+| scope | (c) baseline regression gate 統合 verify = representative direct invoke 4 script + transitively regression OK pattern (= ADR-0067 δ gate-5 + ADR-0059 ε roadmap3-gate-4 確立 pattern 継承) |
+| 新規 verify script | `src/test-fixtures/axis-b/verify-axis-b-v2-16ch-integration-gamma.sh` (= 325 行 現 HEAD = bug fix + allowlist 5 件追加後) |
+| representative direct invoke 4 script | (1) `verify-axis-b-v2-16ch-integration-alpha.sh` + (2) `verify-axis-b-v2-fixture-expansion-delta.sh` + (3) `verify-axis-b-v2-song-playback.sh` + (4) `verify-axis-b-v2-roadmap3-dispatch.sh` |
+| β script 除外 rationale | β script gate 8d (= β branch parent commit literal verify = 3c59d93) は β branch 内部 self-test 専用仕様で γ 統合 regression 経路で merge_conflict 誤発火検出 = γ self-test 1 で顕在化 → β script 完全不変原則遵守 (= §決定 5 (ii)) + β scope coverage は ADR Annex β literal で別途確保 (= 5 script → 4 script 整理) |
+| verify gate | 6 gate ALL PASS = gate 1 sha256-pre + gate 2 representative 4/4 ALL PASS + gate 3 三分割 wording + gate 4 prohibited wording self-check 7 件全件 allowlisted + gate 5 NOT-COMPLETE 7 行 + gate 6 sha256-post 復元 = 22 OK count + 0 NG count |
+| 通算 sha256 | `b15883fe...` 維持 confirmed (= gate 1 pre + gate 6 post 両方一致) |
+| Codex layer 2 review | plan review 8 round chain + impl-review 4+ round chain 全 approve = must-fix 計 13 + nh 計 10 + lr 計 11 全反映 = 全 review-only + 越権操作なし confirmed、 self-referential commit chain 無限再帰回避方式 refactor (= round 3 反映で historical record 分離) |
+
+= **「ADR-0068 γ 完了」 wording 解禁 + γ scope 限定 baseline regression gate 統合 verify ALL PASS literal 達成 (= γ 限定併記必須維持 = ε まで禁止 7 件継続)**。
+
+##### δ-2-4 = integration milestone literal (= α/β/γ 3 sub-sprint 統合視点、 三分割 wording integrated)
+
+α/β/γ 3 sub-sprint 完走による ADR-0068 statement の literal 整理:
+
+| 達成項目 | literal status | rationale |
+|---|---|---|
+| **「ADR-0068 α 完了」** | 解禁 (= α PR2 merge 後) | K+L-Q candidate distinctness capture + A-J default integration trace + 16/16 carry actual + 三分割 wording 整合 |
+| **「ADR-0068 β 完了」** | 解禁 (= β PR3 merge 後) | K+L-Q distinctness range trace-equivalence literal 達成 + 9 gate ALL PASS + K trace 同一 finding → ADR-0069 候補 future defer literal |
+| **「ADR-0068 γ 完了」** | 解禁 (= γ PR4 merge 後) | γ scope 限定 baseline regression gate 統合 verify ALL PASS literal + representative 4 script + 6 gate ALL PASS + 通算 sha256 維持 |
+| **「16ch integration trace 完了」** | γ completion proof 内 context-bound 使用 OK (= 継承)、 single isolated wording は ε まで禁止維持 | (a)(b)(c) gate 統合 verify 達成 |
+| **「K+L-Q candidate distinctness 完了」** | 同上 (= 継承) | α capture 3 pattern A/B/C + β trace-equivalence 判定 acceptable |
+| **「A-J default carry 確認」** | 同上 (= 継承) | α default driven trace 同一 pattern 確認 |
+| **「ADR-0068 δ 完了」** | δ PR5 merge 後解禁 (= LR1 同段落併記必須) | δ scope 限定 = 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material 完了 literal |
+| 「ADR-0068 ε Accepted」 | ε PR6 future | Draft → Accepted 移行 + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須 |
+| 「roadmap ⑤ 統合 verify 完了」 single wording | **ε まで禁止維持** (= ε Accepted 後解禁 + 併記必須) | ADR-0068 ε で literal 解禁、 δ 時点では (a)(b)(c) 3 gate 別 status enumeration のみ |
+| 「trace-equivalence 完了」 single wording | ε まで禁止維持 | 同上 |
+| 「16ch full candidate distinctness 完了」 | literal 禁止維持 (= ADR-0069 候補 future) | LR2 反映 = A-J candidate distinctness + K bitmap pair distinct 別 sub-finding として粒度保持、 driver source 拡張必須 (= ADR-0069 candidate scope literal) |
+| 「production-ready 全体達成」 | literal 禁止維持 | ADR-0056 §決定 3 4 gate 全達成 + 越川氏 audition approve + 本番 cmd 切替後 future |
+| 「軸 B 完成」 | literal 禁止維持 | v2 driver production-ready 化 + 本番 cmd 切替後 future |
+| 「軸 G 完成」 | literal 禁止維持 | 軸 G 全体完成は別 axis 完了後 future |
+| 「本番 cmd 切替完了」 | literal 禁止維持 | ADR-0066 候補完了後のみ |
+
+##### δ-2-5 = roadmap ⑤ 完了前状態の明確化 (= (a)(b)(c) 3 gate 別 status enumeration、 ε まで「roadmap ⑤ 統合 verify 完了」 single wording 禁止維持 literal 強調)
+
+ADR-0056 §決定 3 4 gate のうち ADR-0068 scope = (a)(b)(c) 3 gate ((d) audition は ADR-0065 候補 scope-out) の literal status:
+
+| gate | status (= ADR-0068 δ 時点) | 達成内容 | ε Accepted 後解禁 wording |
+|---|---|---|---|
+| (a) 実 MML 再生 統合 verify | **partial 達成** (= α PR2 完了) | K+L-Q candidate distinctness capture + A-J default integration trace + 16/16 ch carry actual + 3 pattern A/B/C 確認 | ε 完走後「(a) gate 達成」 wording 解禁 |
+| (b) 実音 register trace-equivalence | **partial 達成** (= β PR3 完了 = β scope 限定) | K+L-Q register behavior の normalized comparison literal 達成 + 9 gate ALL PASS + axis A-3a unintended diff 0 件 confirm | ε 完走後「(b) gate 達成 (= K+L-Q range 限定、 真の K distinct は ADR-0069 future)」 wording 解禁 |
+| (c) baseline regression gate | **達成** (= γ PR4 完了) | representative direct invoke 4 script + 6 gate ALL PASS + 通算 sha256 維持 confirm | ε 完走後「(c) gate 達成」 wording 解禁 |
+| (d) 越川氏 audition gate | **ADR-0068 scope-out** (= ADR-0065 候補 future) | engineering pass (= (a)(b)(c)) ≠ aesthetic pass (= (d))、 ADR-0065 起票後 user 明示 GO + 越川氏 audition session approve | ADR-0065 Accepted 後「(d) audition 完了」 wording 解禁 (= 別 ADR scope) |
+
+= ADR-0068 δ 時点 = (a)(b)(c) 3 gate partial/達成 status enumeration 完了。 「(a)(b)(c) 3 gate 統合 verify 完了」 / 「roadmap ⑤ 統合 verify 完了」 single wording = **ε まで禁止維持 literal 強調** (= ε Accepted 後解禁 + 併記必須 = 「(d) audition 未実装」 + 「production-ready 全体達成ではない」 + 「軸 B 完成ではない」 + 「本番 cmd 切替完了ではない」)。
+
+#### δ-3 = 残課題 enumeration = ADR-0065/0066/0069 起票判断 material (= LR2 反映 = A-J candidate distinctness + K bitmap pair distinct 別 sub-finding 粒度保持、 LR3 反映 = γ MERGED と δ 完了の境界明確分離維持)
+
+##### δ-3-1 = ADR-0065 候補 = roadmap ⑥ audition ADR (= 越川氏 audition gate)
+
+| 項目 | literal |
+|---|---|
+| 由来 | ADR-0064 §決定 1(d) literal「(d) 越川氏 audition gate = ADR-0065 候補 scope-out」 + ADR-0064 §決定 9 literal「ADR-0065 候補 = roadmap ⑥ audition ADR」 |
+| scope | 越川氏 audition session approve = aesthetic gate (= engineering pass (= ADR-0068 (a)(b)(c) 3 gate) ≠ aesthetic pass) |
+| 起票判断条件 (= user 明示 GO 必須) | ADR-0068 ε Accepted 後 + user 明示 GO (= 明示 unlock 条件は user GO のみ、 audition session 実施準備は運用上前提 = NH1 反映) |
+| 解禁 wording 条件 | ADR-0065 Accepted 後 = 「(d) audition 完了」 wording 解禁、 ただし「production-ready 全体達成ではない」 + 「本番 cmd 切替完了ではない」 併記必須 |
+| 関連 memory | [[ai-engineering-gate-before-human-audition]] (= AI engineering 検査 → human aesthetic audition の順序固定 literal) |
+| ADR-0066 起票への dependency | ADR-0065 Accepted → ADR-0066 起票判断条件 (= 順序固定) |
+
+NH1 反映: 「audition session 実施準備完了」 は ground truth 上の明示 unlock 条件ではなく、 user 運用上の前提扱い (= 越川氏 audition session のスケジューリング + audition material 選定等)。 明示 unlock 条件 = ADR-0068 ε Accepted + user 明示 GO のみ。 ε 時点で「audition preparation 完了 = ADR-0065 起票可」 と誤読する risk 回避。
+
+##### δ-3-2 = ADR-0066 候補 = roadmap ⑦ 本番 cmd 切替判断 ADR (= cmd 0x05 経路 → v2 driver 経路 switch)
+
+| 項目 | literal |
+|---|---|
+| 由来 | ADR-0064 §決定 1(c) + ADR-0061 §決定 3 (3) literal「本番 cmd 切替判断」 + ADR-0064 §決定 9 literal「ADR-0066 候補 = roadmap ⑦ 本番 cmd 切替判断 ADR」 |
+| scope | cmd 0x05 + `pmdneo_song_main` 経路 → v2 driver 経路 switch、 production-ready 全通過後 future |
+| 起票判断条件 (= user 明示 GO 必須) | ADR-0068 ε Accepted + ADR-0065 Accepted (= 越川氏 audition approve) + production-ready 全 4 gate 達成 + user 明示 GO (= 順序固定 dependency) |
+| 解禁 wording 条件 | ADR-0066 Accepted + 本番 cmd 切替実施後 = 「本番 cmd 切替完了」 wording 解禁、 「production-ready 全体達成」 + 「軸 B 完成」 wording も同時解禁判断 (= user 判断軸) |
+| 依存 | ADR-0068 ε Accepted → ADR-0065 Accepted → ADR-0066 起票判断 (= **順序固定 dependency chain**) |
+| ADR-0068 δ 時点での status | 起票判断 future (= ADR-0068 ε Accepted + ADR-0065 Accepted 後 user 判断軸) |
+
+##### δ-3-3 = ADR-0069 候補 = driver 拡張 sprint = A-J candidate distinctness + K bitmap pair distinct 実現 (= ADR-0068 §決定 9 literal、 Annex α-3 / β-5 K trace 同一 finding 由来、 LR2 反映 = 別 sub-finding 粒度保持)
+
+| 項目 | literal |
+|---|---|
+| 由来 | ADR-0068 §決定 9 literal「ADR-0069 候補 = driver 拡張 sprint」 + Annex α-3 「A-J default driven 確認、 A-J distinctness 達成は driver 拡張 sprint = ADR-0069 候補 future」 + Annex β-5 K trace 同一 finding「真の K bitmap pair representative variant 1/2/3 distinct は β scope 内未達成 = driver 拡張 + 別 MML required = ADR-0069 候補 future defer literal」 |
+| scope (= LR2 反映 = 2 sub-finding 別粒度保持) | **2 sub-finding 別粒度 literal** (= 一括「16ch full candidate distinctness」 と読ませない明示): (a) **A-J candidate distinctness 実現** = driver `nmi_cmd_5_init_mml_song` line 1741-1804 `load_song_part_addr` 経路を `.if PMDNEO_USE_PMDDOTNET == 1` 分岐で A-J 各 part 拡張 (= ADR-0067 fixture 拡張 pattern 同手法 additive 修正、 既存 routine 不変)、 完走で ADR-0068 「16ch full candidate distinctness 完了」 wording 解禁条件 (a) 達成、 (b) **K bitmap pair representative variant 1/2/3 distinct 実現** = driver K dispatch normalization 経路の bitmap pattern 別 dispatch 拡張 (= 真の K distinct trace 実現)、 完走で ADR-0068 Annex β-5 K trace 同一 finding 解消 + 「K bitmap pair distinct 完了」 wording 解禁条件達成、 (c) (a)(b) **両達成で** 「16ch full candidate distinctness 完了」 wording 解禁条件達成 (= 一括解禁ではない、 段階的解禁) |
+| 起票判断条件 (= user 明示 GO 必須) | ADR-0068 ε Accepted 後 + user 明示 GO |
+| 解禁 wording 条件 (= LR2 反映 = 段階的解禁) | (a) ADR-0069 (a) sub-finding 完走後 = 「A-J candidate distinctness 完了」 wording 解禁 + (b) ADR-0069 (b) sub-finding 完走後 = 「K bitmap pair distinct 完了」 wording 解禁 + (c) (a)(b) 両完走後 = **「16ch full candidate distinctness 完了」 wording 解禁** (= ただし「production-ready 全体達成ではない」 併記必須) |
+| driver source 拡張範囲 | driver `nmi_cmd_5_init_mml_song` line 1741-1804 + K dispatch normalization 経路、 既存 routine 完全不変 + additive 修正のみ (= ADR-0067 fixture 拡張 pattern 同手法) |
+| ADR-0068 δ 時点での status | 起票判断 future (= ADR-0068 ε Accepted 後 user 判断軸) |
+
+LR2 反映 literal: ADR-0069 候補は **2 sub-finding (= A-J candidate distinctness + K bitmap pair distinct) 別粒度保持**。 一括「16ch full candidate distinctness 完了」 と読ませると β finding (= K trace 同一 finding = driver K dispatch normalization 由来) の粒度が潰れる risk。 段階的解禁 = (a) A-J → (b) K → (c) 統合 という順序で wording 解禁条件確定。
+
+##### δ-3-4 = 残課題 enumeration 整理 = 3 ADR 候補 dependency chain literal
+
+| ADR 候補 | dependency | 起票判断 trigger | 解禁 wording |
+|---|---|---|---|
+| ADR-0065 候補 (= audition) | ADR-0068 ε Accepted | user 明示 GO | 「(d) audition 完了」 |
+| ADR-0066 候補 (= 本番 cmd 切替) | ADR-0068 ε Accepted → ADR-0065 Accepted | production-ready 全 4 gate 達成 + user 明示 GO | 「本番 cmd 切替完了」 (= production-ready 全体達成 / 軸 B 完成 同時解禁判断) |
+| ADR-0069 候補 (= driver 拡張) | ADR-0068 ε Accepted (= ADR-0065/0066 と独立、 parallel 起票可) | user 明示 GO | (a) 「A-J candidate distinctness 完了」 + (b) 「K bitmap pair distinct 完了」 + (c) 「16ch full candidate distinctness 完了」 段階的解禁 |
+
+= 3 ADR 候補 dependency chain literal、 各 user 明示 GO 必須 (= ADR-0064 §決定 8 literal、 main agent autonomous で進めない)。
+
+#### δ-4 = 状態維持 + Codex layer 2 plan review chain + commit chain literal
+
+##### 状態維持 confirm (= ADR-0068 §決定 7 不可触対象 literal、 LR3 反映 = γ MERGED と δ 完了の境界明確分離維持)
+
+- driver source `src/driver/standalone_test.s` 完全不変
+- ADR-0067 fixture (= `_fm_a/b/c/d/e/f` + `_ssg_g/h/i` + `_adpcmb_j` + `_adpcmb_j_ppc` + `_rhythm_k` + `_rhythm_k_full` + `_rhythm_k_audition` + audition fixture 全) 完全不変
+- ADR-0067 slot init (= slot 0-10 init + chip target 別 active policy + pointer switch) 完全不変
+- 既存 verify script (= ADR-0049〜0067 全 + ADR-0068 α script + β script + γ script) 完全不変
+- 既存 build flag 完全不変 (= 新規 flag 追加なし)
+- vendor 完全不変
+- ADR-0048〜0067 本文 + Annex 完全不変
+- **ADR-0068 既存 Annex α/β/γ 本文完全不変** (= δ で新規 Annex δ 追加のみ、 LR3 反映 = γ 完了 record 不可触)
+- 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不可触
+- **production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待** (= NH3 反映 = δ で再 build しない + γ で既達成済 sha256 実測結果を doc-only として carry、 §決定 10 全 sub-sprint 共通 gate との見かけの衝突回避 literal)
+
+NH3 反映 literal: δ は doc-only sprint で driver build 走らない。 通算 sha256 維持 mandatory (= §決定 10) は γ で既達成済 (= γ PR4 self-test 4 gate 1 pre + gate 6 post 両方 `b15883fe...` 一致 confirmed)、 δ では γ 実測結果を doc-only として carry。 δ の verify gate 9 は「sha256 維持期待 (= doc-only build 走らない)」 で「sha256 実測 confirm」 ではない (= γ で confirm 完了 + δ で carry)。
+
+##### Codex layer 2 plan review chain (= 1 round chain、 全 review-only + 越権操作なし confirmed)
+
+| round | judgment | finding 要点 | agentId |
+|---|---|---|---|
+| 1 | **approve** | must-fix 0 + nh 3 + lr 3 全反映 (= NH1 audition preparation は明示 unlock 条件でなく運用前提扱い + NH2 gate 7 scan target + allowlist context Annex δ 内明文化 + NH3 sha256 doc-only carry literal + LR1 「ADR-0068 δ 完了」 同段落「ε まで禁止」 併記必須 + LR2 A-J + K 別 sub-finding 粒度保持 + LR3 γ MERGED と δ 完了境界 PR/commit chain 分離) | `ad78bc3e6e2e6928a` |
+
+= 1 round chain、 全 review-only 遵守 confirmed + 越権操作なし。 must-fix 0 件 + nh 3 件 + lr 3 件 全 ADR 本文反映 (= 本 Annex δ + §決定 6 δ context 内 literal 反映)。
+
+冒頭 6 件 literal 強調 (= memory `feedback_codex_layer2_review_no_commit_authority.md` 39th session ADR-0062 PR2 越権 merge 事例後の規律強化):
+- Codex layer 2 is review-only
+- Do NOT commit
+- Do NOT modify files
+- Do NOT create branches
+- Do NOT merge PRs
+- Do NOT run GitHub write operations
+- Return only review judgment and findings
+
+##### NH2 反映 = δ doc 内禁止 wording self-check scan target + allowlist context literal (= γ pattern 継承)
+
+δ doc-only sprint のため verify script なし、 ただし将来 ε 起票時に Annex δ 内 wording 整合 check 必要時の literal 参照:
+
+- scan target (= δ 追加箇所、 ADR-0068 本 commit chain で新規追加範囲):
+  - (a) 本 Annex δ section 全行 (= δ-1 〜 δ-4 4 sub-section)
+  - (b) §決定 6 δ Accepted 後追加 context section (= 本 commit 追加)
+  - (c) 改訂履歴 δ entry
+  - (d) 平易要約 δ context section
+- 検査 wording 7 件 = 「16ch full candidate distinctness 完了」 / 「roadmap ⑤ 統合 verify 完了」 / 「trace-equivalence 完了」 / 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」
+- allowlist pattern (= γ pattern 継承 + 否定/reference context exclusion):
+  - `「<禁止 wording>」 = literal 禁止維持`
+  - `「<禁止 wording>」 = ADR-0069 候補 future`
+  - `「<禁止 wording>」 = ADR-0068 ε Accepted future`
+  - `「<禁止 wording>」 = ADR-0066 候補 future` (= 本番 cmd 切替完了 限定)
+  - `<禁止 wording>ではない` (= 否定文脈)
+  - `<禁止 wording>達成ではない` (= 否定文脈)
+  - `禁止 wording check` / `禁止維持` / `prohibited wording` (= self-check / reference context)
+  - `「<禁止 wording>」 wording 解禁` (= reference context)
+  - `「<禁止 wording>」 wording` (= general reference context)
+  - 表 row 内禁止 wording (= 表記制約 table 既存 row)
+- expected count after exclusion = 各 wording 0 (= literal 肯定使用なし)
+
+NH2 反映: γ verify script の prohibited wording self-check pattern を δ doc 内に literal 明文化することで ε 起票時の誤読 risk 低減。 δ では verify script 走らないが ε 検証時の literal reference 確保。
+
+##### commit chain literal (= δ PR5 = 2 commit、 LR3 反映 = γ MERGED と δ 完了の境界明確分離維持)
+
+| # | commit | 内容 |
+|---|---|---|
+| 1 | (= 本 commit) | ADR-0068 doc 修正 = 状態行 update (= γ 完了 PR #136 MERGED at ef87dcb 反映 + δ PR5 進行中 entry) + §決定 6 δ Accepted 後追加 context (= LR1 同段落「ε まで禁止」 併記必須 literal) + Annex δ section fill (= δ-1 〜 δ-4 4 sub-section literal、 nh 3 + lr 3 全反映) + 改訂履歴 δ entry + 平易要約 δ context section |
+| 2 | (= 次 commit) | dashboard 0068 行 status update (= γ MERGED 反映 + δ PR5 entry、 LR3 反映 = 1 row 内で「γ 完了 (PR #136 MERGED at ef87dcb)」 + 「δ PR5 進行中」 明確分離維持) + escalation 履歴 δ PR5 entry 1 row |
+
+LR3 反映: γ MERGED と δ PR5 進行中を同時に dashboard で記述する場合、 row 内で「γ 完了 (= PR #136 MERGED at `ef87dcb`)」 + 「δ PR5 進行中」 明確分離維持。 commit chain は 2 commit に分離 (= commit 1 = ADR doc + commit 2 = dashboard) = γ 完了 record (= 既存 commit chain 内) と δ 完了 record (= 本 commit chain 内) の境界明確。
+
+##### NH3 反映 literal = δ verify gate 9 「sha256 維持期待」 wording の literal 整合 (= §決定 10 衝突回避)
+
+- §決定 10 = 「通算 sha256 = `b15883fe...` 維持必須 + (A) production default build 実 sha256 literal 一致 confirm」 = 全 sub-sprint 共通 gate
+- γ で **実測 confirm** 達成 (= gate 1 pre + gate 6 post 両方 PASS)
+- δ では doc-only sprint で **再 build 走らない** (= driver build 必要なし、 verify script 必要なし)
+- δ verify gate 9 = 「sha256 維持期待 (= doc-only build 走らない、 γ で既達成済 sha256 実測結果を doc-only として carry、 §決定 10 整合)」 (= 「実測 confirm」 ではなく「期待 + γ carry」)
+- ε で再 build 必要時は ε で別途 sha256 実測 confirm (= ε scope 内決定)
 
 ### Annex ε: ε 完走 milestone (= ε PR6 で fill = Draft → Accepted + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須)
 
@@ -991,6 +1245,57 @@ ADR-0068 γ PR4 完走 ≠ ε Accepted ≠ roadmap ⑤ 統合 verify 完了 ≠ 
 - ε (= Draft → Accepted + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須) は δ 完走後
 - ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= driver 拡張 sprint = A-J candidate distinctness 実現) = 各 user 明示 GO 必須
 
+## δ PR5 完走 update (= 2026-05-25 40th session、 平易要約 update)
+
+### δ でやりたかったこと
+
+ADR-0068 §決定 2 δ row literal「統合 report 作成 + 残課題 enumeration (= ADR-0065/0066 起票判断 material)」 を実装 + δ scope 限定 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material literal 達成。 α/β/γ 3 sub-sprint 完走後の整理 + roadmap ⑤ 完了前状態の明確化 + 後続 ADR 候補 (= ADR-0065/0066/0069) 起票判断 material 作成 = ε Accepted 前の整理 sprint。 doc-only sprint = driver / verify script / vendor / fixture / build flag 完全不変。
+
+### δ 前提
+
+- α PR2 完走 (= PR #134 MERGED at `3c59d93`、 K+L-Q candidate distinctness capture + A-J default integration trace + 16/16 carry actual + 三分割 wording 整合)
+- β PR3 完走 (= PR #135 MERGED at `7335da9`、 K+L-Q distinctness range trace-equivalence literal 達成 + 9 gate ALL PASS + K trace 同一 finding → ADR-0069 候補 future defer literal)
+- γ PR4 完走 (= PR #136 MERGED at `ef87dcb`、 baseline regression gate 統合 verify ALL PASS literal + 6 gate ALL PASS + representative direct invoke 4 script + 通算 sha256 `b15883fe...` 維持 confirmed)
+- user 明示 GO「ADR-0068 δ 起票判断から開始、 δ scope = 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material」
+- 機械復旧 default rule [[long-running-hang-auto-recovery-rule]] 継承 + Codex rescue 化 default 規律継承
+
+### δ でやったこと
+
+- δ kickoff plan v1 起草 + Codex layer 2 plan review round 1 approve (= must-fix 0 + nh 3 + lr 3 全反映、 agentId `ad78bc3e6e2e6928a`)
+- δ branch `wip-adr-0068-delta-impl` (= base `ef87dcb`) 作成
+- commit 1 (= 本 commit) = ADR doc 修正 = 状態行 update (= γ 完了 PR #136 MERGED at `ef87dcb` 反映 + δ PR5 進行中 entry) + §決定 6 δ Accepted 後追加 context (= LR1 同段落「ε まで禁止」 併記必須 literal) + Annex δ section fill (= δ-1 〜 δ-4 4 sub-section literal、 nh 3 + lr 3 全反映 = NH1 audition preparation 運用上前提 + NH2 prohibited wording scan target + allowlist literal + NH3 sha256 doc-only carry literal + LR1 同段落併記必須 + LR2 A-J + K 別 sub-finding 粒度保持 + LR3 γ MERGED と δ 完了境界明確分離) + 改訂履歴 δ entry + 平易要約 δ context section
+- commit 2 (= 次 commit) = dashboard 0068 行 status update (= γ MERGED 反映 + δ PR5 entry) + escalation 履歴 δ PR5 entry 1 row
+- Codex layer 2 impl-review 期待 approve + main agent 経路で δ PR5 merge + user 完走報告
+
+### δ 結果
+
+- ADR-0068 δ PR5 doc-only sprint = 統合 report + 残課題 enumeration (= ADR-0065/0066/0069 起票判断 material) literal 達成
+- Annex δ fill 完成 = δ-1 scope + δ-2 統合 report (α/β/γ 結果 + integration milestone + roadmap ⑤ 完了前状態の明確化 = (a)(b)(c) 3 gate 別 status enumeration) + δ-3 残課題 enumeration (= ADR-0065/0066/0069 起票判断 material + dependency chain literal) + δ-4 状態維持 + Codex layer 2 plan review chain + commit chain literal
+- §決定 6 δ Accepted 後追加 context (= LR1 同段落「roadmap ⑤ 統合 verify 完了は ε まで禁止維持」 併記必須 literal)
+- driver / α script / β script / γ script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex / ADR-0068 既存 Annex α/β/γ 本文 / 軸 G ε partial state placement 完全不変 confirm (= §決定 5 (ii) + §決定 7 literal 遵守)
+- production sha256 = `b15883fe...` 維持期待 (= NH3 反映 = δ で再 build しない、 γ で既達成済 sha256 実測結果を doc-only として carry、 §決定 10 整合)
+- Codex layer 2 plan review 1 round chain (= round 1 approve)、 must-fix 0 + nh 3 + lr 3 全反映、 全 review-only + 越権操作なし confirmed
+
+### δ 解釈
+
+ADR-0068 δ PR5 完走 = 「ADR-0068 δ 完了」 wording 解禁条件達成 = δ scope 限定 統合 report + 残課題 enumeration 完了 literal。 ただし併記必須維持 (= LR1 反映 = 同段落 literal 併記必須):
+- 「ADR-0068 ε Accepted ではない」 (= ε PR6 で別途 future)
+- 「roadmap ⑤ 統合 verify 完了」 = **ε まで禁止維持** (= 同段落 literal 併記必須)
+- 「trace-equivalence 完了」 single wording = ε まで禁止維持
+- 「16ch full candidate distinctness 完了」 = ADR-0069 候補 future literal 禁止維持
+- 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」 = literal 禁止維持
+
+δ scope = 統合 report + 残課題 enumeration、 doc-only sprint = driver / verify script / vendor / fixture / build flag 完全不変、 §決定 5 (ii) 不可触原則遵守。
+
+ADR-0068 δ PR5 完走 ≠ ε Accepted ≠ roadmap ⑤ 統合 verify 完了 ≠ production-ready 全体達成 ≠ 軸 B 完成 ≠ 本番 cmd 切替完了 (= 各 user 判断軸 future)。
+
+### δ 完走後の次
+
+δ PR5 commit chain (= 2 commit、 commit 1 ADR doc + commit 2 dashboard) 完走後、 Codex layer 2 impl-review 期待 approve + main agent 経路で δ PR5 merge + user 完走報告。 δ Accepted 後 (= δ PR5 merge 後):
+- ε (= Draft → Accepted + Annex 全統合 + 「roadmap ⑤ 統合 verify 完了」 milestone literal 解禁 + 併記必須) 起票判断 = user 明示 GO 必須
+- ADR-0065 候補 (= roadmap ⑥ audition) + ADR-0066 候補 (= roadmap ⑦ 本番 cmd 切替判断) + ADR-0069 候補 (= driver 拡張 sprint = A-J candidate distinctness + K bitmap pair distinct = 2 sub-finding 別粒度) = 各 user 明示 GO 必須、 ADR-0068 ε Accepted 後 future
+- dependency chain literal = ADR-0068 ε Accepted → ADR-0065 Accepted → ADR-0066 起票判断 (= 順序固定)、 ADR-0069 候補 = ADR-0065/0066 と独立 parallel 起票可
+
 ## 改訂履歴
 
 | 日付 | session | 変更 | commit |
@@ -1006,3 +1311,4 @@ ADR-0068 γ PR4 完走 ≠ ε Accepted ≠ roadmap ⑤ 統合 verify 完了 ≠ 
 | 2026-05-25 | 40th session | ADR-0068 γ verify script bug fix 2 件 + self-test 4 PASS = 6 gate ALL PASS = (a) bash 3.2 多バイト文字 parameter expansion bug 回避 = self-test 2 で line 193 `word: unbound variable` 発覚、 `local var="$arg"` 1 行宣言+代入 → `local var; var="$arg"` 2 行分離 + 全 `$word` → `${word}` braces 明示で fix (= bash 3.2 nounset + 多バイト char 値 + `[[ ... == *"$VAR"* ]]` glob match で parameter expansion parser bug 既知 limitation 回避)、 + (b) allowlist 5 件追加 = self-test 3 で false positive 7 件発覚 (= 禁止 wording 7 件 enumeration list / array declaration / 限定 / 検査 wording context が allowlist 不在で誤検出)、 「<word> / 」 enumeration list context + 「 / 「<word>」」 + 「    "<word>"」 array entry + 「<word> 限定」 limitation context + 「検査 wording」 reference context allowlist 追加で fix。 self-test 4 結果 = 6 gate ALL PASS + NG count 0 + 22 OK count 達成 (= gate 1 sha256-pre + gate 2 representative 4/4 ALL PASS + gate 3 三分割 wording + gate 4 prohibited wording self-check 7/7 + gate 5 NOT-COMPLETE 7 行 + gate 6 sha256-post)。 「ADR-0068 γ 完了」 wording 解禁条件達成 = γ scope 限定 baseline regression gate 統合 verify ALL PASS literal。 driver / α script / β script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex 完全不変維持 confirm (= ADR-0068 §決定 5 (ii) + §決定 7 literal 遵守) | (= 本 PR4 commit chain 内 commit 4) |
 | 2026-05-25 | 40th session | ADR-0068 γ self-test 1 finding 反映 + plan v5 → v8 確定 (= β script representative regression 除外、 5 → 4 script、 §決定 5 (ii) β script 完全不変原則遵守、 β scope coverage は ADR Annex β literal で別途確保)。 finding root cause = β script gate 8d (= β branch parent commit literal verify = 3c59d93) は β branch 内部 self-test 専用仕様で、 γ branch HEAD (= 7335da9 = β merge commit) 経路で merge_conflict 誤発火検出 = γ self-test 1 で顕在化、 ADR-0068 Annex β β-7 lr 2 復旧フロー (a) rebase 不適用 = β merge 完了で git history 線形分岐済 = (b) escalate 案件、 ただし「設計判断は Codex 経由で進める」 user 明示 GO 整合で Codex layer 2 plan review re-review 経路で plan v5 → v8 反映。 ADR doc 12 箇所 update enumeration = 状態行 + §決定 1(c) + §決定 2 γ row + §決定 6 γ Accepted 後追加 context + Annex γ 見出し + γ-1 scope + γ-2 配置 + γ-3 representative regression (= β rationale sub-section 末尾追加) + γ-4 production sha256 維持 (= ym2610b coverage 根拠 paragraph 1 + β scope coverage 根拠 paragraph 2 分離) + γ-5 completion proof exact literal (= representative 5 → 4 entry + 行数 17 → 16) + γ-6 commit chain literal (= 4 → 5 commit) + Codex layer 2 plan review chain table (= 4 → 8 round) + 本改訂履歴 entry。 γ verify script 7 箇所 update = header コメント representative 5 → 4 + REPRESENTATIVE_SCRIPTS array 5 → 4 entry + gate 2 echo header line 5 → 4 + gate 2 section heading + comment 5 → 4 + gate 2 PASS criteria 5 → 4 + summary message 5/5 → 4/4 + header コメント末尾 β script 除外 rationale 段落追加。 β script (= verify-axis-b-v2-16ch-integration-beta.sh) ファイル一切修正なし (= §決定 5 (ii) + §決定 7 不可触対象 literal 遵守 confirm)。 Codex layer 2 plan review round 5 revise (= must-fix 2 + nh 2 + lr 2、 agentId `a0ebc16cc8dff7c1c`) + round 6 revise (= must-fix 2 + nh 1 + lr 2、 agentId `a3e1649a54066ee4d`、 ADR doc 12 箇所明示 + γ script gate 2 section heading 追加 + ym2610b coverage / β scope coverage paragraph 分離) + round 7 revise (= must-fix 1 + lr 1、 agentId `a36cd4ac2187ebc37`、 改訂履歴 γ entry update target 明示) + round 8 **approve plan v8** (= must-fix 0 + nh 1、 agentId `aaf195285d974edcc`、 commit 3 message wording fine-tune advisory)、 must-fix 計 5 + nh 計 6 + lr 計 5 全反映、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed | (= 本 PR4 commit chain 内 commit 3) |
 | 2026-05-25 | 40th session | ADR-0068 γ PR4 Codex layer 2 impl-review round 1 finding 反映 (= revise judgment must-fix 1 + nh 2 + lr 1、 agentId `a7ec395ff32cfb510`、 全 review-only + 越権操作なし confirmed) = (1) must-fix 1 ADR Annex γ-3 見出し 「representative regression 5 script + per-script log」 → 「representative regression 4 script + per-script log (= impl-review round 1 must-fix 1 反映、 β script 除外 = 5 → 4 script)」 修正、 + (2) nh 1 ADR Annex γ-2 「行数 TBD」 → 「307 行 commit b39c7ec 時点 → 現 HEAD 325 行 evolution、 bug fix 2 件 + allowlist 5 件追加で行数 increment」 update、 + (3) nh 2 dashboard γ PR4 + β PR3 entry 内「(5) 本 commit dashboard + memory + 平易要約」 → 「(5) 本 commit dashboard + escalation 履歴 + 平易要約 (= memory は repo 外、 PR diff 対象外、 impl-review round 1 nh 2 反映)」 update、 + lr 1 = γ script allowlist false negative risk 継続監視 (= 現 PR 実測 PASS と矛盾なし、 将来 拡張時 false negative 監視継続)。 driver / α script / β script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex 完全不変維持 confirm | (= 本 PR4 commit chain 内 commit 6 追加) |
+| 2026-05-25 | 40th session | ADR-0068 δ PR5 起票 = 統合 report + 残課題 enumeration ADR-0065/0066/0069 起票判断 material doc-only sprint (= ADR-0068 §決定 2 δ row literal 継承、 γ PR #136 MERGED at `ef87dcb` 後続、 driver / α script / β script / γ script / ADR-0067 fixture / 既存 verify script / 既存 build flag / vendor / ADR-0048〜0067 本文 + Annex / ADR-0068 既存 Annex α/β/γ 本文 / 軸 G ε partial state placement 完全不変 sprint)。 ADR doc 修正範囲 = (1) 状態行 update (= γ PR4 進行中 → γ 完了 PR #136 MERGED at `ef87dcb` + δ PR5 進行中 entry) + (2) §決定 6 δ Accepted 後追加 context (= LR1 反映「ADR-0068 δ 完了」 解禁段落同段落「roadmap ⑤ 統合 verify 完了は ε まで禁止維持」 literal 併記必須) + (3) Annex δ section fill 4 sub-section literal (= δ-1 scope literal + δ-2 統合 report = α/β/γ 結果 + integration milestone + roadmap ⑤ 完了前状態の明確化 = (a)(b)(c) 3 gate 別 status enumeration + δ-3 残課題 enumeration = ADR-0065/0066/0069 起票判断 material + dependency chain literal + δ-4 状態維持 + Codex layer 2 plan review chain + commit chain literal、 nh 3 + lr 3 全反映 = NH1 audition preparation 運用上前提扱い + NH2 prohibited wording scan target + allowlist context Annex δ 内明文化 + NH3 sha256 doc-only carry literal § 決定 10 衝突回避 + LR1 同段落併記必須 + LR2 ADR-0069 候補 A-J candidate distinctness + K bitmap pair distinct 別 sub-finding 粒度保持 + LR3 γ MERGED と δ 完了境界明確分離 PR/commit chain 分離) + (4) 改訂履歴 δ entry 追加 (= 本 entry) + (5) 平易要約 δ context section (= δ PR5 完走 update = δ でやりたかったこと/前提/やったこと/結果/解釈/完走後の次 6 構造)。 Codex layer 2 plan review 1 round chain = round 1 **approve** (= must-fix 0 + nh 3 + lr 3 全反映、 agentId `ad78bc3e6e2e6928a`)、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed。 user 明示 GO「ADR-0068 δ 起票判断から開始」 + 機械復旧 default rule [[long-running-hang-auto-recovery-rule]] 継承 + Codex rescue 化 default 規律継承。 production sha256 = `b15883fe...` 維持期待 (= NH3 反映 = δ で再 build しない、 γ で既達成済 sha256 実測結果を doc-only として carry、 §決定 10 整合)。 commit chain = 2 commit = (1) 本 commit ADR doc 修正 + (2) 次 commit dashboard 0068 行 status update + escalation 履歴 δ PR5 entry 1 row | (= 本 PR5 commit chain 内 commit 1) |
