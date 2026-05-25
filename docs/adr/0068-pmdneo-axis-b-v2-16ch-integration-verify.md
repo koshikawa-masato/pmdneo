@@ -73,7 +73,7 @@ user 判断軸 (= literal 引用):
 ADR-0056 §決定 3 4 gate のうち **(a)(b)(c) 3 gate** を統合 verify 対象。 (d) 越川氏 audition は ADR-0065 候補 (= roadmap ⑥) scope-out。
 
 #### (a) 実 MML 再生 gate 統合 verify
-- scope: v2 driver 経路 (= TEST_MODE_V2_SONG_FIXTURE=1 + AXIS_G_AUDITION_LEGACY_SKIP=1、 (B) build mode) + cmd 0x05 経路 (= PMDNEO_M_RAW or PMDDOTNET_MML legacy build、 (C-1)/(C-2) build mode) 並走 trace capture
+- scope: v2 driver 経路 (= TEST_MODE_V2_SONG_FIXTURE=1 + TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP=1 = driver .equ name、 verify script からは env var `PMDNEO_V2_SONG_FIXTURE=1 PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP=1` で渡す = build-poc.sh sed 置換、 (B) build mode) + cmd 0x05 経路 (= PMDNEO_M_RAW or PMDDOTNET_MML legacy build、 (C-1)/(C-2) build mode) 並走 trace capture
 - 目的: 各 ch 個別 verify 完了済 (= roadmap ①〜③ Accepted) を 1 件の MML song に対して統合実行 + 統合 trace 取得
 - 完了判定: 全 ch + 全機能の trace 統合取得 + literal report
 
