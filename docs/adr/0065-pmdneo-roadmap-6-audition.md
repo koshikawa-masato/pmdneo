@@ -62,7 +62,7 @@ ADR-0065 scope = **(d) 越川氏 audition gate = production-ready 経路 (= v2 d
 | sub | scope | user 介入 | 完了判定 | 関連 ADR |
 |---|---|---|---|---|
 | α | audition session 準備 doc-only = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義 (= 決定 11) | optional | **α 完了 (= 本 PR2)** + retrospective approve (= 本 retrospective record) = build 環境 + emulator + format 確定 literal record (= Annex α fill 6 sub-section、 ADR-0041 §決定 4-3 主軸 fallback approve plan v1 + retrospective Codex review 完走 = approve 判定) | ADR-0058 + ADR-0059 完成済確認 |
-| β | audition material 選定 doc-only = ADR-0067 fixture vs PMDDotNET 既存 MML vs 新規 MML trade-off + 選定 literal | optional | material 選定 literal + 採用根拠 record | ADR-0067 ε 既存 fixture + ADR-0068 16 ch integration trace 既存 |
+| β | audition material 選定 doc-only = ADR-0067 fixture vs PMDDotNET 既存 MML vs 新規 MML trade-off + 選定 literal | optional | **β PR3 halt (= 2026-05-25 40th session、 user option 3 採用)** = driver capability 制約発覚 (= ADR-0068 §決定 1 literal「A-J は全 build mode で default 固定、 C-2 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」)、 PMDDotNET MML の A/B/C/I etc は現 driver で audition audio に出ない、 「実 MML を聴いて aesthetic judgment」 前提不成立。 **ADR-0069 (= driver 拡張 = A-J candidate distinctness) 先行完走後 ADR-0065 β/δ 再開、 dependency = ADR-0069 → ADR-0065 β/δ 順序固定** (= 元の parallel 可 → 順序固定 dependency に変更、 §決定 9 update 反映) | ADR-0067 ε 既存 fixture + ADR-0068 16 ch integration trace 既存 + **ADR-0069 完走前提** |
 | γ | acceptance gate criteria 定義 doc-only = pairwise + individual + 全 reject 3 軸 schema 整合 + 判定 framework literal (= 決定 4) | optional | criteria literal + 判定 framework 確定 | memory 3 件 regulation cite |
 | δ | **audition session 実施** + record 取得 + finding literal + acceptance decision (= **user 介入 mandatory**、 越川氏 listening + judgment) | **mandatory (= aesthetic / ADR-0041 §決定 5 `audit_gate` escalation 該当)** | audition record + acceptance decision (= aesthetic accept / revise required / 全 reject) | ADR-0058 + ADR-0059 + ADR-0067 ε + ADR-0068 ε 完走前提 |
 | ε | Draft → Accepted 移行 doc-only + Annex 全統合 + 「(d) audition gate 達成」 milestone wording 解禁 (= 併記必須 9 件継承) | optional | Annex 全統合 + 解禁 wording + Accepted milestone literal | ADR-0067 ε / ADR-0068 ε pattern 継承 |
@@ -168,10 +168,12 @@ memory 規律遵守:
 | PR5 | sub-sprint δ = **audition session 実施 + record + finding + acceptance decision** | doc + text record (= markdown + JSONL) + audio file (= wav、 **repo 外 artifact 配置 = gitignore + 別 storage**、 nice-to-have 反映) | **mandatory** |
 | PR6 | sub-sprint ε = Draft → Accepted + Annex 全統合 + milestone wording 解禁 | doc-only | optional |
 
-### 決定 9: ADR-0066/0069 候補 起票判断 dependency literal
+### 決定 9: ADR-0066/0069 候補 起票判断 dependency literal (= 2026-05-25 40th session β PR3 halt 経緯で更新)
 
 - **ADR-0066 候補** = roadmap ⑦ 本番 cmd 切替判断 ADR (= ADR-0065 Accepted 後 future、 **順序固定 dependency**、 全 4 gate (= (a)(b)(c) ADR-0068 + (d) ADR-0065) 達成後 user 明示 GO 必須)
-- **ADR-0069 候補** = driver 拡張 sprint = A-J candidate distinctness + K bitmap pair distinct (= ADR-0068 残課題、 ADR-0065 と independent、 **parallel 起票可**)
+- **ADR-0069 候補** = driver 拡張 sprint = A-J candidate distinctness + K bitmap pair distinct (= ADR-0068 残課題)
+  - **2026-05-25 40th session 更新**: 元「ADR-0065 と independent、 parallel 起票可」 → 「**ADR-0065 β 再開のために先行完走必須 dependency = ADR-0069 → ADR-0065 β/δ 順序固定**」 (= β PR3 plan v2 round 2 review で driver capability 制約発覚、 ADR-0068 §決定 1 literal「A-J は全 build mode で default 固定」 = PMDDotNET MML audition 前提不成立、 user option 3 採用 = ADR-0069 先行起票 + ADR-0065 β/δ はその後)
+  - 旧 sha256 維持運用順序 4 選択肢 (= parallel 起票時の選択肢) は obsolete = 順序固定 dependency に統一
 - 各 user 明示 GO 必須 (= ADR-0064 §決定 8 literal、 main agent autonomous で進めない)
 
 #### ADR-0069 parallel 起票時の sha256 維持運用順序 (= latent risk 1 反映、 Codex finding literal)
@@ -454,9 +456,80 @@ production-ready 経路 build = (A) production default build mode (= ADR-0068 §
 
 = 主軸 fallback approve 1 件 + retrospective Codex review approve (= 主軸 fallback judgment 事後 confirm completed)。 ADR-0068 ε で確立した「主軸 fallback + retrospective Codex review」 pattern (= ADR-0041 §決定 4-3 full cycle 完走実証完了) 継承 = doc-only sprint + scope 明確 + retrospective review 必須が成立条件 = ADR-0065 α PR2 で 2 回目適用 full cycle 完走実証 (= ε PR6 同 pattern 安定化)。 user 明示 option B 採用 (= 40th session ADR-0065 α PR2 plan review 2 回連続 Codex unavailable 後 escalation 経路)、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed (= 主軸 fallback でも commit 権限分離維持)。
 
-### Annex β: sub-sprint β audition material 選定 doc-only (= β PR3 で fill)
+### Annex β: sub-sprint β audition material 選定 doc-only (= β PR3 halt 記録、 ADR-0069 完走後 再開)
 
-placeholder。
+#### β-1 = β PR3 halt 経緯 literal (= 2026-05-25 40th session、 user option 3 採用)
+
+β PR3 = audition material 選定 doc-only sprint は **halt (= pending、 ADR-0069 完走後 再開)**。 halt 経緯:
+
+1. β PR3 plan v1 draft = PMDDotNET 既存 MML (= SAMPLE2-baseline / step5-noACI / step8-Bvol) 3 件 採用 + ADR-0067 fixture + 新規 MML scope-out
+2. Codex layer 2 plan review round 1 (= agentId `a7e63962cb989934c`) = **revise** = must-fix 6 件 (= MML 実内容不一致 + build mode 混同 + 越川氏 verify claim 誤 + 不可触衝突)
+3. β PR3 plan v2 draft = round 1 must-fix 6 件全反映 + 2 件 selection (= baseline + step5-noACI、 step8-Bvol drop)
+4. Codex layer 2 plan review round 2 (= agentId `a8681fb73a77eacfc`) = **revise** = must-fix 2 件 (= driver capability 制約 + ADR-0065 §決定 10 vs C-2 build 衝突) + lr 1 件
+5. 主軸 escalate to user (= ADR-0041 §決定 5 `design_judgment_needed` escalation 該当) = 4 option 提示
+6. user 採用 = **option 3 = ADR-0069 先行起票 + ADR-0065 β/δ はその後**
+
+#### β-2 = driver capability 制約 literal (= ADR-0068 §決定 1 ground truth)
+
+ADR-0068 §決定 1 line 102/105/109 literal:
+
+| build mode | A-J (= FM 6 + SSG 3 + ADPCM-B) | K (= rhythm) | L-Q (= ADPCM-A 6) | candidate MML 関与 part |
+|---|---|---|---|---|
+| (A) production default | test01/test02 default | test01/test02 default | test01/test02 default | **なし** |
+| (C-2) PMDDOTNET_MML | test01/test02 default **固定** | pmddotnet_song K | pmddotnet_song L-Q | **K + L-Q (= 7 part)** |
+
+ADR-0068 line 109 literal: **「A-J 10 part の candidate dispatch は既存 build mode いずれでも不可」** = driver line 1741-1804 `load_song_part_addr` 固定。
+
+= PMDDotNET MML の主旋律 (= A/B/C/I FM+SSG melody) は現 driver で audition audio に出ない、 audition material として「実 MML を聴いて aesthetic judgment」 前提が不成立。
+
+#### β-3 = ADR-0069 dependency literal (= §決定 9 更新と整合)
+
+ADR-0069 (= driver 拡張 sprint = A-J candidate distinctness + K bitmap pair distinct):
+- driver line 1741-1804 `load_song_part_addr` 拡張 (= A-J MML candidate dispatch 可能化)
+- 完走後に MML A-J part の audio render が初めて可能化
+- ADR-0065 β/δ 再開条件 = ADR-0069 ε Accepted (= driver 拡張完走)
+
+= ADR-0065 β PR3 再開は ADR-0069 完走後、 順序固定 dependency。
+
+#### β-4 = ADR-0065 β PR3 再開時の前提変更 (= ADR-0069 完走後 future、 placeholder)
+
+ADR-0069 完走後の ADR-0065 β PR3 再開時:
+- driver capability 制約解除 (= A-J MML candidate dispatch 可能)
+- material 選定対象に PMDDotNET MML 全 part audition が含まれる
+- ADR-0065 §決定 10 + Annex α-1 production sha256 `b15883fe...` 維持方針との関係は ADR-0069 完走後の sha256 と整合性確認 (= 再 build 後 sha256 を audition baseline として再確定 必要可能性)
+- β PR3 plan v3 起票時に再 draft
+
+#### β-5 = β PR3 halt 中の不可触対象 (= ADR-0065 §決定 7 literal 継承 + Annex α 維持)
+
+- driver 完全不変
+- α/β/γ script / 既存 verify script 完全不変
+- vendor 完全不変
+- ADR-0067 fixture 完全不変
+- 既存 build flag 完全不変
+- ADR-0041〜0068 本文 + Annex 完全不変 (= halt record commit でも触らない)
+- ADR-0065 §決定 1 + 3-8 + 10-12 本文 完全不変 (= 本 halt record でも触らない)
+- ADR-0065 §決定 2 = β row 完了判定 column のみ literal update (= halt record)
+- ADR-0065 §決定 9 = ADR-0066/0069 dependency literal の ADR-0069 entry 更新 (= 元 parallel 可 → 順序固定 dependency)
+- ADR-0065 §verify gate / §Codex layer 2 plan review chain / Annex α (= 本文 + retrospective row + summary 段落 already final) / Annex skeleton 他 sub-section (= γ/δ/ε placeholder + A/B 本文) 完全不変
+
+#### β-6 = β PR3 halt record touch 範囲 + Codex layer 2 plan review chain literal (= round 2 revise + halt)
+
+##### touch 範囲 (= 本 halt record commit)
+- ADR-0065 file: §決定 2 β row update + §決定 9 ADR-0069 dependency update + Annex β fill (= 本 halt record literal) + 改訂履歴 halt entry + 平易要約 β halt context section
+- dashboard: 0065 行 status column update + escalation 履歴 β PR3 plan review chain + halt entry 追加
+
+##### Codex layer 2 plan review chain literal (= round 1 revise + round 2 revise + halt)
+
+| round | judgment | agentId | finding 要点 |
+|---|---|---|---|
+| 1 | **revise** | `a7e63962cb989934c` | must-fix 6 (= SAMPLE2 MML 実内容誤 (baseline 16 ch全 part claim / step5-noACI ABCDFGH claim / step8-Bvol SSG B claim) + build mode 混同 + 越川氏 verify claim 誤 + 不可触衝突) + nh 2 (= material 1 表 + aesthetic range vs coverage range) + lr 2 (= aesthetic vs 16 ch coverage 混同 + C-2 sha relation 曖昧) |
+| 2 | **revise + escalate** | `a8681fb73a77eacfc` | must-fix 2 (= driver capability 制約 = ADR-0068 §決定 1 A-J default 固定 literal + ADR-0065 §決定 10 vs C-2 build 衝突) + lr 1 (= halt 時の touch 範囲再調整必要)、 主軸 escalation `design_judgment_needed` 経路で user に option 4 件提示、 **user option 3 採用 = ADR-0069 先行起票 + ADR-0065 β/δ halt** |
+
+= 主軸 escalation 経路 (= ADR-0041 §決定 5 `design_judgment_needed`) 利用、 全 Codex layer 2 round review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed。
+
+##### β PR3 再開時 (= future、 ADR-0069 完走後)
+
+ADR-0069 完走後 ADR-0065 β PR3 再開時 = β PR3 plan v3 新規 draft (= driver capability 拡張後の前提整合) + Codex plan review + impl + impl-review + merge + branch 削除 atomic 1 セット。
 
 ### Annex γ: sub-sprint γ acceptance gate criteria 定義 doc-only (= γ PR4 で fill)
 
@@ -477,6 +550,7 @@ placeholder。
 | 2026-05-25 | 40th session | ADR-0065 起票 Draft = roadmap ⑥ audition ADR (= 越川氏 audition gate、 aesthetic gate、 production-ready 経路 audition session approve = ADR-0056 §決定 3-b literal、 ADR-0063 §(d) literal、 ADR-0064 §決定 7 番号予約消化、 ADR-0067 残課題 + ADR-0068 §決定 9 ADR-0065 候補後続、 集約 HEAD `037cd3e`、 doc-only 起票 PR1 = ADR-0067/0068 起票 pattern 継承、 Codex layer 2 plan review 1 round approve = must-fix 0 + nice-to-have 1 件 (= PR5 wav repo 外 artifact 配置 = §決定 11 + §決定 5 (i)/(iii) 反映) + latent risk 1 件 (= ADR-0069 parallel 起票時 sha256 維持運用順序 4 選択肢 + user 明示 GO 必須 = §決定 9 反映) 全反映、 agentId `afbed0b24a60caa41`、 越権操作なし confirmed)。 ADR doc 修正範囲 = (1) ADR-0065 file 新規 (= 12 決定 + Annex skeleton A/B/α/β/γ/δ/ε + 改訂履歴 + 平易要約) + (2) dashboard 0065 行 update (= 「未起票」 → 「Draft 起票」 + 12 決定 literal + 表記制約 + 不可触対象 + Codex layer 2 plan review 1 round approve literal) + (3) dashboard escalation 履歴 ADR-0065 entry 1 row 追加 + (4) memory 起票 (= 新 memory `project_pmdneo_adr_0065_initiated.md` + MEMORY.md index 1 行追加、 repo 外 PR 対象外)。 sub-sprint chain α/β/γ/δ/ε 5 段 plan literal (= α audition session 準備 + β material 選定 + γ acceptance gate criteria + δ audition session 実施 (= user 介入 mandatory) + ε Accepted 移行) + PR chain plan 6 PR + production sha256 維持 mandatory (= `b15883fe...` 通算維持、 driver 不変) + 表記制約 (= 起票時点 禁止 6 件 + ε Accepted 後解禁候補 3 件 + 禁止維持 5 件) + acceptance framework 3 軸 (= pairwise + individual + 全 reject) memory 規律遵守 + audition record format (= text markdown + JSONL + wav repo 外 artifact) + 番号 chronology rationale (= ADR-0064 §決定 7 整合)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex 完全不変、 production sha256 = `b15883fe...` 維持期待 (= ADR-0065 で再 build しない、 §決定 10 整合)、 commit chain = 単一 commit (= 本 commit) | (= 本 PR1 commit chain 内 commit 1) |
 | 2026-05-25 | 40th session | ADR-0065 sub-sprint α PR2 = audition session 準備 doc-only sprint (= ADR-0065 §決定 2 α row literal 継承 = production binary build 確認 + emulator (MAME) 環境確認 + audition record format 定義 (= 決定 11)、 PR #140 MERGED at `c3ed5e0` 後続、 集約 HEAD `c3ed5e0`、 Codex layer 2 plan review 主軸 fallback approve plan v1 = ADR-0041 §決定 4-3 適用 (= Codex companion 安全性分類器 (claude-opus-4-7) 一時障害 2 回連続失敗 = `claude-opus-4-7[1m] is temporarily unavailable` error = CLAUDE.md §長時間 task hang 自動復旧 rule「retry も hang した」 user escalation 該当、 user 明示 option B = ADR-0041 §決定 4-3 fallback + retrospective Codex review 必須 採用、 doc-only sprint + scope 明確 + retrospective review 必須が fallback 適用根拠、 主軸 Claude Code が plan v1 を独立 review = 6 axis (= A scope literal coverage + B α-1 production binary build + C α-2 MAME / emulator + D α-3 audio render + α-4 record format + E α-5 judgment 記録形式 + F α-6 不可触対象 + commit chain) 全 OK = approve 判断、 must-fix 0 + nice-to-have 0 + latent risk 1 件 = MAME version literal specificity (= α では abstract OK + δ で具体 version 確定 natural) は retrospective Codex review で再確認)、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed (= 主軸 fallback でも commit 権限分離維持)、 40th session ε で確立した「主軸 fallback + retrospective Codex review」 pattern (= ADR-0041 §決定 4-3 full cycle 完走実証完了) 継承)。 ADR doc 修正範囲 = (1) §決定 2 α row update (= 「α 完了 (= 本 PR2) = build 環境 + emulator + format 確定 literal record (= Annex α fill 6 sub-section、 ADR-0041 §決定 4-3 主軸 fallback approve plan v1 + retrospective Codex review 必須)」) + (2) Annex α fill = 6 sub-section literal (= α-1 production binary build 確認方針 = (A) production default + sha256 確認 mandatory + build script `scripts/build-poc.sh` reference + α-2 MAME / emulator 環境確認方針 = MAME version + command `scripts/run-mame.sh` + audio render flag `-wavwrite` + headless 録音 mode `project_mame_headless_recording_mode.md` 整合 + chip target ym2610 production default + α-3 audio render の前提 = ADR-0058/0059/0067/0068 base + 48 kHz/16-bit/2ch spec + α-4 audition record format = markdown report path schema + JSONL aesthetic finding schema literal + wav repo 外 artifact 配置 (= `.gitignore` audition/ excluded 反映) + α-5 越川氏 judgment 記録形式 = aesthetic finding text + acceptance decision enum (= aesthetic_accept / revise_required / all_reject) + judgment 入力 method (= 主軸起草 → user confirm process 3 段階) + memory 4 件 regulation cite + α-6 不可触対象 literal + α PR2 touch 範囲 + α PR2 Codex layer 2 plan review chain literal (= 4 round = round 1 unavailable + round 1 retry unavailable + fallback 主軸 approve + retrospective TBD)) + (3) 改訂履歴 α entry 追加 (= 本 entry) + (4) 平易要約 α context section 追加 (= α PR2 完走 update 6 構造)。 dashboard 修正範囲 = (5) 0065 行 status column update (= 「Draft 起票」 → 「Draft + α 完了」 + α 完了 entry literal) + (6) escalation 履歴 α PR2 entry 1 row 新規追加 (= ADR-0065 PR1 entry 直前 = 最新位置)。 `.gitignore` 修正 = (7) `audition/` directory excluded entry 1 行追加 (= 新規、 nice-to-have 反映 = repo 外 artifact 配置 path 安全化)。 memory 修正 = (8) `project_pmdneo_adr_0065_initiated.md` α 完走 entry 追加 (= repo 外、 PR diff 対象外、 主軸直接 Write/Edit)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex / ADR-0068 既存 Annex α/β/γ/δ + Annex A/B/ε / ADR-0065 §決定 1-12 本文 / §verify gate / §Codex layer 2 plan review chain / Annex skeleton 他 sub-section 完全不変 = doc-only sprint。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= α で再 build しない、 §決定 10 整合)。 commit chain = 単一 commit (= 本 commit、 ADR-0065 PR1 同 pattern 継承)。 後続 = retrospective Codex review (= Codex 復旧後) + main agent 経路 merge + user 完走報告、 sub-sprint β PR3 起票判断 = user 明示 GO 必須、 ADR-0066/0069 候補 起票判断 = 各 user 明示 GO 必須 | (= 本 PR2 commit chain 内 commit 1) |
 | 2026-05-25 | 40th session | ADR-0065 sub-sprint α PR2 retrospective Codex review 完走 = approve 判定 (= 本 retrospective record、 PR #141 MERGED at `aef02b0` 後続、 集約 HEAD `aef02b0`、 Codex companion 復旧後 retrospective Codex layer 2 review 投入 = ADR-0041 §決定 4-3 retrospective review 必須 適用、 agentId `ac5bbe0460b71e59d`、 6 axis 全 OK (= Axis 1 plan v1 / Axis 2 impl / Axis 3 fallback 適用根拠 / Axis 4 scope 違反なし / Axis 5 wording 制約遵守 / Axis 6 memory + dashboard consistency)、 must-fix 0 + nice-to-have 0 + latent risk 1 件 = MAME version literal specificity (= α では abstract OK + δ で具体 version 確定 natural、 Annex α-2「既存 PMDNEO repo 内で使用中の MAME version」 + 「δ session 実施時に確定」 + 「session 全体で同一 version 使用 mandatory」 literal で current must-fix ではない)、 主軸 fallback judgment 事後 confirm = approve、 全 review-only + 越権操作なし confirmed、 40th session ε PR6 で full cycle 完走実証済 pattern 2 回目適用 = 主軸 fallback + retrospective Codex review pattern 安定化実証完了、 ADR-0065 α PR2 commit chain 単一 commit + retrospective record commit chain 単一 commit = doc-only carry)。 ADR doc 修正範囲 = (1) #### α PR2 Codex layer 2 plan review chain table の retrospective row update (= 「TBD」 → 「**approve**」 + agentId + 6 axis + must-fix 0 + nh 0 + lr 1 件 literal) + (2) 同 table 直後 summary 段落 update (= 「retrospective Codex review TBD」 → 「retrospective Codex review approve」 + pattern 2 回目適用 安定化実証 literal) + (3) §決定 2 α row update (= 「α 完了 (= 本 PR2) + retrospective approve (= 本 retrospective record) = build 環境 + emulator + format 確定 literal record + retrospective Codex review 完走 = approve 判定」) + (4) 改訂履歴 retrospective record entry 追加 (= 本 entry)。 dashboard 修正範囲 = (5) 0065 行 status column update (= 「Draft + α 完了」 → 「Draft + α 完了 + retrospective approve」 + retrospective approve entry literal) + (6) escalation 履歴 α PR2 entry reviewed column update (= 「pending」 → 「approve」 + retrospective Codex review judgment 詳細 literal) + (7) escalation 履歴 retrospective record entry 1 row 新規追加 (= ADR-0065 α PR2 entry 直前 = 最新位置)。 memory 修正 = (8) `project_pmdneo_adr_0065_initiated.md` retrospective approve entry 追加 (= 別途、 repo 外、 PR diff 対象外、 主軸直接 Write/Edit)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex / ADR-0068 既存 Annex α/β/γ/δ + Annex A/B/ε / ADR-0065 §決定 1-12 本文 / §verify gate / Annex skeleton 他 sub-section (= Annex α 6 sub-section 本文不変、 §Codex layer 2 plan review chain table 内 retrospective row のみ update + 直後 summary 段落 update + §決定 2 α row 完了判定列 update) 完全不変 = doc-only sprint。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= retrospective record で再 build しない、 §決定 10 整合)。 commit chain = 単一 commit (= 本 commit、 ADR-0068 ε retrospective fix 同 pattern 継承 = retrospective fix 0 件 + retrospective approve record のみ)。 後続 = Codex layer 2 impl-review on retrospective record + approve loop + main agent 経路 merge + user 完走報告、 sub-sprint β PR3 起票判断 = user 明示 GO 必須、 ADR-0066/0069 候補 起票判断 = 各 user 明示 GO 必須 | (= 本 retrospective record commit chain 内 commit 1) |
+| 2026-05-25 | 40th session | ADR-0065 sub-sprint β PR3 halt record (= 本 commit、 user option 3 採用 = ADR-0069 先行起票 + ADR-0065 β/δ はその後 dependency 順序固定、 PR #142 MERGED at `f40ae8c` + dashboard maintenance `702da44` 後続、 集約 HEAD `702da44`、 β PR3 plan v2 round 2 Codex layer 2 plan review revise 後 main agent escalation = ADR-0041 §決定 5 `design_judgment_needed` 経路 = 4 option 提示 + user 採用 option 3 = ADR-0069 先行起票 + β/δ halt。 halt 経緯 = β PR3 plan v1 round 1 revise (= must-fix 6 件 = SAMPLE2 MML 実内容誤 + build mode 混同 + 越川氏 verify claim 誤 + 不可触衝突、 agentId `a7e63962cb989934c`) + plan v2 round 2 revise + escalate (= must-fix 2 件 = driver capability 制約 = ADR-0068 §決定 1 「A-J は全 build mode で default 固定、 C-2 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 literal + ADR-0065 §決定 10 vs C-2 build 衝突、 agentId `a8681fb73a77eacfc`) + 主軸 escalation で「PMDDotNET MML の A/B/C/I etc は現 driver で audition audio に出ない、 実 MML を聴いて aesthetic judgment 前提不成立」 finding 提示 = user 4 option 中 option 3 採用 (= ADR-0069 先行起票 + ADR-0065 β/δ はその後 dependency 順序固定))。 ADR doc 修正範囲 = (1) §決定 2 β row 完了判定 column update (= 「halt (= pending、 ADR-0069 完走後 再開、 user option 3 採用)」 + driver capability 制約 literal + ADR-0069 dependency 順序固定 literal) + (2) §決定 9 ADR-0069 dependency literal update (= 元「ADR-0065 と independent、 parallel 起票可」 → 「ADR-0065 β 再開のために先行完走必須 dependency = ADR-0069 → ADR-0065 β/δ 順序固定」、 旧 sha256 維持運用順序 4 選択肢 obsolete record) + (3) Annex β fill = 6 sub-section literal (= β-1 halt 経緯 + β-2 driver capability 制約 ADR-0068 §決定 1 literal + β-3 ADR-0069 dependency + β-4 β PR3 再開時前提変更 placeholder + β-5 halt 中不可触対象 + β-6 touch 範囲 + Codex layer 2 plan review chain literal) + (4) 改訂履歴 halt entry 追加 (= 本 entry、 chronological order = retrospective record entry の直後最新位置) + (5) 平易要約 β halt context section 追加 (= β halt 6 構造)。 dashboard 修正範囲 = (6) 0065 行 status column update (= 「Draft + α 完了 + retrospective approve」 → 「Draft + α 完了 + retrospective approve + β halt (= ADR-0069 先行 dependency)」 + halt entry literal) + (7) escalation 履歴 β PR3 halt entry 1 row 新規追加 (= ADR-0065 retrospective record entry 直前 = 最新位置)。 memory 修正 = (8) `project_pmdneo_adr_0065_initiated.md` β halt entry 追加 (= 別途、 repo 外、 PR diff 対象外、 主軸直接 Write/Edit)。 driver / α script / β script / γ script / 既存 verify script / vendor / ADR-0067 fixture / 既存 build flag / ADR-0041〜0068 本文 + Annex / ADR-0068 既存 Annex α/β/γ/δ + Annex A/B/ε / ADR-0065 §決定 1 + 3-8 + 10-12 本文 / §verify gate / §Codex layer 2 plan review chain / Annex α (= 本文 + retrospective row + summary 段落 already final) / Annex skeleton 他 sub-section (= γ/δ/ε placeholder + A/B 本文) 完全不変 = doc-only sprint。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= β halt record で再 build しない、 §決定 10 整合)。 commit chain = 単一 commit (= 本 commit、 retrospective record 同 pattern 継承)。 後続 = Codex layer 2 impl-review on halt record + approve loop + main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 + memory update + ADR-0069 起票判断へ移行 (= allowed-touch + production sha256 維持方針 + rollback 条件 明確化 先行)、 ADR-0065 β/δ 再開 = ADR-0069 完走後 future、 ADR-0066 起票判断 = ADR-0065 ε Accepted 後 future (= 順序固定維持)。 | (= 本 halt record commit chain 内 commit 1) |
 
 ## 平易要約
 
@@ -571,3 +645,42 @@ ADR-0065 §決定 2 α row literal「audition session 準備 doc-only = producti
 - retrospective Codex review (= Codex 復旧後、 主軸 fallback judgment 事後 confirm + latent risk 1 件再 review)
 - main agent 経路 merge
 - 続行 = sub-sprint β PR3 起票判断 (= user 明示 GO 必須、 audition material 選定 doc-only = ADR-0067 fixture vs PMDDotNET 既存 MML vs 新規 MML trade-off)、 ADR-0066/0069 候補 起票判断 = 各 user 明示 GO 必須
+
+## β PR3 halt 平易要約 (= 2026-05-25 40th session、 user option 3 採用 = ADR-0069 先行起票 + ADR-0065 β/δ はその後)
+
+### β PR3 でやりたかったこと
+
+audition material 選定 doc-only sprint = 3 候補 source (= ADR-0067 fixture / PMDDotNET 既存 MML / 新規 MML) の trade-off + 採用 material literal record。
+
+### β PR3 で発覚した driver capability 制約
+
+Codex plan review 2 round で発覚 = ADR-0068 §決定 1 の driver ground truth literal:
+- (A) production default では candidate MML 関与なし (= 全 part driver 内蔵 default)
+- (C-2) PMDDOTNET_MML 経路でも MML 関与は K + L-Q (= 7 part) のみ、 A-J (= FM 6 + SSG 3 + ADPCM-B) は全 build mode で default 固定 (= driver line 1741-1804 `load_song_part_addr` 固定)
+
+= PMDDotNET MML の主旋律 (= A/B/C/I FM+SSG melody) は現 driver で audition audio に出ない、 「実 MML を聴いて aesthetic judgment」 前提が不成立。
+
+### user 採用 option (= 4 option 提示後 option 3)
+
+option 3 = **ADR-0069 (= driver 拡張 = A-J candidate distinctness) 先行起票 + ADR-0065 β/δ はその後 dependency 順序固定**。
+
+理由: 現 driver では PMDDotNET MML の A-J が audition 音に反映されず、 ADR-0065 β の material 選定をこのまま進めても「実 MML を聴いて aesthetic judgment」 前提が成立しない。 ADR-0065 側を緩めるより、 ADR-0069 で A-J candidate distinctness / MML 全 part audition 可能化を先に解く方が roadmap ⑥ audition の意味が保てる (= user message literal)。
+
+### β PR3 halt record でやったこと
+
+- ADR-0065 §決定 2 β row 完了判定 column update (= 「halt (= pending、 ADR-0069 完走後 再開、 user option 3 採用)」)
+- ADR-0065 §決定 9 ADR-0069 dependency update (= 元「parallel 起票可」 → 「ADR-0069 → ADR-0065 β/δ 順序固定」)
+- ADR-0065 Annex β fill (= placeholder → 6 sub-section halt record literal)
+- ADR-0065 改訂履歴 halt entry 追加
+- ADR-0065 平易要約 β halt context section (= 本 section) 追加
+- dashboard 0065 行 status column update + escalation 履歴 halt entry 追加
+- driver / verify / vendor / fixture / build flag / ADR-0041〜0068 本文 + Annex 完全不変 = doc-only sprint
+
+### β PR3 halt 後の次
+
+- halt record commit + push + PR 起票
+- Codex layer 2 impl-review on halt record + approve loop
+- main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律
+- memory update + 完走報告
+- **ADR-0069 起票判断へ移行** (= allowed-touch + production sha256 維持方針 + rollback 条件 明確化 先行、 user 明示確認 mandatory)
+- ADR-0065 β/δ 再開 = ADR-0069 完走後 future (= 本 halt から再開時 plan v3 新規 draft + Codex plan review chain)
