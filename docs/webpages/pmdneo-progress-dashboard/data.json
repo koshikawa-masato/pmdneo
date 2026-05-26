@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "title": "PMDNEO COVERAGE DASHBOARD",
+    "subtitle": "MML IMPLEMENTATION × DRIVER FEATURE",
+    "lastUpdated": "2026-05-25",
+    "schemaVersion": "0.1.0-skeleton",
+    "fillStatus": "skeleton (= ほぼ全 cell TBD、 後続 sprint で fill)",
+    "repoUrl": "https://github.com/koshikawa-masato/pmdneo"
+  },
+  "legend": {
+    "implemented": { "label": "OK", "symbol": "●", "color": "#3FA64F" },
+    "partial":     { "label": "PARTIAL", "symbol": "◐", "color": "#FFB000" },
+    "not_implemented": { "label": "NG", "symbol": "✕", "color": "#E22C30" },
+    "n_a":         { "label": "N/A", "symbol": "—", "color": "#555577" },
+    "tbd":         { "label": "TBD", "symbol": "?", "color": "#888899" }
+  },
+  "mmlOpcodes": {
+    "columns": [
+      { "key": "manual",   "label": "MANUAL",   "ref": "docs/manual/PMDMML_MAN_V48s_utf8.txt" },
+      { "key": "compiler", "label": "COMPILER", "ref": "PMDDotNET / compile.py (= 出自確認 TBD)" },
+      { "key": "driver",   "label": "DRIVER",   "ref": "src/sound/sound_driver.s" }
+    ],
+    "rows": [
+      { "opcode": "@",  "name": "音色設定",            "category": "voice",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "o",  "name": "octave",              "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "<",  "name": "octave down",         "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": ">",  "name": "octave up",           "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "l",  "name": "default length",      "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "v",  "name": "volume (SSG range)",  "category": "volume", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "V",  "name": "volume (FM range)",   "category": "volume", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "t",  "name": "tempo",               "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "q",  "name": "quantize (gate)",     "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "Q",  "name": "quantize ratio",      "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "p",  "name": "pan",                 "category": "spatial","manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "P",  "name": "pan (alt)",           "category": "spatial","manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "[",  "name": "loop start",          "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "]",  "name": "loop end",            "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "|",  "name": "loop break (last)",   "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "&",  "name": "tie",                 "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "K",  "name": "key shift",           "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "s",  "name": "SSG envelope shape",  "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "M",  "name": "SSG mixer",           "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
+      { "opcode": "n",  "name": "noise freq (SSG)",    "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" }
+    ]
+  },
+  "driverFeatures": {
+    "channels": [
+      { "key": "FM1",  "label": "FM 1",  "group": "FM" },
+      { "key": "FM2",  "label": "FM 2",  "group": "FM" },
+      { "key": "FM3",  "label": "FM 3",  "group": "FM" },
+      { "key": "FM4",  "label": "FM 4",  "group": "FM" },
+      { "key": "FM5",  "label": "FM 5",  "group": "FM" },
+      { "key": "FM6",  "label": "FM 6",  "group": "FM" },
+      { "key": "SSG1", "label": "SSG 1", "group": "SSG" },
+      { "key": "SSG2", "label": "SSG 2", "group": "SSG" },
+      { "key": "SSG3", "label": "SSG 3", "group": "SSG" },
+      { "key": "PA1",  "label": "ADPCM-A 1", "group": "ADPCM-A" },
+      { "key": "PA2",  "label": "ADPCM-A 2", "group": "ADPCM-A" },
+      { "key": "PA3",  "label": "ADPCM-A 3", "group": "ADPCM-A" },
+      { "key": "PA4",  "label": "ADPCM-A 4", "group": "ADPCM-A" },
+      { "key": "PA5",  "label": "ADPCM-A 5", "group": "ADPCM-A" },
+      { "key": "PA6",  "label": "ADPCM-A 6", "group": "ADPCM-A" },
+      { "key": "PB",   "label": "ADPCM-B",   "group": "ADPCM-B" }
+    ],
+    "features": [
+      { "key": "voice", "label": "VOICE",  "scope": "FM,SSG,ADPCM-A,ADPCM-B" },
+      { "key": "tl",    "label": "TL",     "scope": "FM" },
+      { "key": "ar",    "label": "AR",     "scope": "FM" },
+      { "key": "dr",    "label": "DR",     "scope": "FM" },
+      { "key": "sl",    "label": "SL",     "scope": "FM" },
+      { "key": "rr",    "label": "RR",     "scope": "FM" },
+      { "key": "ml",    "label": "ML",     "scope": "FM" },
+      { "key": "fbl",   "label": "FBL",    "scope": "FM" },
+      { "key": "alg",   "label": "ALG",    "scope": "FM" },
+      { "key": "pan",   "label": "PAN",    "scope": "FM,ADPCM-A,ADPCM-B" },
+      { "key": "vol",   "label": "VOL",    "scope": "ALL" },
+      { "key": "pitch", "label": "PITCH",  "scope": "FM,SSG,ADPCM-B" },
+      { "key": "lfo",   "label": "LFO",    "scope": "FM,SSG" },
+      { "key": "noise", "label": "NOISE",  "scope": "SSG" },
+      { "key": "mute",  "label": "MUTE",   "scope": "ALL" },
+      { "key": "fade",  "label": "FADE",   "scope": "ALL" }
+    ],
+    "matrix": {
+      "_default": "tbd",
+      "_note": "全 cell 既定 tbd。 後続 sprint で driver source recon 後 fill。"
+    }
+  },
+  "phases": [
+    { "id": 1, "label": "Phase 1 PoC",            "status": "tbd", "note": "PMDDotNET + PMD V4.8s Z80 流用 ROM build + MAME 再生" },
+    { "id": 2, "label": "Phase 2 FM + SSG",       "status": "tbd", "note": "YM2610B 仕様 driver フルスクラッチ" },
+    { "id": 3, "label": "Phase 3 ADPCM-A + .PNE", "status": "tbd", "note": "ADPCM-A 6ch + WebApp 最小骨格" },
+    { "id": 4, "label": "Phase 4 ADPCM-B + V1",   "status": "tbd", "note": "ADPCM-B + WebApp 完成 + IPL + プレイヤー V1" }
+  ]
+}
