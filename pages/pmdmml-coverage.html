@@ -68,7 +68,7 @@
         </dl>
         <dl class="metric">
           <dt>PMDNEO WIP (= 現役 sprint)</dt>
-          <dd><strong><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> / 142</strong></dd>
+          <dd><strong><!-- AUTO_WIP_COUNT -->28<!-- /AUTO_WIP_COUNT --> / 142</strong></dd>
         </dl>
       </div>
     </header>
@@ -99,7 +99,7 @@
 
       <section id="summary">
         <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
-        <p class="section-summary">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。 PMDMML 142 commands 中、 PMDNEO main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、 PMDNEO develop は <strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> commands</strong>、 PMDNEO WIP は <strong><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> commands</strong> である。 PMD V4.8s 本家 (= df4e7b6 凍結時点 <code>PMD_Z80.inc</code>) は参考 reference として <strong><!-- AUTO_PMD_COUNT -->30<!-- /AUTO_PMD_COUNT --> commands</strong>。</p>
+        <p class="section-summary">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。 PMDMML 142 commands 中、 PMDNEO main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、 PMDNEO develop は <strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> commands</strong>、 PMDNEO WIP は <strong><!-- AUTO_WIP_COUNT -->28<!-- /AUTO_WIP_COUNT --> commands</strong> である。 PMD V4.8s 本家 (= df4e7b6 凍結時点 <code>PMD_Z80.inc</code>) は参考 reference として <strong><!-- AUTO_PMD_COUNT -->30<!-- /AUTO_PMD_COUNT --> commands</strong>。</p>
         <div class="progress-list" aria-label="PMDMML command implementation progress">
           <div class="progress-item">
             <div class="progress-label">
@@ -122,10 +122,10 @@
           <div class="progress-item">
             <div class="progress-label">
               <span>PMDNEO WIP (= wip-pmdmml-voice-parser、 現役 sprint)</span>
-              <span><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> / 142 約 <!-- AUTO_WIP_PERCENT -->0<!-- /AUTO_WIP_PERCENT -->%</span>
+              <span><!-- AUTO_WIP_COUNT -->28<!-- /AUTO_WIP_COUNT --> / 142 約 <!-- AUTO_WIP_PERCENT -->20<!-- /AUTO_WIP_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <!-- AUTO_WIP_BAR_STYLE --><div class="progress-bar wip" style="width: 0%"></div><!-- /AUTO_WIP_BAR_STYLE -->
+              <!-- AUTO_WIP_BAR_STYLE --><div class="progress-bar wip" style="width: 20%"></div><!-- /AUTO_WIP_BAR_STYLE -->
             </div>
           </div>
         </div>
@@ -156,8 +156,8 @@
             </thead>
             <tbody>
               <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
-              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。容易性: △中</td></tr>
-              <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。容易性: ×難</td></tr>
+              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。comt はあるが T コマンドとしての多機能対応は未。</td></tr>
+              <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。v2 ではまだ未実装。</td></tr>
             </tbody>
           </table>
         </div>
@@ -321,9 +321,9 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。容易性: ×難</td></tr>
-              <tr><td>§14-2</td><td><code>|</code></td><td>shift/transpose</td><td>-</td><td><span class="badge-done">✓ comshift</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>転調。容易性: ◎容易</td></tr>
-              <tr><td>§14-3</td><td><code>_</code></td><td>vol shift</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量シフト。容易性: △中</td></tr>
+              <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。v2 でも低レベルアクセスは可能だが、MML y コマンドとしてのラッパーは未整備。</td></tr>
+              <tr><td>§14-2</td><td><code>|</code></td><td>shift/transpose</td><td>-</td><td><span class="badge-done">✓ comshift</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>転調。comshift / comshift2 / comshift_master が存在。v2 での統合は partial。</td></tr>
+              <tr><td>§14-3</td><td><code>_</code></td><td>vol shift</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>音量シフト。comvshift_up/down 系が standalone_test.s に実装済み。</td></tr>
             </tbody>
           </table>
         </div>
@@ -348,8 +348,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。容易性: ×難</td></tr>
-              <tr><td>§16-2</td><td><code>,</code></td><td>コンマ区切り</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>パラメータ区切り</td></tr>
+              <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。v2 でも本格的な * コマンド対応は未。</td></tr>
+              <tr><td>§16-2</td><td><code>,</code></td><td>コンマ区切り</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-done">✓ 実装済</span></td><td>完了</td><td>パラメータ区切り（基本的に動作）</td></tr>
             </tbody>
           </table>
         </div>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main e87ee8c<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 218b854<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>

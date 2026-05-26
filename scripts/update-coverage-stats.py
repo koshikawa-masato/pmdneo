@@ -11,7 +11,7 @@ TOTAL = 142  # PMDMML total command count
 PMDNEO_DRIVER_PATH = 'src/driver/standalone_test.s'
 PMD_REFERENCE_PATH = 'src/driver/PMD_Z80.inc'
 PMD_REFERENCE_COMMIT = 'df4e7b6'
-WIP_BRANCH = 'wip-pmdmml-voice-parser'
+WIP_BRANCH = 'wip-pmddotnet-opnb-extension'  # 現在の現役開発ブランチ
 
 
 def count_com_routines(source_text):
