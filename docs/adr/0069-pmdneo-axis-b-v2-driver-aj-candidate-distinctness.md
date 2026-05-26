@@ -444,11 +444,11 @@ impl-review chain (= 後で fill = main agent merge 後 dashboard maintenance en
 - **ADR-0070 候補 起票 dependency 解除 confirmed** = ADR-0070 (= K bitmap pair distinct) 起票判断 dependency 解除、 user 明示 GO 必須 (= main agent autonomous で進めない、 ADR-0064 §決定 8 literal 整合)。
 - **ADR-0066 候補 (= 本番 cmd 切替) = ADR-0065 ε Accepted 後 future** = 順序固定 dependency 維持。
 
-#### γ-4: dashboard maintenance record placeholder (= merge 後 final update)
+#### γ-4: dashboard maintenance record final update (= merge 後 = 2026-05-26 41st session)
 
-- merge 前 = dashboard 0069 行 status = 「Accepted 移行 in flight (= γ PR4 起票時点 placeholder)」 + escalation 履歴 γ PR4 entry plan chain literal record + impl-review chain placeholder
-- merge 後 = dashboard 0069 行 status = 「**Accepted = ADR-0069 γ PR4 = PR #NNN MERGED at `<hash>`**」 final update + escalation 履歴 γ PR4 entry impl-review chain literal final update
-- 実装時順序固定 = merge 前 placeholder / merge 後 final update timing 厳格化 (= 事実確定前の dashboard 表現 risk prevention)
+- merge 前 (= γ PR4 起票時点 placeholder) = dashboard 0069 行 status 「Accepted 移行 in flight (= γ PR4 起票時点 placeholder)」 + escalation 履歴 γ PR4 entry plan chain literal record + impl-review chain placeholder
+- merge 後 final update = dashboard 0069 行 status 「**Accepted = ADR-0069 γ PR4 = PR #147 MERGED at `0cde9f6`**」 + escalation 履歴 γ PR4 entry impl-review chain literal final update (= round 1 revise + round 2 = first attempt hang 22m 26s cancel + retry approve、 詳細は γ-5 + dashboard 反映)
+- 実装時順序固定 = merge 前 placeholder / merge 後 final update timing 厳格化 confirmed (= 事実確定前の dashboard 表現 risk prevention 完走)
 
 #### γ-5: Codex layer 2 plan review chain literal + impl-review chain placeholder (= 後で fill = merge 後 dashboard maintenance entry に反映)
 
@@ -461,9 +461,15 @@ impl-review chain (= 後で fill = main agent merge 後 dashboard maintenance en
 
 = 計 MF 2 + nh 2 + lr 3 全反映、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 ADR-0067/0068 ε precedent 同 doc-only Draft → Accepted パターン継承 (= 1-2 round chain)。
 
-##### impl-review chain (= 後で fill = main agent merge 後 dashboard maintenance entry に反映)
+##### impl-review chain (= 41st session 2026-05-26、 main agent merge 後 final fill)
 
-placeholder。 PR4 起票 + impl-review approve loop + main agent merge 後に fill。
+| round | judgment | agentId / task id | finding 要点 |
+|---|---|---|---|
+| 1 | revise | agentId `a900324ea623831f4` | AXIS-3 stale wording FAIL = 「A-J candidate distinctness 達成」 wording 使用 13 箇所で同文脈併記 mandatory 違反 (= ADR doc 12 箇所 + dashboard 4 箇所) → fix-up commit `cd11851` で 4 件 literal 全併記反映 |
+| 2 (first attempt) | **cancelled** (= 機械復旧 rule) | task id `task-mpmdxn5c-2nz55f` | elapsed 22m 26s + log mtime 停滞 20m 34s = hang 判定 (= impl-review 20 分 threshold 超過) → main agent autonomous cancel + 1 retry (= memory `feedback_long_running_hang_auto_recovery_rule.md` + `feedback_codex_rescue_always_monitor.md` literal 適用、 41st session user 明示「帰ってくるのを待つ、 ことはせずポーリングによる死活管理、 自律的にリトライまでをする」 経路) |
+| 2 (retry) | **approve** | task id `task-mpmeteup-ekq7bq` | must-fix 0 + 全 8 軸 PASS (= AXIS-1 PR diff scope / AXIS-2 状態行 + Annex γ fill / AXIS-3 4 件 literal 全併記 18 箇所 + dashboard 4 箇所 / AXIS-4 ADR-0065/0066/0070 dependency / AXIS-5 branch 運用 4 条 / AXIS-6 §決定 5 rollback untouched / AXIS-7 dashboard placeholder + 順序固定 / AXIS-8 atomic 6 回目 + memory excluded)、 nh 0 + lr 1 (= merge 後 dashboard final update mandate)、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 Monitor tool 30s polling 死活管理経路で正常 terminal 検出 |
+
+= 計 MF 13 + nh 0 + lr 1 全反映、 round 2 hang 経路は機械復旧 rule literal 適用 (= cancel + 1 retry で approve、 41st session user 明示 polling 死活管理規律実証完了)、 設計対立なし、 ADR-0067/0068 ε precedent 同 pattern (= doc-only Draft → Accepted) + 機械復旧 rule 適用 1 回目 (= ADR-0048 ζ-δ-2 γ Codex round 2 4 時間 hang precedent 反省 + 41st session user 明示「polling、 自律 retry」 強化版実証完了)。
 
 ## 改訂履歴
 
