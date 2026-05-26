@@ -255,7 +255,7 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM LFO。容易性: ×難</td></tr>
+              <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM LFO。standalone_test.s に lfoset 系あり（v2で拡張中）</td></tr>
               <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSG LFO。容易性: ×難</td></tr>
               <tr><td>§9-3</td><td><code>MA</code></td><td><code>MA速度,深さ</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>振幅 LFO。容易性: ×難</td></tr>
               <tr><td>§9-4</td><td><code>MF</code></td><td><code>MF速度,深さ</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ピッチ LFO。容易性: ×難</td></tr>
@@ -270,8 +270,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§10-1</td><td><code>q</code></td><td><code>q1-8</code></td><td>-</td><td><span class="badge-done">✓ comq</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>ゲート比率。容易性: △中</td></tr>
-              <tr><td>§10-2</td><td><code>Q</code></td><td><code>Q0-8</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>絶対ゲート。容易性: △中</td></tr>
+              <tr><td>§10-1</td><td><code>q</code></td><td><code>q1-8</code></td><td>-</td><td><span class="badge-done">✓ comq</span></td><td><span class="badge-done">✓ comq系</span></td><td>完了</td><td>ゲート比率。standalone_test.s に comq/comq2/comq3/comq4 あり</td></tr>
+              <tr><td>§10-2</td><td><code>Q</code></td><td><code>Q0-8</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-done">✓ comq系</span></td><td>完了</td><td>絶対ゲート。standalone_test.s に複数 q ハンドラ実装済み</td></tr>
             </tbody>
           </table>
         </div>
@@ -283,8 +283,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§11-1</td><td><code>SE</code></td><td>SSG envelope</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSGエンベロープ。容易性: ×難</td></tr>
-              <tr><td>§11-2</td><td><code>SN</code></td><td>SSG noise freq</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSGノイズ。容易性: △中</td></tr>
+              <tr><td>§11-1</td><td><code>SE</code></td><td>SSG envelope</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>SSGエンベロープ。psgenvset / envelope_extend 系が古典テーブルにあり、v2でも一部利用可能</td></tr>
+              <tr><td>§11-2</td><td><code>SN</code></td><td>SSG noise freq</td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-done">✓ 部分</span></td><td>完了</td><td>SSGノイズ。psgnoise / psgnoise_move が存在</td></tr>
             </tbody>
           </table>
         </div>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 44d6490<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 6a8ec6a<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
