@@ -238,20 +238,22 @@ ADR-0069 α PR2 = A-J impl driver guarded change + 新規 routine additive 実�
 
 #### α-2: driver impl literal record (= edit diff)
 
-A-J 10 entry caller patch (= aj_idx mapping):
+A-J 10 entry caller patch (= aj_idx mapping、 line range は **impl 後の実 line 範囲** literal record):
 
-| aj_idx | part letter | line range | active 条件 |
-|---|---|---|---|
-| 0 | A | 1741-1748 | 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` (= ym2610b のみ init 部 active) 不変 |
-| 1 | B | 1749-1754 | 全 chip active |
-| 2 | C | 1755-1760 | 全 chip active |
-| 3 | D | 1761-1768 | 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` 不変 |
-| 4 | E | 1769-1774 | 全 chip active |
-| 5 | F | 1775-1780 | 全 chip active |
-| 6 | G | 1781-1786 | 全 chip active |
-| 7 | H | 1787-1792 | 全 chip active |
-| 8 | I | 1793-1798 | 全 chip active |
-| 9 | J | 1799-1804 | 全 chip active |
+| aj_idx | part letter | impl 前 line range (= 旧) | impl 後 line range (= 実 = `.if/.else/.endif` 3 段 wrap 拡張後) | active 条件 |
+|---|---|---|---|---|
+| 0 | A | 1741-1748 | 1744-1756 (= load 部 1744-1750 + 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` 1751-1756) | 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` (= ym2610b のみ init 部 active) 不変 |
+| 1 | B | 1749-1754 | 1757-1767 (= load 部 1757-1763 + init 部 1764-1767) | 全 chip active |
+| 2 | C | 1755-1760 | 1768-1778 | 全 chip active |
+| 3 | D | 1761-1768 | 1779-1791 (= load 部 + 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` 1786-1791) | 既存 `.if PMDNEO_TARGET_CHIP_YM2610B` 不変 |
+| 4 | E | 1769-1774 | 1792-1802 | 全 chip active |
+| 5 | F | 1775-1780 | 1803-1813 | 全 chip active |
+| 6 | G | 1781-1786 | 1814-1824 | 全 chip active |
+| 7 | H | 1787-1792 | 1825-1835 | 全 chip active |
+| 8 | I | 1793-1798 | 1836-1846 | 全 chip active |
+| 9 | J | 1799-1804 | 1847-1857 (= load 部 1847-1853 + init 部 1854-1857) | 全 chip active |
+
+= A-J 10 entry 範囲 (= 実 line) = **1744-1857** (= 旧 1741-1804 範囲 64 行 → 1744-1857 範囲 110 行 + 約 +46 行 = guarded change 3 段 wrap で 10 entry × ~6 行追加)。 K entry (= 旧 line 1805〜) は実 line 1858〜 にシフト。
 
 新規 routine 配置: K routine (= line 5865-5873 `pmdneo_mn_direct_load_k_part_addr::`) の `ret` 後 + `.endif` 前 (= 同 `.if PMDNEO_USE_PMDDOTNET == 1` block 内末尾)。 build .lst 上の address = K routine `0x15E2`、 新規 routine `0x15ED` (= K + 11 byte 後、 連続配置)。
 
