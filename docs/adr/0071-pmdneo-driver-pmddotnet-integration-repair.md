@@ -1216,6 +1216,51 @@ dashboard line 66 末尾の wording を以下に軽量 trim:
 | (B3) vs (B4) patch byte 量 | **PASS** | `.lst` レベル literal 計測 = patch (1) +15 byte (= 24 byte flag-on path - 9 byte flag-off path) + patch (2) +41 byte (= 47 byte flag-on path - 6 byte flag-off path) = **計 +56 byte net delta** (= plan v4 β-3-9-4 nh-r3-1「rough ~50-60 byte」 予測内) |
 | `.lst` predicate 4 件 | **PASS** | patch (1) `pmdneo_part_main_parse_rest_dotnet` inline label = 0x0C55 assemble 確認 + patch (2) `comt` 内 `.if PMDNEO_USE_PMDDOTNET` block = 0x0D70-0x0D9C assemble 確認 + 既存 routine body 完全不変 + 既存 symbol table 不変 (= 新規 inline label `pmdneo_part_main_parse_rest_dotnet` + `pmdneo_part_main_command` のみ追加) |
 
+#### β-4-1-1: δ MAME runtime functional verify 実施結果 (= 2026-05-27 43rd session ε Accepted 後 main agent autonomous default task 2 = user 明示 GO 受領 + 実施完了)
+
+ADR-0071 ε Accepted 後の main agent autonomous default task 2 (= user 明示「δ MAME runtime functional verify。 ADR-0071 の実装が MAME runtime で実際に機能するか確認」 + 「user audition には進まないでください。 まだ engineering verify です」) で MAME runtime verify 実施。
+
+##### 実施 build matrix
+
+| build | source | flag/fixture | sha256 | trace lines | 結果 |
+|---|---|---|---|---|---|
+| baseline (= USE=0) | post-patch | PMDNEO_USE_PMDDOTNET=0 + test01 chord | `457a237c...` | ymfm 4432 | song dispatch active + FM keyon F1/F2/F5/F6 + driver_tempo_d 0x18 (= t120) confirmed (= legacy 1-byte tempo path 経由) |
+| PMDDOTNET aj-distinctness | post-patch | PMDNEO_USE_PMDDOTNET=1 + `src/test-fixtures/axis-b/aj-distinctness-fixture.mml` | `4e67ad91...` | ymfm 4504 | A-F FM 6ch dispatch + driver_tempo_d 0x18 @ PC **0x0D9F** (= **patch (2) PMDDOTNET 3-byte path 経由**) confirmed |
+| PMDDOTNET test-rest-handler-rich | post-patch | PMDNEO_USE_PMDDOTNET=1 + `/tmp/pmdneo-audition/test-rest-handler-rich.mml` (= A-J 10 part note+rest pattern、 重複 fixture 配置せず repo 外 artifact carry) | (= 同 source) | ymfm 4686 | A-J FM keyon-keyoff alternating cycle (= rest opcode 0x0F 正常分岐 confirmed) + driver_tempo_d 0x18 |
+
+##### δ-1〜δ-7 gate 実施結果
+
+| gate | 結果 | 根拠 (= ground truth source) |
+|---|---|---|
+| δ-1 fm-active-ladder.mml audible | **BLOCKED on δ-5** | user 別作業 fixture + δ-5 silent wav 同根 (= voice opcode @N 未解釈、 ADR-0071 scope OUT (5)) |
+| δ-2 ssg-active-ladder.mml audible | **BLOCKED on δ-5** | user 別作業 fixture + δ-5 silent wav 同根 |
+| δ-3 candidate 2 v3 staircase audible | **BLOCKED on δ-5** | δ-5 silent wav 同根 |
+| **δ-4 既存 verify script regression** | **✅ PASS** | `verify-fadeout-semantics.sh` (= ADR-0050 16 gate、 transitively covers ADR-0049 mute 7 gate + baseline 9 script + ADR-0051 SSG tone-enable 15 gate = 計 47 gate) ALL PASS、 production sha256 invariant 維持 confirmed |
+| **δ-5 engineering gate executor** | **❌ FAIL on scope-out item** | `scripts/analyze-audition-wav.py` 4 層 gate Layer 1 WAV hygiene FAIL = wav RMS = -∞ dBFS (= silent) + duration mismatch (= 10.000s vs 8.000s tolerance ±0.1s)、 原因 = voice opcode `@N` が PMDDOTNET 経路で未解釈 (= ADR-0071 §決定 1 scope OUT (5) literal 該当)、 **patch failure ではなく ADR-0071 範囲外 issue**、 engineering gate framework は silent wav を correctly reject (= ADR-0065 sprint B framework 正常動作確認) |
+| **δ-6 patch (2) tempo 3-byte runtime** | **✅ PASS** | MAME z80-mem-trace で `driver_tempo_d` (0xF817) 書込確認 = idx 4680 PC **0x0D9F** value **0x18** = (120*13)>>6 = `t120` 換算値完全一致 (= aj-distinctness-fixture / test-rest-handler-rich 両 fixture で同値 confirmed)、 **patch (2) `comt` PMDDOTNET 3-byte handling inline embed runtime 動作確認** |
+| **δ-7 patch (1) rest 0x0F handler runtime** | **✅ PASS** | (1) pmddotnet_song.m binary に rest opcode 多数 (= `0f 18` 形式、 offsets 0x22/0x26/0x2A/0x32/0x36/0x3A 等) confirmed + (2) ymfm trace で FM 6ch (F0/F1/F2/F4/F5/F6) clean keyon-keyoff alternating cycle (= 4686 entries) = rest opcode 0x0F が rest 経路に正しく分岐、 garbage keyon 発生せず + (3) keyoff event sequence 0x28 0x00-0x06 が note-rest 周期と整合、 **patch (1) `pmdneo_part_main_parse` rest 0x0F handler runtime 動作確認** |
+
+##### 結論
+
+ADR-0071 ε Accepted の 2 patch (= patch (1) rest 0x0F handler + patch (2) tempo 3-byte handling) は **MAME runtime で機能的に動作確認** (= δ-6/δ-7 直接 verify + δ-4 regression-free)。 audio audible (= δ-1〜δ-3 + δ-5) は voice opcode @N 未解釈 (= ADR-0071 scope OUT (5)) により blocked = ADR-0071 範囲外 issue (= 別 ADR / 別 sprint scope、 user 明示 GO 必須)。
+
+##### wording 解禁状態 update (= ε Accepted + δ verify 実施結果反映)
+
+- **使用可** (= ε Accepted 後解禁済 + δ verify で機能的に確認):
+  - 「driver-PMDDOTNET integration repair (= rest 0x0F handler + tempo 3-byte) impl 完了」
+  - 「ADR-0071 patch (1) rest 0x0F handler MAME runtime 動作確認」
+  - 「ADR-0071 patch (2) tempo 3-byte handling MAME runtime 動作確認」
+- **使用不可** (= 併記必須要件未満):
+  - 「δ MAME runtime functional verify 完了」 (= audio audible 経路は voice opcode scope-out で BLOCKED、 全 7 gate PASS ではない)
+- **禁止維持** (= user 明示 GO 必須):
+  - (d) audition gate 達成 / roadmap ⑥ audition 完了
+  - production-ready 全体達成 / 軸 B 完成 / 軸 G 完成 / 本番 cmd 切替完了
+
+##### 後続 follow-up 候補 (= ADR-0071 範囲外)
+
+- **voice opcode @N PMDDOTNET 経路解釈** = ADR-0071 §決定 1 scope OUT (5) literal、 別 ADR / 別 sprint scope、 user 明示 GO 必須
+- **audio audible δ-1〜δ-3 + δ-5 再実施** = voice opcode follow-up sprint 完了後の re-verify、 user 明示 GO 必須
+
 #### β-4-2: δ MAME runtime functional verify = 別 follow-up task scope-out
 
 plan v3 β-2-6 + plan v5 β-3-7 で δ-1〜δ-7 functional gates が設定されていたが、 γ commit 後 retrospective Codex impl-review (= agentId `aa192214c5131de21`) で latent-risk として明示:
