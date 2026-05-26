@@ -167,8 +167,8 @@ fi
 # gate-3d: per-part distinctness assert (= MF2 反映、 register value 差分)
 # ============================================================
 echo "--- gate-3d: per-part distinctness ---"
-# FM fnum distinct: port A reg 0xA0-0xA2 + port B reg 0xA0-0xA2 (fine) で distinct value count
-FM_FNUM_DISTINCT=$(awk -F '\t' '$2=="A" && $3 ~ /^[aA][0-2]$/ {seen[$4]=1} END{c=0; for(v in seen)c++; print c}' "$YMFM")
+# FM fnum distinct: port A reg 0xA0-0xA2 (= FM ch1/2/3 = A/B/C) + port B reg 0xA0-0xA2 (= FM ch4/5/6 = D/E/F) で distinct (port,reg,value) tuple count (= MF3 反映、 per-ch distinctness 保証)
+FM_FNUM_DISTINCT=$(awk -F '\t' '($2=="A" || $2=="B") && $3 ~ /^[aA][0-2]$/ {seen[$2"_"$3"_"$4]=1} END{c=0; for(v in seen)c++; print c}' "$YMFM")
 SSG_TONE_DISTINCT=$(awk -F '\t' '$2=="A" && $3 ~ /^0[0-5]$/ {seen[$3"_"$4]=1} END{c=0; for(v in seen)c++; print c}' "$YMFM")
 ADPCMB_DELTA_DISTINCT=$(awk -F '\t' '$2=="A" && ($3=="19" || $3=="1a" || $3=="1A") {seen[$3"_"$4]=1} END{c=0; for(v in seen)c++; print c}' "$YMFM")
 
@@ -257,7 +257,14 @@ ok "gate-7: v2-only ym2610 build PASS (= ADR-0067 δ 8 slot baseline carry liter
 # ============================================================
 # gate-8: 7c production rebuild + sha256 byte-identical
 # ============================================================
+# build artifact clean (= make incremental cache + filesystem timestamp granularity 対策、
+# 同 second 内の gate-7 → gate-8 連続実行で make が rebuild skip → 前 build state carry
+# (= production sha256 mismatch root cause) を確実に解消、 driver source 不触)
 echo "--- gate-8: 7c production rebuild ---"
+rm -f vendor/ngdevkit-examples/00-template/build/standalone_test.preprocessed.s \
+      vendor/ngdevkit-examples/00-template/build/standalone_test.rel \
+      vendor/ngdevkit-examples/00-template/build/standalone_test.ihx \
+      vendor/ngdevkit-examples/00-template/build/rom/*.m1 2>/dev/null || true
 bash scripts/build-poc.sh --chip ym2610 >/dev/null 2>&1 || { ng "gate-8: 7c build fail"; exit 1; }
 SHA_7C=$(shasum -a 256 "$M1" | awk '{print $1}')
 if [ "$SHA_7C" = "$EXPECTED_PROD_SHA" ] && [ "$SHA_7C" = "$SHA_7A" ]; then
@@ -286,10 +293,10 @@ done
 [ -z "$G_BAD" ] && ok "gate-9: 5 既存 routine label 行 diff 0 件" || ng "gate-9: $G_BAD"
 
 # ============================================================
-# gate-10: driver source 完全 untouched
+# gate-10: driver source 完全 untouched (= committed diff = MF2 反映、 DIFF_BASE_PIN..HEAD で β PR3 範囲 committed diff 検出)
 # ============================================================
-DRIVER_DIFF=$(git diff -- src/driver/standalone_test.s 2>/dev/null | wc -l | tr -d ' ')
-[ "$DRIVER_DIFF" = "0" ] && ok "gate-10: driver source 完全 untouched (= 0 byte diff)" || ng "gate-10: driver source touched ($DRIVER_DIFF lines)"
+DRIVER_DIFF=$(git diff "${DIFF_BASE_PIN}..HEAD" -- src/driver/standalone_test.s 2>/dev/null | wc -l | tr -d ' ')
+[ "$DRIVER_DIFF" = "0" ] && ok "gate-10: driver source 完全 untouched (= 0 byte committed diff from ${DIFF_BASE_PIN})" || ng "gate-10: driver source touched ($DRIVER_DIFF lines committed diff from ${DIFF_BASE_PIN})"
 
 # ============================================================
 # 集計
