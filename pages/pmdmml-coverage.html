@@ -142,8 +142,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§1-1</td><td><code>#</code></td><td>comment</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>compile.py Phase 9c</td><td>コメント。容易性: ◎容易</td></tr>
-              <tr><td>§1-2</td><td><code>/</code></td><td>part separator</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9d</td><td>パート区切り。容易性: ◎容易</td></tr>
+              <tr><td>§1-1</td><td><code>#</code></td><td>comment</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-done">✓ 実装済</span></td><td>完了</td><td>コメント。driver 側では無視で問題なし。</td></tr>
+              <tr><td>§1-2</td><td><code>/</code></td><td>part separator</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-done">✓ 実装済</span></td><td>完了</td><td>パート区切り。driver のパート管理で自然に扱われている。</td></tr>
             </tbody>
           </table>
         </div>
@@ -156,7 +156,7 @@
             </thead>
             <tbody>
               <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
-              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。comt は存在するが、T コマンドの拡張機能は未。</td></tr>
+              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。comt はあるが T の多機能版は未。</td></tr>
               <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。v2 未実装。</td></tr>
             </tbody>
           </table>
@@ -214,8 +214,8 @@
             </thead>
             <tbody>
               <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。</td></tr>
-              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。comat は SSG をスキップする設計のため未対応。</td></tr>
-              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 driver ではまだ本格対応なし。</td></tr>
+              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。comat は SSG を無視する設計。</td></tr>
+              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 では未実装。</td></tr>
             </tbody>
           </table>
         </div>
@@ -256,7 +256,7 @@
             </thead>
             <tbody>
               <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM LFO。standalone_test.s に lfoset 系あり（v2で拡張中）</td></tr>
-              <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSG LFO。v2 での優先度低め。</td></tr>
+              <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSG LFO。v2 未対応。</td></tr>
               <tr><td>§9-3</td><td><code>MA</code></td><td><code>MA速度,深さ</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>振幅 LFO。未実装。</td></tr>
               <tr><td>§9-4</td><td><code>MF</code></td><td><code>MF速度,深さ</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ピッチ LFO。未実装。</td></tr>
             </tbody>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main d12e6f7<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 12d3ca2<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
