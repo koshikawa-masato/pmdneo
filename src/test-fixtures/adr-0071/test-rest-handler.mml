@@ -1,0 +1,16 @@
+#Title		ADR-0071 test-rest-handler patch (1) verify
+#Composer	PMDNEO ADR-0071 sprint γ impl
+
+; ADR-0071 patch (1) = pmdneo_part_main_parse rest 0x0F handler verify fixture
+; PMDDotNET emits rest as 0x0F + length byte (= agent 1 finding literal)
+; This fixture exercises rest opcode emit to verify patch (1) catches it
+; Expected: r4 → 0x0F 0x04 emit (= PMDDotNET tempoa() peer encoding pattern)
+
+; FM voice 1 minimal (= aj-distinctness-fixture.mml precedent)
+@001 000 000
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+B	@001 v15 o4 c4r4d4r4e4r4f4r4g4r4a4r4b4r4o5c4

@@ -1,0 +1,19 @@
+#Title		ADR-0071 test-tempo-encoding patch (2) verify
+#Composer	PMDNEO ADR-0071 sprint γ impl
+
+; ADR-0071 patch (2) = comt routine tempo 3-byte handling verify fixture
+; PMDDotNET emits tempo as 0xFC 0xFF <BPM raw> 3-byte (= agent 5 finding literal、 mc.cs:7474-7479)
+; This fixture exercises multiple tempo changes to verify patch (2) handles correctly
+; Expected:
+;   t100 → 0xFC 0xFF 0x64、 driver_tempo_d = (100*13)>>6 = 0x14
+;   t120 → 0xFC 0xFF 0x78、 driver_tempo_d = (120*13)>>6 = 0x18
+;   t60  → 0xFC 0xFF 0x3C、 driver_tempo_d = (60*13)>>6  = 0x0C
+
+; FM voice 1 minimal
+@001 000 000
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+B	t100 @001 v15 o4 c4d4e4f4 t120 g4a4b4o5c4 t60 d4e4f4g4
