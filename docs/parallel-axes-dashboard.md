@@ -4,6 +4,24 @@ ADR-0041 §決定 7 で確立した一元管理 dashboard。 主軸 (= Claude Co
 
 **doc-governance**: AI 協働用 dashboard (= memory `feedback_doc_governance_two_systems.md` 規律遵守、 ground truth として扱う)、 人間向け公開 docs ではない。 修正は主軸が行い、 sub-agent prompt は本 dashboard を context として read。
 
+## production baseline (= active = post-ADR-0071 ε Accepted)
+
+**現在の active production baseline sha256 = `457a237cd696e09bc99f707d13bc8851c75faf7225eee5e0d4c7111980ca9092`** (= `vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` = Z80 driver binary、 PMDNEO_CHIP=ym2610b + PMDNEO_USE_PMDDOTNET=0 + no PMDDOTNET_MML build artifact)
+
+- **確定経緯**: ADR-0071 sprint γ impl (= 2026-05-27 43rd session、 PR #153 MERGED at `665b494`) で base anchor `wip-pmddotnet-opnb-extension@36330a6` baseline = `457a237c...` 確認 + post-patch flag-off byte-identical 維持 verify
+- **対象 file**: m1.m1 (= 131072 byte Z80 driver binary、 `vendor/ngdevkit-examples/00-template/build/rom/`)
+- **build 条件**: `PMDNEO_CHIP=ym2610b` + `PMDNEO_USE_PMDDOTNET=0` (= production default、 PMDDotNET 経路無効) + no `PMDDOTNET_MML` (= 自前 compile.py 経路のみ)
+- **invariant 規律**: 全 driver source 変更は本 baseline byte-identical を破らないこと (= guarded change `.if PMDNEO_USE_PMDDOTNET ... .endif` 配下限定 + production default flag-off で完全無効化、 ADR-0069 §決定 4 + ADR-0071 §決定 3 precedent 継承)
+
+### historical baseline reference (= preserve)
+
+ADR-0048〜ADR-0070 era で記録された `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` は interim 経緯由来の **historical baseline reference** = 各 ADR 起票時に当時の baseline として記録されたもの。 ADR-0071 sprint γ で base anchor 時点では既に shift 済 (= 介在 commit 群で source / toolchain 変動由来推定) と判明、 ただし各 ADR の historical record は immutable mandate (= memory `feedback_doc_governance_two_systems.md`) として完全保持。
+
+- **historical reference 値**: `b15883fe...` (= ADR-0048 ζ-ε Accepted 〜 ADR-0070 候補 era、 各 ADR で「production sha256 維持」 mandate として記録)
+- **active reference 値**: `457a237c...` (= 本 production baseline section literal、 ADR-0071 ε Accepted 後 future ADR / sprint で参照すべき active baseline)
+- **shift 時点 unknown** = ADR-0048 ζ-ε Accepted 〜 ADR-0065 sprint B 完走 era の間で source / toolchain 何らかの変動由来、 retroactive 検証は別 task scope-out (= 機械置換せず + 各 ADR historical record 完全保持)
+- **future ADR / sprint 規律**: 本 production baseline section の `457a237c...` を canonical active baseline として参照、 ADR-0048〜0070 era reference は historical context として扱う
+
 ## 軸予約表
 
 | 軸 | branch | 予約 ADR 番号 | 状態 | 直近 commit | 直近 Codex review | 次の user 関与 |
