@@ -1740,6 +1740,10 @@ body.theme-arcade .note::before { color: #FF3D88; }
         '<td><span class="cat cat-' + row.category + '">' + row.category + '</span></td>' +
         (op.columns || []).map(col => {
           const v = row[col.key] || 'tbd';
+          let memo = row._memo || '';
+          if (col.key === 'driver' && row.driver_detail) {
+            memo = row.driver_detail;
+          }
           return '<td style="text-align:center"><span class="st ' + statusClass(v) + '"' +
                  ' data-tip="cell"' +
                  ' data-tip-opcode="'  + escapeAttr(row.opcode || '') + '"' +
@@ -1750,7 +1754,7 @@ body.theme-arcade .note::before { color: #FF3D88; }
                  ' data-tip-axis-ref="'+ escapeAttr(col.ref || '') + '"' +
                  ' data-tip-status="'  + escapeAttr(v) + '"' +
                  ' data-tip-sprint="'  + escapeAttr(row._sprint || '') + '"' +
-                 ' data-tip-memo="'    + escapeAttr(row._memo || '') + '"' +
+                 ' data-tip-memo="'    + escapeAttr(memo) + '"' +
                  '>' + statusSymbol(v) + '</span></td>';
         }).join('');
       body.appendChild(tr);
