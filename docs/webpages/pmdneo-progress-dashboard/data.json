@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-27",
-    "schemaVersion": "static/generated@d4ea252",
+    "schemaVersion": "static/generated@05f0e44",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "d4ea2525ce1e6c919c4d3566c6d9518df333ad2c",
-      "shortSha": "d4ea252",
-      "date": "2026-05-27T08:38:02+09:00",
-      "message": "docs(dashboard): production baseline marker 新規 section 追加 = post-ADR-0071 ε Accepted active baseline reference 確立 (= 2026-05-27 43rd session、 ADR-0071 ε Accepted (= PR #153 MERGED at `665b494`) 後の main agent autonomous default task 1/2 = dashboard baseline reference update、 user 明示「歴史的な旧 baseline として残すべき箇所まで機械的に置換しないでください + 現在の active baseline / post-ADR-0071 baseline として参照すべき箇所に限定 + ADR の historical record は保持」 mandate 適用)",
+      "sha": "05f0e44c8fccc7e26a5c31c6df3bca9fead07dff",
+      "shortSha": "05f0e44",
+      "date": "2026-05-27T08:51:35+09:00",
+      "message": "docs(adr-0071+dashboard): δ MAME runtime functional verify 実施結果 literal record (= 2026-05-27 43rd session、 ADR-0071 ε Accepted 後 main agent autonomous default task 2 = user 明示 GO「δ MAME runtime functional verify。 ADR-0071 の実装が MAME runtime で実際に機能するか確認、 δ-1〜δ-7 gate を実施、 user audition には進まない = engineering verify」 受領 + 実施完了、 集約 branch direct edit、 PR 経由不要 = main agent autonomous default mandate)",
       "author": "masato.koshikawa",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/d4ea2525ce1e6c919c4d3566c6d9518df333ad2c"
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/05f0e44c8fccc7e26a5c31c6df3bca9fead07dff"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
