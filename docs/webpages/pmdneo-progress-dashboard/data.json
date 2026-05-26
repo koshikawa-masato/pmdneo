@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-26",
-    "schemaVersion": "static/generated@f1c84f6",
+    "schemaVersion": "static/generated@d12a7bd",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "f1c84f6a0b29eb6aecffeee06c790e14d8f9f445",
-      "shortSha": "f1c84f6",
-      "date": "2026-05-26T14:38:48+09:00",
-      "message": "docs: keep MML dashboard columns aligned",
+      "sha": "d12a7bdf8c505489881c845fcda326221d21cb26",
+      "shortSha": "d12a7bd",
+      "date": "2026-05-26T14:52:54+09:00",
+      "message": "docs: generate progress dashboard data on push",
       "author": "masato.koshikawa",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/f1c84f6a0b29eb6aecffeee06c790e14d8f9f445"
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/d12a7bdf8c505489881c845fcda326221d21cb26"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
