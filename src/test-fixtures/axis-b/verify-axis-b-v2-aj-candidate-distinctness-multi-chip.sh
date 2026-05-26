@@ -173,7 +173,7 @@ SSG_TONE_DISTINCT=$(awk -F '\t' '$2=="A" && $3 ~ /^0[0-5]$/ {seen[$3"_"$4]=1} EN
 ADPCMB_DELTA_DISTINCT=$(awk -F '\t' '$2=="A" && ($3=="19" || $3=="1a" || $3=="1A") {seen[$3"_"$4]=1} END{c=0; for(v in seen)c++; print c}' "$YMFM")
 
 # expected: FM fnum distinct ≥ 4 (= A/B/C/D/E/F = 6 part 全 distinct なら 6 だが reg 共通使用で実値 4-6)
-# expected: SSG tone distinct ≥ 4 (= 3 voice × 2 reg = 6 だが per-voice distinct で 3-6)
+# expected: SSG tone distinct ≥ 3 (= 3 voice × 2 reg = 6 だが per-voice distinct で 3-6、 threshold は actual 下限 3 に整合)
 # expected: ADPCM-B delta-N distinct ≥ 1 (= J 1 part = 1-2)
 if [ "$FM_FNUM_DISTINCT" -ge 4 ]; then ok "gate-3d FM fnum distinct=$FM_FNUM_DISTINCT (≥4)"; else ng "gate-3d FM fnum distinct=$FM_FNUM_DISTINCT (<4)"; fi
 if [ "$SSG_TONE_DISTINCT" -ge 3 ]; then ok "gate-3d SSG tone distinct=$SSG_TONE_DISTINCT (≥3)"; else ng "gate-3d SSG tone distinct=$SSG_TONE_DISTINCT (<3)"; fi
