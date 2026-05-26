@@ -775,6 +775,161 @@ placeholder (= main agent merge 後 final fill)。
 
 placeholder (= main agent merge 後 final fill)。
 
+#### β-10 = sprint B implementation record + final threshold + Layer 2 機械判定 spec + test coverage + candidate 評価 approach + latent risk + Codex chain (= 42nd session sprint B 起票、 sprint A Annex β-9 暫定 threshold final 確定 + 機械判定 spec literal 拡張)
+
+##### β-10-1: sprint B implementation overview + final threshold record literal
+
+`scripts/analyze-audition-wav.py` v1.0 + `scripts/test_analyze_audition_wav.py` v1.0 = sprint B 実装完了。 4 層 engineering gate executor + 9 test method (= 8 case + 8b split) fixture-based verification 完備、 全 9 test PASS confirmed。
+
+**Final thresholds** (= sprint A Annex β-9-1/β-9-3 暫定 → sprint B initial final 確定):
+
+| Threshold | value | rationale |
+|---|---|---|
+| `DURATION_TOLERANCE_SEC` | 0.1 | sprint A Annex β-9-1 暫定 carry as final、 duration 不一致弾く threshold |
+| `SILENCE_THRESHOLD_DBFS` | -60.0 | sprint A β-9-1 暫定 carry、 無音 fadeout 弾く threshold (= candidate 3 user 観測 evidence mimic) |
+| `CLIPPING_THRESHOLD` | 0.01 (= 1%) | sprint A β-9-1 暫定 carry |
+| `SAMPLE_RATE_EXPECTED` | 48000 Hz | exact match mandate、 sprint A β-9-1 と同値 |
+| `LOW_FREQ_DOMINANCE_THRESHOLD` | 0.7 | < `LOW_FREQ_CUTOFF_HZ` 帯域 energy fraction、 異常低音持続検出 (= candidate 2 user 観測 evidence mimic)、 通常 music は bass < 200Hz energy 30-50%、 70% 超持続は単一周波数 dominance 異常 target window、 **sprint B initial value で正常 bass/rhythm/ADPCM-A material 誤 reject risk あり → LR1 = production binary baseline で再 calibration 必要 sprint B 完走後 follow-up 候補** |
+| `LOW_FREQ_CUTOFF_HZ` | 200 | 低音判定 cutoff frequency |
+| `L2_DIFF_THRESHOLD` | 0.5 | baseline waveform L2 norm / sqrt(N) (= normalized RMS-like)、 identical → ≈ 0、 異質 → > 1.0、 0.5 = 中間 threshold |
+| `SPECTRAL_SIMILARITY_THRESHOLD` | 0.6 | STFT magnitude cosine similarity、 identical → 1.0、 完全異質 → ≈ 0、 0.6 = 概ね類似 target |
+| `EVENT_TIMESTAMP_TOLERANCE_US` | 10000 (= 10ms) | event timestamp 一致判定 tolerance |
+| `ENERGY_CORRESPONDENCE_WINDOW_PRE_MS` | 50 | note-on 前 window |
+| `ENERGY_CORRESPONDENCE_WINDOW_POST_MS` | 150 | note-on 後 window |
+| `ENERGY_CORRESPONDENCE_RATE_THRESHOLD` | 0.9 | 90% 以上の note-on event で wav energy 確認 mandate |
+
+##### β-10-2: Layer 2 trace event/wav energy correspondence 機械判定 spec literal
+
+###### Trace parse format
+
+- Input: MAME register trace file (= text format、 each line = register write event)
+- Expected line format: `<timestamp_us> <chip_target> <register_addr_hex> <value_hex>` (= space-separated、 例 `1234567 ym2610_a 0x10 0x80`)
+- Flexible regex parsing (= `_TRACE_LINE_RE = r"^\s*(\d+)\s+(\S+)\s+(?:0x)?([0-9a-fA-F]+)\s+(?:0x)?([0-9a-fA-F]+)\s*$"`)
+- Parse output: list of dict `{timestamp_us: int, chip_target: str, register_addr: int, value: int}`
+
+###### Expected event JSON format
+
+```json
+{
+  "material_description": "...",
+  "judgment_expected": "...",
+  "duration_sec": <float>,
+  "events": [
+    {"timestamp_us": <int>, "chip_target": "ym2610_a|ym2610_b",
+     "register_addr": <int>, "value": <int>, "event_type": "note_on|note_off|register_write"}
+  ]
+}
+```
+
+###### Event field match
+
+各 expected event → trace events で field 全一致:
+- `chip_target` exact match
+- `register_addr` exact match
+- `value` exact match
+- `timestamp_us` within ± `EVENT_TIMESTAMP_TOLERANCE_US` (= 10ms) tolerance
+
+mismatch_count = expected events で trace に対応なし数。 **mismatch_count = 0 mandate** (= 1 件でも Layer 2 FAIL)。
+
+###### Wav energy correspondence
+
+Filter expected events で `event_type == "note_on"` → note-on event list。
+
+各 note-on event timestamp T (sec) について:
+- window = `samples[(T - 0.05) * sr : (T + 0.15) * sr]` (= -50ms to +150ms)
+- window RMS dBFS = `20 * log10(sqrt(mean(window^2)))`
+- energy_pass: RMS > `SILENCE_THRESHOLD_DBFS` (= -60 dBFS)
+- energy_fail: それ以外
+
+energy_correspondence_rate = energy_pass / (energy_pass + energy_fail) for note-on events。
+
+**energy_correspondence_rate >= 0.9 mandate** (= 90% 以上の note-on で wav energy 確認)。
+
+###### Layer 2 verdict logic
+
+| condition | verdict |
+|---|---|
+| `expected.events` 空 or trace file 不在 | **skip** (= layer 2 評価対象外) |
+| mismatch_count = 0 AND energy_correspondence_rate >= 0.9 | **pass** |
+| mismatch_count > 0 OR energy_correspondence_rate < 0.9 | **fail** |
+
+##### β-10-3: test case coverage 8 件 literal (= 実装は 9 test method = 8 case + 8b split)
+
+| Case | description | expected verdict | layer triggered |
+|---|---|---|---|
+| 1 | silence wav (= 1s zero amplitude) | FAIL | Layer 1 silence detection (= mimics candidate 3「無音 fadeout」 user 観測 evidence) |
+| 2 | 100Hz sine wav (= 1s high amplitude pure low-freq) | FAIL | Layer 1 low-freq dominance (= mimics candidate 2「ものすごい低音持続」 user 観測 evidence) |
+| 3 | clean multi-tone wav (= 1s 440Hz + 880Hz + 1320Hz balanced) | PASS | Layer 1 全 check pass |
+| 4 | clipping wav (= 1s saturated amplitude clip 1.0) | FAIL | Layer 1 clipping rate |
+| 5 | duration mismatch wav (= actual 2s vs expected 1s) | FAIL | Layer 1 duration check |
+| 6 | trace event mismatch (= expected events 1 件、 trace file 空) | FAIL | Layer 2 mismatch_count > 0 |
+| 7 | readiness report integration (= clean wav + valid trace + matching events) | PASS | Layer 1/2 PASS + Layer 3 skip + Layer 4 report 生成 + JSON schema valid + exit code 0 |
+| 8a | baseline skip (= no `--baseline` arg) | PASS | Layer 3 skip + auto pass |
+| 8b | baseline smoke (= `--baseline` = 同 wav) | PASS | Layer 3 PASS (= L2 ≈ 0, cosine ≈ 1) |
+
+test run: `python3 scripts/test_analyze_audition_wav.py` → 全 9 test expected behavior 一致で exit 0、 mismatch あれば exit 1。 sprint B 実装時 9 test 全 PASS confirmed。
+
+##### β-10-4: candidate 2/3 評価 approach + actual wav follow-up
+
+###### sprint B 内検証 (= 完走条件)
+
+synthetic fixture Case 1 (= silence) + Case 2 (= 100Hz sine) で「無音 fadeout」 + 「ものすごい低音持続」 pattern を mimic = gate が正しく reject 機械的 demonstrate。 これにより gate が candidate 2/3 actual rendered wav に適用された場合も同 reject pattern であろうこと **機械的検証完了** (= memory `feedback_codex_rescue_audition_material_review_prompt.md` user 必須軸 1 + 2 を synthetic 経由で confirm)。
+
+###### Actual candidate 2/3 wav file 評価 (= sprint B 完走後 follow-up)
+
+- sprint B Accepted 条件 = synthetic fixture 全 9 test pass + Annex β-10 fill + ADR-0065 改訂履歴 + 平易要約 + dashboard update
+- Actual rendered candidate 2/3 wav file 適用 = sprint B merge 後 user が wav file path を main agent に提供 → main agent が `python3 scripts/analyze-audition-wav.py --wav <path> ...` 実行 (= follow-up integration verify task、 別 task or sprint B-α 候補)
+- candidate 2/3 actual wav が gate FAIL なら audition material としては「現状 render では aesthetic judgment 不成立」 confirm (= sprint A Annex β-8-3 採否 revise 結果と整合)
+- candidate 2/3 actual wav が gate PASS なら main agent が user audition に提示可能 = δ session 再開条件成立 (= ただし user 明示 GO mandate 維持)
+
+##### β-10-5: latent risk reflection literal
+
+###### LR1: LOW_FREQ_DOMINANCE_THRESHOLD = 0.7 calibration follow-up
+
+`LOW_FREQ_DOMINANCE_THRESHOLD = 0.7` は sprint B initial value。 正常な bass/rhythm/ADPCM-A material (= 例: PMD V4.8s rhythm pattern + ADPCM-A bass drum) を **誤 reject する可能性あり**。 production binary baseline (= 既知 PASS material wav) で再 calibration 必要。
+
+→ **sprint B 完走後 LR1 calibration sprint or sprint B-α 候補** (= user 明示 GO 必須)。 sprint B 内では Annex β-10-1 + 本 β-10-5 に initial value literal record + risk 明示。
+
+###### LR2: metric pass != aesthetic approve 混同再発 risk
+
+memory `feedback_metric_pass_is_not_aesthetic_pass.md` 規律 = **metric pass != aesthetic approve**。 sprint B gate ALL PASS = 「engineering gate clear = human audition に出して OK」 = 機械的検証通過。 aesthetic accept (= 越川氏「これで OK」 審美判断) では **ない**。
+
+readiness report literal で literal 明示:
+- 「metric pass = engineering gate clear (= 無音 / 異常音 / duration 不一致 / 異常低音持続 等の process failure 排除)」
+- 「aesthetic accept (= 越川氏 audition approve) は user authoritative role」
+- 「この gate は前段の engineering 検査のみ」
+
+script docstring + readiness report 文末 + 平易要約 sprint B 解釈 で再強調 = 混同再発防止。
+
+##### β-10-6: 不可触対象 confirm + Codex layer 2 plan review chain literal + impl-review chain placeholder
+
+###### 不可触対象 confirm
+
+- driver source (= `src/driver/standalone_test.s`) / 既存 verify script (= ADR-0049〜0068 全) / 既存 fixture MML / 新規 fixture MML / vendor / 既存 build flag
+- ADR-0048 軸 G ε partial state placement (= 0xFD32-0xFD38) / ADR-0026 §決定 3/4 / ADR-0041〜0064 / ADR-0066-0069 本文 + Annex
+- **ADR-0065 既存 §決定 1-14 本文 (= sprint A merge 後 immutable carry)**
+- **ADR-0065 既存 Annex A/B/α/β-1〜β-9/γ-1〜γ-5/δ/ε placeholder (= sprint A merge 後 immutable carry)**
+- 既存 改訂履歴 7 entries (= sprint A 含む、 append only mandate)
+- 既存 平易要約 10 sub-section blocks (= sprint A 含む、 append only mandate)
+- 既存 scripts (= `analyze-audio.py` + `audition_pairwise.py` + `analyze-loop-trace.py` etc) = 不変
+- `wip-dashboard-coverage` branch + `docs/dashboard/` untracked
+- 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5`
+- 集約 branch 上 user 別作業 untracked
+- production sha256 `b15883fe...` 維持 (= driver 不変、 新規 .py 2 件追加 + doc 更新のみ、 build 走らない)
+
+###### Codex layer 2 plan review chain literal (= 42nd session 2026-05-26 sprint B)
+
+| round | judgment | finding 要点 | agentId | elapsed |
+|---|---|---|---|---|
+| 1 | **revise** | 3 must-fix (= threshold final 記録先 + Layer 2 機械判定 spec + test 8 件 expansion) + 2 nh + 2 lr | `acefd05489548cac9` | 2m 33s |
+| 2 | **approve** | round 1 must-fix + nh + lr 全 REFLECTED + 全 10 軸 PASS (= user 必須 5 軸 + standard 5 軸) + must-fix 0 + lr 2 carry (= LR1 + LR2) | `a6836a49ac6b45d89` | 1m 49s |
+
+= 2 round chain approve、 全 review-only 遵守 confirmed + 越権操作なし confirmed。 冒頭 7 件 literal 強調遵守 (= memory `feedback_codex_layer2_review_no_commit_authority.md` 6 件 + memory `feedback_main_agent_engineering_responsibility.md` 1 件)。
+
+###### impl-review chain (= 42nd session 2026-05-26、 main agent merge 後 final fill)
+
+placeholder (= main agent merge 後 final fill)。
+
 ### Annex γ: sub-sprint γ acceptance gate criteria 定義 doc-only (= γ PR4 fill 完了 = 41st session 2026-05-26)
 
 #### γ-1: γ PR4 scope literal
@@ -915,6 +1070,7 @@ placeholder。
 | 2026-05-26 | 41st session | ADR-0065 sub-sprint β PR3 再起票 record (= halt 解消後 再開、 ADR-0069 Accepted (= 2026-05-26 41st session、 PR #147 MERGED at `0cde9f6` + final maintenance `916b600`) 後の β/δ 再開 trigger 発火 confirmed、 base anchor `wip-pmddotnet-opnb-extension@916b600`、 user 明示 GO「ADR-0065 β PR3 再起票が自然な次。 scope = audition material 選定 doc-only。 K bitmap pair distinct は ADR-0070 future として β scope に混ぜない。 必要なら新規 audition material MML 候補」 受領 + 主軸並走 3 sub-agent investigation 完了 (= Agent A = aj-distinctness-fixture audition 適性 / Agent B = PMDDotNET 既存 MML 候補 / Agent C = rhythm/ADPCM-A material + 新規 material 必要性) + Codex layer 2 plan review 1 round chain approve plan v1 (= agentId `a1eeb29251ac69e48`、 must-fix 0 + 全 8 軸 PASS = AXIS-1 scope coverage / AXIS-2 allowed-touch + immutable / AXIS-3 audition material candidate evaluation / AXIS-4 aesthetic judgment prerequisite / AXIS-5 wording constraint compliance / AXIS-6 rollback condition untouched carry / AXIS-7 branch rule 4-mandate compliance / AXIS-8 atomic 1-set 7th application + memory excluded、 nh 2 + lr 3 全反映 = NH1 = 4 件 mandatory co-mentions 固定 boilerplate (= β-7-1 反映) + NH2 = dashboard row status 具体化 (= dashboard 修正で反映) + LR1 = candidate file line count 実 read verify (= β-7-2 反映 = 32/84/23 行 confirmed) + LR2 = 改訂履歴 append only mandate (= 本 entry literal record) + LR3 = dashboard row status concrete wording (= dashboard 修正で final wording))、 全 review-only + 越権操作なし + 冒頭 6 件 literal 強調遵守 confirmed)。 ADR doc 修正範囲 = (1) §決定 2 β row 完了判定 column update (= 「halt (= pending、 ADR-0069 完走後 再開、 user option 3 採用)」 → 「halt 解消後 再起票完了 = ADR-0069 Accepted 後 41st session、 candidate 4 件評価 + 採否判定 record 完了、 詳細 Annex β-7 fill 参照」) + (2) Annex β に新規 sub-section β-7 fill (= β-7-1 再開条件成立 confirm + 同文脈併記 mandatory 4 件 boilerplate literal = NH1 反映 + β-7-2 audition material 候補 4 件 evaluation literal = 実 read verify line count 32/84/23 + part coverage + 演奏時間 + audition 適性 literal + β-7-3 採否判定 final list = candidate 1 補助採用 (= acoustic verify gate) + candidate 2 部分採用 (= A/B/C/I 部分 audition、 D/E/F/G/H/J 欠落明示) + candidate 3 採用 (= rhythm/ADPCM-A audition) + candidate 4 将来検討 defer (= user 明示 GO 必須 mandate) + β-7-4 「実 MML を聴いて aesthetic judgment」 前提成立条件 = candidate 2+3 部分達成 = 11 part coverage (= 65%)、 全 17 part full coverage = candidate 4 future + β-7-5 不可触対象 confirm + Codex layer 2 plan review chain literal + impl-review chain placeholder) + (3) 改訂履歴 β PR3 再起票 entry 追加 (= 本 entry、 append only mandate = LR2 反映 = 既存 entry 書き換えなし) + (4) 平易要約 β PR3 再起票 context section 追加 (= 6 構造 = やりたいこと / 前提 / やったこと / 結果 / 解釈 / 次)。 dashboard 修正範囲 = (5) 0065 行 status update 「Draft + α 完了 + retrospective approve + β halt (= ADR-0069 先行 dependency)」 → 「**Draft + α 完了 + retrospective approve + β PR3 再起票 in flight** (= γ PR4 起票時点 placeholder、 merge 後 final update timing 厳格化 = ADR-0069 γ PR4 precedent 同 pattern)」 (= NH2/LR3 反映 = placeholder 用途明示) + (6) escalation 履歴 β PR3 再起票 entry 1 row 新規追加 (= 既存 ADR-0069 γ PR4 entry 直前 = 最新位置、 plan chain literal record + impl-review chain placeholder)。 memory 修正 = (7) `project_pmdneo_adr_0065_initiated.md` 末尾 β PR3 再起票 update section 追加 + MEMORY.md index entry update (= 「Draft + α/β 完了 = audition material 選定 + 採否判定 record」 state 反映、 別途、 repo 外、 PR diff target 完全 excluded、 main agent direct Write/Edit、 merge 後実施)。 driver / 既存 verify script / 新規 fixture MML / 既存 fixture MML (= PMDDotNET SAMPLE2.MML + step5 l-q-rhythm-song.mml = touch なし reference のみ) / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement (= 0xFD32-0xFD38) / ADR-0026 §決定 3/4 / ADR-0041〜0064 / ADR-0066-0069 本文 + Annex / **ADR-0065 既存 §決定 1 + 3-12 本文 + Annex A/B/α 本文 + Annex β-1〜β-6 本文 (= halt record literal、 immutable history) + Annex γ/δ/ε placeholder + 改訂履歴 既存 entry + 平易要約 既存 context section 完全 untouched** (= LR2 append only mandate 遵守 confirmed)、 `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= β PR3 doc-only sprint で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0067/0068 ε precedent 同 doc-only sprint 1 commit pattern 継承)。 ADR-0065 既存 §決定 5 rollback condition + 4 段 stop action + 3 段 responsibility + destructive git 禁止 (= `git revert` のみ) = 完全 untouched carry。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` confirmed + (2) merge atomic 7 回目適用予定 (= PR #142 + #143 + #144 + #145 + #146 + #147 + 本 β PR3 再起票) + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed (= `wip-dashboard-coverage` + 退避 branch + 集約 branch 上 user 別作業 全完全 untouched)。 後続 = Codex layer 2 impl-review on β PR3 再起票 + approve loop + main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **7 回目適用** + memory + dashboard maintenance final update + user 完走報告、 sub-sprint γ PR4 起票判断 = user 明示 GO 必須 (= acceptance gate criteria 定義 doc-only)、 sub-sprint δ PR5 起票判断 = user 介入 mandatory (= audition session 実施)、 sub-sprint ε PR6 起票判断 = user 明示 GO 必須 (= Draft → Accepted + Annex 全統合 + milestone wording 解禁)、 ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須 (= ADR-0066 = ADR-0065 ε Accepted 後 future 順序固定 + ADR-0070 = ADR-0069 γ Accepted 後 dependency 解除済 但し独立 user GO 必須)。 | (= 本 β PR3 再起票 commit chain 内 commit 1) |
 | 2026-05-26 | 41st session | ADR-0065 sub-sprint γ PR4 = acceptance gate criteria 定義 doc-only sprint (= β PR3 再起票完了 (= PR #148 MERGED at `cd715ae` + final maintenance `ec7f1ba`) 後の γ sub-sprint = δ audition session 実施前の acceptance gate criteria literal 文書化、 base anchor `wip-pmddotnet-opnb-extension@ec7f1ba`、 user 明示 GO「ADR-0065 γ PR4 起票が自然な次。 doc-only sprint = acceptance gate criteria 定義 = pairwise comparison / individual acceptance / 全 reject の 3 軸独立 schema 明記 + candidate 1/2/3 役割を判定基準に接続 + candidate 4 は γ scope に混ぜず future として扱う」 受領 + Codex layer 2 plan review 1 round chain approve plan v1 (= agentId `a9bb0fe9ee79343bc`、 task id `task-mpmhcnfz-8f6wk3`、 must-fix 0 + 全 8 軸 PASS = AXIS-1 scope coverage / AXIS-2 allowed-touch + 不可触 / AXIS-3 3 軸独立 schema validity / AXIS-4 candidate 1/2/3 role connection / AXIS-5 notation constraints / AXIS-6 §決定 5 rollback untouched carry / AXIS-7 branch 4-clause compliance / AXIS-8 atomic 1-set 8th application + memory excluded、 nh 1 + lr 2 全反映 = NH1 = dashboard placeholder wording を γ criteria-definition status 限定明記 + LR1 = dashboard final wording γ criteria-definition status のみ収まる executor 確認 + LR2 = memory direct Write/Edit after merge γ PR4 PR diff 混入 prevention、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 elapsed 約 1m 55s = doc-only plan review 経験則 8 分 threshold 内、 41st session user 明示新規律「Codex rescue 時必ず経過時間を見積もる + 経験則超えたらリトライ」 経路継承))。 ADR doc 修正範囲 = (1) §決定 2 γ row 完了判定 column update (= 「optional」 → 「γ PR4 起票完了 = acceptance gate criteria 定義 doc-only sprint 完走 + 3 軸独立 schema 明記 + candidate 1/2/3 役割接続、 詳細 Annex γ fill 参照」) + (2) Annex γ fill 5 sub-section literal = γ-1 scope literal + γ-2 3 軸独立 schema literal (= memory `feedback_relative_preference_vs_absolute_acceptance.md` + `feedback_preference_learning_beats_metric_correlation.md` + `feedback_metric_pass_is_not_aesthetic_pass.md` + `feedback_ai_engineering_gate_before_human_audition.md` 4 規律整合 = axis 1 pairwise comparison A_better_than_B/B_better_than_A/tie + axis 2 individual acceptance aesthetic_accept/revise_required/reject + axis 3 global reject all + 3 軸独立 mandatory) + γ-3 candidate 1/2/3 役割接続 literal table (= candidate 1 補助採用 acoustic verify gate 3 軸対象外 + candidate 2 部分採用 SAMPLE2.MML A/B/C/I 3 軸全対象 + candidate 3 採用 l-q-rhythm-song.mml K rhythm + L-Q ADPCM-A 3 軸全対象 + candidate 4 γ scope-out 17 part full active demo future) + γ-4 δ session 実施時の 3 軸入力 method literal (= step 1 audio render production-ready 経路 + step 2 越川氏 audition session + step 3 3 軸入力 越川氏 → main agent 起草 → user confirm process + step 4 結果 record Annex δ literal) + γ-5 candidate 4 γ scope-out 明示 (= future trigger condition global_reject_all 該当時、 user 明示 GO 必須) + 不可触対象 confirm + Codex layer 2 plan review chain literal + impl-review chain placeholder + (3) 改訂履歴 γ PR4 entry append (= 本 entry、 LR2 append only mandate 厳守 = 既存 β PR3 再起票 entry の後ろに append、 chronological order 正常維持) + (4) 平易要約 γ PR4 context section 追加 (= 6 構造 = やりたいこと / 前提 / やったこと / 結果 / 解釈 / 次)。 dashboard 修正範囲 = (5) 0065 行 status update placeholder (= merge 前 = 「Draft + α 完了 + retrospective approve + β PR3 再起票完了 + γ PR4 起票 in flight (= γ criteria-definition status only、 audition session 未実施、 δ acceptance + ε Accepted 後まで audition gate 達成等の wording 禁止維持)」 placeholder + merge 後 = 「Draft + α/β/γ 完了 = PR #NNN MERGED at `<hash>`」 final update timing 厳格化、 NH1/LR1 反映 = γ criteria-definition status 限定 wording) + (6) escalation 履歴 γ PR4 entry 1 row 新規追加 (= 既存 β PR3 再起票 entry 直前 = 最新位置、 plan chain literal record + impl-review chain placeholder)。 memory 修正 = (7) `project_pmdneo_adr_0065_initiated.md` 末尾 γ PR4 update section 追加 + MEMORY.md index entry update (= 「Draft + α/β/γ 完了」 state 反映、 LR2 反映 = 別途、 repo 外、 PR diff target 完全 excluded、 main agent direct Write/Edit、 merge 後実施)。 driver / 既存 verify script / 新規 fixture MML / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0064 / ADR-0066-0069 本文 + Annex / ADR-0065 既存 §決定 1 + 3-12 本文 + Annex A/B/α 本文 + Annex β-1〜β-7 本文 (= halt + 再起票 record literal、 immutable history) + Annex δ/ε placeholder + 改訂履歴 既存 entry (= LR2 append only mandate 厳守 confirmed) + 平易要約 既存 context section (= α/β halt + 再起票 context、 untouched) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= γ doc-only sprint で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0067/0068 ε precedent + ADR-0069 γ + ADR-0065 β PR3 再起票 precedent 同 doc-only sprint 1 commit pattern 継承)。 ADR-0065 既存 §決定 5 rollback condition (= 11 unique rollback condition + 4 段 stop action + 3 段 responsibility + destructive git 禁止 = `git revert` のみ) = 完全 untouched carry。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` confirmed (= 本 PR base) + (2) merge atomic 8 回目適用予定 (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148 + 本 γ PR4) + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 impl-review on γ PR4 + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default (= 41st session user 明示新規律「経過時間見積もり + 経験則超えたらリトライ」 経路継承) + approve loop + main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **8 回目適用** + memory + dashboard maintenance final update + user 完走報告、 sub-sprint δ PR5 起票判断 = user 介入 mandatory (= audition session 実施)、 sub-sprint ε PR6 起票判断 = user 明示 GO 必須 (= Draft → Accepted + Annex 全統合 + milestone wording 解禁)、 ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須。 | (= 本 γ PR4 commit chain 内 commit 1) |
 | 2026-05-26 | 42nd session | ADR-0065 sub-sprint validation gate sprint A = engineering gate framework 永久 design 化 doc-only sprint (= γ PR4 完了 (= PR #149 MERGED at `e4ec4c7` + final maintenance `c901213` + dashboard auto-update `b1cc91c`) 後、 41st session 中の δ session 試行 invalid 経路発覚 (= user 観測 evidence = candidate 2 「ものすごい低音の持続 = 判断不能」 + candidate 3 「無音のまま fadeout = 判断不能」 + 全般 「何のテストか説明不足で判断不能」 = memory `feedback_codex_rescue_audition_material_review_prompt.md` 5 軸 invalid 経路 evidence + memory `feedback_main_agent_engineering_responsibility.md` literal「δ session 試行 invalid 経路 = process failure」 確立 + memory `feedback_ai_engineering_gate_before_human_audition.md` 規律違反「AI engineering 検査 → human aesthetic audition 順序固定」) 後の sprint A 起票 = engineering gate framework 永久 design 化 doc-only sprint、 base anchor `wip-pmddotnet-opnb-extension@b1cc91c`、 user 明示 GO「ADR-0065 audition validation gate sprint A doc-only 起票」 受領 + scope literal 5 項目 = (1) §決定 13 engineering gate 4 層 + (2) §決定 14 Codex Rescue review 5 軸 + (3) Annex β-8 δ invalid root cause + (4) Annex β-9 4 層 gate 詳細 + script 仕様 + (5) dashboard 更新、 + Codex layer 2 plan review 1 round chain approve plan v1 (= agentId `a5a8bbf3c4538e09f`、 must-fix 0 + 全 8 軸 PASS = AXIS-1 scope coverage / AXIS-2 allowed-touch + 不可触 / AXIS-3 §決定 13 + 14 validity (= engineering gate 4 層 + Codex Rescue 5 軸 memory 6 件整合) / AXIS-4 Annex β-8 + β-9 validity / AXIS-5 表記制約準拠 / AXIS-6 ADR-0065 既存 §決定 1-12 + Annex + 改訂履歴 + 平易要約 immutable history untouched carry / AXIS-7 branch 4-clause compliance / AXIS-8 atomic 1-set 9 回目適用 + memory excluded、 nh 1 + lr 2 全反映 = NH1 = sprint B threshold 値未確定 + gate 構造のみ固定明示 (= §決定 13 + Annex β-9-1〜β-9-5 反映) + LR1 = sprint B で 4 層 gate 機械判定 + readiness report 出力 mandatory scope (= Annex β-8-4 + β-9-5 反映) + LR2 = production binary baseline 比較入力固定 method literal (= Annex β-9-3 + β-9-5 反映)、 elapsed 1m 34s = doc-only plan review 経験則 5-8 分 threshold 内 = 41st session γ PR4 plan review 1m 55s precedent 同 pattern、 全 review-only + 越権操作なし + 冒頭 7 件 literal 強調遵守 confirmed))。 ADR doc 修正範囲 = (1) §決定 13 新規追加 = engineering gate 4 層 literal (= 層 1 WAV hygiene + 層 2 event/trace alignment + 層 3 reference comparison + 層 4 audition readiness report + 4 層 ALL PASS → human audition ready + 1 層でも FAIL → main agent 修正 + retry mandate、 実装 executor = `scripts/analyze-audition-wav.py` sprint B、 threshold 値 sprint B で final 確定 + sprint A は gate 構造のみ NH1 反映) + (2) §決定 14 新規追加 = Codex Rescue review 必須 5 軸 literal (= 軸 1 素材何 + 軸 2 user 判断可能 + 軸 3 engineering gate pass + 軸 4 無音異常弾く + 軸 5 user audition 念のため化 + 5 軸全 PASS approve + 1 軸でも FAIL revise + Codex Rescue 役割 = doc wording + analysis JSON + trace summary + readiness report 妥当性 review) + (3) Annex β-8 新規追加 = δ session invalid root cause record (= β-8-1 δ session 試行 invalid 経路 + β-8-2 user 観測 evidence + β-8-3 β PR3 採否判定 revise = candidate 2/3 「現状 render では aesthetic judgment 不成立 = revise required」 + candidate 1 補助採用 carry + candidate 4 γ scope-out carry + β-8-4 AI engineering 検査 → human aesthetic audition 順序固定 restore + β-8-5 不可触対象 + Codex chain literal + impl-review placeholder) + (4) Annex β-9 新規追加 = 4 層 gate 詳細 + scripts/analyze-audition-wav.py 仕様 (= β-9-1 層 1 WAV hygiene 詳細 + β-9-2 層 2 event/trace alignment 詳細 + β-9-3 層 3 reference comparison 詳細 + β-9-4 層 4 audition readiness report 詳細 + β-9-5 scripts/analyze-audition-wav.py 仕様 literal = sprint B 実装 mandatory scope + sprint A 仕様 literal のみ固定 + β-9-6 不可触対象 + Codex chain) + (5) 改訂履歴 sprint A entry append (= 本 entry、 append only mandate 厳守 = 既存 γ PR4 entry の後ろに append、 chronological order 正常維持) + (6) 平易要約 sprint A context section 追加 (= 6 構造 = やりたいこと / 前提 / やったこと / 結果 / 解釈 / 次)。 dashboard 修正範囲 = (7) 0065 行 status placeholder update (= merge 前 = 「Draft + α/β/γ 完了 + validation gate sprint A 起票 in flight (= δ session 試行 invalid 経路発覚 + engineering gate framework 永久 design 化 doc-only sprint、 audition chain 停止 = δ/ε 停止継続、 sprint B (= `scripts/analyze-audition-wav.py` 実装) 起票判断 user 明示 GO 必須)」 placeholder + merge 後 final update = 「+ sprint A 完了 = PR #NNN MERGED at `<hash>`」 timing 厳格化) + (8) escalation 履歴 sprint A entry 1 row 新規追加 (= 既存 γ PR4 entry 直前 = 最新位置、 plan chain literal record + impl-review chain placeholder)。 memory 修正 = (9) `project_pmdneo_adr_0065_initiated.md` 末尾 sprint A update section 追加 + MEMORY.md index entry update (= 「Draft + α/β/γ 完了 + sprint A 完了」 state 反映、 別途、 repo 外、 PR diff target 完全 excluded、 main agent direct Write/Edit、 merge 後実施)。 driver / 既存 verify script / 新規 fixture MML / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0064 / ADR-0066-0069 本文 + Annex / **ADR-0065 既存 §決定 1-12 本文 (= immutable history) + Annex A/B/α/β-1〜β-7/γ-1〜γ-5/δ/ε placeholder (= immutable history) + 既存 改訂履歴 6 entries (= append only mandate confirmed) + 既存 平易要約 9 sub-section blocks (= untouched)** / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= sprint A doc-only sprint で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0067/0068 ε precedent + ADR-0069 γ + ADR-0065 β PR3 再起票 + γ PR4 precedent 同 doc-only sprint 1 commit pattern 継承)。 ADR-0065 既存 §決定 1-12 + Annex + 改訂履歴 + 平易要約 = 完全 untouched carry (= immutable history mandate、 ADR-0065 §決定 5 = allowed-touch literal section、 ADR-0065 自体に dedicated rollback section なし)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` confirmed (= 本 PR base) + (2) merge atomic 9 回目適用予定 (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148 + #149 + 本 sprint A) + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 impl-review on sprint A + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **9 回目適用** + memory + dashboard maintenance final update + user 完走報告、 sub-sprint B 起票判断 = user 明示 GO 必須 (= `scripts/analyze-audition-wav.py` 実装 = 4 層 gate executor、 4 層 gate 機械判定 + readiness report 出力 mandatory scope、 production binary baseline 入力固定 method literal 確定)、 δ session 再開判断 = sprint B 完了 + 4 層 gate ALL PASS の上で future (= dependency 順序固定 = sprint A → sprint B → δ session 再開)、 ε PR6 起票判断 = δ session 再開後 user 明示 GO 必須、 ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須。 | (= 本 sprint A commit chain 内 commit 1) |
+| 2026-05-26 | 42nd session | ADR-0065 sub-sprint B = `scripts/analyze-audition-wav.py` 実装 sprint (= sprint A 完了 (= PR #151 MERGED at `9f5990f` + dashboard final maintenance `0b57f1d`) 後の sprint B 起票 = §決定 13 4 層 engineering gate + §決定 14 Codex Rescue review 5 軸 framework executor 実装、 base anchor `wip-pmddotnet-opnb-extension@0b57f1d`、 user 明示 GO「sprint B = `scripts/analyze-audition-wav.py` 実装」 受領 + scope mandate 6 件 = (1) 4 層 gate 実行 + (2) analysis JSON 出力 + (3) verdict pass/fail + (4) fail wav は user audition に出さない + (5) metric pass != aesthetic approve 混同しない + (6) candidate 2/3 を gate にかけて再評価。 user 明示 Codex review 必須軸 5 件 = 無音/fadeout 弾く + 異常低音持続弾く + duration/RMS/peak/spectral 偏り見ている + trace event と wav energy 対応 + readiness report user 判断可能、 doc 整合 secondary、 + Codex layer 2 plan review 2 round chain approve plan v2 (= round 1 agentId `acefd05489548cac9` revise + 3 must-fix (= threshold final 記録先 + Layer 2 機械判定 spec + test 8 件 expansion) + 2 nh + 2 lr、 elapsed 2m 33s → plan v2 全反映 → round 2 agentId `a6836a49ac6b45d89` approve + 全 10 軸 PASS + must-fix 0 + nh 0 + lr 2 carry = LR1 + LR2、 elapsed 1m 49s、 越権操作なし confirmed))。 ADR doc 修正範囲 = (1) Annex β-10 新規 6 sub-section fill (= β-10-1 sprint B implementation overview + final threshold record literal = sprint A Annex β-9-1/β-9-3 暫定 → sprint B initial final + LR1 LOW_FREQ_DOMINANCE = 0.7 calibration follow-up 候補 + β-10-2 Layer 2 trace event/wav energy correspondence 機械判定 spec literal = trace parse regex + expected event JSON format + event field match (= chip + addr + value + ±10ms tolerance) + mismatch_count = 0 mandate + wav energy correspondence (= note-on event ±50-150ms window RMS > -60 dBFS) + >= 0.9 rate mandate + Layer 2 verdict logic (= pass/fail/skip) + β-10-3 test case coverage 8 件 literal table = Case 1 silence FAIL Layer 1 + Case 2 low-freq FAIL Layer 1 + Case 3 clean PASS + Case 4 clipping FAIL + Case 5 duration FAIL + Case 6 trace mismatch FAIL Layer 2 + Case 7 readiness report integration PASS + Case 8a baseline skip + Case 8b baseline smoke + β-10-4 candidate 2/3 評価 approach (= sprint B 内 synthetic mimic 検証 + actual rendered wav follow-up = sprint B merge 後 user 提供 wav path で main agent 実行) + β-10-5 latent risk reflection = LR1 LOW_FREQ_DOMINANCE_THRESHOLD calibration + LR2 metric pass != aesthetic approve 混同再発防止 strict 強調 (= script docstring + readiness report 文末 + 平易要約 sprint B 解釈 で再強調) + β-10-6 不可触対象 + Codex chain literal + impl-review chain placeholder) + (2) 改訂履歴 sprint B entry append (= 本 entry、 append only mandate 厳守 = 既存 sprint A entry の後ろに append、 chronological order 正常維持) + (3) 平易要約 sprint B context section 追加 (= 6 構造 = やりたいこと / 前提 / やったこと / 結果 / 解釈 / 次)。 scripts 修正範囲 = (4) NEW `scripts/analyze-audition-wav.py` (= 4 層 gate executor、 ~370 lines、 numpy 依存、 wave + json + argparse、 既存 `scripts/analyze-audio.py` style align (= NH1 反映)、 JSON schema 固定 stable fields = layer status/metrics/reason + thresholds_used (= NH2 反映)) + (5) NEW `scripts/test_analyze_audition_wav.py` (= unittest-based、 ~250 lines、 9 test method 全 PASS confirmed)。 dashboard 修正範囲 = (6) 0065 行 status placeholder update (= 「sprint A 完了」 → 「sprint A + sprint B 完了 in flight」 placeholder + merge 後 final update timing 厳格化 = 「+ sprint B 完了 = PR #NNN MERGED at <hash>」) + (7) escalation 履歴 sprint B entry 1 row 新規追加 (= 既存 sprint A entry 直前 = 最新位置、 plan chain literal record + impl-review chain placeholder)。 memory + MEMORY.md = merge 後 main agent direct (= 別途、 repo 外、 PR diff target 完全 excluded)。 driver / 既存 verify script / 新規 fixture MML / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0064 / ADR-0066-0069 本文 + Annex / **ADR-0065 既存 §決定 1-14 本文 (= sprint A immutable carry) + Annex A/B/α/β-1〜β-9/γ-1〜γ-5/δ/ε placeholder (= sprint A immutable carry) + 既存 改訂履歴 7 entries (= append only mandate confirmed) + 既存 平易要約 10 sub-section blocks (= untouched)** + 既存 scripts (= `analyze-audio.py` + `audition_pairwise.py` etc 全) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= sprint B は driver 不変 + 新規 .py 2 件追加 + ADR/dashboard doc 更新のみ、 build 走らない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0067/0068 ε + ADR-0069 γ + ADR-0065 β PR3 再起票 + γ PR4 + sprint A precedent 同 sprint 1 commit pattern 継承、 sprint B は doc + script 同 commit)。 ADR-0065 既存 §決定 1-14 + Annex + 改訂履歴 + 平易要約 = 完全 untouched carry (= immutable history mandate)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` confirmed (= 本 PR base) + (2) merge atomic 10 回目適用予定 (= PR #142+#143+#144+#145+#146+#147+#148+#149+#151+本 sprint B) + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 impl-review on sprint B (= user 必須 5 軸 prioritized + standard auxiliary 5 軸 secondary) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **10 回目適用** + memory + dashboard maintenance final update + user 完走報告、 sprint B 完走後 actual candidate 2/3 wav 評価 follow-up integration verify task (= user wav path 提供 → main agent 実行)、 LR1 LOW_FREQ_DOMINANCE_THRESHOLD = 0.7 calibration sprint or sprint B-α 候補 = user 明示 GO 必須、 sub-sprint δ PR5 起票判断 = sprint B gate ALL PASS 確認後 user 介入 mandatory (= audition session 実施)、 sub-sprint ε PR6 起票判断 = δ session 再開後 user 明示 GO 必須、 ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須。 | (= 本 sprint B commit chain 内 commit 1) |
 
 ## 平易要約
 
@@ -1188,3 +1344,61 @@ ADR-0065 sub-sprint chain α/β/γ/δ/ε 5 段 の γ 段 = doc-only sprint = δ
 - main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 **9 回目適用** (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148 + #149 + 本 sprint A)
 - memory + dashboard maintenance final update + user 完走報告
 - 続行候補 = **sub-sprint B 起票判断 = user 明示 GO 必須** (= `scripts/analyze-audition-wav.py` 実装 = 4 層 gate executor = LR1 反映 mandatory scope = 4 層 gate 機械判定 + readiness report 出力 + LR2 反映 = production binary baseline 入力固定 method literal 確定) / δ session 再開判断 = sprint B 完了 + 4 層 gate ALL PASS の上で future (= dependency 順序固定 = sprint A → sprint B → δ session 再開) / ε PR6 起票判断 = δ session 再開後 user 明示 GO 必須 / ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須
+
+## sprint B 平易要約 (= 42nd session 2026-05-26、 `scripts/analyze-audition-wav.py` 実装 sprint)
+
+### sprint B でやりたいこと
+
+ADR-0065 sprint A で literal 化した §決定 13 4 層 engineering gate + §決定 14 Codex Rescue review 5 軸 framework の executor を実装する。 `scripts/analyze-audition-wav.py` を新規作成し、 4 層 gate (= WAV hygiene + event/trace alignment + reference comparison + audition readiness report) を実行 + analysis JSON + readiness report markdown 出力 + verdict pass/fail 判定。 user audition の前に「この wav を人間に聴かせてよいか」 を機械的判定する。
+
+### sprint B 前提
+
+- ADR-0065 = Draft + α/β/γ 完了 + sprint A 完了 (= PR #151 MERGED at `9f5990f`)
+- ADR-0065 §決定 13 + 14 + Annex β-8 + β-9 = sprint A merge で永久 design 化 + immutable history
+- sprint A Annex β-9-1/β-9-3 暫定 threshold = sprint B で final 確定先 = Annex β-10 新規 sub-section (= sprint A 不可触下の addition)
+- user 明示 GO「sprint B = `scripts/analyze-audition-wav.py` 実装」 + scope mandate 6 件 + Codex review 必須軸 5 件 (= 機能 verification、 doc 整合 secondary)
+- 41st session 確立規律 = passive 待機禁止 + polling 死活管理 + 経験則 retry default
+- 集約 HEAD = `0b57f1d` (= sprint A 完走 final maintenance 後)
+- 42nd session main agent engineering responsibility restore 規律 = doc wording / verify bug / render 不成立 = Claude Code 自分で直す
+
+### sprint B でやったこと
+
+- ADR-0065 plan v1 起草 + Codex layer 2 plan review round 1 revise + 3 must-fix + 2 nh + 2 lr → plan v2 で全反映
+- Codex layer 2 plan review round 2 approve (= agentId `a6836a49ac6b45d89`、 全 10 軸 PASS + must-fix 0 + nh 0 + lr 2 = LR1 + LR2 後続 sprint 反映)
+- branch `wip-adr-0065-sprint-b-analyze-audition-wav` (= base anchor `0b57f1d`) 作成
+- commit 1 (= 本 commit) = `scripts/analyze-audition-wav.py` + `scripts/test_analyze_audition_wav.py` + ADR-0065 Annex β-10 新規 6 sub-section fill + 改訂履歴 sprint B entry append + 平易要約 sprint B context section (= 本 section) 追加 + dashboard 0065 status update + dashboard escalation 履歴 sprint B entry 1 row 追加
+- `scripts/analyze-audition-wav.py` (= ~370 lines、 numpy 依存、 4 層 gate 全実装) 完成
+- `scripts/test_analyze_audition_wav.py` (= ~250 lines、 unittest-based、 9 test method) 完成 + 全 9 test PASS confirmed = synthetic fixture で gate 動作 verified
+- memory + MEMORY.md = merge 後 main agent direct Write/Edit (= 別途、 repo 外、 PR diff target 完全 excluded)
+- 不可触対象 完全 untouched confirm
+
+### sprint B 結果
+
+- ADR-0065 = **Draft + α 完了 + retrospective approve + β PR3 再起票完了 + γ PR4 完了 + sprint A 完了 + sprint B 完了** (= main agent 経路 merge 後確定)
+- `scripts/analyze-audition-wav.py` v1.0 = 4 層 engineering gate executor = sprint A §決定 13 + Annex β-9 spec 整合実装完了
+- final threshold record literal = Annex β-10-1 で全 12 constant + rationale 記録 (= LR1 LOW_FREQ_DOMINANCE = 0.7 initial value + bass/rhythm/ADPCM-A material 誤 reject calibration follow-up 候補明示)
+- synthetic fixture で「無音 fadeout」 + 「ものすごい低音持続」 reject 機械的 demonstrate = candidate 3/2 user 観測 evidence と整合
+- Layer 2 trace parse + event field match + wav energy correspondence 機械判定 literal 仕様 + 実装完了
+- JSON schema 固定 stable fields (= layer status/metrics/reason + thresholds_used)
+- readiness report markdown = material + 期待 sound + 4 層 metrics + verdict + LR2 metric != aesthetic emphasis literal
+- production sha256 = `b15883fe...` 維持 (= sprint B は driver 不変、 新規 .py 2 件 + doc 更新のみ、 carry)
+- atomic 1 セット規律 10 回目適用予定 (= merge 後)
+
+### sprint B 解釈
+
+- sprint B merge で engineering gate framework が **動作する executor として実装完了** = §決定 13 + 14 + Annex β-8 + β-9 spec が機械的に検証可能
+- candidate 2/3 actual rendered wav 評価 = sprint B merge 後 user 提供 wav path で main agent 実行 (= follow-up integration verify task)
+- δ session 再開条件 = sprint B gate ALL PASS 確認 + user 明示 GO 必須 (= dependency 順序固定 = sprint A → sprint B → δ session 再開、 sprint B 完了で 1 ステップ進む)
+- **metric pass != aesthetic approve** (= memory `feedback_metric_pass_is_not_aesthetic_pass.md` 整合) = sprint B gate ALL PASS は機械的 process failure 排除のみ、 aesthetic accept (= 越川氏 audition approve) は user authoritative judgment 別軸
+- LR1 = `LOW_FREQ_DOMINANCE_THRESHOLD = 0.7` initial value は production binary baseline 比較で再 calibration 必要 (= sprint B 完走後 follow-up sprint or sprint B-α 候補、 正常 bass/rhythm/ADPCM-A material 誤 reject 防止)
+- 「(d) audition gate 達成」 / 「越川氏 audition approve」 / 「roadmap ⑥ audition 完了」 wording = sprint B 完了時点も **依然禁止維持** (= δ session 再開 + δ acceptance accept + ε Accepted 後解禁候補)
+- 「production-ready 全体達成」 / 「軸 B 完成」 / 「軸 G 完成」 / 「本番 cmd 切替完了」 = 永久禁止維持
+
+### sprint B 完走後の次
+
+- sprint B commit + push + PR 起票
+- Codex layer 2 impl-review on sprint B (= user 必須 5 軸 prioritized + standard auxiliary 5 軸 secondary)
+- Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop
+- main agent 経路 merge + local + remote branch 削除 atomic 1 セット規律 **10 回目適用** (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148 + #149 + #151 + 本 sprint B)
+- memory + dashboard maintenance final update + user 完走報告
+- 続行候補 = **actual candidate 2/3 wav 評価 follow-up integration verify task** (= user wav path 提供 → main agent `python3 scripts/analyze-audition-wav.py` 実行) / **LR1 LOW_FREQ_DOMINANCE_THRESHOLD calibration sprint or sprint B-α 候補** (= production binary baseline で再 calibration、 user 明示 GO 必須) / **sub-sprint δ PR5 起票判断** (= audition session 再開 = sprint B gate ALL PASS 確認 + user 介入 mandatory) / sub-sprint ε PR6 起票判断 = δ session 再開後 user 明示 GO 必須 / ADR-0066/0070 候補 起票判断 = 各 user 明示 GO 必須
