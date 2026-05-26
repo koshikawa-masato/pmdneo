@@ -721,9 +721,15 @@ memory 規律遵守 base: `feedback_relative_preference_vs_absolute_acceptance.m
 
 = 計 MF 0 + nh 1 + lr 2 全反映、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 doc-only plan review 経験則 base retry pattern 確立 (= ADR-0065 β PR3 round 1 first attempt cancel + retry approve precedent 同 pattern、 本 γ PR4 plan review = 1 attempt approve 即了)。
 
-##### impl-review chain placeholder (= main agent merge 後 final fill)
+##### impl-review chain (= 41st session 2026-05-26、 main agent merge 後 final fill)
 
-placeholder。 PR 起票 + impl-review approve loop + main agent merge 後に fill (= 経験則 estimate doc-only impl-review = 2-5 分目安、 経験則 threshold = 8 分、 Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 自律 retry default = 41st session user 明示新規律「経過時間見積もり + 経験則超えたらリトライ」 経路継承)。
+| round | judgment | agentId / task id | finding 要点 |
+|---|---|---|---|
+| 1 | **approve** | agentId `ad67d8afae738d231`、 task id `task-mpmhnnxn-ongjex` | must-fix 0 + 全 8 軸 PASS = AXIS-1 PR diff 2 file 限定 / AXIS-2 allowed-touch + 不可触 / AXIS-3 3 軸独立 schema validity / AXIS-4 candidate 1/2/3 role connection / AXIS-5 表記制約準拠 / AXIS-6 §決定 5 rollback untouched carry / AXIS-7 branch 運用 4 条 / AXIS-8 atomic 8 回目 + memory excluded、 nh 0 + lr 0、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 elapsed 約 2m 14s = doc-only impl-review 経験則 8 分 threshold 内 |
+
+= 計 MF 0 + nh 0 + lr 0、 doc-only impl-review 経験則 base 1 attempt approve 即了 = ADR-0065 起票 PR1 + 本 γ PR4 = 1 round approve precedent 同 doc-only sprint パターン継承、 41st session 経験則 retry default 規律遵守 confirmed。
+
+= **PR #149 MERGED at `e4ec4c7`**、 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **8 回目適用完走** (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148 + #149)、 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` = local 保持 (= 4 条 (4) 保持対象 3 type 不可触遵守)。
 
 ### Annex δ: sub-sprint δ audition session 実施 + record + finding + acceptance decision (= δ PR5 で fill)
 
