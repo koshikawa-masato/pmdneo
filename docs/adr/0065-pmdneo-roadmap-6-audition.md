@@ -853,7 +853,7 @@ energy_correspondence_rate = energy_pass / (energy_pass + energy_fail) for note-
 | mismatch_count = 0 AND energy_correspondence_rate >= 0.9 | **pass** |
 | mismatch_count > 0 OR energy_correspondence_rate < 0.9 | **fail** |
 
-##### β-10-3: test case coverage 8 件 literal (= 実装は 9 test method = 8 case + 8b split)
+##### β-10-3: test case coverage 9 件 literal (= 実装は 10 test method = 9 case + 8b split、 impl-review revise round 1 で Case 9 追加)
 
 | Case | description | expected verdict | layer triggered |
 |---|---|---|---|
@@ -862,12 +862,28 @@ energy_correspondence_rate = energy_pass / (energy_pass + energy_fail) for note-
 | 3 | clean multi-tone wav (= 1s 440Hz + 880Hz + 1320Hz balanced) | PASS | Layer 1 全 check pass |
 | 4 | clipping wav (= 1s saturated amplitude clip 1.0) | FAIL | Layer 1 clipping rate |
 | 5 | duration mismatch wav (= actual 2s vs expected 1s) | FAIL | Layer 1 duration check |
-| 6 | trace event mismatch (= expected events 1 件、 trace file 空) | FAIL | Layer 2 mismatch_count > 0 |
-| 7 | readiness report integration (= clean wav + valid trace + matching events) | PASS | Layer 1/2 PASS + Layer 3 skip + Layer 4 report 生成 + JSON schema valid + exit code 0 |
+| 6 | trace event mismatch (= expected events 1 件、 trace file exists but 空) | FAIL | Layer 2 mismatch_count > 0 |
+| 7 | readiness report integration (= clean wav + valid trace + matching events) | PASS | Layer 1/2 PASS + Layer 3 skip + Layer 4 unified schema (= status + metrics + reason) + JSON schema valid + exit code 0 |
 | 8a | baseline skip (= no `--baseline` arg) | PASS | Layer 3 skip + auto pass |
 | 8b | baseline smoke (= `--baseline` = 同 wav) | PASS | Layer 3 PASS (= L2 ≈ 0, cosine ≈ 1) |
+| **9** | **trace_path file 不在 (= nonexistent file path) + expected.events 非空** | **PASS (= overall)** | **Layer 2 SKIP (= impl-review revise round 1 fix per Annex β-10-2 spec literal「trace file 不在 → skip」)** |
 
-test run: `python3 scripts/test_analyze_audition_wav.py` → 全 9 test expected behavior 一致で exit 0、 mismatch あれば exit 1。 sprint B 実装時 9 test 全 PASS confirmed。
+test run: `python3 scripts/test_analyze_audition_wav.py` → 全 10 test method expected behavior 一致で exit 0、 mismatch あれば exit 1。 sprint B 実装時 (= fix-up 後) 10 test 全 PASS confirmed。
+
+##### β-10-3-x: analysis JSON 4-layer unified schema (= impl-review revise round 1 fix)
+
+Layer 1-4 全 status + metrics + reason 共通 stable field 持つ:
+
+```json
+"layers": {
+  "1_wav_hygiene": {"status": "pass|fail", "metrics": {duration_sec, rms_dbfs, ...}, "reason": "..."},
+  "2_trace_alignment": {"status": "pass|fail|skip", "metrics": {trace_event_count, mismatch_count, ...}, "reason": "..."},
+  "3_reference_comparison": {"status": "pass|fail|skip", "metrics": {l2_diff, cosine_similarity, ...}, "reason": "..."},
+  "4_readiness_report": {"status": "ready|not_ready", "metrics": {verdict_string, report_path, layer1/2/3_status}, "reason": "..."}
+}
+```
+
+= Layer 1-3 と Layer 4 で schema 統一 (= test Case 7 で全 4 layer の status/metrics/reason existence verify)。
 
 ##### β-10-4: candidate 2/3 評価 approach + actual wav follow-up
 

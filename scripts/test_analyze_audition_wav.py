@@ -245,7 +245,10 @@ class AuditionGateTest(unittest.TestCase):
         for layer_key in ["1_wav_hygiene", "2_trace_alignment",
                           "3_reference_comparison", "4_readiness_report"]:
             self.assertIn(layer_key, result["layers"])
-            self.assertIn("status", result["layers"][layer_key])
+            # unified stable fields: status + metrics + reason (= NH2 + impl-review fix)
+            for field in ["status", "metrics", "reason"]:
+                self.assertIn(field, result["layers"][layer_key],
+                              f"missing {field} in {layer_key}")
         self.assertEqual(result["verdict"], "pass")
         self.assertTrue(result["ready_for_audition"])
         # Readiness report content (= LR2 emphasis verification)
@@ -286,6 +289,28 @@ class AuditionGateTest(unittest.TestCase):
         cs = result["layers"]["3_reference_comparison"]["metrics"]["cosine_similarity"]
         self.assertLess(l2, 0.01, f"L2 should be ~0 for identical wav: got {l2}")
         self.assertGreater(cs, 0.99, f"cosine should be ~1 for identical wav: got {cs}")
+
+    def test_case9_trace_file_missing_skip(self):
+        """Case 9: trace_path file 不在 + expected.events 非空 → Layer 2 SKIP (= impl-review fix per Annex β-10-2 spec)"""
+        wav, _, expected, oj, orp = self._paths("case9")
+        write_wav(wav, synthesize_multi_tone([440, 880, 1320], 1.0))
+        nonexistent_trace = self.tmpdir / "nonexistent_trace.txt"
+        # do NOT create trace file
+        write_expected_json(
+            expected,
+            duration_sec=1.0,
+            events=[
+                {"timestamp_us": 100000, "chip_target": "ym2610_a",
+                 "register_addr": 0x28, "value": 0xF0, "event_type": "note_on"},
+            ],
+        )
+        proc = run_script(wav, nonexistent_trace, expected, oj, orp)
+        self.assertEqual(proc.returncode, 0, f"trace 不在 → Layer 2 skip → overall pass: stdout={proc.stdout} stderr={proc.stderr}")
+        with open(oj) as f:
+            result = json.load(f)
+        self.assertEqual(result["layers"]["2_trace_alignment"]["status"], "skip")
+        self.assertIn("trace file not found", result["layers"]["2_trace_alignment"]["reason"])
+        self.assertEqual(result["verdict"], "pass")
 
 
 if __name__ == "__main__":

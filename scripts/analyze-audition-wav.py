@@ -198,7 +198,13 @@ def parse_trace(trace_path):
 
 
 def layer2_trace_alignment(trace_path, expected, samples, sr):
-    """Layer 2: event/trace alignment + wav energy correspondence."""
+    """Layer 2: event/trace alignment + wav energy correspondence.
+
+    Verdict logic (= ADR-0065 Annex β-10-2 spec):
+      - expected.events 空 OR trace file 不在 → skip
+      - mismatch_count = 0 AND energy_correspondence_rate >= 0.9 → pass
+      - mismatch_count > 0 OR energy_correspondence_rate < 0.9 → fail
+    """
     expected_events = expected.get("events", [])
 
     if not expected_events:
@@ -208,6 +214,17 @@ def layer2_trace_alignment(trace_path, expected, samples, sr):
                         "mismatch_count": 0, "energy_correspondence_rate": 1.0,
                         "note_on_events_checked": 0},
             "reason": "no expected events in JSON; skip layer 2",
+        }
+
+    # trace file 不在 → skip (= Annex β-10-2 spec literal)
+    if not trace_path or not Path(trace_path).exists():
+        return {
+            "status": "skip",
+            "metrics": {"trace_event_count": 0, "expected_event_count": len(expected_events),
+                        "mismatch_count": 0, "energy_correspondence_rate": 1.0,
+                        "note_on_events_checked": 0,
+                        "trace_path": str(trace_path) if trace_path else "not provided"},
+            "reason": f"trace file not found ({trace_path}); skip layer 2",
         }
 
     trace_events = parse_trace(trace_path)
@@ -466,8 +483,20 @@ def main():
             "3_reference_comparison": layer3,
             "4_readiness_report": {
                 "status": layer4["status"],
-                "verdict_string": layer4["verdict_string"],
-                "report_path": args.output_report,
+                "metrics": {
+                    "verdict_string": layer4["verdict_string"],
+                    "report_path": args.output_report,
+                    "layer1_status": layer1["status"],
+                    "layer2_status": layer2["status"],
+                    "layer3_status": layer3["status"],
+                },
+                "reason": (
+                    "all engineering gate layers PASS or SKIP — ready for audition "
+                    "(= metric pass != aesthetic accept、 final aesthetic 判断 = user authoritative)"
+                    if layer4["status"] == "ready"
+                    else "1+ engineering gate layer FAIL — main agent 修正 + retry mandate "
+                    "(= user audition に出さない)"
+                ),
             },
         },
         "material_description": expected.get("material_description", ""),
