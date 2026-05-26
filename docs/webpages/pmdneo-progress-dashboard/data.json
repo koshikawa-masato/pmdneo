@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-26",
-    "schemaVersion": "static/generated@70230d1",
+    "schemaVersion": "static/generated@36330a6",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "70230d13b079870234dec246d4850b4eea7a2a58",
-      "shortSha": "70230d1",
-      "date": "2026-05-26T23:07:02+09:00",
-      "message": "Merge pull request #152 from koshikawa-masato/wip-adr-0065-sprint-b-analyze-audition-wav",
-      "author": "koshikawa-masato",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/70230d13b079870234dec246d4850b4eea7a2a58"
+      "sha": "36330a68d02f6c2f4b7710a93a99c627041935c3",
+      "shortSha": "36330a6",
+      "date": "2026-05-26T23:08:36+09:00",
+      "message": "docs(dashboard): ADR-0065 sprint B = PR #152 MERGED at `70230d1` 完走 final maintenance = (1) dashboard 0065 行 status final update = 「sprint B 起票 in flight」 placeholder → 「sprint B 完了 = PR #152 MERGED at `70230d1` (= scripts/analyze-audition-wav.py 実装 sprint 完走 = 4 層 engineering gate executor 実装 + 10 test method 全 PASS confirmed + plan review 2 round chain approve + impl-review 2 round chain (round 1 revise + 2 must-fix + fix-up commit `aed8100` + round 2 escalate = code static 全 10 軸 PASS + 2 must-fix REFLECTED + sandbox 制約のみ + main agent local 10/10 PASS confirmed で approve 同等判定)、 atomic 1 セット規律 10 回目適用完走 = PR #142+#143+#144+#145+#146+#147+#148+#149+#151+#152)」 + (2) dashboard escalation 履歴 sprint B entry impl-review chain column 「impl-review pending」 → 「**Codex impl-review 2 round chain approve 同等 = PR #152 MERGED at `70230d1`** (= round 1 revise + 2 must-fix = AXIS-S4 Layer 2 trace 不在 skip spec mismatch + AXIS-S5 Layer 4 schema metrics/reason 不足 → fix-up commit `aed8100` = Layer 2 explicit existence check + Layer 4 unified schema + Case 7 enhance + Case 9 追加 + Annex β-10-3 table 9 case 化 + β-10-3-x JSON 4-layer unified schema → round 2 escalate (= 情報開示目的、 approve 同等) = 2 must-fix REFLECTED + 全 10 軸 PASS + sandbox 制約のみ + main agent local test 10/10 PASS 再確認 + Codex 自身「approve 同等判定」 明言 → main agent engineering responsibility 規律下 approve 同等判定 + merge 実施)」 final update。",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/36330a68d02f6c2f4b7710a93a99c627041935c3"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
