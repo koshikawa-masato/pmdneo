@@ -3728,9 +3728,29 @@ pmdneo_part_main_parse:
         jp      z, pmdneo_part_main_loop
         cp      #0x90
         jp      z, pmdneo_part_main_rest
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0071 patch (1): PMDDotNET emits rest as 0x0F + length byte
+        ;; (= agent 1 finding literal、 mc.cs rest opcode emit)。
+        ;; 既存 0x90 rest 経路は 0x90 (= PMD V4.8s compile.py emit) 専用 carry、
+        ;; 0x0F (= PMDDotNET emit) は本 inline label 経由で同 rest 経路に合流。
+        jp      nc, pmdneo_part_main_command
+        push    af
+        and     #0x0F
+        cp      #0x0F
+        jr      z, pmdneo_part_main_parse_rest_dotnet
+        pop     af
+        jp      pmdneo_part_main_note
+pmdneo_part_main_parse_rest_dotnet:
+        pop     af
+        jp      pmdneo_part_main_rest
+pmdneo_part_main_command:
+        call    commandsp
+        jp      pmdneo_part_main_parse
+.else
         jp      c, pmdneo_part_main_note
         call    commandsp
         jp      pmdneo_part_main_parse
+.endif
 
 pmdneo_part_main_note:
         call    pmdneo_part_apply_shift
@@ -3909,8 +3929,44 @@ pmdneo_part_call_hl:
         ret
 
 comt:
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0071 patch (2): PMDDotNET 3-byte tempo encoding handling
+        ;; (= agent 5 finding literal、 mc.cs:7474-7479 tempoa() で 0xFC 0xFF <BPM raw> emit)。
+        ;; 上位 byte 0xFF = format marker (= discard)、 次 byte = raw BPM、
+        ;; driver は (BPM*13)>>6 換算で driver_tempo_d に格納
+        ;; (= PMDDotNET internal tempo formula 整合、 cf. plan v4 β-3-9-1 算術 example)。
+        call    pmdneo_part_fetch_byte     ; A = 0xFF marker, discard
+        call    pmdneo_part_fetch_byte     ; A = raw BPM
+        ld      l, a                       ; HL = BPM
+        ld      h, #0
+        ld      d, h                       ; DE = BPM (copy for accumulate)
+        ld      e, l
+        add     hl, hl                     ; HL = BPM * 2
+        add     hl, hl                     ; HL = BPM * 4
+        add     hl, hl                     ; HL = BPM * 8
+        add     hl, de                     ; HL = BPM * 9
+        add     hl, de                     ; HL = BPM * 10
+        add     hl, de                     ; HL = BPM * 11
+        add     hl, de                     ; HL = BPM * 12
+        add     hl, de                     ; HL = BPM * 13
+        srl     h                          ; HL >>= 1
+        rr      l
+        srl     h                          ; HL >>= 2
+        rr      l
+        srl     h                          ; HL >>= 3
+        rr      l
+        srl     h                          ; HL >>= 4
+        rr      l
+        srl     h                          ; HL >>= 5
+        rr      l
+        srl     h                          ; HL >>= 6
+        rr      l
+        ld      a, l                       ; A = (BPM*13)>>6
+        ld      (driver_tempo_d), a
+.else
         call    pmdneo_part_fetch_byte
         ld      (driver_tempo_d), a
+.endif
         ret
 
 comv:
