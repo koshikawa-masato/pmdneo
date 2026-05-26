@@ -598,9 +598,17 @@ partial coverage 明示 = D/E/F/G/H/J (= FM 3 part + SSG 2 part + ADPCM-B = 6 pa
 
 = 計 MF 0 + nh 2 + lr 3 全反映、 ADR-0065 起票 PR1 1 round approve precedent + ADR-0067/0068 ε precedent 同 doc-only sprint 1 round approve パターン継承。
 
-###### impl-review chain placeholder (= main agent merge 後 final fill)
+###### impl-review chain (= 41st session 2026-05-26、 main agent merge 後 final fill)
 
-placeholder。 PR 起票 + impl-review approve loop + main agent merge 後に fill。
+| round | judgment | agentId / task id | finding 要点 |
+|---|---|---|---|
+| 1 (first attempt) | **cancelled** (= 経験則超過機械復旧) | task id `task-mpmg1y1q-sa0yzd` | elapsed 15m 26s anomalous (= doc-only impl-review 経験則 5-8 分超過、 user 明示新規律「Codex rescue 時必ず経過時間を見積もる + 経験則 超えたらリトライ」 経路) → main agent autonomous cancel + 1 retry |
+| 1 (retry) | revise | task id `task-mpmgpkme-cplq3z` | AXIS-1〜AXIS-8 全 PASS + must-fix 1 件 (= 改訂履歴 chronological 逆順 = β PR3 再起票 entry が β halt entry の前に挿入、 LR2 append only mandate strictness 違反) → fix-up commit `2ceec1d` で chronological swap 反映 (= sed `624{h;d;}; 625{p;g;}` 経由 2 line swap、 content literal touch なし) |
+| 2 | **approve** | task id `task-mpmgw6bz-49exvp` | must-fix 0 + 全 8 軸 + MF1-CONFIRM PASS = AXIS-1 PR diff 1 file swap / AXIS-2 untouched 範囲 / AXIS-3 swap content 保持 / AXIS-4 build/driver 非接触 / AXIS-5 diff = halt 前 delete + halt 後 add / AXIS-6 line 624 halt + line 625 β PR3 再起票 chronological 正常化 / AXIS-7 single hunk swap / AXIS-8 read-only commands、 nh 0 + lr 0、 越境操作なし + 冒頭 6 件 literal 強調遵守 confirmed、 elapsed 約 1m 48s = doc-only fix-up swap 経験則 5 分 threshold 内 |
+
+= 計 MF 1 + nh 0 + lr 0 全反映、 round 1 first attempt 経験則超過 cancel + retry pattern 実証完了 (= 41st session user 明示新規律「経過時間見積もり + 経験則超過 retry」 literal 適用 1 回目)、 Monitor grep pattern bug fix (= 「rescue.*running.*running」 → 「\| rescue \| running \|」 で phase 部分問わず) + memory `feedback_codex_rescue_always_monitor.md` 41st session 経過時間見積もり + 経験則 retry 強化 section 反映済、 ADR-0067/0068 ε + ADR-0069 γ PR4 precedent 同 doc-only sprint パターン継承 + 機械復旧 rule literal 適用 2 回目実証完了 (= ADR-0069 γ PR4 impl-review round 2 first attempt cancel + retry approve = 1 回目、 本 ADR-0065 β PR3 round 1 first attempt cancel + retry approve = 2 回目)。
+
+= **PR #148 MERGED at `cd715ae`**、 atomic 1 セット規律 [[feedback-pr-merge-branch-delete-atomic]] **7 回目適用完走** (= PR #142 + #143 + #144 + #145 + #146 + #147 + #148)、 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` = local 保持 (= 4 条 (4) 保持対象 3 type 不可触遵守)。
 
 ### Annex γ: sub-sprint γ acceptance gate criteria 定義 doc-only (= γ PR4 で fill)
 
