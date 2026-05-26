@@ -823,11 +823,198 @@ note: shift right 6 回は `(BPM*13) <= 100*13 = 1300 < 8192 = 2^13` のため 1
 
 doc wording / 表記 review = 重点ではない (= user 明示 mandate)。
 
-### Annex β-3: δ verify result (= sprint δ で fill)
+### Annex β-3: plan v3 (= Codex round 2 revise 4 must-fix 反映 + sprint β round 3 Codex review 投入 target)
+
+sprint β round 2 plan v2 Codex Rescue plan review (= agentId `af51f5e688ebc5242`、 elapsed 4m23s) judgment = **revise** + 4 must-fix + 3 nice-to-have + 3 latent-risk。 per-axis verdict = AXIS-1 (rest handler) PASS + AXIS-2 (tempo encoding) PARTIAL (mf1) + AXIS-3 (sha256 維持) FAIL (mf2) + AXIS-4 (allowed-touch) PARTIAL (mf3 + mf4) + AXIS-5 (verify plan) PASS。
+
+#### β-3-1: plan v3 scope (= 不変 carry + must-fix 4 件反映 overview)
+
+- repair scope = 不変 (= rest 0x0F handler + comt tempo 3-byte handling、 SSG mixer enable scope OUT 維持)
+- 主要 shift from plan v2:
+  - (mf1) Annex α-5 観測 peak 2659 Hz claim を「ADR 記録 + 算術整合」 格下げ + Python 1 行算式 snapshot embed
+  - (mf2) γ implementation order 「4 build matrix sha256」 を `scripts/build-poc.sh:188-242` 基準 4 種に詳細化
+  - (mf3) patch (2) を **inline embed** (= 新規 helper routine `pmdneo_comt_pmddotnet` 廃止)、 allowed-touch を「既存 routine modify only」 に統一
+  - (mf4) dashboard 0071 行 active row を plan v3 wording に統一
+
+#### β-3-2: must-fix mf1 反映 = AXIS-2 観測 peak 2659 Hz claim 格下げ + 算術 snapshot
+
+Codex 指摘 = 観測 peak 2659 Hz が repo 内にソース根拠なし (= ADR text self-referential)。 解消方法 = E6 2nd harmonic 算式 Python snippet を embed + claim を「ADR 記録 + 算術整合」 格下げ。
+
+```python
+# E6 = MIDI note 88, A4 = MIDI note 69 = 440 Hz
+e6_fundamental = 440 * (2 ** ((88 - 69) / 12))   # 1318.51 Hz
+e6_2nd_harmonic = e6_fundamental * 2              # 2637.02 Hz
+# observed peak 2659 Hz vs expected 2637.02 Hz → 21.98 Hz delta (= 0.83% error)
+```
+
+- claim grade shift: 「observed peak 2659 Hz = E6 2nd harmonic 2637 Hz 一致」 → 「ADR-0065 sprint B follow-up integration verify 経路 (= `analyze-audition-wav.py` output、 audition material storage = repo 外 artifact) で記録された観測 peak 2659 Hz は **算術整合** = E6 2nd harmonic 計算値 2637 Hz と 0.83% 誤差で一致」
+- reproducer = 上記 Python 1 行 (= 独立再現可能)
+- latent-risk lr3 acknowledge: 観測 source artifact (= `analyze-audition-wav.py` output JSON + `vendor/ngdevkit-examples/00-template/pmddotnet_song.m`) は commit 管理外 = AXIS-2 証拠 reproducibility 一部欠落、 mitigation = Python reproducer + ADR-0065 sprint B framework が再生成可能
+
+#### β-3-3: must-fix mf2 反映 = AXIS-3 build matrix 4 種 `scripts/build-poc.sh:188-242` 基準詳細化
+
+Codex 指摘 = 「4 build matrix」 が chip-target (ym2610/ym2610b) 基準として誤読される設計、 実 build switch = `PMDNEO_USE_PMDDOTNET` flag + `PMDDOTNET_MML` env による独立制御。 `scripts/build-poc.sh:188-242` 基準で 4 種を再定義。
+
+| 種別 | 環境変数組 | 期待 sha256 結果 | scope |
+|---|---|---|---|
+| (A1) production baseline | `PMDNEO_CHIP=ym2610b` + `PMDNEO_USE_PMDDOTNET=0` + no `PMDDOTNET_MML` | 既存 production `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` byte-identical 維持 (= ADR-0069 §決定 4 整合) | 修理経路無関係、 既存 byte 列完全保持 |
+| (A2) chip variant | `PMDNEO_CHIP=ym2610` + `PMDNEO_USE_PMDDOTNET=0` + no `PMDDOTNET_MML` | 既存 ym2610 sha256 byte-identical 維持 | chip target alternative、 修理経路無関係 |
+| (A3) PMDDotNET import flag-off | `PMDNEO_CHIP=ym2610b` + `PMDNEO_USE_PMDDOTNET=0` + `PMDDOTNET_MML=<staircase.MML>` | (A1) と byte-identical (= guarded change `.if PMDNEO_USE_PMDDOTNET` block は flag=0 で assemble されない) | PMDDotNET 経路で .M import するが driver 修理は無効 = byte-identical |
+| (A4) PMDDotNET import flag-on (= 修理経路 build) | `PMDNEO_CHIP=ym2610b` + `PMDNEO_USE_PMDDOTNET=1` + `PMDDOTNET_MML=<staircase.MML>` | (A1) と diff = patch (1) + patch (2) 合計 byte 量 (= 期待 ~50-60 byte 増分) + `.lst` で diff 確認 | 修理経路 build、 δ functional verify 対象 |
+
+- (A1)(A2)(A3) で `b15883fe...` 維持 = production sha256 invariant 守られる証拠
+- (A4) のみ diff = guarded change が正しく `.if PMDNEO_USE_PMDDOTNET` block を assemble している証拠
+- diff byte 量予測 = patch (1) ~15-20 byte (= `push af / and 0x0F / cp 0x0F / jr z / pop af / jp` block) + patch (2) ~35-40 byte (= comt inline embed = `(BPM*13)>>6` 換算 logic = `add hl`×5 + `srl h / rr l`×6 + load/store)
+- 検証 command 例:
+  ```sh
+  # (A1)
+  PMDNEO_CHIP=ym2610b PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+  sha256sum vendor/ngdevkit-examples/00-template/poc.neo
+  # (A2)
+  PMDNEO_CHIP=ym2610 PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+  sha256sum vendor/ngdevkit-examples/00-template/poc.neo
+  # (A3)
+  PMDNEO_CHIP=ym2610b PMDNEO_USE_PMDDOTNET=0 PMDDOTNET_MML=src/tools/pmd-mml/ssg-active-ladder.mml scripts/build-poc.sh
+  sha256sum vendor/ngdevkit-examples/00-template/poc.neo
+  # (A4)
+  PMDNEO_CHIP=ym2610b PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=src/tools/pmd-mml/ssg-active-ladder.mml scripts/build-poc.sh
+  sha256sum vendor/ngdevkit-examples/00-template/poc.neo
+  ```
+
+#### β-3-4: must-fix mf3 反映 = patch (2) inline embed + 新規 helper routine 廃止
+
+Codex 指摘 = plan v2 patch (2) は新規 helper routine `pmdneo_comt_pmddotnet` (= 0x0610 セクション末尾) を提案、 patch (1) は inline label のみ (= 既存 routine modify only) = 不整合。 allowed-touch を「既存 routine modify only」 に統一するため、 patch (2) も inline embed に変更。
+
+##### patch (2) v3 design (= inline embed、 helper routine 廃止)
+
+```asm
+; src/driver/standalone_test.s 既存 comt routine (line 3911-3914 周辺):
+; comt:
+;         call    pmdneo_part_fetch_byte
+;         ld      (driver_tempo_d), a
+;         ret
+
+; patch (2) v3: comt routine 内に PMDDOTNET 3-byte tempo handling を inline embed
+comt:
+.if PMDNEO_USE_PMDDOTNET
+        ; PMDDotNET 3-byte tempo encoding: 0xFC 0xFF <BPM raw>
+        ; 上位 byte 0xFF = format marker (= discard)、 次 byte = raw BPM
+        ; driver は (BPM*13)>>6 換算で driver_tempo_d に格納
+        call    pmdneo_part_fetch_byte     ; A = 0xFF marker, discard
+        call    pmdneo_part_fetch_byte     ; A = raw BPM
+        ld      l, a                       ; HL = BPM
+        ld      h, #0
+        ld      d, h                       ; DE = BPM
+        ld      e, l
+        add     hl, hl                     ; HL = BPM * 2
+        add     hl, hl                     ; HL = BPM * 4
+        add     hl, hl                     ; HL = BPM * 8
+        add     hl, de                     ; HL = BPM * 9
+        add     hl, de                     ; HL = BPM * 10
+        add     hl, de                     ; HL = BPM * 11
+        add     hl, de                     ; HL = BPM * 12
+        add     hl, de                     ; HL = BPM * 13
+        srl     h                          ; HL >>= 1
+        rr      l
+        srl     h                          ; HL >>= 2
+        rr      l
+        srl     h                          ; HL >>= 3
+        rr      l
+        srl     h                          ; HL >>= 4
+        rr      l
+        srl     h                          ; HL >>= 5
+        rr      l
+        srl     h                          ; HL >>= 6
+        rr      l
+        ld      a, l                       ; A = (BPM*13)>>6
+        ld      (driver_tempo_d), a
+.else
+        call    pmdneo_part_fetch_byte
+        ld      (driver_tempo_d), a
+.endif
+        ret
+```
+
+- 新規 routine label なし (= `pmdneo_comt_pmddotnet` 削除)
+- 既存 `comt` routine 内部のみ modify
+- 0x0610 セクション末尾配置 question moot (= nh3 = N/A、 inline embed で配置位置論点消滅)
+- patch byte estimate = ~35-40 byte (= guarded block within comt)
+- ADR-0051 owner contract = `pmdneo_ssg_tone_sync` (= reg 0x07 RMW) 影響なし
+- allowed-touch literal update = `src/driver/standalone_test.s` のみ + (a) line 3725-3733 周辺 `pmdneo_part_main_parse` 既存 routine modify (= rest 0x0F handler inline label) + (b) line 3911-3914 周辺 `comt` 既存 routine modify (= tempo 3-byte handling inline embed) + 新規 routine 追加なし
+
+#### β-3-5: must-fix mf4 反映 + nice-to-have 3 件反映
+
+##### mf4 = dashboard 0071 行 active row plan v3 wording 統一 (= 本 plan v3 commit chain で同時実施)
+
+dashboard `docs/parallel-axes-dashboard.md:66` の active row を以下に update (= 本 commit で同時実施):
+- 「sprint β round 1 plan review revise + agent 5 真の root cause finding + plan v2 起草」 → 「sprint β round 2 plan review revise (= 4 must-fix) + plan v3 起草 (= patch (2) inline embed + 4 build matrix 詳細化 + 観測 peak claim 格下げ + Python reproducer embed)」
+- escalation 履歴 0071 entry plan review chain column update = round 1 revise → round 1 revise + agent 5 + plan v2 → round 2 revise + plan v3 + round 3 投入予定
+
+##### nh1 反映 = δ-7 算術 example `t120 → (120*13)>>6 = 0x18` 明示
+
+既存 β-2-6 「δ-7」 gate description = `t100 → driver_tempo_d = 0x14` のみ。 plan v3 で追加:
+- t100 → (100*13)>>6 = 1300>>6 = 20 = **0x14**
+- t120 → (120*13)>>6 = 1560>>6 = 24 = **0x18**
+- t60 → (60*13)>>6 = 780>>6 = 12 = **0x0C**
+
+##### nh2 反映 = `driver_tempo_d` z80-mem probe アドレス 0xF817 明示
+
+既存 `standalone_test.s:8` literal で `driver_tempo_d = 0xF817` (= driver tempo shadow byte)。 plan v3 で δ-7 gate description に明示:
+- gate δ-7 = MAME z80-mem probe アドレス `0xF817` で expected `driver_tempo_d` value 一致
+
+##### nh3 acknowledge = N/A (= patch (2) inline embed で配置位置論点消滅)
+
+Codex nh3 = 「0x0610 セクション末尾配置位置を song_data.inc include 行手前明記」 → patch (2) inline embed で `pmdneo_comt_pmddotnet` helper routine 廃止のため、 配置位置 question 自体が moot。 plan v3 で明示的 acknowledge。
+
+#### β-3-6: latent-risk 3 件 acknowledge
+
+##### lr1 = patch (2) inline embed 後の comt 内 PMDDOTNET block が 0xFF marker 検証なく読み捨てる desync risk
+
+mitigation:
+- sprint γ test fixture (= `ssg-active-ladder.mml` 等) は PMDDotNET compiler 正規出力なので 0xFF marker は必ず先頭 (= malformed tempo は出ない)
+- production-ready は ADR-0066 (= 本番 cmd 切替) 候補 future、 ADR-0071 sprint γ では skip
+- 将来 strict mode 候補 (= 0xFF marker 検証 + mismatch 時 fallback) は別 ADR scope
+
+##### lr2 = 既存 source 内 `.if PMDNEO_USE_PMDDOTNET == 1` pattern 残存 (= 既存 ADR-0069 patch 由来) = 将来読者混乱
+
+mitigation:
+- ADR-0071 sprint γ 修正範囲では `.if PMDNEO_USE_PMDDOTNET` (binary toggle) 統一
+- 既存 source の `== 1` pattern cleanup は別 sprint scope (= 越境せず)
+- memory `feedback_sdas_if_no_value_comparison.md` に historical note carry
+
+##### lr3 = `vendor/ngdevkit-examples/00-template/pmddotnet_song.m` commit 管理外 = AXIS-2 証拠の一部再現性なし
+
+mitigation:
+- β-3-2 で Python 1 行 reproducer embed (= 独立再現可能)
+- `pmddotnet_song.m` 再生成 = `PMDDOTNET_MML=src/tools/pmd-mml/ssg-active-ladder.mml scripts/build-poc.sh` (= ADR-0016 step 3b 経路)
+- audition material storage の repo 外 artifact 規律は ADR-0065 §決定 13 (= sprint B follow-up integration verify framework) 整合
+
+#### β-3-7: γ implementation order (= plan v2 から update = 4 build matrix 詳細化 + worktree 再作成 mandate carry)
+
+1. **main agent 経路で `git worktree` 再作成** (= ADR-0041 §決定 12 isolation worktree base ref 不一致 該当、 agent 2 仮説 2 反証経路の正規化)
+2. `comt` routine inline embed patch + `pmdneo_part_main_parse` rest 0x0F handler patch (= 2 patch 同時 apply)
+3. sdasz80 build (= `make standalone_test.rel`)
+4. `.lst` predicate 4 件確認:
+   - patch (1) `pmdneo_part_main_parse_rest_dotnet` inline label assemble 確認
+   - patch (2) comt 内 `.if PMDNEO_USE_PMDDOTNET` block 内 instructions assemble 確認
+   - 既存 routine body 完全不変 (= patch 外の byte 列 byte-identical)
+   - 既存 symbol table 不変 (= 新規 symbol 増加なし、 既存 symbol 完全保持)
+5. 4 build matrix sha256 verify (= β-3-3 表 (A1)(A2)(A3)(A4))
+6. δ functional verify (= β-2-6 各 gate + δ-7 tempo encoding verify nh1/nh2 反映)
+
+#### β-3-8: Codex Rescue plan review round 3 重点軸 (= round 2 must-fix 4 件反映 + 不変 carry)
+
+1. mf1 反映確認 = AXIS-2 観測 peak claim 格下げ + Python 算式 snapshot embed (= β-3-2)
+2. mf2 反映確認 = AXIS-3 build matrix 4 種 `scripts/build-poc.sh:188-242` 基準詳細化 (= β-3-3)
+3. mf3 反映確認 = AXIS-4 patch (2) inline embed + 新規 helper routine 廃止 (= β-3-4)
+4. mf4 反映確認 = AXIS-4 dashboard active row plan v3 wording 統一 (= β-3-5 mf4)
+5. unchanged carry = AXIS-1 (rest handler) PASS + AXIS-5 (verify plan) PASS confirm
+
+### Annex β-4: δ verify result (= sprint δ で fill)
 
 placeholder。
 
-### Annex β-4: ε Accepted milestone (= sprint ε で fill)
+### Annex β-5: ε Accepted milestone (= sprint ε で fill)
 
 placeholder。
 
@@ -835,6 +1022,7 @@ placeholder。
 
 | 日付 | session | 内容 | commit |
 |---|---|---|---|
+| 2026-05-27 | 43rd session | ADR-0071 sprint β round 2 Codex review revise + plan v3 起草 = sprint β round 1 + agent 5 + plan v2 後の sprint β round 2 plan v2 Codex review (= agentId `af51f5e688ebc5242`、 elapsed 4m23s) **revise** + 4 must-fix + 3 nice-to-have + 3 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 PARTIAL mf1 + AXIS-3 FAIL mf2 + AXIS-4 PARTIAL mf3+mf4 + AXIS-5 PASS)。 main agent autonomous (= user mandate「sha256 維持崩れ / allowed-touch 拡張 / 別 ADR scope 変更時のみ user 判断」 適用、 mf1〜mf4 全 scope 内 + sha256 invariant 維持 + allowed-touch 縮小 = 全自律進行可能) で plan v3 起草。 ADR doc 修正範囲 = (1) Annex β-3 新規追加 = plan v3 (= 8 sub-section = β-3-1 scope + β-3-2 mf1 反映 = 観測 peak 2659 Hz claim 格下げ + Python 算式 snapshot embed (= E6 2nd harmonic 2637.02 Hz vs 観測 2659 Hz = 0.83% 誤差) + β-3-3 mf2 反映 = 4 build matrix 4 種 `scripts/build-poc.sh:188-242` 基準詳細化 (= (A1) production baseline + (A2) chip variant + (A3) PMDDotNET import flag-off + (A4) PMDDotNET import flag-on = 修理経路 build) + 検証 command 例 + β-3-4 mf3 反映 = patch (2) inline embed (= 新規 helper routine `pmdneo_comt_pmddotnet` 廃止、 既存 comt routine 内 `.if PMDNEO_USE_PMDDOTNET` block で `(BPM*13)>>6` 換算 logic 全 embed) + allowed-touch literal update (= 既存 routine modify only、 新規 routine 追加なし) + β-3-5 mf4 反映 + nh1/nh2/nh3 反映 (= δ-7 算術 example t100/t120/t60 明示 + driver_tempo_d 0xF817 z80-mem probe + nh3 N/A acknowledge) + β-3-6 lr1/lr2/lr3 acknowledge + mitigation 明示 + β-3-7 γ implementation order update (= 4 build matrix 詳細化 + worktree 再作成 mandate carry) + β-3-8 Codex round 3 重点軸 5 件) + (2) Annex β-3 placeholder rename → Annex β-4 (= δ verify result placeholder carry) + Annex β-4 placeholder rename → Annex β-5 (= ε Accepted milestone placeholder carry) + (3) 改訂履歴 sprint β round 2 + plan v3 entry append (= 本 entry、 append only mandate 厳守 = 既存 β round 1 + plan v2 entry の後ろに append、 chronological order 正常維持) + (4) dashboard 0071 行 status update = 「sprint β round 1 revise + agent 5 + plan v2 起草」 → 「sprint β round 2 revise (= 4 must-fix) + plan v3 起草」 + (5) escalation 履歴 ADR-0071 entry plan review chain column update = round 1 revise + agent 5 + plan v2 → round 2 revise + plan v3 + round 3 投入予定 placeholder。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0070 本文 + Annex / 既存 scripts (= analyze-audio.py / analyze-audition-wav.py / test_analyze_audition_wav.py) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= sprint β round 2 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0065 sprint A AXIS-5 fix-up precedent 同 pattern carry)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #153 base) + (2) merge atomic 11 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 3 on Annex β-3 plan v3 (= 5 重点軸 = mf1/mf2/mf3/mf4 反映確認 + AXIS-1/AXIS-5 unchanged carry) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 11 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 mandate)、 sub-sprint β/γ/δ/ε 起票判断 = main agent autonomous default、 user 判断 = sha256 維持崩れ / allowed-touch 拡張 / 別 ADR scope 変更時のみ。 | (= 本 plan v3 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0071 sprint β round 1 Codex review revise + agent 5 focused 再投資 + plan v2 起草 = sprint α 完走後の sprint β round 1 plan v1 Codex review (= agentId `ad2dc66cae5b63599`、 elapsed 258 秒) **revise** + 5 must-fix (= must-fix 1 = review-2 SSG mixer 仮説 root cause 再調査 / must-fix 2 = SSG patch containment 修正 (= 既存 ADR-0051 owner contract 維持) / must-fix 3 = guarded syntax `.if X == 1` → `.if X` binary toggle (= sdasz80 値比較非対応 memory `feedback_sdas_if_no_value_comparison.md` 整合) / must-fix 4 = allowed-touch 記述実修正範囲一致 / must-fix 5 = verify plan δ-5 実効化 = real trace + 固定 expected events) + review-1 PASS (= rest 0x0F handler 仮説 carry) + review-2/3/4/5 FAIL。 main agent autonomous で agent 5 focused 再投資 起動 (= agentId `abb6ecbd1a9c97112`、 elapsed 1044 秒、 confidence high) で **真の SSG silent root cause = PMDDotNET 3-byte tempo encoding と driver 1-byte `comt` handler 不整合** 確定 (= PMDDotNET `mc.cs:7474-7479` `tempoa()` で `0xFC 0xFF <BPM raw>` 3-byte emit + driver `comt` (= `standalone_test.s:3911-3914`) 1-byte fetch のみ = 旧 PMD V4.8s 2-byte format 想定、 ssg-active-ladder.mml G part body byte 列 `fc ff 64 fe 08 30 18 30 18 30 18 30 18 80` literal verify、 driver は `comt` で fetch `0xFF` → `driver_tempo_d = 0xFF` 異常高速、 次 byte `0x64` を note byte E6 (OCT=6 ONKAI=4) として誤 keyon、 G silent ではなく E6 短 burst → user perception silent + observed peak 2659 Hz は E6 fundamental 1319 Hz × 2 = 2nd harmonic 2637 Hz 一致 0.8% 誤差) + agent 2 仮説 2 反証真因 = worktree HEAD `3ad1e23` (= 2026-05-11、 ADR-0051 β 実装前) base anchor `36330a6` (= 2026-05-26) の ancestor、 outdated source (= 2581 lines、 30+ symbol 不在) を base anchor source (= 5938 lines) と誤同視 = memory `feedback_subagent_isolation_worktree_base_ref_mismatch.md` 9 件 guard #2/#3 trigger 該当 (= sprint γ impl 着手時 main agent 経路 worktree 再作成 mandate)。 ADR doc 修正範囲 = (1) Annex α-5 新規追加 = agent 5 finding literal (= compiler source line + driver source line + binary byte literal + 誤解釈 path + 観測整合 + worktree base ref mismatch escalation literal) + (2) Annex β-2 新規追加 = plan v2 (= scope shift (= SSG mixer enable scope OUT、 tempo 3-byte handling scope IN) + must-fix 1-5 全反映 + repair patch v2 design literal = patch (1) `pmdneo_part_main_parse` rest 0x0F handler `.if PMDNEO_USE_PMDDOTNET` binary toggle + patch (2) `comt` tempo 3-byte handling helper routine `pmdneo_comt_pmddotnet` 新規追加 (= 0x0610 セクション末尾、 ADR-0051 `pmdneo_ssg_tone_sync` pattern 踏襲、 `(BPM*13)>>6` 換算 logic embedded) + γ impl order (= worktree 再作成 + 2 patch + sdasz80 build + .lst predicate + 4 build matrix sha256 + δ functional) + δ-1〜δ-7 verify gate revised (= real trace + 固定 expected register values = reg 0xA1/0xA5 FNUM + 0x07 SSG mixer + 0x00/0x02/0x04 SSG period + driver_tempo_d shadow)) + (3) 改訂履歴 sprint β round 1 + agent 5 + plan v2 entry append (= 本 entry、 append only mandate 厳守) + (4) dashboard 0071 行 status update (= 「Draft 起票」 → 「Draft + α 完走 + sprint β round 1 plan review revise + agent 5 真の root cause finding + plan v2 起草」) + (5) escalation 履歴 ADR-0071 entry 更新 (= plan review chain placeholder → round 1 revise + agent 5 + plan v2 literal、 round 2 投入予定 placeholder)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0070 本文 + Annex / 既存 scripts (= analyze-audio.py / analyze-audition-wav.py / test_analyze_audition_wav.py) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch 完全 untouched。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= sprint β round 1 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0065 sprint A AXIS-5 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #153 base) + (2) merge atomic 11 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 2 on Annex β-2 plan v2 (= user 明示 5 重点軸 = (1) rest handler 仮説 carry + (2) **真 SSG silent root cause = tempo 3-byte encoding 仮説妥当性 新軸** + (3) guarded change binary toggle で production sha256 維持可否 + (4) allowed-touch 限定 (= SSG mixer touch 削除、 comt touch 追加) + (5) verify plan 実効化 = real trace + 固定 expected register values) + approve loop + main agent 経路 merge + atomic 1 セット 11 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 mandate)、 sub-sprint β/γ/δ/ε 起票判断 = main agent autonomous default、 user 判断 = sha256 維持崩れ / allowed-touch 拡張 / 別 ADR scope 変更時のみ。 | (= 本 plan v2 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0071 起票 Draft = PMDNEO driver-PMDDOTNET integration repair sprint (= sprint α scope = root cause investigation 完走 + Annex α 4 sub-agent finding literal record + Annex β-1 plan v1 起草 + sub-sprint chain α/β/γ/δ/ε 5 段 plan literal、 ADR-0065 sprint B follow-up integration verify で発見した driver 真の bug 2 件 (= rest 0x0F handler missing + SSG mixer enable missing) の engineering repair、 user 明示「Claude Code 主担当 + main agent autonomous」 mandate 経路、 4 並走 sub-agent investigation 完了 (= agent 1 `a1d35d89aa90b5f76` / agent 2 `a6a68b892193cded5` / agent 3 `a96c0520e9be2b697` / agent 4 `a34df6cbc138382da` confidence 全 high)、 issue 3 (= harness flag) + issue 2A (= FFT artifact) は driver 修理 scope 外確定、 user 明示 scope narrowing 完了)。 ADR doc 修正範囲 = (1) ADR-0071 file 新規 (= 8 決定 + verify gate + Annex α 4 sub-section + Annex β-1 plan v1 + Annex β-2/3/4 placeholder + 改訂履歴 + 平易要約) + (2) dashboard 0071 行 add (= 「Draft 起票」 + 8 決定 概要) + (3) dashboard escalation 履歴 ADR-0071 entry 1 row 追加 + (4) memory + MEMORY.md = merge 後 main agent direct (= 別途、 repo 外、 PR diff target 完全 excluded)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0041〜0070 本文 + Annex / scripts/analyze-audio.py + scripts/analyze-audition-wav.py 完全不変。 production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` 維持期待 (= sprint α doc-only sprint で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0067/0068 ε precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` confirmed + (2) merge atomic 11 回目適用予定 (= PR #142+...+#152 + 本 ADR-0071 起票 PR) + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review on Annex β-1 plan v1 (= user 明示 5 重点軸 = rest handler 仮説 + SSG mixer 仮説 + sha256 guarded change + allowed-touch + verify plan 実音成立) + approve loop + main agent 経路 merge + atomic 1 セット 11 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手判断 (= main agent autonomous default)。 | (= 本起票 commit chain 内 commit 1) |
 
