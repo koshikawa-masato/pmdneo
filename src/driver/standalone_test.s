@@ -1738,66 +1738,119 @@ nmi_cmd_5_fm_ssg_eg_port_b_loop:
         ;; ADR-0006 §A/§B: song_table は 20 stream 順 (A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,X,Y,Z)
         ;; A/D は PMDNEO_TARGET_CHIP_YM2610B 時のみ init、 default (= ym2610) では stream 読捨
         ;; K (Rhythm) と X/Y/Z (FM3Extend) は常時 init、 hooks=noop で stream 読捨 (= 当面 mute)
+        ;; ADR-0069 α: A-J 10 part load を K/L-Q と同 pattern で guarded 化 = PMDDOTNET=1 では
+        ;; pmdneo_mn_direct_load_aj_part_addr (= m_buf[aj_idx*2..+1] 直接 offset 引き) で body addr 計算、
+        ;; PMDDOTNET=0 (= production default) では既存 load_song_part_addr 経路維持 (= sha256 byte-identical)。
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #0
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #0
         call    load_song_part_addr
+.endif
 .if PMDNEO_TARGET_CHIP_YM2610B
         ld      a, #PART_FM1
         ld      b, #0
         ld      c, #0x0F
         call    pmdneo5_init_part
 .endif
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #1
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #1
         call    load_song_part_addr
+.endif
         ld      a, #PART_FM2
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #2
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #2
         call    load_song_part_addr
+.endif
         ld      a, #PART_FM3
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #3
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #3
         call    load_song_part_addr
+.endif
 .if PMDNEO_TARGET_CHIP_YM2610B
         ld      a, #PART_FM4
         ld      b, #3
         ld      c, #0x0F
         call    pmdneo5_init_part
 .endif
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #4
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #4
         call    load_song_part_addr
+.endif
         ld      a, #PART_FM5
         ld      b, #4
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #5
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #5
         call    load_song_part_addr
+.endif
         ld      a, #PART_FM6
         ld      b, #5
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #6
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #6
         call    load_song_part_addr
+.endif
         ld      a, #PART_SSG1
         ld      b, #0
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #7
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #7
         call    load_song_part_addr
+.endif
         ld      a, #PART_SSG2
         ld      b, #1
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #8
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #8
         call    load_song_part_addr
+.endif
         ld      a, #PART_SSG3
         ld      b, #2
         ld      c, #0x0F
         call    pmdneo5_init_part
+.if PMDNEO_USE_PMDDOTNET == 1
+        ld      a, #9
+        call    pmdneo_mn_direct_load_aj_part_addr
+.else
         ld      a, #9
         call    load_song_part_addr
+.endif
         ld      a, #PART_PCM
         ld      b, #0
         ld      c, #0
@@ -5817,6 +5870,52 @@ pmdneo_mn_direct_load_k_part_addr::
         ld      d, (hl)                 ; D = K offset HI (LE)
         ld      hl, #pmddotnet_song + 1
         add     hl, de                  ; HL = K body file addr (= pmddotnet_song + 1 + K_offset)
+        ret
+
+;;; ADR-0069 α: A-J part body addr load (= PMDDOTNET_MML 経路、 K routine の index 化 10 倍展開)
+;;;
+;;; 入力: register A = aj_idx (= 0..9 の整数値、 part letter mapping は別表参照)
+;;; 出力: register HL = part body file 内 addr (= pmddotnet_song + 1 + part_offset)
+;;; 破壊: AF, DE, HL
+;;;
+;;; aj_idx ↔ part letter mapping (= 音楽 part 識別文字、 Z80 register 名と無関係):
+;;;   aj_idx 0 → part "A" (= FM 1)
+;;;   aj_idx 1 → part "B" (= FM 2)
+;;;   aj_idx 2 → part "C" (= FM 3)
+;;;   aj_idx 3 → part "D" (= FM 4)
+;;;   aj_idx 4 → part "E" (= FM 5)
+;;;   aj_idx 5 → part "F" (= FM 6)
+;;;   aj_idx 6 → part "G" (= SSG 1)
+;;;   aj_idx 7 → part "H" (= SSG 2)
+;;;   aj_idx 8 → part "I" (= SSG 3)
+;;;   aj_idx 9 → part "J" (= ADPCM-B)
+;;;
+;;; pattern: 既存 L-Q helper (= pmdneo_mn_direct_load_lq_part_addr) と同 input register
+;;; convention (= A register に index load) を継承、 K helper (= 引数なし) を index 化展開。
+;;;
+;;; .M / .MN file layout (= K routine 上 doc comment 整合):
+;;;   pmddotnet_song[0]      = m_start
+;;;   pmddotnet_song[1..2]   = m_buf[0..1]   = part A offset (LE 16-bit)
+;;;   pmddotnet_song[3..4]   = m_buf[2..3]   = part B offset
+;;;   ...
+;;;   pmddotnet_song[19..20] = m_buf[18..19] = part J offset (LE 16-bit)
+;;;
+;;; pointer 解決規則 (= K/L-Q routine と同じ規約):
+;;;   aj_offset 値は m_buf-relative
+;;;   part body file addr = pmddotnet_song + 1 + aj_offset
+;;;
+;;; bit 2 m_start check は不要 (= K と同じく header 固定位置、 .M / .MN 共通)
+pmdneo_mn_direct_load_aj_part_addr::
+        add     a, a                    ; A = aj_idx * 2 (= LE 16-bit entry byte offset)
+        ld      e, a                    ; E ← A
+        ld      d, #0                   ; D ← 0 (= DE upper byte clear、 D は intermediate)
+        ld      hl, #pmddotnet_song + 1
+        add     hl, de                  ; HL = m_buf[aj_idx*2..+1] field addr
+        ld      e, (hl)                 ; E ← part offset LO
+        inc     hl
+        ld      d, (hl)                 ; D ← part offset HI (LE)
+        ld      hl, #pmddotnet_song + 1
+        add     hl, de                  ; HL = part body file addr
         ret
 .endif
 
