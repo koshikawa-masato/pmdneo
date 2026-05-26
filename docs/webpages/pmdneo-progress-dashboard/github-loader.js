@@ -138,7 +138,8 @@
       },
       mmlOpcodes: {
         columns: [
-          { key: 'pmdMain', label: 'PMD 本家', ref: 'main df4e7b6 : src/driver/PMD_Z80.inc' },
+          { key: 'manual',   label: 'MANUAL',   ref: 'pages/pmdmml-coverage.html : PMD V4.8s manual reference' },
+          { key: 'compiler', label: 'COMPILER', ref: 'pages/pmdmml-coverage.html : PMDNEO compile/tooling status' },
           { key: 'driver',  label: 'DRIVER',   ref: REPO.branch + ' : pages/pmdmml-coverage.html / src/driver/standalone_test.s' },
         ],
         rows: rows.map(r => ({
@@ -146,7 +147,8 @@
           name: r.section + (r.format && r.format !== r.command ? '  ' + r.format : '') +
                 (r.sound && r.sound !== '-' ? '  [' + r.sound + ']' : ''),
           category: inferCategory(r),
-          pmdMain: r.pmdMain,
+          manual: r.pmdMain,
+          compiler: r.pmdneo,
           driver:  r.pmdneo,
           driver_detail: r.memo,
           _sprint: r.sprint,
