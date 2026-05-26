@@ -156,7 +156,7 @@
             </thead>
             <tbody>
               <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
-              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。comt はあるが T の多機能版は未。</td></tr>
+              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。comt は存在するが T の拡張仕様は未対応。</td></tr>
               <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。v2 未実装。</td></tr>
             </tbody>
           </table>
@@ -171,7 +171,7 @@
             <tbody>
               <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
               <tr><td>§3-2</td><td><code>r</code></td><td>休符</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>休符</td></tr>
-              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側依存が主流。</td></tr>
+              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側で note length に反映させるのが主流。</td></tr>
               <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-done">✓ comtie</span></td><td>完了</td><td>タイ (standalone_test.s に comtie あり)</td></tr>
             </tbody>
           </table>
@@ -215,7 +215,7 @@
             <tbody>
               <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。</td></tr>
               <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。comat は SSG を無視する設計のため未対応。</td></tr>
-              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 では未実装。</td></tr>
+              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 driver では未実装。</td></tr>
             </tbody>
           </table>
         </div>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 7d11413<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 79e7f36<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
