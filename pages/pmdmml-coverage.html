@@ -156,8 +156,8 @@
             </thead>
             <tbody>
               <tr><td>§2-1</td><td><code>t</code></td><td><code>t60-255</code></td><td>-</td><td><span class="badge-done">✓ comt</span></td><td><span class="badge-done">✓ comt</span></td><td>完了</td><td>テンポ指定</td></tr>
-              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張テンポ。基本comtは存在するが T の拡張機能は未。</td></tr>
-              <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。v2 未実装。</td></tr>
+              <tr><td>§2-2</td><td><code>T</code></td><td><code>T0-255</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial" title="driver調査: standalone_test.s L3911 comt: + commandsp_t あり (基本テンポ t60-255 対応)。T0-255 固有の拡張ロジック (相対テンポ・細粒度・別スケール) は未実装。">△ 部分</span></td><td>Phase 9 next</td><td>拡張テンポ。基本comtは存在するが T の拡張機能は未。 (standalone_test.s: comt L3911 / commandsp_t あり、T 専用 path なし)</td></tr>
+              <tr><td>§2-3</td><td><code>W</code></td><td><code>Wn[.]</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に comw / W ハンドラ / echo / delay / 擬似エコー関連コード・ラベル一切なし。dispatch table (commandsp_*) にも W 対応エントリなし。v2 driver で未実装。">✗ 未</span></td><td>Phase 9 next</td><td>擬似エコー delay。v2 未実装。 (standalone_test.s: W 関連ハンドラ・ロジック 完全不在)</td></tr>
             </tbody>
           </table>
         </div>
@@ -171,7 +171,7 @@
             <tbody>
               <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
               <tr><td>§3-2</td><td><code>r</code></td><td>休符</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>休符</td></tr>
-              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側で note length に反映させる設計が主流。</td></tr>
+              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に coml / l 専用 dispatch / デフォルト音長ハンドラ一切なし。PART_OFF_LEN 等は runtime 状態管理用。MML l コマンドはコンパイラ側で各音符の長さに事前解決される設計。">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側で note length に反映させる設計が主流。 (standalone_test.s: l 関連ハンドラ不在、runtime LEN のみ)</td></tr>
               <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-done">✓ comtie</span></td><td>完了</td><td>タイ (standalone_test.s に comtie あり)</td></tr>
             </tbody>
           </table>
@@ -214,8 +214,8 @@
             </thead>
             <tbody>
               <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。</td></tr>
-              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。comat は SSG を無視する設計のため未対応。</td></tr>
-              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 driver では未実装。</td></tr>
+              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s L4363 comat: で A = PART_OFF_CHIP_TYPE(ix) を取得、cp #2 (PCM) 以外で or a ; jp nz, comat_done (即ret)。SSG (CHIP_TYPE=1) は明示的に何もしない。FM path のみ voice_table + pmdneo_fm_voice_set。">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。comat は SSG を無視する設計のため未対応。 (standalone_test.s: comat L4363-4370 で SSG 即 ret 確認済)</td></tr>
+              <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に coms / s0-15 / FM3 slot mask 専用 MML ハンドラ一切なし。v2 PartWork slot は内部状態管理用 (KIND/ dispatch)。MML s コマンド対応未。">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。v2 driver では未実装。 (standalone_test.s: s 関連ハンドラ・dispatch エントリ 不在)</td></tr>
             </tbody>
           </table>
         </div>
@@ -256,9 +256,9 @@
             </thead>
             <tbody>
               <tr><td>§9-1</td><td><code>M</code></td><td><code>M速度,深さ</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM LFO。standalone_test.s に lfoset 系あり（v2で拡張中）</td></tr>
-              <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>SSG LFO。v2 未対応。</td></tr>
-              <tr><td>§9-3</td><td><code>MA</code></td><td><code>MA速度,深さ</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>振幅 LFO。未実装。</td></tr>
-              <tr><td>§9-4</td><td><code>MF</code></td><td><code>MF速度,深さ</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ピッチ LFO。未実装。</td></tr>
+              <tr><td>§9-2</td><td><code>MB</code></td><td><code>MB速度,深さ</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に MB / SSG LFO 専用ハンドラ (lfoset_ssg 系) 一切なし。M (FM LFO) の lfoset 系は partial 存在するが、MB/MA/MF 変種は未。">✗ 未</span></td><td>Phase future</td><td>SSG LFO。v2 未対応。 (standalone_test.s: MB 専用 LFO path 不在、M の lfoset partial のみ)</td></tr>
+              <tr><td>§9-3</td><td><code>MA</code></td><td><code>MA速度,深さ</code></td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に MA / 振幅 LFO 専用ハンドラ一切なし。M (FM) partial 以外に MA/MF 系 modulation ロジック未検出。">✗ 未</span></td><td>Phase future</td><td>振幅 LFO。未実装。 (standalone_test.s: MA ハンドラ・LFO 変種 path 完全不在)</td></tr>
+              <tr><td>§9-4</td><td><code>MF</code></td><td><code>MF速度,深さ</code></td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に MF / ピッチ LFO 専用ハンドラ一切なし。低レベル fnum 制御は存在するが、MML MF コマンドとしての modulation ラッパーは未。">✗ 未</span></td><td>Phase future</td><td>ピッチ LFO。未実装。 (standalone_test.s: MF ハンドラ・専用 LFO path 不在)</td></tr>
             </tbody>
           </table>
         </div>
@@ -321,7 +321,7 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。v2 でも低レベルアクセスは可能だが、MML y コマンドとしてのラッパーは未整備。</td></tr>
+              <tr><td>§14-1</td><td><code>y</code></td><td><code>yR,D</code> direct LSI</td><td>-</td><td><span class="badge-done">✓ comy</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に comy / yR,D MML ラッパー一切なし。低レベル ym2610_write_port_a 等の直接 reg write (例: 0x2A timer) は IRQ/timer 内部で使用されているが、MML y コマンドをパースして任意 reg へ書く path は未整備。">✗ 未</span></td><td>Phase 9 next</td><td>直接レジスタ書込。v2 でも低レベルアクセスは可能だが、MML y コマンドとしてのラッパーは未整備。 (standalone_test.s: comy 不在、低レベル write 基盤のみ)</td></tr>
               <tr><td>§14-2</td><td><code>|</code></td><td>shift/transpose</td><td>-</td><td><span class="badge-done">✓ comshift</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>転調。comshift / comshift2 / comshift_master が存在。v2 での統合は partial。</td></tr>
               <tr><td>§14-3</td><td><code>_</code></td><td>vol shift</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>音量シフト。comvshift_up/down 系が standalone_test.s に実装済み。</td></tr>
             </tbody>
@@ -348,7 +348,7 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。v2 でも本格的な * コマンド対応は未。</td></tr>
+              <tr><td>§16-1</td><td><code>*</code></td><td>label / goto</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo" title="driver調査: standalone_test.s 内に * / label / goto MML コマンドハンドラ一切なし。asm ソース内のラベル定義は多数あるが、MML 再生中に *label でジャンプする song 構造ロジックは未実装。">✗ 未</span></td><td>Phase future</td><td>ラベル/ジャンプ。v2 でも本格的な * コマンド対応は未。 (standalone_test.s: * コマンド path 完全不在)</td></tr>
               <tr><td>§16-2</td><td><code>,</code></td><td>コンマ区切り</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-done">✓ 実装済</span></td><td>完了</td><td>パラメータ区切り（基本的に動作）</td></tr>
             </tbody>
           </table>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 362ebef<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 6474647<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
