@@ -253,7 +253,7 @@ A-J 10 entry caller patch (= aj_idx mapping、 line range は **impl 後の実 l
 | 8 | I | 1793-1798 | 1836-1846 | 全 chip active |
 | 9 | J | 1799-1804 | 1847-1857 (= load 部 1847-1853 + init 部 1854-1857) | 全 chip active |
 
-= A-J 10 entry 範囲 (= 実 line) = **1744-1857** (= 旧 1741-1804 範囲 64 行 → 1744-1857 範囲 110 行 + 約 +46 行 = guarded change 3 段 wrap で 10 entry × ~6 行追加)。 K entry (= 旧 line 1805〜) は実 line 1858〜 にシフト。
+= A-J 10 entry 範囲 (= 実 line) = **1744-1857** (= 旧 1741-1804 範囲 64 行 → 1744-1857 範囲 **114 行** (= inclusive: 1857 - 1744 + 1) + 約 **+50 行** = guarded change 3 段 wrap で 10 entry × 約 +5 行追加)。 K entry (= 旧 line 1805〜) は実 line 1858〜 にシフト。
 
 新規 routine 配置: K routine (= line 5865-5873 `pmdneo_mn_direct_load_k_part_addr::`) の `ret` 後 + `.endif` 前 (= 同 `.if PMDNEO_USE_PMDDOTNET == 1` block 内末尾)。 build .lst 上の address = K routine `0x15E2`、 新規 routine `0x15ED` (= K + 11 byte 後、 連続配置)。
 
