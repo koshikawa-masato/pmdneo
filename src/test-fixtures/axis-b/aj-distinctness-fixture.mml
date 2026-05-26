@@ -1,0 +1,32 @@
+#Title		ADR-0069 β PR3 = A-J distinctness fixture
+#Composer	PMDNEO
+
+; FM voice 1 (= simple alg 0 fbl 0)
+; nm alg fbl
+@001 000 000
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+; FM voice 2 (= alg 7 = additive、 distinct from voice 1)
+; nm alg fbl
+@002 007 000
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 020 000 003 000 000
+ 031 000 000 000 000 020 000 004 000 000
+ 031 000 000 000 000 020 000 005 000 000
+ 031 000 000 000 000 020 000 006 000 000
+
+A	t120
+A	@001v15o4c4
+B	@001v15o4d4
+C	@001v15o4e4
+D	@002v15o4f4
+E	@002v15o4g4
+F	@002v15o4a4
+G	v15o4c4
+H	v15o4d4
+I	v15o4e4
+J	@001v15o4c4
