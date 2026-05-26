@@ -171,7 +171,7 @@
             <tbody>
               <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
               <tr><td>§3-2</td><td><code>r</code></td><td>休符</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>休符</td></tr>
-              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。容易性: ◎容易</td></tr>
+              <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。driver 単体では直接コマンドとしてハンドルせず、コンパイラ側で note length に反映させる設計が主流。</td></tr>
               <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-done">✓ comtie</span></td><td>完了</td><td>タイ (standalone_test.s に comtie あり)</td></tr>
             </tbody>
           </table>
@@ -200,8 +200,8 @@
             </thead>
             <tbody>
               <tr><td>§5-1</td><td><code>o</code></td><td><code>o1-8</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>オクターブ指定</td></tr>
-              <tr><td>§5-2</td><td><code>&gt;</code></td><td>オクターブUP</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>オクターブ上。容易性: ◎容易</td></tr>
-              <tr><td>§5-3</td><td><code>&lt;</code></td><td>オクターブDOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>オクターブ下。容易性: ◎容易</td></tr>
+              <tr><td>§5-2</td><td><code>&gt;</code></td><td>オクターブUP</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>オクターブ上。内部で PART_OFF_OCTAVE / SHIFT 管理あり。明示 MML コマンドとしての完全ハンドラは限定的。</td></tr>
+              <tr><td>§5-3</td><td><code>&lt;</code></td><td>オクターブDOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>オクターブ下。同上。</td></tr>
             </tbody>
           </table>
         </div>
@@ -296,8 +296,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§12-1</td><td><code>K</code></td><td>ADPCM-A rhythm ch</td><td>K</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCMリズム K ch。容易性: △中</td></tr>
-              <tr><td>§12-2</td><td><code>R</code></td><td>ADPCM-A rhythm ch</td><td>R</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCMリズム R ch。容易性: △中</td></tr>
+              <tr><td>§12-1</td><td><code>K</code></td><td>ADPCM-A rhythm ch</td><td>K</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>ADPCMリズム K ch。KR_STUB + ADPCMA_DRV で基本 dispatch はあるが、MML コマンドとしての完全対応は開発中。</td></tr>
+              <tr><td>§12-2</td><td><code>R</code></td><td>ADPCM-A rhythm ch</td><td>R</td><td><span class="badge-done">✓ K/R実装</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>ADPCMリズム R ch。同上。</td></tr>
             </tbody>
           </table>
         </div>
@@ -309,7 +309,7 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§13-1</td><td><code>J</code></td><td>ADPCM-B</td><td>J ch</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>ADPCM-B ch。容易性: △中</td></tr>
+              <tr><td>§13-1</td><td><code>J</code></td><td>ADPCM-B</td><td>J ch</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>ADPCM-B ch。ADPCMB_DRV.inc + v2 dispatch で基本機能は存在。MML コマンドとしての成熟度はまだ partial。</td></tr>
             </tbody>
           </table>
         </div>
@@ -335,8 +335,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§15-1</td><td><code>FI</code></td><td>fade in</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>フェードイン。容易性: △中</td></tr>
-              <tr><td>§15-2</td><td><code>FO</code></td><td>fade out</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>フェードアウト。容易性: △中</td></tr>
+              <tr><td>§15-1</td><td><code>FI</code></td><td>fade in</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>フェードイン。v2 driver で fade 制御の基盤は存在（軸B関連で実装済み）。</td></tr>
+              <tr><td>§15-2</td><td><code>FO</code></td><td>fade out</td><td>-</td><td><span class="badge-todo">✗ 未</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>フェードアウト。同上。実際の MML FO コマンド対応はまだ limited。</td></tr>
             </tbody>
           </table>
         </div>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 6a8ec6a<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main e87ee8c<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
