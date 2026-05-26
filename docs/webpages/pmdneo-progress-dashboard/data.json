@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-26",
-    "schemaVersion": "static/generated@63cd98c",
+    "schemaVersion": "static/generated@4cbfb54",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "63cd98ca9273443dba28dcca7481476de9a94165",
-      "shortSha": "63cd98c",
-      "date": "2026-05-26T17:01:04+09:00",
-      "message": "Merge pull request #146 from koshikawa-masato/wip-adr-0069-beta-verify",
-      "author": "koshikawa-masato",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/63cd98ca9273443dba28dcca7481476de9a94165"
+      "sha": "4cbfb5455a4392d4b0d3e359dfc5f073257f920c",
+      "shortSha": "4cbfb54",
+      "date": "2026-05-26T17:05:17+09:00",
+      "message": "docs(dashboard): ADR-0069 β PR3 = PR #146 MERGED at `63cd98c` 完走 dashboard maintenance = (1) 0069 行 status update = 「Draft + α/β 完了」 → 「Draft + α/β 完了 = PR #146 MERGED at `63cd98c`」 + Codex impl-review 3 round chain approve literal (= round 1 (= agentId `019e62af-a971-70e0-9cfb-077037bbce1b`) revise MF 4 件 (= PR scope 違反 + gate-10 working tree → committed diff + gate-3d FM fnum port A only → port A+B + §決定 2 β row pending 戻し) → fix-up commit `f7841c5` (= +gate-8 build artifact clean step robust 化) + round 2 (= agentId `a49cc6c6f885e1375`) revise MF 2 件 + nh 1 件 (= AXIS-3 stale wording context 補強 + FM fnum distinct=5 → 6 整合 + verify script SSG tone ≥ 4 → ≥ 3 comment 整合) → fix-up commit `ac94f87` + round 3 (= agentId `a081a6e8cffae9ac5`) approve 全 6 axis PASS) literal + MF1 復旧 = 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` local 保持 + PR head reset + force-with-lease push pattern 確立 literal + atomic 1 セット規律 5 回目適用完走 (= PR #142 + #143 + #144 + #145 + #146) literal + 16 gate ALL PASS 内 FM fnum distinct=6 port A+B 集計 literal 強調 + (2) escalation 履歴 β PR3 entry Codex impl-review column update = 「round 1 revise → fix-up commit chain → round 2 期待 approve」 → 「Codex impl-review 3 round chain approve = round 1 revise MF 4 件 → fix-up + round 2 revise MF 2 件 + nh 1 件 → fix-up + round 3 approve = PR #146 MERGED at `63cd98c`」 (= round 1/2/3 各 agentId + must-fix/nice-to-have list literal + fix-up commit hash literal + 全 6 axis PASS literal + main agent 経路 merge + atomic 1 セット規律 5 回目適用完走 + 退避 branch local 保持)。 dashboard maintenance commit = repo 内 dashboard 1 file 修正のみ (= driver / verify script / fixture MML / vendor / ADR doc / 既存 verify script / 既存 build flag / ADR-0048 軸 G ε partial state / ADR-0026 §決定 3/4 / ADR-0041〜0068 本文 + Annex / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked 完全 untouched)。 集約 branch `wip-pmddotnet-opnb-extension` 上 ε retrospective dashboard maintenance pattern (= ADR-0067/0068 precedent) 継承。 後続 = memory `project_pmdneo_adr_0069_initiated.md` 末尾 β PR3 完走 update section 追加完了 + MEMORY.md index entry update 完了 (= 別途、 repo 外、 主軸直接 Write/Edit) + user 完走報告、 sub-sprint γ PR4 起票判断 = user 明示 GO 必須 (= Draft → Accepted + Annex γ fill + 「A-J candidate distinctness 達成」 wording 解禁 (= γ Accepted 後解禁候補としての記載) + ADR-0065 β/δ 再開 trigger 発火)、 ADR-0066 / ADR-0070 候補 起票判断 = 各 user 明示 GO 必須。",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/4cbfb5455a4392d4b0d3e359dfc5f073257f920c"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
