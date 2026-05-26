@@ -68,7 +68,7 @@
         </dl>
         <dl class="metric">
           <dt>PMDNEO WIP (= 現役 sprint)</dt>
-          <dd><strong><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> / 142</strong></dd>
+          <dd><strong><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> / 142</strong></dd>
         </dl>
       </div>
     </header>
@@ -99,7 +99,7 @@
 
       <section id="summary">
         <h2><span class="chapter-number">02.</span> 進捗サマリ</h2>
-        <p class="section-summary">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。 PMDMML 142 commands 中、 PMDNEO main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、 PMDNEO develop は <strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> commands</strong>、 PMDNEO WIP は <strong><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> commands</strong> である。 PMD V4.8s 本家 (= df4e7b6 凍結時点 <code>PMD_Z80.inc</code>) は参考 reference として <strong><!-- AUTO_PMD_COUNT -->30<!-- /AUTO_PMD_COUNT --> commands</strong>。</p>
+        <p class="section-summary">PMDNEO 自作 driver の 3 lineage (= main / develop / WIP) の <code>standalone_test.s</code> にある <code>com*:</code> routine を集計する。 PMDMML 142 commands 中、 PMDNEO main は <strong><!-- AUTO_MAIN_COUNT -->26<!-- /AUTO_MAIN_COUNT --> commands</strong>、 PMDNEO develop は <strong><!-- AUTO_DEVELOP_COUNT -->15<!-- /AUTO_DEVELOP_COUNT --> commands</strong>、 PMDNEO WIP は <strong><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> commands</strong> である。 PMD V4.8s 本家 (= df4e7b6 凍結時点 <code>PMD_Z80.inc</code>) は参考 reference として <strong><!-- AUTO_PMD_COUNT -->30<!-- /AUTO_PMD_COUNT --> commands</strong>。</p>
         <div class="progress-list" aria-label="PMDMML command implementation progress">
           <div class="progress-item">
             <div class="progress-label">
@@ -122,10 +122,10 @@
           <div class="progress-item">
             <div class="progress-label">
               <span>PMDNEO WIP (= wip-pmdmml-voice-parser、 現役 sprint)</span>
-              <span><!-- AUTO_WIP_COUNT -->27<!-- /AUTO_WIP_COUNT --> / 142 約 <!-- AUTO_WIP_PERCENT -->19<!-- /AUTO_WIP_PERCENT -->%</span>
+              <span><!-- AUTO_WIP_COUNT -->0<!-- /AUTO_WIP_COUNT --> / 142 約 <!-- AUTO_WIP_PERCENT -->0<!-- /AUTO_WIP_PERCENT -->%</span>
             </div>
             <div class="progress-track" aria-hidden="true">
-              <!-- AUTO_WIP_BAR_STYLE --><div class="progress-bar wip" style="width: 19%"></div><!-- /AUTO_WIP_BAR_STYLE -->
+              <!-- AUTO_WIP_BAR_STYLE --><div class="progress-bar wip" style="width: 0%"></div><!-- /AUTO_WIP_BAR_STYLE -->
             </div>
           </div>
         </div>
@@ -172,7 +172,7 @@
               <tr><td>§3-1</td><td>音符</td><td><code>cdefgab+/-</code></td><td>FM/SSG</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>音符発音</td></tr>
               <tr><td>§3-2</td><td><code>r</code></td><td>休符</td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>休符</td></tr>
               <tr><td>§3-3</td><td><code>l</code></td><td><code>lN[.]</code></td><td>-</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>デフォルト音長。容易性: ◎容易</td></tr>
-              <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>タイ。容易性: △中</td></tr>
+              <tr><td>§3-4</td><td><code>&amp;</code></td><td>タイ</td><td>-</td><td><span class="badge-done">✓ comtie</span></td><td><span class="badge-done">✓ comtie</span></td><td>完了</td><td>タイ (standalone_test.s に comtie あり)</td></tr>
             </tbody>
           </table>
         </div>
@@ -184,9 +184,9 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§4-1</td><td><code>v</code></td><td><code>v0-15</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comv</span></td><td><span class="badge-done">✓ comv</span></td><td>完了</td><td>音量</td></tr>
-              <tr><td>§4-2</td><td><code>(</code></td><td>音量UP</td><td>FM/SSG</td><td><span class="badge-done">✓ comvolupp/comvolup</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量増。容易性: ◎容易</td></tr>
-              <tr><td>§4-3</td><td><code>)</code></td><td>音量DOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ comvoldownp/comvoldown</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9b</td><td>音量減。容易性: ◎容易</td></tr>
+              <tr><td>§4-1</td><td><code>v</code></td><td><code>v0-15</code></td><td>FM/SSG</td><td><span class="badge-done">✓ comv</span></td><td><span class="badge-done">✓ comv</span></td><td>完了</td><td>音量 (standalone_test.s に comv あり)</td></tr>
+              <tr><td>§4-2</td><td><code>(</code></td><td>音量UP</td><td>FM/SSG</td><td><span class="badge-done">✓ comvolupp/comvolup</span></td><td><span class="badge-done">✓ comvolup</span></td><td>完了</td><td>音量増 (standalone_test.s に comvshift_up / comvolup 等)</td></tr>
+              <tr><td>§4-3</td><td><code>)</code></td><td>音量DOWN</td><td>FM/SSG</td><td><span class="badge-done">✓ comvoldownp/comvoldown</span></td><td><span class="badge-done">✓ comvoldown</span></td><td>完了</td><td>音量減 (standalone_test.s に comvscale_down / comvoldown 等)</td></tr>
               <tr><td>§4-4</td><td><code>V</code></td><td><code>V0-127</code></td><td>FM/SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>拡張音量。容易性: △中</td></tr>
             </tbody>
           </table>
@@ -213,8 +213,8 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>FM音色指定。容易性: △中</td></tr>
-              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。容易性: △中</td></tr>
+              <tr><td>§6-1</td><td><code>@</code></td><td><code>@N</code></td><td>FM</td><td><span class="badge-done">✓ 実装済</span></td><td><span class="badge-partial">△ 部分</span></td><td>進行中</td><td>FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。</td></tr>
+              <tr><td>§6-2</td><td><code>@</code></td><td><code>@N</code></td><td>SSG</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9 next</td><td>SSG波形。standalone_test.s の comat は SSG を無視する設計。</td></tr>
               <tr><td>§6-3</td><td><code>s</code></td><td><code>s0-15</code></td><td>FM</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase future</td><td>FM3 slot 指定。容易性: ×難</td></tr>
             </tbody>
           </table>
@@ -240,10 +240,10 @@
               <tr><th>§</th><th>コマンド</th><th>書式</th><th>音源</th><th>PMD 本家</th><th>PMDNEO 自作</th><th>後続 sprint</th><th>memo</th></tr>
             </thead>
             <tbody>
-              <tr><td>§8-1</td><td><code>[</code></td><td>ループ開始</td><td>-</td><td><span class="badge-done">✓ comstloop</span></td><td><span class="badge-done">✓ comstloop</span></td><td>完了</td><td>ループ開始</td></tr>
-              <tr><td>§8-2</td><td><code>]</code></td><td>ループ終了</td><td>-</td><td><span class="badge-done">✓ comedloop</span></td><td><span class="badge-done">✓ comedloop</span></td><td>完了</td><td>ループ終了</td></tr>
-              <tr><td>§8-3</td><td><code>L</code></td><td>全体ループ</td><td>-</td><td><span class="badge-done">✓ comexloop</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>無限ループ。容易性: ◎容易</td></tr>
-              <tr><td>§8-4</td><td><code>:</code></td><td>ループ脱出</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-todo">✗ 未</span></td><td>Phase 9a</td><td>最終回スキップ。容易性: △中</td></tr>
+              <tr><td>§8-1</td><td><code>[</code></td><td>ループ開始</td><td>-</td><td><span class="badge-done">✓ comstloop</span></td><td><span class="badge-done">✓ comstloop</span></td><td>完了</td><td>ループ開始 (standalone_test.s に実装)</td></tr>
+              <tr><td>§8-2</td><td><code>]</code></td><td>ループ終了</td><td>-</td><td><span class="badge-done">✓ comedloop</span></td><td><span class="badge-done">✓ comedloop</span></td><td>完了</td><td>ループ終了 (standalone_test.s に実装)</td></tr>
+              <tr><td>§8-3</td><td><code>L</code></td><td>全体ループ</td><td>-</td><td><span class="badge-done">✓ comexloop</span></td><td><span class="badge-done">✓ comexloop</span></td><td>完了</td><td>無限ループ (standalone_test.s に実装)</td></tr>
+              <tr><td>§8-4</td><td><code>:</code></td><td>ループ脱出</td><td>-</td><td><span class="badge-partial">△ 部分</span></td><td><span class="badge-partial">△ 部分</span></td><td>完了</td><td>最終回スキップ。standalone_test.s に comexloop_skip_to_end 等あり</td></tr>
             </tbody>
           </table>
         </div>
@@ -434,7 +434,7 @@
     </main>
 
     <footer>
-      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-11 main f3bb43e<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
+      <p>Generated <!-- AUTO_LAST_UPDATE -->2026-05-26 main 44d6490<!-- /AUTO_LAST_UPDATE -->、PMDNEO PMDMML coverage</p>
       <p><a href="index.html">Back to PMDNEO Phase 9R report</a></p>
       <p><a href="https://github.com/koshikawa-masato/pmdneo">GitHub repo</a></p>
     </footer>
