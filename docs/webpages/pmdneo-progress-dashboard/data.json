@@ -82,7 +82,23 @@
     ],
     "matrix": {
       "_default": "tbd",
-      "_note": "全 cell 既定 tbd。 後続 sprint で driver source recon 後 fill。"
+      "_note": "2026-05-26時点の driver / ADR 実態に基づく保守的な heatmap。FM voice register 群・FM/SSG実音・ADPCM-B/rhythm実dispatch・mute/fade は実装済寄り。SSG voice/LFO、ADPCM-A sample/pan は仕様完全対応ではないため partial を残す。",
+      "FM1":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "FM2":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "FM3":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "FM4":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "FM5":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "FM6":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
+      "SSG1": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
+      "SSG2": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
+      "SSG3": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA1":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA2":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA3":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA4":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA5":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PA6":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
+      "PB":   { "voice": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "mute": "implemented", "fade": "implemented" }
     }
   },
   "phases": [
