@@ -139,7 +139,7 @@
       mmlOpcodes: {
         columns: [
           { key: 'pmdMain', label: 'PMD 本家', ref: 'main df4e7b6 : src/driver/PMD_Z80.inc' },
-          { key: 'pmdneo',  label: 'PMDNEO',   ref: 'main HEAD : src/driver/standalone_test.s' },
+          { key: 'driver',  label: 'DRIVER',   ref: REPO.branch + ' : pages/pmdmml-coverage.html / src/driver/standalone_test.s' },
         ],
         rows: rows.map(r => ({
           opcode: r.command,
@@ -147,7 +147,8 @@
                 (r.sound && r.sound !== '-' ? '  [' + r.sound + ']' : ''),
           category: inferCategory(r),
           pmdMain: r.pmdMain,
-          pmdneo:  r.pmdneo,
+          driver:  r.pmdneo,
+          driver_detail: r.memo,
           _sprint: r.sprint,
           _memo: r.memo,
           _sectionGroup: r.sectionGroup,
