@@ -1381,111 +1381,1319 @@ body.theme-arcade .note::before { color: #FF3D88; }
 {
   "meta": {
     "title": "PMDNEO COVERAGE DASHBOARD",
-    "subtitle": "MML IMPLEMENTATION × DRIVER FEATURE",
-    "lastUpdated": "2026-05-25",
-    "schemaVersion": "0.1.0-skeleton",
-    "fillStatus": "skeleton (= ほぼ全 cell TBD、 後続 sprint で fill)",
-    "repoUrl": "https://github.com/koshikawa-masato/pmdneo"
+    "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
+    "lastUpdated": "2026-05-26",
+    "schemaVersion": "static/generated@f1c84f6",
+    "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
+    "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
+    "commit": {
+      "sha": "f1c84f6a0b29eb6aecffeee06c790e14d8f9f445",
+      "shortSha": "f1c84f6",
+      "date": "2026-05-26T14:38:48+09:00",
+      "message": "docs: keep MML dashboard columns aligned",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/f1c84f6a0b29eb6aecffeee06c790e14d8f9f445"
+    },
+    "autoUpdateStamp": "2026-05-26 main 6474647"
+  },
+  "pmdmmlSummary": {
+    "total": 142,
+    "pmdMain": {
+      "count": 30,
+      "percent": 21,
+      "label": "PMD 本家 reference"
+    },
+    "pmdneo": {
+      "count": 28,
+      "percent": 20,
+      "label": "PMDNEO 自作 driver"
+    }
   },
   "legend": {
-    "implemented":     { "label": "OK",      "symbol": "●", "color": "#3FA64F" },
-    "partial":         { "label": "PARTIAL", "symbol": "◐", "color": "#FFB000" },
-    "not_implemented": { "label": "NG",      "symbol": "×", "color": "#E22C30" },
-    "n_a":             { "label": "N/A",     "symbol": "—", "color": "#555577" },
-    "tbd":             { "label": "TBD",     "symbol": "?", "color": "#888899" }
+    "implemented": {
+      "label": "OK",
+      "symbol": "●",
+      "color": "#3FA64F"
+    },
+    "partial": {
+      "label": "PARTIAL",
+      "symbol": "◐",
+      "color": "#FFB000"
+    },
+    "not_implemented": {
+      "label": "NG",
+      "symbol": "✕",
+      "color": "#E22C30"
+    },
+    "n_a": {
+      "label": "N/A",
+      "symbol": "—",
+      "color": "#555577"
+    },
+    "tbd": {
+      "label": "TBD",
+      "symbol": "?",
+      "color": "#888899"
+    }
   },
   "mmlOpcodes": {
     "columns": [
-      { "key": "manual",   "label": "MANUAL",   "ref": "docs/manual/PMDMML_MAN_V48s_utf8.txt" },
-      { "key": "compiler", "label": "COMPILER", "ref": "PMDDotNET / compile.py (= 出自確認 TBD)" },
-      { "key": "driver",   "label": "DRIVER",   "ref": "src/sound/sound_driver.s" }
+      {
+        "key": "manual",
+        "label": "MANUAL",
+        "ref": "pages/pmdmml-coverage.html : PMD V4.8s manual reference"
+      },
+      {
+        "key": "compiler",
+        "label": "COMPILER",
+        "ref": "pages/pmdmml-coverage.html : PMDNEO compile/tooling status"
+      },
+      {
+        "key": "driver",
+        "label": "DRIVER",
+        "ref": "pages/pmdmml-coverage.html / src/driver/standalone_test.s"
+      }
     ],
     "rows": [
-      { "opcode": "@",  "name": "音色設定",            "category": "voice",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "o",  "name": "octave",              "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "<",  "name": "octave down",         "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": ">",  "name": "octave up",           "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "l",  "name": "default length",      "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "v",  "name": "volume (SSG range)",  "category": "volume", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "V",  "name": "volume (FM range)",   "category": "volume", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "t",  "name": "tempo",               "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "q",  "name": "quantize (gate)",     "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "Q",  "name": "quantize ratio",      "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "p",  "name": "pan",                 "category": "spatial","manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "P",  "name": "pan (alt)",           "category": "spatial","manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "[",  "name": "loop start",          "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "]",  "name": "loop end",            "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "|",  "name": "loop break (last)",   "category": "flow",   "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "&",  "name": "tie",                 "category": "rhythm", "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "K",  "name": "key shift",           "category": "pitch",  "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "s",  "name": "SSG envelope shape",  "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "M",  "name": "SSG mixer",           "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" },
-      { "opcode": "n",  "name": "noise freq (SSG)",    "category": "ssg",    "manual": "tbd", "compiler": "tbd", "driver": "tbd" }
+      {
+        "opcode": "#",
+        "name": "§1-1 comment",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "コメント。driver 側では無視で問題なし。",
+        "_sprint": "完了",
+        "_memo": "コメント。driver 側では無視で問題なし。",
+        "_sectionGroup": "§1 基本事項",
+        "_section": "§1-1",
+        "_format": "comment",
+        "_sound": "-"
+      },
+      {
+        "opcode": "/",
+        "name": "§1-2 part separator",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "パート区切り。driver のパート管理で自然に扱われている。",
+        "_sprint": "完了",
+        "_memo": "パート区切り。driver のパート管理で自然に扱われている。",
+        "_sectionGroup": "§1 基本事項",
+        "_section": "§1-2",
+        "_format": "part separator",
+        "_sound": "-"
+      },
+      {
+        "opcode": "t",
+        "name": "§2-1 t60-255",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "テンポ指定",
+        "_sprint": "完了",
+        "_memo": "テンポ指定",
+        "_sectionGroup": "§2 テンポ・リズム",
+        "_section": "§2-1",
+        "_format": "t60-255",
+        "_sound": "-"
+      },
+      {
+        "opcode": "T",
+        "name": "§2-2 T0-255",
+        "category": "rhythm",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "拡張テンポ。基本comtは存在するが T の拡張機能は未。 (standalone_test.s: comt L3911 / commandsp_t あり、T 専用 path なし)",
+        "_sprint": "Phase 9 next",
+        "_memo": "拡張テンポ。基本comtは存在するが T の拡張機能は未。 (standalone_test.s: comt L3911 / commandsp_t あり、T 専用 path なし)",
+        "_sectionGroup": "§2 テンポ・リズム",
+        "_section": "§2-2",
+        "_format": "T0-255",
+        "_sound": "-"
+      },
+      {
+        "opcode": "W",
+        "name": "§2-3 Wn[.]",
+        "category": "rhythm",
+        "manual": "not_implemented",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "擬似エコー delay。v2 未実装。 (standalone_test.s: W 関連ハンドラ・ロジック 完全不在)",
+        "_sprint": "Phase 9 next",
+        "_memo": "擬似エコー delay。v2 未実装。 (standalone_test.s: W 関連ハンドラ・ロジック 完全不在)",
+        "_sectionGroup": "§2 テンポ・リズム",
+        "_section": "§2-3",
+        "_format": "Wn[.]",
+        "_sound": "-"
+      },
+      {
+        "opcode": "音符",
+        "name": "§3-1 cdefgab+/- [FM/SSG]",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "音符発音",
+        "_sprint": "完了",
+        "_memo": "音符発音",
+        "_sectionGroup": "§3 音符・休符",
+        "_section": "§3-1",
+        "_format": "cdefgab+/-",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "r",
+        "name": "§3-2 休符",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "休符",
+        "_sprint": "完了",
+        "_memo": "休符",
+        "_sectionGroup": "§3 音符・休符",
+        "_section": "§3-2",
+        "_format": "休符",
+        "_sound": "-"
+      },
+      {
+        "opcode": "l",
+        "name": "§3-3 lN[.]",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側で note length に反映させる設計が主流。 (standalone_test.s: l 関連ハンドラ不在、runtime LEN のみ)",
+        "_sprint": "Phase 9a",
+        "_memo": "デフォルト音長。v2 driver では MML l コマンドを直接ハンドルせず、コンパイラ側で note length に反映させる設計が主流。 (standalone_test.s: l 関連ハンドラ不在、runtime LEN のみ)",
+        "_sectionGroup": "§3 音符・休符",
+        "_section": "§3-3",
+        "_format": "lN[.]",
+        "_sound": "-"
+      },
+      {
+        "opcode": "&",
+        "name": "§3-4 タイ",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "タイ (standalone_test.s に comtie あり)",
+        "_sprint": "完了",
+        "_memo": "タイ (standalone_test.s に comtie あり)",
+        "_sectionGroup": "§3 音符・休符",
+        "_section": "§3-4",
+        "_format": "タイ",
+        "_sound": "-"
+      },
+      {
+        "opcode": "v",
+        "name": "§4-1 v0-15 [FM/SSG]",
+        "category": "volume",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "音量 (standalone_test.s に comv あり)",
+        "_sprint": "完了",
+        "_memo": "音量 (standalone_test.s に comv あり)",
+        "_sectionGroup": "§4 音量",
+        "_section": "§4-1",
+        "_format": "v0-15",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "(",
+        "name": "§4-2 音量UP [FM/SSG]",
+        "category": "volume",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "音量増 (standalone_test.s に comvshift_up / comvolup 等)",
+        "_sprint": "完了",
+        "_memo": "音量増 (standalone_test.s に comvshift_up / comvolup 等)",
+        "_sectionGroup": "§4 音量",
+        "_section": "§4-2",
+        "_format": "音量UP",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": ")",
+        "name": "§4-3 音量DOWN [FM/SSG]",
+        "category": "volume",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "音量減 (standalone_test.s に comvscale_down / comvoldown 等)",
+        "_sprint": "完了",
+        "_memo": "音量減 (standalone_test.s に comvscale_down / comvoldown 等)",
+        "_sectionGroup": "§4 音量",
+        "_section": "§4-3",
+        "_format": "音量DOWN",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "V",
+        "name": "§4-4 V0-127 [FM/SSG]",
+        "category": "volume",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "拡張音量。standalone_test.s に comvscale_up/down, comvshift_up/down など複数実装あり。",
+        "_sprint": "進行中",
+        "_memo": "拡張音量。standalone_test.s に comvscale_up/down, comvshift_up/down など複数実装あり。",
+        "_sectionGroup": "§4 音量",
+        "_section": "§4-4",
+        "_format": "V0-127",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "o",
+        "name": "§5-1 o1-8 [FM/SSG]",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "オクターブ指定",
+        "_sprint": "完了",
+        "_memo": "オクターブ指定",
+        "_sectionGroup": "§5 オクターブ",
+        "_section": "§5-1",
+        "_format": "o1-8",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": ">",
+        "name": "§5-2 オクターブUP [FM/SSG]",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "オクターブ上。内部で PART_OFF_OCTAVE / SHIFT 管理あり。明示 MML コマンドとしての完全ハンドラは限定的。",
+        "_sprint": "完了",
+        "_memo": "オクターブ上。内部で PART_OFF_OCTAVE / SHIFT 管理あり。明示 MML コマンドとしての完全ハンドラは限定的。",
+        "_sectionGroup": "§5 オクターブ",
+        "_section": "§5-2",
+        "_format": "オクターブUP",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "<",
+        "name": "§5-3 オクターブDOWN [FM/SSG]",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "オクターブ下。同上。",
+        "_sprint": "完了",
+        "_memo": "オクターブ下。同上。",
+        "_sectionGroup": "§5 オクターブ",
+        "_section": "§5-3",
+        "_format": "オクターブDOWN",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "@",
+        "name": "§6-1 @N [FM]",
+        "category": "voice",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。",
+        "_sprint": "進行中",
+        "_memo": "FM音色指定。standalone_test.s に comat あり (L4363)。FM path は voice table 参照で動作。ADPCM-A 対応も拡張済み。SSG は未。",
+        "_sectionGroup": "§6 音色",
+        "_section": "§6-1",
+        "_format": "@N",
+        "_sound": "FM"
+      },
+      {
+        "opcode": "@",
+        "name": "§6-2 @N [SSG]",
+        "category": "voice",
+        "manual": "partial",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "SSG波形。comat は SSG を無視する設計のため未対応。 (standalone_test.s: comat L4363-4370 で SSG 即 ret 確認済)",
+        "_sprint": "Phase 9 next",
+        "_memo": "SSG波形。comat は SSG を無視する設計のため未対応。 (standalone_test.s: comat L4363-4370 で SSG 即 ret 確認済)",
+        "_sectionGroup": "§6 音色",
+        "_section": "§6-2",
+        "_format": "@N",
+        "_sound": "SSG"
+      },
+      {
+        "opcode": "s",
+        "name": "§6-3 s0-15 [FM]",
+        "category": "voice",
+        "manual": "partial",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "FM3 slot 指定。v2 driver では未実装。 (standalone_test.s: s 関連ハンドラ・dispatch エントリ 不在)",
+        "_sprint": "Phase future",
+        "_memo": "FM3 slot 指定。v2 driver では未実装。 (standalone_test.s: s 関連ハンドラ・dispatch エントリ 不在)",
+        "_sectionGroup": "§6 音色",
+        "_section": "§6-3",
+        "_format": "s0-15",
+        "_sound": "FM"
+      },
+      {
+        "opcode": "D",
+        "name": "§7-1 D±value [FM/SSG]",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "デチューン。standalone_test.s に comd あり。",
+        "_sprint": "完了",
+        "_memo": "デチューン。standalone_test.s に comd あり。",
+        "_sectionGroup": "§7 デチューン",
+        "_section": "§7-1",
+        "_format": "D±value",
+        "_sound": "FM/SSG"
+      },
+      {
+        "opcode": "DD",
+        "name": "§7-2 DD±value [FM]",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "ダブルデチューン。standalone_test.s に comdd あり。",
+        "_sprint": "完了",
+        "_memo": "ダブルデチューン。standalone_test.s に comdd あり。",
+        "_sectionGroup": "§7 デチューン",
+        "_section": "§7-2",
+        "_format": "DD±value",
+        "_sound": "FM"
+      },
+      {
+        "opcode": "[",
+        "name": "§8-1 ループ開始",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "ループ開始 (standalone_test.s に実装)",
+        "_sprint": "完了",
+        "_memo": "ループ開始 (standalone_test.s に実装)",
+        "_sectionGroup": "§8 ループ",
+        "_section": "§8-1",
+        "_format": "ループ開始",
+        "_sound": "-"
+      },
+      {
+        "opcode": "]",
+        "name": "§8-2 ループ終了",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "ループ終了 (standalone_test.s に実装)",
+        "_sprint": "完了",
+        "_memo": "ループ終了 (standalone_test.s に実装)",
+        "_sectionGroup": "§8 ループ",
+        "_section": "§8-2",
+        "_format": "ループ終了",
+        "_sound": "-"
+      },
+      {
+        "opcode": "L",
+        "name": "§8-3 全体ループ",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "無限ループ (standalone_test.s に実装)",
+        "_sprint": "完了",
+        "_memo": "無限ループ (standalone_test.s に実装)",
+        "_sectionGroup": "§8 ループ",
+        "_section": "§8-3",
+        "_format": "全体ループ",
+        "_sound": "-"
+      },
+      {
+        "opcode": ":",
+        "name": "§8-4 ループ脱出",
+        "category": "flow",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "最終回スキップ。standalone_test.s に comexloop_skip_to_end 等あり",
+        "_sprint": "完了",
+        "_memo": "最終回スキップ。standalone_test.s に comexloop_skip_to_end 等あり",
+        "_sectionGroup": "§8 ループ",
+        "_section": "§8-4",
+        "_format": "ループ脱出",
+        "_sound": "-"
+      },
+      {
+        "opcode": "M",
+        "name": "§9-1 M速度,深さ [FM]",
+        "category": "ssg",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "FM LFO。standalone_test.s に lfoset 系あり（v2で拡張中）",
+        "_sprint": "進行中",
+        "_memo": "FM LFO。standalone_test.s に lfoset 系あり（v2で拡張中）",
+        "_sectionGroup": "§9 エンベロープ・LFO",
+        "_section": "§9-1",
+        "_format": "M速度,深さ",
+        "_sound": "FM"
+      },
+      {
+        "opcode": "MB",
+        "name": "§9-2 MB速度,深さ [SSG]",
+        "category": "ssg",
+        "manual": "partial",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "SSG LFO。v2 未対応。 (standalone_test.s: MB 専用 LFO path 不在、M の lfoset partial のみ)",
+        "_sprint": "Phase future",
+        "_memo": "SSG LFO。v2 未対応。 (standalone_test.s: MB 専用 LFO path 不在、M の lfoset partial のみ)",
+        "_sectionGroup": "§9 エンベロープ・LFO",
+        "_section": "§9-2",
+        "_format": "MB速度,深さ",
+        "_sound": "SSG"
+      },
+      {
+        "opcode": "MA",
+        "name": "§9-3 MA速度,深さ",
+        "category": "ssg",
+        "manual": "not_implemented",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "振幅 LFO。未実装。 (standalone_test.s: MA ハンドラ・LFO 変種 path 完全不在)",
+        "_sprint": "Phase future",
+        "_memo": "振幅 LFO。未実装。 (standalone_test.s: MA ハンドラ・LFO 変種 path 完全不在)",
+        "_sectionGroup": "§9 エンベロープ・LFO",
+        "_section": "§9-3",
+        "_format": "MA速度,深さ",
+        "_sound": "-"
+      },
+      {
+        "opcode": "MF",
+        "name": "§9-4 MF速度,深さ",
+        "category": "ssg",
+        "manual": "partial",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "ピッチ LFO。未実装。 (standalone_test.s: MF ハンドラ・専用 LFO path 不在)",
+        "_sprint": "Phase future",
+        "_memo": "ピッチ LFO。未実装。 (standalone_test.s: MF ハンドラ・専用 LFO path 不在)",
+        "_sectionGroup": "§9 エンベロープ・LFO",
+        "_section": "§9-4",
+        "_format": "MF速度,深さ",
+        "_sound": "-"
+      },
+      {
+        "opcode": "q",
+        "name": "§10-1 q1-8",
+        "category": "rhythm",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "ゲート比率。standalone_test.s に comq/comq2/comq3/comq4 あり",
+        "_sprint": "完了",
+        "_memo": "ゲート比率。standalone_test.s に comq/comq2/comq3/comq4 あり",
+        "_sectionGroup": "§10 ゲート",
+        "_section": "§10-1",
+        "_format": "q1-8",
+        "_sound": "-"
+      },
+      {
+        "opcode": "Q",
+        "name": "§10-2 Q0-8",
+        "category": "rhythm",
+        "manual": "partial",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "絶対ゲート。standalone_test.s に複数 q ハンドラ実装済み",
+        "_sprint": "完了",
+        "_memo": "絶対ゲート。standalone_test.s に複数 q ハンドラ実装済み",
+        "_sectionGroup": "§10 ゲート",
+        "_section": "§10-2",
+        "_format": "Q0-8",
+        "_sound": "-"
+      },
+      {
+        "opcode": "SE",
+        "name": "§11-1 SSG envelope [SSG]",
+        "category": "ssg",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "SSGエンベロープ。psgenvset / envelope_extend 系が古典テーブルにあり、v2でも一部利用可能",
+        "_sprint": "進行中",
+        "_memo": "SSGエンベロープ。psgenvset / envelope_extend 系が古典テーブルにあり、v2でも一部利用可能",
+        "_sectionGroup": "§11 SSG 専用",
+        "_section": "§11-1",
+        "_format": "SSG envelope",
+        "_sound": "SSG"
+      },
+      {
+        "opcode": "SN",
+        "name": "§11-2 SSG noise freq [SSG]",
+        "category": "ssg",
+        "manual": "partial",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "SSGノイズ。psgnoise / psgnoise_move が存在",
+        "_sprint": "完了",
+        "_memo": "SSGノイズ。psgnoise / psgnoise_move が存在",
+        "_sectionGroup": "§11 SSG 専用",
+        "_section": "§11-2",
+        "_format": "SSG noise freq",
+        "_sound": "SSG"
+      },
+      {
+        "opcode": "K",
+        "name": "§12-1 ADPCM-A rhythm ch [K]",
+        "category": "spatial",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "ADPCMリズム K ch。KR_STUB + ADPCMA_DRV で基本 dispatch はあるが、MML コマンドとしての完全対応は開発中。",
+        "_sprint": "進行中",
+        "_memo": "ADPCMリズム K ch。KR_STUB + ADPCMA_DRV で基本 dispatch はあるが、MML コマンドとしての完全対応は開発中。",
+        "_sectionGroup": "§12 ADPCM-A (K/R)",
+        "_section": "§12-1",
+        "_format": "ADPCM-A rhythm ch",
+        "_sound": "K"
+      },
+      {
+        "opcode": "R",
+        "name": "§12-2 ADPCM-A rhythm ch [R]",
+        "category": "spatial",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "ADPCMリズム R ch。同上。",
+        "_sprint": "進行中",
+        "_memo": "ADPCMリズム R ch。同上。",
+        "_sectionGroup": "§12 ADPCM-A (K/R)",
+        "_section": "§12-2",
+        "_format": "ADPCM-A rhythm ch",
+        "_sound": "R"
+      },
+      {
+        "opcode": "J",
+        "name": "§13-1 ADPCM-B [J ch]",
+        "category": "spatial",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "ADPCM-B ch。ADPCMB_DRV.inc + v2 dispatch で基本機能は存在。MML コマンドとしての成熟度はまだ partial。",
+        "_sprint": "進行中",
+        "_memo": "ADPCM-B ch。ADPCMB_DRV.inc + v2 dispatch で基本機能は存在。MML コマンドとしての成熟度はまだ partial。",
+        "_sectionGroup": "§13 ADPCM-B (J)",
+        "_section": "§13-1",
+        "_format": "ADPCM-B",
+        "_sound": "J ch"
+      },
+      {
+        "opcode": "y",
+        "name": "§14-1 yR,D direct LSI",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "直接レジスタ書込。v2 でも低レベルアクセスは可能だが、MML y コマンドとしてのラッパーは未整備。 (standalone_test.s: comy 不在、低レベル write 基盤のみ)",
+        "_sprint": "Phase 9 next",
+        "_memo": "直接レジスタ書込。v2 でも低レベルアクセスは可能だが、MML y コマンドとしてのラッパーは未整備。 (standalone_test.s: comy 不在、低レベル write 基盤のみ)",
+        "_sectionGroup": "§14 特殊コマンド",
+        "_section": "§14-1",
+        "_format": "yR,D direct LSI",
+        "_sound": "-"
+      },
+      {
+        "opcode": "|",
+        "name": "§14-2 shift/transpose",
+        "category": "pitch",
+        "manual": "implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "転調。comshift / comshift2 / comshift_master が存在。v2 での統合は partial。",
+        "_sprint": "進行中",
+        "_memo": "転調。comshift / comshift2 / comshift_master が存在。v2 での統合は partial。",
+        "_sectionGroup": "§14 特殊コマンド",
+        "_section": "§14-2",
+        "_format": "shift/transpose",
+        "_sound": "-"
+      },
+      {
+        "opcode": "_",
+        "name": "§14-3 vol shift",
+        "category": "pitch",
+        "manual": "partial",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "音量シフト。comvshift_up/down 系が standalone_test.s に実装済み。",
+        "_sprint": "進行中",
+        "_memo": "音量シフト。comvshift_up/down 系が standalone_test.s に実装済み。",
+        "_sectionGroup": "§14 特殊コマンド",
+        "_section": "§14-3",
+        "_format": "vol shift",
+        "_sound": "-"
+      },
+      {
+        "opcode": "FI",
+        "name": "§15-1 fade in",
+        "category": "volume",
+        "manual": "not_implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "フェードイン。v2 driver で fade 制御の基盤は存在（軸B関連で実装済み）。",
+        "_sprint": "進行中",
+        "_memo": "フェードイン。v2 driver で fade 制御の基盤は存在（軸B関連で実装済み）。",
+        "_sectionGroup": "§15 フェード",
+        "_section": "§15-1",
+        "_format": "fade in",
+        "_sound": "-"
+      },
+      {
+        "opcode": "FO",
+        "name": "§15-2 fade out",
+        "category": "volume",
+        "manual": "not_implemented",
+        "compiler": "partial",
+        "driver": "partial",
+        "driver_detail": "フェードアウト。同上。実際の MML FO コマンド対応はまだ limited。",
+        "_sprint": "進行中",
+        "_memo": "フェードアウト。同上。実際の MML FO コマンド対応はまだ limited。",
+        "_sectionGroup": "§15 フェード",
+        "_section": "§15-2",
+        "_format": "fade out",
+        "_sound": "-"
+      },
+      {
+        "opcode": "*",
+        "name": "§16-1 label / goto",
+        "category": "flow",
+        "manual": "partial",
+        "compiler": "not_implemented",
+        "driver": "not_implemented",
+        "driver_detail": "ラベル/ジャンプ。v2 でも本格的な * コマンド対応は未。 (standalone_test.s: * コマンド path 完全不在)",
+        "_sprint": "Phase future",
+        "_memo": "ラベル/ジャンプ。v2 でも本格的な * コマンド対応は未。 (standalone_test.s: * コマンド path 完全不在)",
+        "_sectionGroup": "§16 マクロ・その他",
+        "_section": "§16-1",
+        "_format": "label / goto",
+        "_sound": "-"
+      },
+      {
+        "opcode": ",",
+        "name": "§16-2 コンマ区切り",
+        "category": "flow",
+        "manual": "implemented",
+        "compiler": "implemented",
+        "driver": "implemented",
+        "driver_detail": "パラメータ区切り（基本的に動作）",
+        "_sprint": "完了",
+        "_memo": "パラメータ区切り（基本的に動作）",
+        "_sectionGroup": "§16 マクロ・その他",
+        "_section": "§16-2",
+        "_format": "コンマ区切り",
+        "_sound": "-"
+      }
     ]
   },
   "driverFeatures": {
     "channels": [
-      { "key": "FM1",  "label": "FM 1",  "group": "FM" },
-      { "key": "FM2",  "label": "FM 2",  "group": "FM" },
-      { "key": "FM3",  "label": "FM 3",  "group": "FM" },
-      { "key": "FM4",  "label": "FM 4",  "group": "FM" },
-      { "key": "FM5",  "label": "FM 5",  "group": "FM" },
-      { "key": "FM6",  "label": "FM 6",  "group": "FM" },
-      { "key": "SSG1", "label": "SSG 1", "group": "SSG" },
-      { "key": "SSG2", "label": "SSG 2", "group": "SSG" },
-      { "key": "SSG3", "label": "SSG 3", "group": "SSG" },
-      { "key": "PA1",  "label": "ADPCM-A 1", "group": "ADPCM-A" },
-      { "key": "PA2",  "label": "ADPCM-A 2", "group": "ADPCM-A" },
-      { "key": "PA3",  "label": "ADPCM-A 3", "group": "ADPCM-A" },
-      { "key": "PA4",  "label": "ADPCM-A 4", "group": "ADPCM-A" },
-      { "key": "PA5",  "label": "ADPCM-A 5", "group": "ADPCM-A" },
-      { "key": "PA6",  "label": "ADPCM-A 6", "group": "ADPCM-A" },
-      { "key": "PB",   "label": "ADPCM-B",   "group": "ADPCM-B" }
+      {
+        "key": "FM1",
+        "label": "FM 1",
+        "group": "FM"
+      },
+      {
+        "key": "FM2",
+        "label": "FM 2",
+        "group": "FM"
+      },
+      {
+        "key": "FM3",
+        "label": "FM 3",
+        "group": "FM"
+      },
+      {
+        "key": "FM4",
+        "label": "FM 4",
+        "group": "FM"
+      },
+      {
+        "key": "FM5",
+        "label": "FM 5",
+        "group": "FM"
+      },
+      {
+        "key": "FM6",
+        "label": "FM 6",
+        "group": "FM"
+      },
+      {
+        "key": "SSG1",
+        "label": "SSG 1",
+        "group": "SSG"
+      },
+      {
+        "key": "SSG2",
+        "label": "SSG 2",
+        "group": "SSG"
+      },
+      {
+        "key": "SSG3",
+        "label": "SSG 3",
+        "group": "SSG"
+      },
+      {
+        "key": "PA1",
+        "label": "ADPCM-A 1",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PA2",
+        "label": "ADPCM-A 2",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PA3",
+        "label": "ADPCM-A 3",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PA4",
+        "label": "ADPCM-A 4",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PA5",
+        "label": "ADPCM-A 5",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PA6",
+        "label": "ADPCM-A 6",
+        "group": "ADPCM-A"
+      },
+      {
+        "key": "PB",
+        "label": "ADPCM-B",
+        "group": "ADPCM-B"
+      }
     ],
     "features": [
-      { "key": "voice", "label": "VOICE",  "scope": "FM,SSG,ADPCM-A,ADPCM-B" },
-      { "key": "tl",    "label": "TL",     "scope": "FM" },
-      { "key": "ar",    "label": "AR",     "scope": "FM" },
-      { "key": "dr",    "label": "DR",     "scope": "FM" },
-      { "key": "sl",    "label": "SL",     "scope": "FM" },
-      { "key": "rr",    "label": "RR",     "scope": "FM" },
-      { "key": "ml",    "label": "ML",     "scope": "FM" },
-      { "key": "fbl",   "label": "FBL",    "scope": "FM" },
-      { "key": "alg",   "label": "ALG",    "scope": "FM" },
-      { "key": "pan",   "label": "PAN",    "scope": "FM,ADPCM-A,ADPCM-B" },
-      { "key": "vol",   "label": "VOL",    "scope": "ALL" },
-      { "key": "pitch", "label": "PITCH",  "scope": "FM,SSG,ADPCM-B" },
-      { "key": "lfo",   "label": "LFO",    "scope": "FM,SSG" },
-      { "key": "noise", "label": "NOISE",  "scope": "SSG" },
-      { "key": "mute",  "label": "MUTE",   "scope": "ALL" },
-      { "key": "fade",  "label": "FADE",   "scope": "ALL" }
+      {
+        "key": "voice",
+        "label": "VOICE",
+        "scope": "FM,SSG,ADPCM-A,ADPCM-B"
+      },
+      {
+        "key": "tl",
+        "label": "TL",
+        "scope": "FM"
+      },
+      {
+        "key": "ar",
+        "label": "AR",
+        "scope": "FM"
+      },
+      {
+        "key": "dr",
+        "label": "DR",
+        "scope": "FM"
+      },
+      {
+        "key": "sl",
+        "label": "SL",
+        "scope": "FM"
+      },
+      {
+        "key": "rr",
+        "label": "RR",
+        "scope": "FM"
+      },
+      {
+        "key": "ml",
+        "label": "ML",
+        "scope": "FM"
+      },
+      {
+        "key": "fbl",
+        "label": "FBL",
+        "scope": "FM"
+      },
+      {
+        "key": "alg",
+        "label": "ALG",
+        "scope": "FM"
+      },
+      {
+        "key": "pan",
+        "label": "PAN",
+        "scope": "FM,ADPCM-A,ADPCM-B"
+      },
+      {
+        "key": "vol",
+        "label": "VOL",
+        "scope": "ALL"
+      },
+      {
+        "key": "pitch",
+        "label": "PITCH",
+        "scope": "FM,SSG,ADPCM-B"
+      },
+      {
+        "key": "lfo",
+        "label": "LFO",
+        "scope": "FM,SSG"
+      },
+      {
+        "key": "noise",
+        "label": "NOISE",
+        "scope": "SSG"
+      },
+      {
+        "key": "mute",
+        "label": "MUTE",
+        "scope": "ALL"
+      },
+      {
+        "key": "fade",
+        "label": "FADE",
+        "scope": "ALL"
+      }
     ],
     "matrix": {
       "_default": "tbd",
       "_note": "2026-05-26時点の driver / ADR 実態に基づく保守的な heatmap。FM voice register 群・FM/SSG実音・ADPCM-B/rhythm実dispatch・mute/fade は実装済寄り。SSG voice/LFO、ADPCM-A sample/pan は仕様完全対応ではないため partial を残す。",
-      "FM1":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "FM2":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "FM3":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "FM4":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "FM5":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "FM6":  { "voice": "implemented", "tl": "implemented", "ar": "implemented", "dr": "implemented", "sl": "implemented", "rr": "implemented", "ml": "implemented", "fbl": "implemented", "alg": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "lfo": "partial", "mute": "implemented", "fade": "implemented" },
-      "SSG1": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
-      "SSG2": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
-      "SSG3": { "voice": "partial", "vol": "implemented", "pitch": "implemented", "lfo": "not_implemented", "noise": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA1":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA2":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA3":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA4":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA5":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PA6":  { "voice": "partial", "pan": "partial", "vol": "implemented", "mute": "implemented", "fade": "implemented" },
-      "PB":   { "voice": "implemented", "pan": "implemented", "vol": "implemented", "pitch": "implemented", "mute": "implemented", "fade": "implemented" }
+      "FM1": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "FM2": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "FM3": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "FM4": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "FM5": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "FM6": {
+        "voice": "implemented",
+        "tl": "implemented",
+        "ar": "implemented",
+        "dr": "implemented",
+        "sl": "implemented",
+        "rr": "implemented",
+        "ml": "implemented",
+        "fbl": "implemented",
+        "alg": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "partial",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "SSG1": {
+        "voice": "partial",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "not_implemented",
+        "noise": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "SSG2": {
+        "voice": "partial",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "not_implemented",
+        "noise": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "SSG3": {
+        "voice": "partial",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "lfo": "not_implemented",
+        "noise": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA1": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA2": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA3": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA4": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA5": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PA6": {
+        "voice": "partial",
+        "pan": "partial",
+        "vol": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      },
+      "PB": {
+        "voice": "implemented",
+        "pan": "implemented",
+        "vol": "implemented",
+        "pitch": "implemented",
+        "mute": "implemented",
+        "fade": "implemented"
+      }
     }
   },
   "phases": [
-    { "id": 1, "label": "Phase 1 PoC",            "status": "tbd", "note": "PMDDotNET + PMD V4.8s Z80 流用 ROM build + MAME 再生" },
-    { "id": 2, "label": "Phase 2 FM + SSG",       "status": "tbd", "note": "YM2610B 仕様 driver フルスクラッチ" },
-    { "id": 3, "label": "Phase 3 ADPCM-A + .PNE", "status": "tbd", "note": "ADPCM-A 6ch + WebApp 最小骨格" },
-    { "id": 4, "label": "Phase 4 ADPCM-B + V1",   "status": "tbd", "note": "ADPCM-B + WebApp 完成 + IPL + プレイヤー V1" }
+    {
+      "id": 1,
+      "label": "Phase 9a",
+      "content": "gate cmd q (= 0xFE) 実装",
+      "target": "driver",
+      "goal": "✓ 完了 b02b67e",
+      "status": "implemented",
+      "note": "gate cmd q (= 0xFE) 実装  ・  ✓ 完了 b02b67e"
+    },
+    {
+      "id": 2,
+      "label": "Phase 9b",
+      "content": "gate cmd q2/q3/q4 + actual gate logic + random + min",
+      "target": "driver",
+      "goal": "✓ 完了 Phase 9c に統合",
+      "status": "implemented",
+      "note": "gate cmd q2/q3/q4 + actual gate logic + random + min  ・  ✓ 完了 Phase 9c に統合"
+    },
+    {
+      "id": 3,
+      "label": "Phase 9c",
+      "content": "§5-1〜§5-5 全 volume cmd 群 (= v/V/v+/v-/v)/v(/(/)) 一括実装 + chip 別 volume hook",
+      "target": "driver",
+      "goal": "✓ 完了 b183256/188ccf1/c0e6bc1/87413b9",
+      "status": "implemented",
+      "note": "§5-1〜§5-5 全 volume cmd 群 (= v/V/v+/v-/v)/v(/(/)) 一括実装 + chip 別 volume hook  ・  ✓ 完了 b183256/188ccf1/c0e6bc1/87413b9"
+    },
+    {
+      "id": 4,
+      "label": "Phase 10",
+      "content": "fixture 4 個 selector (= main.c PMDNEO_FIXTURE)",
+      "target": "driver",
+      "goal": "✓ 完了 961fc50",
+      "status": "implemented",
+      "note": "fixture 4 個 selector (= main.c PMDNEO_FIXTURE)  ・  ✓ 完了 961fc50"
+    },
+    {
+      "id": 5,
+      "label": "Phase 11",
+      "content": "ADR-0002/0003 + 設計書 update + retrospective + main 解凍 PR #2",
+      "target": "docs",
+      "goal": "✓ 完了 1ada690/f616865/27462da",
+      "status": "implemented",
+      "note": "ADR-0002/0003 + 設計書 update + retrospective + main 解凍 PR #2  ・  ✓ 完了 1ada690/f616865/27462da"
+    },
+    {
+      "id": 6,
+      "label": "Phase 12a-1",
+      "content": "compile.py minimum (= MML 文字列 → byte stream emit)",
+      "target": "tools",
+      "goal": "✓ 完了 fb414dd",
+      "status": "implemented",
+      "note": "compile.py minimum (= MML 文字列 → byte stream emit)  ・  ✓ 完了 fb414dd"
+    },
+    {
+      "id": 7,
+      "label": "Phase 12a-2",
+      "content": "driver と compile.py 統合 (= .include \"song_data.inc\")",
+      "target": "tools+driver",
+      "goal": "✓ 完了 de4b020",
+      "status": "implemented",
+      "note": "driver と compile.py 統合 (= .include \"song_data.inc\")  ・  ✓ 完了 de4b020"
+    },
+    {
+      "id": 8,
+      "label": "Phase 12a-3",
+      "content": "drum-mode test02.mml fixture (= 14 part) + MML_INPUT selector",
+      "target": "tools",
+      "goal": "✓ 完了 4c70c7e",
+      "status": "implemented",
+      "note": "drum-mode test02.mml fixture (= 14 part) + MML_INPUT selector  ・  ✓ 完了 4c70c7e"
+    },
+    {
+      "id": 9,
+      "label": "Phase 12a-4",
+      "content": ".MN binary 形式 (= 14 個別 .mn file + .incbin、 PMD 流儀)",
+      "target": "tools",
+      "goal": "✓ 完了 e32e0d3",
+      "status": "implemented",
+      "note": ".MN binary 形式 (= 14 個別 .mn file + .incbin、 PMD 流儀)  ・  ✓ 完了 e32e0d3"
+    },
+    {
+      "id": 10,
+      "label": "Phase 12a-5a",
+      "content": "compile.py 拡張 (= driver 既実装 11 cmd 一括 parse 対応: # / q2/q3/q4 / v+/v-/v)/v( / (/))",
+      "target": "tools",
+      "goal": "✓ 完了 b61c538",
+      "status": "implemented",
+      "note": "compile.py 拡張 (= driver 既実装 11 cmd 一括 parse 対応: # / q2/q3/q4 / v+/v-/v)/v( / (/))  ・  ✓ 完了 b61c538"
+    },
+    {
+      "id": 11,
+      "label": "Phase 12a-5b",
+      "content": "主要 4 cmd 機能実装 (= D / DD / L / & driver 移植 + compile.py + audio gate + SSG mute 強化)",
+      "target": "driver+tools",
+      "goal": "✓ 完了 e207ac5",
+      "status": "implemented",
+      "note": "主要 4 cmd 機能実装 (= D / DD / L / & driver 移植 + compile.py + audio gate + SSG mute 強化)  ・  ✓ 完了 e207ac5"
+    },
+    {
+      "id": 12,
+      "label": "Phase 12a-5c",
+      "content": "compile.py macro 展開 (= !name 定義 + 展開、 SAMPLE2.MML 解析の第一歩)",
+      "target": "tools",
+      "goal": "✓ 完了 26e52f1",
+      "status": "implemented",
+      "note": "compile.py macro 展開 (= !name 定義 + 展開、 SAMPLE2.MML 解析の第一歩)  ・  ✓ 完了 26e52f1"
+    },
+    {
+      "id": 13,
+      "label": "Phase 12a-5e",
+      "content": "`:` loop 脱出 cmd 移植 (= comexloop 0xF7) + cmd dispatch range 9-23 拡張 + B/C PAN 分離 + F PAN write 欠落 fix + test07 sequential play fixture",
+      "target": "driver+tools",
+      "goal": "✓ 完了 68a60e2 / e5bdcbf",
+      "status": "implemented",
+      "note": "`:` loop 脱出 cmd 移植 (= comexloop 0xF7) + cmd dispatch range 9-23 拡張 + B/C PAN 分離 + F PAN write 欠落 fix + test07 sequential play fixture  ・  ✓ 完了 68a60e2 / e5bdcbf"
+    },
+    {
+      "id": 14,
+      "label": "Phase 12a-5d+",
+      "content": "driver 未実装 cmd 拡張 (= y direct LSI / chord {{...}} / voice + @N / LFO M / W echo / S slot / P PAN dynamic / E env)",
+      "target": "driver+tools",
+      "goal": "✗ 未 SAMPLE2 完走 sprint group",
+      "status": "not_implemented",
+      "note": "driver 未実装 cmd 拡張 (= y direct LSI / chord {{...}} / voice + @N / LFO M / W echo / S slot / P PAN dynamic / E env)  ・  ✗ 未 SAMPLE2 完走 sprint group"
+    },
+    {
+      "id": 15,
+      "label": "Phase 12b-1",
+      "content": "複数楽曲 lookup table (= driver_song_id + load_song_part_addr helper + song_table、 build-time 固定)",
+      "target": "driver+tools",
+      "goal": "✓ 完了 10446e2",
+      "status": "implemented",
+      "note": "複数楽曲 lookup table (= driver_song_id + load_song_part_addr helper + song_table、 build-time 固定)  ・  ✓ 完了 10446e2"
+    },
+    {
+      "id": 16,
+      "label": "Phase 12b-2",
+      "content": "cmd 9-15 直接 song select + PMDNEO_SONG selector (= 動的 switch、 modal 経路触らず安全実装)",
+      "target": "driver",
+      "goal": "✓ 完了 59040f8",
+      "status": "implemented",
+      "note": "cmd 9-15 直接 song select + PMDNEO_SONG selector (= 動的 switch、 modal 経路触らず安全実装)  ・  ✓ 完了 59040f8"
+    },
+    {
+      "id": 17,
+      "label": "Phase 12b ADR",
+      "content": "ADR-0004 起票 (= lookup table format + cmd 9-15 規約 + modal abandon 経緯記録)",
+      "target": "docs",
+      "goal": "✓ 完了 faa201f",
+      "status": "implemented",
+      "note": "ADR-0004 起票 (= lookup table format + cmd 9-15 規約 + modal abandon 経緯記録)  ・  ✓ 完了 faa201f"
+    },
+    {
+      "id": 18,
+      "label": "Phase 12b-3+",
+      "content": "16+ song 拡張 protocol (= 必要時、 別 cmd protocol 設計)",
+      "target": "driver",
+      "goal": "✗ 未 必要時",
+      "status": "not_implemented",
+      "note": "16+ song 拡張 protocol (= 必要時、 別 cmd protocol 設計)  ・  ✗ 未 必要時"
+    },
+    {
+      "id": 19,
+      "label": "Phase 12d-cleanup",
+      "content": "modal 経路 + nmi_cmd_7 dead code 削除 (= ADR-0004 follow-up)",
+      "target": "driver",
+      "goal": "✓ 完了 3dd0e40",
+      "status": "implemented",
+      "note": "modal 経路 + nmi_cmd_7 dead code 削除 (= ADR-0004 follow-up)  ・  ✓ 完了 3dd0e40"
+    },
+    {
+      "id": 20,
+      "label": "Phase 12c",
+      "content": "試作楽曲 (= 牡丹 title BGM、 user 創作)",
+      "target": "assets",
+      "goal": "✗ 未 リリース前",
+      "status": "not_implemented",
+      "note": "試作楽曲 (= 牡丹 title BGM、 user 創作)  ・  ✗ 未 リリース前"
+    },
+    {
+      "id": 21,
+      "label": "残課題 1",
+      "content": "ALG 7 release tail 残響 (= voice setting 改善)",
+      "target": "driver",
+      "goal": "△ 後続",
+      "status": "partial",
+      "note": "ALG 7 release tail 残響 (= voice setting 改善)  ・  △ 後続"
+    },
+    {
+      "id": 22,
+      "label": "残課題 2",
+      "content": "F3 soft reset hardening (= memory project_pmdneo_soft_reset_residual.md)",
+      "target": "driver",
+      "goal": "△ 後続",
+      "status": "partial",
+      "note": "F3 soft reset hardening (= memory project_pmdneo_soft_reset_residual.md)  ・  △ 後続"
+    }
+  ],
+  "pmdneoSpecific": [
+    {
+      "feature": "pmdneo_part_main 共通 dispatch ルーチン",
+      "desc": "per-chip 4 ルーチンを統合",
+      "status": "implemented",
+      "lineage": "develop"
+    },
+    {
+      "feature": "chip 別 hook table 12個 + noop_hook",
+      "desc": "keyon / keyoff / fnumset / volumeset",
+      "status": "implemented",
+      "lineage": "develop"
+    },
+    {
+      "feature": "nest LOOP 可視化",
+      "desc": "scripts/analyze-loop-trace.py + MAME trace 経由",
+      "status": "implemented",
+      "lineage": "develop"
+    },
+    {
+      "feature": "14 part 並行 dispatch",
+      "desc": "FM4 + SSG3 + ADPCM-B1 + ADPCM-A6",
+      "status": "implemented",
+      "lineage": "develop"
+    },
+    {
+      "feature": "K/R rhythm engine",
+      "desc": "cmd 0x0B + .rhy binary emit",
+      "status": "implemented",
+      "lineage": "main"
+    },
+    {
+      "feature": "ADPCM-A driver",
+      "desc": "ADPCMA_DRV.inc",
+      "status": "implemented",
+      "lineage": "main"
+    },
+    {
+      "feature": "ADPCM-B driver",
+      "desc": "ADPCMB_DRV.inc",
+      "status": "implemented",
+      "lineage": "main"
+    }
   ]
 }
 </script>
@@ -1513,7 +2721,7 @@ body.theme-arcade .note::before { color: #FF3D88; }
   window.__inlineData = inlineData;
   let DATA = inlineData;
   let dataSourceHint = 'inline (fallback)';
-  let liveModeRequested = true; // flipped via Tweaks
+  let liveModeRequested = new URLSearchParams(location.search).get('live') === '1'; // flipped via Tweaks
   let _loadSeq = 0;             // monotonic id — stale completions are ignored
 
   function setSchemaTag(t) {
@@ -1546,7 +2754,16 @@ body.theme-arcade .note::before { color: #FF3D88; }
       if (myId !== _loadSeq) return;
     }
 
-    // 2. live from GitHub repo (default)
+    // 2. ./data.json sibling file (static file generated on push)
+    if (!liveModeRequested) {
+      try {
+        const res = await fetch('./data.json', { cache: 'no-store' });
+        if (res.ok && win(await res.json(), './data.json')) return;
+      } catch (e) { /* file:// or 404 */ }
+      if (myId !== _loadSeq) return;
+    }
+
+    // 3. live from GitHub repo (opt-in: ?live=1 or Tweaks panel)
     if (liveModeRequested && window.fetchPmdneoCoverage) {
       try {
         const json = await window.fetchPmdneoCoverage();
@@ -1559,8 +2776,8 @@ body.theme-arcade .note::before { color: #FF3D88; }
       if (myId !== _loadSeq) return;
     }
 
-    // 3. ./data.json sibling file (skipped when live mode is on — don't shadow GitHub failure with skeleton)
-    if (!liveModeRequested) {
+    // 4. If live failed, fall back to generated ./data.json before inline.
+    if (liveModeRequested) {
       try {
         const res = await fetch('./data.json', { cache: 'no-store' });
         if (res.ok && win(await res.json(), './data.json')) return;
@@ -1568,7 +2785,7 @@ body.theme-arcade .note::before { color: #FF3D88; }
       if (myId !== _loadSeq) return;
     }
 
-    // 4. inline fallback
+    // 5. inline fallback
     win(inlineData, liveModeRequested ? 'inline (github fetch failed)' : 'inline (fallback)');
   }
 

@@ -1,0 +1,42 @@
+name: Update Progress Dashboard
+
+on:
+  push:
+    branches:
+      - wip-pmddotnet-opnb-extension
+  workflow_dispatch:
+
+jobs:
+  update-dashboard-data:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout source branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: wip-pmddotnet-opnb-extension
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Generate dashboard data
+        env:
+          PMDNEO_DASHBOARD_SOURCE_SHA: ${{ github.sha }}
+        run: python scripts/build-progress-dashboard-data.py
+
+      - name: Commit generated dashboard data
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add docs/webpages/pmdneo-progress-dashboard/data.json docs/webpages/pmdneo-progress-dashboard/index.html
+          if git diff --cached --quiet; then
+            echo 'No dashboard data changes'
+            exit 0
+          fi
+          git commit -m 'docs: auto-update progress dashboard data'
+          git push origin HEAD:wip-pmddotnet-opnb-extension
