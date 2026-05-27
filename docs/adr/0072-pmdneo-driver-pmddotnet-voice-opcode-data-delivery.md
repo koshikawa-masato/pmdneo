@@ -1201,6 +1201,190 @@ plan v5 (= Annex β-4) で scope shift 確定後も β-1〜β-3 は historical r
 
 supersede pointer: plan v1-v4 で提案された driver patch + scratch RAM byte + comat guarded change + helper routine `pmdneo_comat_pmddotnet_voice_load` 等は **plan v5 で scope-out**、 γ impl では一切実装しない。
 
+### β-4-10: plan v6 = Codex plan v5 review revise 4 must-fix 反映
+
+sprint β plan v5 Codex Rescue plan review (= agentId `aa8f01d42ba8f4422`、 elapsed 約 2 分) judgment = **revise** + 4 must-fix + 3 nice-to-have + 3 latent-risk。 per-axis verdict = AXIS-1 PASS + AXIS-2 FAIL + AXIS-3 FAIL + AXIS-4 FAIL + AXIS-5 FAIL + AXIS-6 PASS + AXIS-7 WARN (= 7 軸中 2 PASS + 4 FAIL + 1 WARN)。
+
+### β-4-11: must-fix MF-1 反映 = 外部 FM voice file format 仕様 literal 化 (= AXIS-2)
+
+Codex 指摘 = β-4-4-1 で「PMD 標準 voice file format (= `.FF` extension expected)」 と書いたが、 binary or text、 encoding、 record layout、 voice_num base、 既存 25-byte register-major PMDNEO format への変換仕様が未確定。
+
+**plan v6 fix = .FF format literal spec (= γ-0 pre-step で確定必須)**:
+
+#### β-4-11-1: 入力 #FFFile format (= γ-0 pre-step で literal 確認 mandatory)
+
+- **拡張子**: `.FF` (= PMD V4.8s + PMDDotNET 互換 voice file)
+- **encoding**: **binary** (= text encoded voice file は PMD 慣習で `.FFV` 等別拡張、 PMD V4.8s + PMDDotNET 標準 .FF は binary)
+- **layout** (= γ-0 で `vendor/pmd48s/` + PMDDotNET source + 既存 .FF サンプルから literal 確認):
+  - 候補仮説: voice_num 連番 0/1/2/... の voice data records、 各 record 25 byte (= PMD voice_buf format slot 1/3/2/4 interleaved)
+  - 候補仮説: 各 record 32 byte (= internal voice_buf size、 25 byte voice + 7 byte name)
+  - 候補仮説: file header + N records + footer (= e.g., voice count byte + records)
+- **voice_num base**: γ-0 pre-step で確認 (= 0-based か 1-based か)
+- **既存 register-major PMDNEO format との関係**:
+  - compile.py 既存 generation (= line 488-494): register-major (= 6 reg × 4 slot) per voice 25 byte
+  - PMD .FF format との byte ordering 変換は γ-0 で literal 確認後決定 (= slot reorder 不要 or slot reorder logic 追加)
+
+#### β-4-11-2: γ-0 pre-step = .FF format literal 確認 mandatory (= 実装着手前)
+
+1. `vendor/pmd48s/` 内 .FF sample または PMD V4.8s 標準 voice file 探索
+2. `vendor/PMDDotNET/` 内 .FF I/O 関連 source (= `compiler.cs:154` + `Program.cs:190` outFFFileBuf logic = LR-3 参考)
+3. 既存 `src/test-fixtures/axis-b/` 等で .FF 使用例検索
+4. 仕様確定 + plan v7 (= Annex β-4 拡張 β-4-N) で literal record
+
+### β-4-12: must-fix MF-2 反映 = MML 内 voice + #FFFile 同一番号 conflict resolution policy (= AXIS-3)
+
+Codex 指摘 = β-4-4-1 point 3 で「MML > #FFFile 優先順位」 のみ定義、 同一 voice_num が両方に定義された場合の warning 動作未規定 (= 「両方未定義」 warning のみ規定済)。
+
+**plan v6 fix = conflict resolution policy literal**:
+
+```
+voice_num N の resolution priority (= compile.py 内 logic):
+1. MML 内 @N voice 定義 (= `@001 alg fbl` + 4 operator row) 検出
+   → MML voice def を採用、 同時 #FFFile 内に同 N があれば **warning** (= 「voice N defined in both MML and #FFFile, using MML」 標準 stderr 出力)
+2. MML 内未定義 + #FFFile 内 N 定義あり
+   → #FFFile from voice を採用 (= fallback path)
+3. MML + #FFFile 両方未定義 (= 既存 plan v5 base)
+   → warning + voice_table[N] entry skip + driver 経路で comat miss safe default (= 既存挙動)
+```
+
+警告 wording 統一:
+- `[compile.py warning] voice {N} defined in both MML and #FFFile '{ff_path}', using MML version`
+- `[compile.py warning] voice {N} not defined in MML or #FFFile, voice_table[{N}] entry skipped`
+
+### β-4-13: must-fix MF-3 反映 = voice_table.inc 組込ルール literal 化 (= AXIS-5)
+
+Codex 指摘 = β-4-4-2 で「generated voice_table.inc を build に組み込む」 だが、 既存 `song_data.inc:55` に `voice_table:` empty label がある。 「append」 だと label 重複 / 配置ずれ risk。
+
+**plan v6 fix = 組込ルール exact policy (= 採用 Option B)**:
+
+#### Option A (= 不採用): generated voice_table.inc を song_data.inc に append
+- 既存 empty `voice_table:` + 新 `voice_table:` label = **duplicate label** = sdasz80 error
+- 不採用
+
+#### Option B (= **採用**): build-poc.sh で song_data.inc 内 `voice_table:` block を sed 等で削除 + 新 voice_table.inc を append
+- 既存 song_data.inc (= compile.py 経路 default 生成) の `voice_table:` empty label + 末尾までの voice block (= 0 byte) を削除
+- compile.py --voice-only generated voice_table.inc を末尾に append
+- 結果: 単一 `voice_table:` label + populated entries
+- backward-compat: compile.py 経路 (= PMDDOTNET_MML 未使用 production default) では song_data.inc が compile.py 経路の通常 generation を使う (= 不変)
+
+実装 sketch (= build-poc.sh 追加 logic、 PMDDOTNET_MML block 内):
+```bash
+if [[ -n "${PMDDOTNET_MML:-}" ]]; then
+    # ... 既存 PMDDOTNET .M compile + pmddotnet_song.m generation ...
+    # ADR-0072 plan v6: compile.py --voice-only で voice_table.inc 生成
+    python3 "$PMDNEO_ROOT/src/tools/pmd-mml/compile.py" --voice-only \
+        --mml "$PMDDOTNET_MML" \
+        --output-voice-table "$TEMPLATE_DIR/voice_table_pmddotnet.inc"
+    # song_data.inc の既存 empty voice_table: block を削除 + voice_table_pmddotnet.inc を append
+    sed -i.bak '/^voice_table:$/,$d' "$TEMPLATE_DIR/song_data.inc"
+    cat "$TEMPLATE_DIR/voice_table_pmddotnet.inc" >> "$TEMPLATE_DIR/song_data.inc"
+fi
+```
+
+(= literal は γ impl で確定、 macOS BSD sed と GNU sed 両対応必要 = `-i.bak` portable invocation)
+
+#### Option C (= 不採用): song_data.inc 全体再生成
+- compile.py 経路の song_table + song_part_? generation を bypass する設計変更必要
+- scope creep risk + backward-compat 影響 → 不採用
+
+### β-4-14: must-fix MF-4 反映 = malformed 外部 voice file safe-default policy (= AXIS-4)
+
+Codex 指摘 = missing file fallback は明記済だが、 malformed (= broken format、 truncated、 invalid byte) file の動作未定。
+
+**plan v6 fix = malformed file handling literal**:
+
+```
+malformed #FFFile detection + safe default:
+1. file size check (= expected size = voice_count × 25 byte + header overhead)
+   不正サイズ → warning + 全 #FFFile ignore + MML inline voice のみ使用
+2. parse error (= I/O exception、 byte 解釈失敗)
+   → warning + 全 #FFFile ignore + MML inline voice のみ使用
+3. partial parse success (= 一部 voice 抽出可能、 一部失敗)
+   → warning per voice + 成功分のみ使用 + 失敗分は MF-2 priority 3 (= skip + warning)
+4. 全 case で **build failure させない** (= warning level、 exit code 0 維持)
+   = MML inline voice def + 既存 driver fallback で動作確保
+```
+
+警告 wording:
+- `[compile.py warning] #FFFile '{ff_path}' malformed (reason: {reason}), ignoring entire file, using MML inline voices only`
+- `[compile.py warning] #FFFile '{ff_path}' voice {N} parse failed (reason: {reason}), skipped`
+
+### β-4-15: nice-to-have NH-1/NH-2/NH-3 反映
+
+#### NH-1: conflict fixture 追加
+`src/test-fixtures/adr-0072/test-conflict.mml` + `test-conflict.ff` (= MML 内 @001 定義 + #FFFile 内 @001 定義 = priority warning 動作確認)。 γ impl で配置。
+
+#### NH-2: missing/malformed fixture 追加
+- `src/test-fixtures/adr-0072/test-missing-ff.mml` (= #FFFile 'nonexistent.ff' = missing file fallback 動作確認)
+- `src/test-fixtures/adr-0072/test-malformed.ff` (= truncated/corrupt binary = malformed safe default 動作確認)
+
+#### NH-3: 旧 driver-side plan コメント update
+- `src/test-fixtures/adr-0072/test-voice-load.mml` + `test-multi-voice.mml` (= 既存 fixture) のコメントで「ADR-0072 patch (1) = comat routine chip_type guard + PMDDOTNET inline voice table load verify」 等 plan v1-v4 era 記述を plan v5/v6 (= build-side voice resolution) に update (= γ impl で同時実施)
+
+### β-4-16: latent-risk LR-1/LR-2/LR-3 acknowledge + mitigation
+
+#### LR-1: compile.py `#` strip 順序
+Codex 指摘 = `compile.py:430` + `:525` で `#` をコメント strip している箇所より前に `#FFFile` 検出を走らせないと FFFile が無視される。
+
+**plan v6 mitigation**: `#FFFile` directive parser は MML preprocessing の **最初の pass** で実行、 `#` strip より前。 具体 implementation:
+- compile.py に新 function `parse_ff_file_directive(source)` 追加
+- `parse_mml(source)` 関数の **冒頭** (= line ~501 直前) で呼出
+- `#FFFile <filename>` line を検出 → filename + relative path 解決 → external voice file parse → voice dict に merge
+- その後 既存 `parse_voice_definitions` + 通常 MML parse 続行 (= 既存 `#` strip path は preserved)
+
+#### LR-2: max voice_num overread
+Codex 指摘 = compile.py:614 voice_table generation で「定義済み最大 voice_num までしか emit しない」、 それを超える `@N` 参照が MML にあると driver の `comat` が `voice_table` 末尾を overread。
+
+**plan v6 mitigation**:
+- compile.py で MML 内全 `@N` 参照を pre-scan + max referenced N を計算
+- voice_table generation で **max referenced N まで** emit (= MF-2 priority 3 「両方未定義」 entry も skip ではなく empty entry で埋める = `voice_table` entry index 整合保持)
+- 既存 driver `comat` は `voice_table[N]` lookup を期待、 N が範囲外なら fault risk
+
+#### LR-3: PMDDOTNET 自身も .FF 出力生成
+Codex 指摘 = `compiler.cs:154` + `Program.cs:190` で PMDDOTNET 自身が `outFFFileBuf` 経由で `.FF` 出力を生成する。 入力 `#FFFile` と PMDDOTNET 出力 .FF の混同 risk。
+
+**plan v6 mitigation**: plan v6 wording で **明示区別** mandatory:
+- **入力 `#FFFile`**: MML 冒頭 directive で参照される **外部 voice file**、 ユーザが用意する PMD voice file (= 同一フォルダ内 binary `.FF`)
+- **出力 PMDDOTNET .FF** (= `outFFFileBuf`): PMDDOTNET compiler 内部で生成される副産物、 **本 ADR-0072 scope-out** (= 触らない、 PMDDOTNET 本体改変は scope OUT (1))
+- 命名衝突回避: compile.py 内変数名 = `external_ff_path` (= 入力)、 `outFFFileBuf` (= PMDDOTNET 内、 触らない) として区別
+
+### β-4-17: plan v6 = γ impl order updated
+
+1. **γ-0 pre-step**: .FF format literal spec 確認 (= β-4-11-2 vendor + sample + PMDDOTNET source 経路) + plan v7 起票 (= 必要に応じて、 β-4-N で literal record)
+2. **compile.py 拡張** (= plan v5 β-4-4-1 carry + plan v6 反映):
+   - `parse_ff_file_directive(source)` 新規 function (= LR-1 反映、 `#` strip 前 first pass)
+   - MML file relative path 解決
+   - external voice file (= .FF binary) parser
+   - voice resolution priority (= MF-2 = MML > #FFFile + conflict warning)
+   - malformed file handling (= MF-4 safe default + warning)
+   - max referenced voice_num pre-scan + voice_table generation range fix (= LR-2 反映)
+   - `--voice-only` mode flag
+3. **build-poc.sh 拡張**:
+   - PMDDOTNET_MML 使用時に compile.py `--voice-only` 並行呼出
+   - song_data.inc の `voice_table:` block を sed 削除 + generated voice_table.inc を append (= MF-3 Option B 採用)
+   - sed portable invocation (= macOS BSD + GNU sed 両対応)
+4. **新規 committed fixture 配置** (= NH-1/NH-2 反映):
+   - 既存 `test-voice-load.mml` + `test-multi-voice.mml` (= NH-3 コメント update)
+   - `test-conflict.mml` + `test-conflict.ff` (= NH-1 priority warning verify)
+   - `test-missing-ff.mml` (= NH-2 missing file fallback)
+   - `test-malformed.ff` (= NH-2 malformed safe default)
+5. **build verify**: 4 build matrix sha256 (= B1/B2/B3/B4) + production baseline `457a237c...` byte-identical 維持
+6. **δ functional verify** (= plan v5 β-4-7 step 6 carry): MAME runtime trace + FM voice register area writes + audio audible
+7. **retrospective Codex impl-review**
+8. ε Accepted
+
+### β-4-18: Codex Rescue plan review round 6 重点軸 (= plan v6 = 4 must-fix 反映 + 3 nh + 3 lr 反映 + 不変 carry)
+
+1. MF-1 反映確認 = .FF format γ-0 pre-step literal 確認 mandate (= β-4-11)
+2. MF-2 反映確認 = MML+#FFFile conflict resolution policy literal (= β-4-12)
+3. MF-3 反映確認 = voice_table.inc 組込 Option B 採用 + sed 削除 + append exact rule (= β-4-13)
+4. MF-4 反映確認 = malformed file safe default policy literal (= β-4-14)
+5. NH-1/NH-2/NH-3 反映確認 = fixture 拡張 + コメント update (= β-4-15)
+6. LR-1 acknowledge = #FFFile directive parser を `#` strip 前 first pass (= β-4-16 LR-1)
+7. LR-2 acknowledge = max voice_num pre-scan + voice_table range fix (= β-4-16 LR-2)
+8. LR-3 acknowledge = 入力 #FFFile vs PMDDOTNET 出力 .FF 命名区別 (= β-4-16 LR-3)
+9. AXIS-1/AXIS-6 unchanged carry PASS confirm + AXIS-7 WARN → MF-3 resolve で resolved 期待 confirm
+
 ## Annex β-5: δ verify result / ε Accepted milestone (= sprint γ/δ/ε で fill)
 
 placeholder。
@@ -1209,6 +1393,7 @@ placeholder。
 
 | 日付 | session | 内容 | commit |
 |---|---|---|---|
+| 2026-05-27 | 43rd session | ADR-0072 plan v5 Codex review revise + plan v6 起草 = plan v5 build-side scope shift commit chain (= `b3b594a` + `4f75f14`) 後の Codex Rescue plan review (= agentId `aa8f01d42ba8f4422`、 elapsed 約 2 分) **revise** + 4 must-fix + 3 nice-to-have + 3 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 FAIL + AXIS-3 FAIL + AXIS-4 FAIL + AXIS-5 FAIL + AXIS-6 PASS + AXIS-7 WARN = 7 軸中 2 PASS + 4 FAIL + 1 WARN)。 main agent autonomous (= user mandate 適用、 全 mf scope 内 design spec literal 化 + driver no-touch 維持 = 全自律進行可能) で plan v6 起草。 ADR doc 修正範囲 = (1) Annex β-4 拡張 = β-4-10〜β-4-18 plan v6 = 9 sub-section (= β-4-10 plan v6 scope + must-fix overview + β-4-11 MF-1 .FF format spec γ-0 pre-step mandatory + literal 候補仮説 3 件 + β-4-12 MF-2 MML+#FFFile conflict resolution priority literal (= MML 優先 + warning 詳細 wording) + β-4-13 MF-3 voice_table.inc 組込ルール Option A/B/C 比較 + Option B 採用 sed 削除 + append exact rule + build-poc.sh sketch + β-4-14 MF-4 malformed file safe default 4 件 case + warning wording literal + build failure させない mandate + β-4-15 NH-1/NH-2/NH-3 fixture 拡張 + コメント update + β-4-16 LR-1/LR-2/LR-3 acknowledge + mitigation literal (= #FFFile parser `#` strip 前 first pass + max voice_num pre-scan + 入出力 .FF 区別) + β-4-17 γ impl order plan v6 = 8 step (= γ-0 pre-step .FF format 確認 + compile.py 拡張 + build-poc.sh 拡張 + fixture + verify) + β-4-18 round 6 重点軸 9 件) + (2) 改訂履歴 plan v6 entry append (= 本 entry、 append only mandate 厳守) + (3) dashboard 0072 行 status update = 別 commit。 driver / 既存 verify script / 既存 fixture MML / vendor (= 特に PMDDOTNET 完全不変 carry) / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts (= compile.py + build-poc.sh plan v6 scope IN 例外、 既存機能 backward-compat 維持 mandatory) / 既存 Annex α-1〜α-6 + β-1 + β-2 + β-3 + β-4 β-4-1〜β-4-9 (= plan v5 immutable history carry) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= driver no-touch carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 1/2/3 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 6 on Annex β-4 plan v6 (= 9 重点軸 = MF-1/2/3/4 反映 + NH-1/2/3 反映 + LR-1/2/3 acknowledge + AXIS unchanged carry + WARN resolve confirm) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= compile.py + build-poc.sh 拡張、 driver no-touch carry)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v6 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 γ impl phase finding-based scope shift = plan v5 = build-side voice resolution + #FFFile support (= user 明示 GO Option 2 revised、 driver no-touch 確定) = sprint γ impl 着手後 real binary 解析で plan v4 前提「voice table が pmddotnet_song.m 内 inline emit」 が **不成立確定** (= PMDDOTNET /N + /B 両 mode で voice table inline emit されない、 251 byte binary literal verify、 agent 1/4 finding `mml_seg.prg_flg & 1 != 0` runtime 条件評価不足 retrospective)、 真の解決経路 = `src/tools/pmd-mml/compile.py:424` 既存 `parse_voice_definitions(source)` + line 626/634 `voice_table:` Z80 label generation 機能再利用 + build-poc.sh 拡張で PMDDOTNET_MML 経路でも voice 抽出並行実行、 user 明示「Option 2 revised: build-side voice resolution + #FFFile support、 driver source 原則 no-touch」 受領 + scope shift 確定。 plan v1-v4 driver patches 完全 revert 済 (= `git checkout src/driver/standalone_test.s` 実行、 driver source byte-identical to base anchor `wip-pmddotnet-opnb-extension@05f0e44` 維持 confirmed)、 plan v5 起草 = build-side scope。 ADR doc 修正範囲 = (1) Annex β-4 新規追加 = plan v5 build-side voice resolution + #FFFile support 9 sub-section (= scope shift 経緯 + 解決経路 + scope IN/OUT + modification path detail + sha256 維持 update + review 7 軸 + γ impl order 8 step + revert literal + immutable history carry) + (2) 改訂履歴 plan v5 entry append (= 本 entry、 append only mandate 厳守) + (3) dashboard 0072 行 status update = 別 commit で同時実施。 user 明示 #FFFile 対応必須要件 = PMD 系 MML は音色を MML 内に直接書くとは限らない + 同一フォルダの FM 音源音色 file を `#FFFile` directive で参照する慣習がある + SAMPLE2 系 + 実用 MML では外部音色 file 対応がないと audition material として成立しない可能性が高い + これは driver の問題ではなく MML build / voice resolution の問題 (= 既存 ADR-0071 + plan v4 までの driver-side fix scope では解決不能)。 plan v5 scope IN literal (= user 明示 allowed-touch) = (1) `src/tools/pmd-mml/compile.py` #FFFile parse + MML file relative path 解決 + FM voice file parse + voice_table: generation 拡張 + --voice-only mode flag + (2) `scripts/build-poc.sh` PMDDOTNET_MML 使用時に compile.py voice 抽出並行呼出 + generated voice table.inc を build に組み込む + (3) `src/test-fixtures/adr-0072/` 必要に応じて #FFFile 付き minimal MML + minimal voice file fixture (= ADR-0069 §決定 3-d precedent 継承) + (4) `docs/adr/0072-*.md` + `docs/parallel-axes-dashboard.md` + 改訂履歴 + 平易要約。 plan v5 scope OUT literal (= user 明示) = (1) PMDDOTNET 本体改変 (= `vendor/PMDDotNET/` 完全不変) + (2) driver source patch (= `src/driver/standalone_test.s` 完全不変、 plan v1-v4 提案 patch 全 revert 済) + (3) pmdneo_rhythm_event_trigger (= K bitmap pair distinct ADR-0070 候補 future) + (4) K bitmap pair distinct (= ADR-0070 候補 future) + (5) user audition / δ 再開 (= ADR-0065 ε scope、 user 明示 GO 必須)。 Codex Rescue plan review 必須軸 (= user 明示 7 軸 literal) = (1) PMDDOTNET .m に voice table がない事実 + (2) #FFFile で同一フォルダ voice file を解決できるか + (3) MML 内 voice 定義と外部 voice file の優先順位 + (4) relative path / missing file / malformed file の扱い + (5) generated voice_table: が既存 driver と整合するか + (6) driver no-touch で実現できるか + (7) production sha256 維持に影響がないか。 production sha256 維持方針 update = plan v4 まで driver-side guarded change で flag-off byte-identical / plan v5 = driver source 完全 no-touch で automatic 維持 (= 触らないので破れない) + (B1)/(B2)/(B3) baseline 全 byte-identical 維持 + (B4) flag-on post-plan-v5 with fixture diff = song_data.inc + ROM data 由来 (= driver byte-identical)。 driver / 既存 verify script / 既存 fixture MML / vendor (= 特に PMDDOTNET 完全不変、 plan v5 scope OUT (1)) / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts (= compile.py + build-poc.sh は本 ADR-0072 plan v5 scope IN なので例外的 modify、 ただし既存機能完全 backward-compatible 維持 mandatory) / 既存 Annex α-1〜α-6 + β-1 + β-2 + β-3 (= immutable history carry) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 3 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review on Annex β-4 plan v5 (= 7 重点軸 = user 明示 literal carry) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= compile.py 拡張 + build-poc.sh 拡張 mandate、 worktree 再作成 不要 = main agent 経路、 driver no-touch)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v5 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 sprint β round 3 Codex review revise + plan v4 起草 = sprint β round 2 + plan v3 後の sprint β round 3 plan v3 Codex review (= agentId `ac6a9071699dee380`、 elapsed 約 8 分) **revise** + 5 must-fix + 1 nice-to-have + 1 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 FAIL + AXIS-3 FAIL + AXIS-4 PASS + AXIS-5 PASS + AXIS-6 FAIL + AXIS-7 PASS + AXIS-8 FAIL + AXIS-9 FAIL = 9 軸中 5 PASS + 4 FAIL)。 main agent autonomous (= user mandate 適用、 全 mf scope 内 technical detail 訂正 = 全自律進行可能) で plan v4 起草 + 直接 fix 適用 (= mf-2 typo + mf-3 supersede note inline)。 ADR doc 修正範囲 = (1) Annex β-3 拡張 = β-3-10〜β-3-20 plan v4 = 11 sub-section (= β-3-10 plan v4 scope overview + β-3-11 mf-1 scratch byte 0xFD3F → 0xFD62 訂正 (= free region 0xFD62-0xFD78 from `standalone_test.s:380` literal) + β-3-12 mf-2 β-2-6 line 657 typo `comt` → `comat` 直接修正 + β-3-13 mf-3 Annex α-1 軸 2 line 225/241 supersede note inline 追加 (= immutable history 保護 + 注記のみ追加) + β-3-14 mf-4 voice 0 + first data byte 0xFF terminator collision **structural impossibility proof** (= YM2610 reg 0x30 bit 7 reserved → voice_buf byte 0 ≤ 0x7F → 0xFF spec 上不可能) + β-3-15 mf-5 AXIS-4 WARN → resolved 明示 + AXIS carry wording 整合 (= round 2 WARN ↔ plan v3 acknowledge ↔ plan v4 mf-4 proof resolve full chain literal) + β-3-16 nh-1 β-3-3 cleaner section canonical 明示 + β-3-17 lr-1 γ-0 pre-step `pmdneo_fm_voice_set` slot order literal confirm + β-3-18 helper design v4 (= 主要 design point 7 件) + β-3-19 γ impl order plan v4 = 9 step (= γ-0 pre-step 追加 + scratch byte literal 追加 step 追加) + β-3-20 round 4 重点軸 9 件) + (2) β-2-6 line 657 typo `comt` → `comat` 直接修正 (= 本 commit chain 内同時実施) + (3) Annex α-1 軸 2 line 225 + 241 supersede note inline 直接追加 (= 本 commit chain 内同時実施、 immutable history 保護 = 元 finding 削除せず、 注記のみ追加) + (4) 改訂履歴 sprint β round 3 + plan v4 entry append (= 本 entry、 append only mandate 厳守) + (5) dashboard 0072 行 status update placeholder (= 別 commit で同時実施)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts / 既存 Annex α-1〜α-6 + β-1 + β-2 + β-3-1〜β-3-9 (= immutable history、 ただし α-1 軸 2 line 225/241 supersede note inline と β-2-6 line 657 typo fix のみ追加可) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= sprint β round 3 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 3 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 4 on Annex β-3 plan v4 (= 9 重点軸 = mf-1〜mf-5 反映確認 + nh-1 反映 + lr-1 反映 + unchanged AXIS carry + round 3 FAIL resolve confirm) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 + 新規 fixture + γ-0 pre-step + scratch RAM byte address 0xFD62 mandate)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v4 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 sprint β round 2 Codex review revise + plan v3 起草 = sprint β round 1 + plan v2 後の sprint β round 2 plan v2 Codex review (= agentId `a65c98ab79db416f1`、 elapsed 約 4 分) **revise** + 2 must-fix + 3 nice-to-have + 3 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 PASS + AXIS-3 FAIL + AXIS-4 WARN + AXIS-5 PASS + AXIS-6 PASS + AXIS-7 FAIL + AXIS-8 PASS + AXIS-9 PASS = 9 軸中 7 PASS + 1 WARN + 1 FAIL、 round 1 比大幅改善)。 main agent autonomous (= user mandate 適用、 mf-A/mf-B 全 technical detail 訂正 + scope 内 = 全自律進行可能) で plan v3 起草。 ADR doc 修正範囲 = (1) Annex β-3 新規追加 = plan v3 = 9 sub-section (= β-3-1 scope + must-fix overview + β-3-2 mf-A B preservation + reload from `PART_OFF_CH_IDX(ix)` offset 24 literal + β-3-3 mf-B terminator check first + voice_num scratch RAM byte 経由保持 design + β-3-4 nh-1/nh-2/nh-3 反映 + 追加 nh-typo + nh-δ-6-predicate (= 42 件 voice data byte ↔ register order 照合) + nh-γ-byte-update + β-3-5 lr-1/lr-2/lr-3 acknowledge + 追加 lr-stale-α + lr-voice-A-slot-order + lr-voice-0-first-byte + β-3-6 helper design v3 literal + scratch RAM byte `driver_pmddotnet_voice_num_scratch` 0xFDxx γ impl で literal 確定 + β-3-7 γ impl order plan v3 = 8 step + scratch RAM byte literal address 確定 step 追加 + β-3-8 Annex α-1 軸 2 supersede note 追加 (= terminator 表記訂正、 immutable history 保護維持 + 注記のみ追加) + β-3-9 Codex round 3 重点軸 9 件) + (2) 改訂履歴 sprint β round 2 + plan v3 entry append (= 本 entry、 append only mandate 厳守) + (3) dashboard 0072 行 status update placeholder (= 別 commit で同時実施)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts / 既存 Annex α-1〜α-6 + β-1 + β-2 (= immutable history、 ただし α-1 軸 2 supersede note のみ追加可) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= sprint β round 2 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 1/2 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 3 on Annex β-3 plan v3 (= 9 重点軸 = mf-A/mf-B 反映確認 + nh-typo/nh-δ-6-predicate/nh-γ-byte-update + lr-stale-α/lr-voice-A-slot-order/lr-voice-0-first-byte + AXIS unchanged carry) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 + 新規 fixture + scratch RAM byte literal address 確定 mandate)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v3 commit chain 内 commit 1) |
