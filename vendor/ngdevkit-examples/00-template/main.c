@@ -96,6 +96,10 @@ int main(void) {
 #elif PMDNEO_SONG == 1
   ng_center_text(8, 0, "PMDNEO PHASE 12B-2");
   ng_center_text(10, 0, "SONG 1 = TEST02 DRUM");
+#elif PMDNEO_SONG == 2
+  /* ADR-0074 sprint γ: PMDDOTNET_MML preflight song slot (= TEST_MODE_PMDDOTNET_SONG_SELECT=1 build) */
+  ng_center_text(8, 0, "PMDNEO ADR-0074");
+  ng_center_text(10, 0, "SONG 2 = PMDDOTNET PREFLIGHT");
 #endif
 #elif PMDNEO_FIXTURE == 1
   ng_center_text(8, 0, "PMDNEO PHASE 10");

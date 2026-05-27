@@ -256,6 +256,28 @@ if [[ -n "${PMDDOTNET_MML:-}" ]]; then
     echo "  voice_table_pmddotnet.inc <- compile.py --voice-only (MML inline + #FFFile)"
 fi
 
+# ADR-0074 sprint γ: PMDDOTNET_MML runtime selection path repair (= preflight 専用 build mode)。
+# caller (= preflight 用 invocation) が PMDDOTNET_MML + TEST_MODE_PMDDOTNET_SONG_SELECT=1 +
+# PMDNEO_SONG=2 を全部明示 set した時のみ song_data.inc を動的拡張 + 既存 song_table[0..39] 完全不変。
+# build-poc.sh 側 auto-set しない (= ADR-0072 経路 K + L-Q only override carry 確保 = PMDDOTNET_MML
+# 単独 build = TEST_MODE_PMDDOTNET_SONG_SELECT 未設定の場合は従来 ADR-0072 経路完全 carry、 本 block skip)。
+if [[ -n "${PMDDOTNET_MML:-}" && "${TEST_MODE_PMDDOTNET_SONG_SELECT:-0}" == "1" ]]; then
+    echo
+    echo "=== ADR-0074 sprint γ: PMDDOTNET_MML preflight song_table 動的拡張 (= caller明示指定経路) ==="
+    python3 "$PMDNEO_ROOT/scripts/pmddotnet-song-table-entries.py" \
+        --input "$TEMPLATE_DIR/pmddotnet_song.m" \
+        --output "$TEMPLATE_DIR/pmddotnet_song_table_entries.inc" \
+        --label-prefix song2_part \
+        --song-label pmddotnet_song
+    # 既存 song_table:配下 song1_part_z 行直後に挿入 (= 末尾 append 不可、 song_table[40..59]
+    # 連続参照を確保するため。 ADR-0072 plan v7 sed pattern と同 portable invocation = `-i.bak` +
+    # 後で .bak 削除 = macOS BSD sed + GNU sed 両対応)。
+    sed -i.bak '/        \.dw song1_part_q, song1_part_x, song1_part_y, song1_part_z$/r '"$TEMPLATE_DIR/pmddotnet_song_table_entries.inc" "$TEMPLATE_DIR/song_data.inc"
+    rm -f "$TEMPLATE_DIR/song_data.inc.bak"
+    echo "  pmddotnet_song_table_entries.inc <- pmddotnet-song-table-entries.py"
+    echo "  song_data.inc song_table[40..59] = song2_part_a〜z entries 挿入完了 (= song1_part_z 直後)"
+fi
+
 echo
 echo "=== make poc ==="
 # ADR-0016 step W-3 補正 (= 2026-05-12): V-1 で PMDNEO.s build top に切替えたが、
@@ -270,7 +292,7 @@ echo "=== make poc ==="
 ### =1 で main.c が cmd 6 fade trigger を送らない (= tone-ladder audition、 fade なし全長再生)。
 ### `-W main.c` = CFLAGS 変更 (= PMDNEO_NO_FADE / PMDNEO_FIXTURE 等) を main.o rebuild に
 ### 確実に反映させる (= make は CFLAGS 変化を timestamp 追跡しないため)。
-make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" TEST_MODE_AXIS_G_INT="${PMDNEO_AXIS_G_INT:-0}" TEST_MODE_AXIS_G_V2_PPC="${PMDNEO_AXIS_G_V2_PPC:-0}" TEST_MODE_AXIS_G_AUDITION_REVISE="${PMDNEO_AXIS_G_AUDITION_REVISE:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B="${PMDNEO_AXIS_G_AUDITION_MUTE_FM_B:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G="${PMDNEO_AXIS_G_AUDITION_MUTE_SSG_G:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB="${PMDNEO_AXIS_G_AUDITION_MUTE_ADPCMB:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM="${PMDNEO_AXIS_G_AUDITION_MUTE_RHYTHM:-0}" TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP="${PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP:-0}" TEST_MODE_MUTE_FIXTURE="${PMDNEO_MUTE_FIXTURE:-0}" TEST_MODE_FADE_FIXTURE="${PMDNEO_FADE_FIXTURE:-0}" TEST_MODE_V2_ENTRY_FIXTURE="${PMDNEO_V2_ENTRY_FIXTURE:-0}" TEST_MODE_V2_SONG_FIXTURE="${PMDNEO_V2_SONG_FIXTURE:-0}" PMDNEO_NO_FADE="${PMDNEO_NO_FADE:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s -W main.c poc
+make PMDNEO_CHIP="$PMDNEO_CHIP" PMDNEO_USE_PMDDOTNET="${PMDNEO_USE_PMDDOTNET:-0}" TEST_MODE_AXIS_G_INT="${PMDNEO_AXIS_G_INT:-0}" TEST_MODE_AXIS_G_V2_PPC="${PMDNEO_AXIS_G_V2_PPC:-0}" TEST_MODE_AXIS_G_AUDITION_REVISE="${PMDNEO_AXIS_G_AUDITION_REVISE:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_FM_B="${PMDNEO_AXIS_G_AUDITION_MUTE_FM_B:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_SSG_G="${PMDNEO_AXIS_G_AUDITION_MUTE_SSG_G:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_ADPCMB="${PMDNEO_AXIS_G_AUDITION_MUTE_ADPCMB:-0}" TEST_MODE_AXIS_G_AUDITION_MUTE_RHYTHM="${PMDNEO_AXIS_G_AUDITION_MUTE_RHYTHM:-0}" TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP="${PMDNEO_AXIS_G_AUDITION_LEGACY_SKIP:-0}" TEST_MODE_MUTE_FIXTURE="${PMDNEO_MUTE_FIXTURE:-0}" TEST_MODE_FADE_FIXTURE="${PMDNEO_FADE_FIXTURE:-0}" TEST_MODE_V2_ENTRY_FIXTURE="${PMDNEO_V2_ENTRY_FIXTURE:-0}" TEST_MODE_V2_SONG_FIXTURE="${PMDNEO_V2_SONG_FIXTURE:-0}" TEST_MODE_PMDDOTNET_SONG_SELECT="${TEST_MODE_PMDDOTNET_SONG_SELECT:-0}" PMDNEO_SONG="${PMDNEO_SONG:-0}" PMDNEO_NO_FADE="${PMDNEO_NO_FADE:-0}" STANDALONE_Z80_SRC=standalone_test.s -W standalone_test.s -W main.c poc
 
 echo
 echo "=== build 完了 ==="

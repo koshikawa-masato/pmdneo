@@ -120,6 +120,21 @@
         ;;   dispatch gate root cause finding 1 条件 拡張下の binary toggle additive)。
         .equ    TEST_MODE_AXIS_G_AUDITION_LEGACY_SKIP,  0
 
+        ;; ADR-0074 sprint γ: PMDDOTNET_MML runtime selection path repair (= preflight 専用 build mode)。
+        ;;   0 = production default (= 既存 cmd 9 経路 song_table[0/1] = test01/test02 carry、 PMDDOTNET_MML
+        ;;       build artifact は ROM 内に存在するが MAME runtime cmd 9 経路では選択されない)
+        ;;   1 = preflight build (= cmd 9 + N で N=2 path 追加、 song_table[40-59] = pmddotnet_song の
+        ;;       part_a〜z literal address column 経由 dispatch、 既存 song_table[0]/[1] entries 完全不変)
+        ;; production 時は必ず 0 維持 (= TEST_MODE_AXIS_G_INT と同 pattern)。 preflight build 時のみ
+        ;; caller (= scripts/build-poc.sh の preflight 用 invocation) で 1 set、 build-poc.sh 側 auto-set
+        ;; しない (= ADR-0072 経路 K + L-Q only override carry 確保)。 ADR-0058 §決定 1 mandate
+        ;; (= A-J test01 default、 K + L-Q のみ PMDDOTNET) は flag=0 で完全 carry、 flag=1 は
+        ;; preflight 例外条件として ADR-0074 内 literal 明示。 本 flag 自体は driver 内に新規 logic
+        ;; 追加せず (= song_table dispatch は既存 logic carry、 driver routine 自体は完全不変)、
+        ;; build infra (= build.mk PMDNEO_SED_EXPRS) sed 置換 + song_data.inc 動的拡張で
+        ;; song_table[40..59] = song2_part_a〜z entries flag=1 時のみ assemble。
+        .equ    TEST_MODE_PMDDOTNET_SONG_SELECT, 0
+
 ;;; ----- per-part workarea field offsets -----
 
         .equ    PART_OFF_ADDR,           0

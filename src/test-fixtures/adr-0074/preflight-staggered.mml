@@ -1,0 +1,43 @@
+#Title		ADR-0074 sprint γ preflight staggered = PMDDOTNET_MML runtime selection path verify
+#Composer	PMDNEO ADR-0074 sprint γ preflight (= PMDDOTNET_MML 指定 fixture runtime 起動証明、 audition material ではない)
+
+; ADR-0074 sprint γ preflight fixture (= PMDDOTNET_MML runtime selection path repair の機械的証明用)。
+; ADR-0065 δ preflight-staggered.mml と同 staggered single-note pattern を ADR-0074 owned で配置。
+; preflight 目的 = 「PMDDOTNET_MML で指定した MML が、 MAME runtime で本当に再生されている」 を
+; trace + WAV segment で機械的に証明する。
+; audition material ではない (= 楽曲評価ではなく runtime selection path 確認)。
+;
+; t60 = 60 BPM = 1 拍 = 1 秒。 l1 = 全音符 = 4 拍 = 4 秒/note。
+; 各 part = 7 個の slot (= 4 秒/slot × 7 = 28 秒 total)、 1 個 audible + 6 個 rest = part ごとに異なる時間帯 audible。
+;
+; 時間帯 schedule (= MAME wav render 0-28 秒):
+;   0-4 秒  = B (= FM ch 2) c4
+;   4-8 秒  = C (= FM ch 3) d4
+;   8-12 秒 = E (= FM ch 5) e4
+;  12-16 秒 = F (= FM ch 6) f4
+;  16-20 秒 = G (= SSG 1)   g4
+;  20-24 秒 = H (= SSG 2)   a4
+;  24-28 秒 = I (= SSG 3)   b4
+;
+; A (= FM ch 1) + D (= FM ch 4) は YM2610 chip mute (= ADR-0006 §B literal、 ym2610 mode で 2 ch mute)、 本 fixture では excluded。
+; J (= ADPCM-B) + K (= rhythm) + L-Q (= ADPCM-A) は driver 経路別軸 (= ADR-0072 voice opcode FM 限定 + ADR-0070 K bitmap future) で本 preflight scope-out。
+;
+; FM voice = @001 alg 7 全 op carrier + 全 op TL=0x18 (= driver fm_voice_data_default 互換、 audible 確保) = ADR-0073 fix B carrier_table ALG=7 全 4 op carrier 経路。
+; SSG = voice 不要 (= tone enable + envelope hardware default、 ADR-0051 owner contract 経路)。
+
+; FM voice 1 = ALG=7 全 op carrier + 全 op TL=0x18 audible
+; nm alg fbl
+@001 007 000
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 015 000 024 000 001 000 000
+ 031 000 000 015 000 024 000 001 000 000
+ 031 000 000 015 000 024 000 001 000 000
+ 031 000 000 015 000 024 000 001 000 000
+
+B	t60 o4 l1 @001 v15 c r r r r r r
+C	t60 o4 l1 @001 v15 r d r r r r r
+E	t60 o4 l1 @001 v15 r r e r r r r
+F	t60 o4 l1 @001 v15 r r r f r r r
+G	t60 o4 l1 v15 r r r r g r r
+H	t60 o4 l1 v15 r r r r r a r
+I	t60 o4 l1 v15 r r r r r r b
