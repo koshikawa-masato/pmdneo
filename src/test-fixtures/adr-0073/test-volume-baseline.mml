@@ -1,0 +1,29 @@
+#Title		ADR-0073 test-volume-baseline = fix A+B+C verify
+#Composer	PMDNEO ADR-0073 sprint γ impl
+
+; ADR-0073 fix A+B+C 統合 verify fixture (= plan v3 β-3-3/β-3-4 確定実装)
+; PMDDotNET 経路 (= PMDNEO_USE_PMDDOTNET=1) で build + render = audio audible expected (= δ-5 Layer 1 PASS = wav RMS > -60 dBFS)
+;
+; voice 001 = ALG=0 (= OP4 only carrier) + OP4 TL=0 (= max output)
+; 既存 ADR-0072 fixture と同 voice 設計 (= 仮説 A reject 根拠 evidence = voice 設計妥当性)
+;
+; fix A 効果 = comv 二重 v→V 変換削除で v15 = V=125 = TL=2 = ~-1.5 dB carrier (= PMD V4.8s 同 semantics)
+; fix B 効果 = fm_volume_hook_pmddotnet で carrier only (= OP4) TL write、 modulator (= OP1/2/3) は voice TL 保存
+; fix C 効果 = pmdneo5_init_part FM part 限定 default vol 108 (= fix A 適用後 semantics 整合)
+
+; FM voice 1 (= simple alg 0 fbl 0)
+; nm alg fbl
+@001 000 000
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+A	t120
+A	@001v15o4c4r4d4r4e4r4
+B	@001v15o4d4r4e4r4f4r4
+C	@001v15o4e4r4f4r4g4r4
+D	@001v15o4f4r4g4r4a4r4
+E	@001v15o4g4r4a4r4b4r4
+F	@001v15o4a4r4b4r4o5c4r4
