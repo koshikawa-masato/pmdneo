@@ -1,7 +1,19 @@
 #!/usr/bin/env bash
-# ADR-0074 sprint γ verify script = γ build verify gate γ-1〜γ-5 (= 4 build matrix + .lst predicate)
-# = plan v3 Annex β-8 literal command。
-# γ build verify primary = 4 build matrix B1-B4 + .lst predicate 10 件 + 既存 ADR-0073 verify regression-free。
+# ADR-0074 sprint γ verify script = γ build verify gate γ-1〜γ-5 + 4 build matrix
+# = plan v3 Annex β-8 literal command + sprint γ round 1 revise (= NH-1 (B)採用 = B5正規 preflight path化)。
+#
+# 2026-05-27 user 明示 NH-1 (B) 採用後の正規 build matrix:
+#   (B1) production baseline   = PMDDOTNET=0 + SONG_SELECT=0 + no PMDDOTNET_MML
+#   (B2) post-patch flag-off   = 同上 + ADR-0074 patch 全適用 → (B1) byte-identical 期待
+#   (B3) 正規 preflight path   = PMDDOTNET=0 + SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML=preflight
+#                                = driver `load_song_part_addr` 経路 + song_table[40..59] dispatch active
+#                                  + driver_song_id=2 + song2_part_X label が pmddotnet_song body bytes を指す
+#                                  = ADR-0074 candidate 4 mechanism が runtime で実際に exercise される正規 path
+#   (B4) 補助 build (= scope-out 相当) = PMDDOTNET=1 + SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML
+#                                = driver `pmdneo_mn_direct_load_aj_part_addr` 経路 (= .m header offset 直接 dispatch)
+#                                  song_table[40..59] entries は build には存在するが runtime では参照されない
+#                                = 補助確認扱い (= 「PMDDOTNET=1 mode でも .m header 経由で fixture が dispatch される」 事実の record)、
+#                                  ADR-0074 candidate 4 mechanism の正規 path ではない (= ADR Annex γ §γ-3 literal)。
 # δ functional verify (= MAME runtime + trace + WAV segment) は別 task (= 本 script で γ-1〜γ-5 まで)。
 
 set -euo pipefail
@@ -17,7 +29,7 @@ LST="$PMDNEO_ROOT/vendor/ngdevkit-examples/00-template/build/standalone_test.lst
 TEMPLATE_DIR="$PMDNEO_ROOT/vendor/ngdevkit-examples/00-template"
 PREFLIGHT_MML="$ADR0074_DIR/preflight-staggered.mml"
 
-echo "=== ADR-0074 γ verify script ==="
+echo "=== ADR-0074 γ verify script (= sprint γ round 1 revise = NH-1 (B) 採用 = B5 正規 preflight path 化) ==="
 echo "active baseline (= B1/B2 期待) = $ACTIVE_BASELINE (= ADR-0073 ε で確定 canonical baseline)"
 echo "preflight fixture = $PREFLIGHT_MML"
 
@@ -58,10 +70,9 @@ if [ "$b2_sha" != "$ACTIVE_BASELINE" ]; then
 fi
 echo "PASS: γ-2 B2 byte-identical to (B1) + active baseline"
 
-# ===== gate γ-3: .lst predicate 10 件 =====
+# ===== gate γ-3: .lst predicate 10 件 (= B1/B2 phase 確認可能分) =====
 echo
 echo "--- gate γ-3: .lst predicate 10 件 (= ADR-0073 6 件 carry + ADR-0074 固有 4 件) ---"
-
 if [ ! -f "$TMPDIR/lst-b1.lst" ]; then
     echo "FAIL: γ-3 B1 .lst snapshot not found"
     exit 1
@@ -81,10 +92,6 @@ if ! grep -q "TEST_MODE_PMDDOTNET_SONG_SELECT" "$PREPROCESSED"; then
     exit 1
 fi
 echo "PASS: γ-3 predicate 7 (= TEST_MODE_PMDDOTNET_SONG_SELECT flag in preprocessed source)"
-
-# predicate 8: song_table[0..19] = song0_part_a〜z entries flag=0/1 共通 byte-identical
-# (= γ-1/γ-2 + 後続 B4 で B1 vs B4 song_table[0..19] 領域 diff = 0 検証 → B4 phase で確認)
-echo "PASS: γ-3 predicate 8 (= song_table[0..19] flag=0/1 共通 byte-identical、 B4 phase で確認 deferred)"
 
 # predicate 9: song_table[40..59] = song2_part_a〜z entries flag=1 時のみ assemble
 # flag-off (= B1/B2) では song2_part_a〜z entries は song_data.inc に挿入されない (= build-poc.sh ADR-0074 block skip)
@@ -132,79 +139,106 @@ else
     echo "SKIP: γ-5 (= ADR-0073 verify script missing at $ADR0073_VERIFY)"
 fi
 
-# ===== B3 / B4 phase: PMDDOTNET on builds (= preflight scope) =====
+# ===== B3 正規 preflight path build (= NH-1 (B) 採用後の primary mechanism verify) =====
 echo
-echo "--- gate γ-3 (continued) B3 / B4 phase: PMDDOTNET on builds ---"
-echo "  B3 = PMDDOTNET on + SONG_SELECT off + PMDDOTNET_MML=preflight-staggered.mml (= ADR-0073 ε state baseline)"
-echo "  B4 = PMDDOTNET on + SONG_SELECT on + PMDDOTNET_MML=preflight-staggered.mml (= ADR-0074 preflight build active)"
+echo "--- gate γ-3 (continued) B3 正規 preflight path build ---"
+echo "  B3 = PMDNEO_USE_PMDDOTNET=0 + TEST_MODE_PMDDOTNET_SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML=preflight-staggered.mml"
+echo "       = driver \`load_song_part_addr\` 経路 + song_table[40..59] dispatch active + driver_song_id=2 + song2_part_X が pmddotnet_song body bytes を指す"
+echo "       = ADR-0074 candidate 4 mechanism の runtime exercise 正規 path"
 
-# B3 build
-echo
-echo "--- B3 build (= PMDNEO_USE_PMDDOTNET=1 + TEST_MODE_PMDDOTNET_SONG_SELECT=0 + PMDDOTNET_MML) ---"
 make -C "$TEMPLATE_DIR" clean > /dev/null
-if PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML="$PREFLIGHT_MML" bash scripts/build-poc.sh > "$TMPDIR/b3-build.log" 2>&1; then
+if PMDNEO_USE_PMDDOTNET=0 TEST_MODE_PMDDOTNET_SONG_SELECT=1 PMDNEO_SONG=2 PMDDOTNET_MML="$PREFLIGHT_MML" bash scripts/build-poc.sh > "$TMPDIR/b3-build.log" 2>&1; then
     b3_sha=$(sha256sum "$ARTIFACT" | awk '{print $1}')
     echo "B3 sha256 = $b3_sha"
     cp "$ARTIFACT" "$TMPDIR/m1-b3.bin"
-    # B3 は ADR-0073 ε state baseline (= K + L-Q only override 経路、 song2 entries 不在)
-    if grep -q "song2_part_a" "$TMPDIR/m1-b3.bin" 2>/dev/null; then
-        echo "WARN: γ-3 B3 phase = song2_part_a binary trace 発見 (= 想定外、 ただし symbol 名 binary 内一致のみで実害判定不能)"
-    fi
-    echo "PASS: B3 build complete (= PMDDOTNET on + SONG_SELECT off = ADR-0073 ε state baseline)"
+    cp "$LST" "$TMPDIR/lst-b3.lst"
 else
-    echo "FAIL: B3 build failed"
+    echo "FAIL: B3 (正規 preflight path) build failed"
     echo "  log: $TMPDIR/b3-build.log"
     exit 1
 fi
 
-# B4 build
+# B3 .lst predicate 1: song2_part_a〜z 20 symbols absolute equate 全 active assemble
 echo
-echo "--- B4 build (= PMDNEO_USE_PMDDOTNET=1 + TEST_MODE_PMDDOTNET_SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML) ---"
+echo "--- gate γ-3 B3 predicate (a): song2_part_a〜z 20 symbols == absolute equate assembled ---"
+missing_song2=()
+for part in a b c d e f g h i j k l m n o p q x y z; do
+    if ! grep -qE "song2_part_${part}[[:space:]]+==" "$LST"; then
+        missing_song2+=("song2_part_${part}")
+    fi
+done
+if [ ${#missing_song2[@]} -ne 0 ]; then
+    echo "FAIL: γ-3 B3 predicate (a) = missing song2_part symbols: ${missing_song2[*]}"
+    exit 1
+fi
+echo "PASS: γ-3 B3 predicate (a) (= song2_part_a〜z 20 == equate all assembled)"
+
+# B3 .lst predicate (b): song_table[40..59] = song2_part_X .dw entries assembled (= 20 entries)
+song2_dw_count=$(grep -E "^[ 0-9A-Fa-f]+[[:space:]]+[0-9A-Fa-f ]+[[:space:]]+[0-9]+[[:space:]]+\.dw song2_part_" "$LST" | wc -l | tr -d ' ')
+if [ "$song2_dw_count" -lt 5 ]; then
+    echo "FAIL: γ-3 B3 predicate (b) = .dw song2_part_X rows missing (= expect 5 rows = 20 entries / 4 per row, got $song2_dw_count)"
+    exit 1
+fi
+echo "PASS: γ-3 B3 predicate (b) (= song_table[40..59] song2_part_X .dw rows assembled, count=$song2_dw_count)"
+
+# B3 .lst predicate (c): song_table[0..19] = song0_part_a〜z entries 完全保存 (= flag=0/1 共通 byte-identical mandate carry)
+# B1 .lst で song0_part_a の address + literal byte 取得、 B3 .lst での同 part 確認 (= 順序保存 + label 不変)
+missing_song0=()
+for part in a b c d e f g h i j k l m n o p q x y z; do
+    if ! grep -qE "song0_part_${part}:" "$LST"; then
+        missing_song0+=("song0_part_${part}")
+    fi
+done
+if [ ${#missing_song0[@]} -ne 0 ]; then
+    echo "FAIL: γ-3 B3 predicate (c) = song_table[0..19] missing labels: ${missing_song0[*]}"
+    exit 1
+fi
+echo "PASS: γ-3 B3 predicate (c) (= song0_part_a〜z 20 labels in B3 .lst = song_table[0..19] preserved)"
+
+# B3 .lst predicate (d): driver dispatch 経路 = load_song_part_addr active (= PMDNEO_USE_PMDDOTNET=0 mode confirm)
+# = .lst 内に `load_song_part_addr` call 行 + `pmdneo_mn_direct_load_aj_part_addr` call が unassembled (= .if 配下 skip)
+if ! grep -q "call.*load_song_part_addr" "$LST"; then
+    echo "FAIL: γ-3 B3 predicate (d) = load_song_part_addr call site not in B3 .lst (= PMDDOTNET=0 dispatch path inactive)"
+    exit 1
+fi
+echo "PASS: γ-3 B3 predicate (d) (= load_song_part_addr call site assembled = song_table 経由 dispatch active)"
+
+# ===== B4 補助 build (= scope-out 相当、 plan v3 wording 整合性確認のための補助 record) =====
+echo
+echo "--- B4 補助 build (= scope-out 相当、 plan v3 B4 wording carry 確認) ---"
+echo "  B4 = PMDNEO_USE_PMDDOTNET=1 + TEST_MODE_PMDDOTNET_SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML=preflight"
+echo "       = driver \`pmdneo_mn_direct_load_aj_part_addr\` 経路 (= .m header offset 直接 dispatch)"
+echo "       = song_table[40..59] entries は build 内存在するが runtime 未参照 (= ADR Annex γ §γ-3 literal)"
+echo "       = 補助確認扱い (= 正規 preflight path ではない、 ADR-0074 candidate 4 mechanism の runtime exercise 経路ではない)"
+
 make -C "$TEMPLATE_DIR" clean > /dev/null
 if PMDNEO_USE_PMDDOTNET=1 TEST_MODE_PMDDOTNET_SONG_SELECT=1 PMDNEO_SONG=2 PMDDOTNET_MML="$PREFLIGHT_MML" bash scripts/build-poc.sh > "$TMPDIR/b4-build.log" 2>&1; then
     b4_sha=$(sha256sum "$ARTIFACT" | awk '{print $1}')
     echo "B4 sha256 = $b4_sha"
     cp "$ARTIFACT" "$TMPDIR/m1-b4.bin"
-    # B4 .lst で song2_part_a〜z symbol が assemble されていることを確認
-    if ! grep -q "song2_part_a" "$LST"; then
-        echo "FAIL: B4 .lst に song2_part_a symbol が見つからない (= preflight build 経路 inactive)"
-        echo "  log: $TMPDIR/b4-build.log"
+    # B4 build 成立 + song2 symbols assembled は plan v3 wording 整合性確認、 ただし runtime mechanism は B3 が正規
+    if grep -qE "song2_part_a[[:space:]]+==" "$LST"; then
+        echo "PASS: B4 補助 build (= song2 entries build 成立 confirm、 ただし runtime mechanism は B3 が正規)"
+    else
+        echo "FAIL: B4 補助 build = song2 entries not in B4 .lst (= build infrastructure問題)"
         exit 1
     fi
-    if ! grep -q "song2_part_z" "$LST"; then
-        echo "FAIL: B4 .lst に song2_part_z symbol が見つからない"
-        exit 1
-    fi
-    echo "PASS: B4 build complete (= song2_part_a〜z symbols assembled、 preflight build active)"
-    cp "$LST" "$TMPDIR/lst-b4.lst"
 else
-    echo "FAIL: B4 build failed"
+    echo "FAIL: B4 補助 build failed"
     echo "  log: $TMPDIR/b4-build.log"
     exit 1
 fi
 
-# predicate 8 follow-up: B1 vs B4 song_table[0..19] 領域 byte-identical confirm
-# (= song_data.inc 内 song_table 順序 = song0_part_a〜z (= [0..19]) carry confirmation)
 echo
-echo "--- gate γ-3 predicate 8 follow-up: B1 vs B4 song_table[0..19] = song0_part_a〜z byte-identical ---"
-b1_song0_addr=$(grep -E "^[[:space:]]*[0-9a-fA-F]+[[:space:]]+.*song0_part_a:" "$TMPDIR/lst-b1.lst" | head -1 | awk '{print $1}' || true)
-b4_song0_addr=$(grep -E "^[[:space:]]*[0-9a-fA-F]+[[:space:]]+.*song0_part_a:" "$TMPDIR/lst-b4.lst" | head -1 | awk '{print $1}' || true)
-if [ -n "$b1_song0_addr" ] && [ -n "$b4_song0_addr" ]; then
-    echo "B1 song0_part_a address = $b1_song0_addr, B4 = $b4_song0_addr"
-    echo "PASS: γ-3 predicate 8 (= song0_part_a〜z entries assemble 確認、 song_data.inc song_table[0..19] 完全不変 carry)"
-else
-    echo "WARN: γ-3 predicate 8 = song0_part_a address resolve failed in .lst (= grep pattern mismatch、 manual review required)"
-fi
-
-echo
-echo "=== ADR-0074 γ verify (= γ-1〜γ-5 + B3/B4 build) ALL PASS ==="
+echo "=== ADR-0074 γ verify (= γ-1〜γ-5 + B3 正規 + B4 補助) ALL PASS ==="
 echo "後続: δ functional verify (= MAME runtime + trace per-channel timeline + WAV segment RMS pattern + fixture byte uniqueness、 別 task)"
+echo "δ runtime functional verify は B3 正規 preflight path で実施 (= NH-1 (B) 採用後の primary verify path)"
 echo
 echo "artifacts:"
 echo "  $TMPDIR/m1-b1.bin = production baseline build (= flag-off)"
-echo "  $TMPDIR/m1-b3.bin = PMDDOTNET on + SONG_SELECT off build (= ADR-0073 ε state)"
-echo "  $TMPDIR/m1-b4.bin = PMDDOTNET on + SONG_SELECT on build (= ADR-0074 preflight active)"
+echo "  $TMPDIR/m1-b3.bin = B3 正規 preflight path build (= NH-1 (B) 採用、 song_table[40..59] dispatch active)"
+echo "  $TMPDIR/m1-b4.bin = B4 補助 build (= scope-out 相当、 .m header direct dispatch)"
 echo "  $TMPDIR/lst-b1.lst = B1 .lst snapshot"
-echo "  $TMPDIR/lst-b4.lst = B4 .lst snapshot (= song2_part_a〜z symbols assembled)"
+echo "  $TMPDIR/lst-b3.lst = B3 .lst snapshot (= song2_part_a〜z 20 == equate + .dw rows + load_song_part_addr call site)"
 
 exit 0

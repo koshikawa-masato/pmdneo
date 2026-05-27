@@ -261,6 +261,16 @@ fi
 # PMDNEO_SONG=2 を全部明示 set した時のみ song_data.inc を動的拡張 + 既存 song_table[0..39] 完全不変。
 # build-poc.sh 側 auto-set しない (= ADR-0072 経路 K + L-Q only override carry 確保 = PMDDOTNET_MML
 # 単独 build = TEST_MODE_PMDDOTNET_SONG_SELECT 未設定の場合は従来 ADR-0072 経路完全 carry、 本 block skip)。
+#
+# 正規 preflight path (= NH-1 (B) 採用後 round 1 revise = B3 正規 preflight path):
+#   PMDNEO_USE_PMDDOTNET=0 + TEST_MODE_PMDDOTNET_SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML=<fixture>
+# = driver `load_song_part_addr` 経路 + song_table[40..59] dispatch active + driver_song_id=2 経路
+# = ADR-0074 candidate 4 mechanism の runtime exercise 経路。
+# 補助 build (= 旧 B4、 scope-out 相当):
+#   PMDNEO_USE_PMDDOTNET=1 + TEST_MODE_PMDDOTNET_SONG_SELECT=1 + PMDNEO_SONG=2 + PMDDOTNET_MML=<fixture>
+# = driver `pmdneo_mn_direct_load_aj_part_addr` 経路 = .m header offset 直接 dispatch、
+#   song_table[40..59] entries は build 内存在するが runtime 未参照。 plan v3 wording 整合性確認用補助 record only、
+#   ADR-0074 candidate 4 mechanism の runtime exercise 経路ではない (= ADR Annex γ §γ-0/§γ-3 literal)。
 if [[ -n "${PMDDOTNET_MML:-}" && "${TEST_MODE_PMDDOTNET_SONG_SELECT:-0}" == "1" ]]; then
     echo
     echo "=== ADR-0074 sprint γ: PMDDOTNET_MML preflight song_table 動的拡張 (= caller明示指定経路) ==="
