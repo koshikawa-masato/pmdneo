@@ -51,6 +51,11 @@ VOICE_SLOT_RE = re.compile(
 FFFILE_DIRECTIVE_RE = re.compile(r"^#FFFile\s+(\S+)\s*(?:[;].*)?$", re.IGNORECASE)
 FFFILE_RECORD_SIZE = 32
 FFFILE_VOICE_DATA_SIZE = 25
+# ADR-0072 plan v7 LR-2 mitigation: pre-scan MML for `@N` voice references in part body
+# (= NOT voice definitions which are caught by VOICE_HEADER_RE).
+# Used by --voice-only mode to determine max voice_num requiring voice_table entry,
+# preventing driver overread when MML references undefined voice number.
+VOICE_REF_RE = re.compile(r"@(\d+)\b")
 
 NOTE_BASE = {
     "c": 0,
@@ -734,7 +739,32 @@ def write_outputs(
     wrapper_path.write_text(format_wrapper(songs, out_dir, wrapper_path), encoding="utf-8")
 
 
-def format_voice_table_only(voices: dict[int, list[int]]) -> str:
+def scan_voice_references(source: str) -> set[int]:
+    """ADR-0072 plan v7 LR-2 mitigation: pre-scan MML for `@N` voice references.
+
+    Returns set of MML voice numbers (= 1-based) referenced anywhere in MML.
+    Voice definitions (= `@NNN alg fbl` header form) are NOT excluded here intentionally
+    since their voice_num must also be in voice_table for driver lookup.
+    Part body usage (= `B @1 v15 c4`) and voice definition both produce voice_num references.
+
+    Used by format_voice_table_only() to determine voice_table range = max(referenced N)
+    + emit safe/empty entries for unset voice_nums (= driver overread prevention).
+    """
+    refs: set[int] = set()
+    for line in source.splitlines():
+        stripped = line.strip()
+        # Skip #FFFile directive lines (= contain '#FFFile' = uppercase) to avoid
+        # accidental capture of filename digits as voice refs
+        if stripped.lower().startswith("#fffile"):
+            continue
+        for m in VOICE_REF_RE.finditer(stripped):
+            voice_num = int(m.group(1))
+            if voice_num >= 1:
+                refs.add(voice_num)
+    return refs
+
+
+def format_voice_table_only(voices: dict[int, list[int]], max_ref_voice: int = 0) -> str:
     """ADR-0072 plan v7 --voice-only mode: emit voice_table.inc only (= no part data).
 
     PMDNEO compile.py + PMDDotNET MML opcode emit convention:
@@ -756,10 +786,15 @@ def format_voice_table_only(voices: dict[int, list[int]]) -> str:
         ";;; voice data extracted from MML inline @N defs + #FFFile external voice file",
         ";;; voice_table[N] maps PMDDotNET MML @N opcode (= 1-based) → voice{N-1}_data internal label",
     ]
+    # ADR-0072 plan v7 LR-2 mitigation: voice_table range = max(defined voice_num, referenced @N)
+    # to prevent driver `comat` lookup overread when MML references undefined voice number.
+    max_defined_voice = max(voices) if voices else -1  # voice_index (0-based)
+    max_defined_mml_num = max_defined_voice + 1 if max_defined_voice >= 0 else 0  # 1-based
+    max_table_voice = max(max_defined_mml_num, max_ref_voice)  # 1-based MML voice_num
+
     if voices:
-        max_voice = max(voices)
         # Emit voice{voice_index}_data labels (0-based internal storage)
-        for voice_index in range(max_voice + 1):
+        for voice_index in range(max_defined_voice + 1):
             data = voices.get(voice_index)
             if data is None:
                 continue
@@ -769,22 +804,26 @@ def format_voice_table_only(voices: dict[int, list[int]]) -> str:
                 bytes_text = ", ".join(f"0x{value:02X}" for value in slot_data)
                 lines.append(f"        .db {bytes_text}   ; slot{slot + 1}")
             lines.append(f"        .db 0x{data[24]:02X}                                   ; ALG/FBL")
-        # voice_table[N] = voice{N-1}_data (= 1-based MML opcode direct lookup)
-        # voice_table[0] = dummy (= MML @0 not used in standard usage)
-        lines.append("voice_table:")
-        lines.append("        .dw fm_voice_data_default                  ; index 0 (= dummy for MML @0)")
-        for mml_voice_num in range(1, max_voice + 2):
-            voice_index = mml_voice_num - 1
-            if voice_index in voices:
-                lines.append(f"        .dw voice{voice_index}_data                    ; index {mml_voice_num} (= MML @{mml_voice_num:03d})")
-            else:
-                lines.append(f"        .dw fm_voice_data_default                  ; index {mml_voice_num} (= MML @{mml_voice_num:03d} unset, safe default)")
-        lines.append("")
-    else:
-        # No voices: voice_table with only index 0 dummy
-        lines.append("voice_table:")
-        lines.append("        .dw fm_voice_data_default                  ; index 0 (= dummy)")
-        lines.append("")
+    # voice_table[N] = voice{N-1}_data (= 1-based MML opcode direct lookup、 plan v7 fix)
+    # voice_table[0] = dummy (= MML @0 not used in standard usage)
+    # voice_table[1..max_table_voice] = defined voice or fm_voice_data_default
+    # = LR-2 mitigation: emit up to max(referenced @N) to prevent driver overread
+    lines.append("voice_table:")
+    lines.append("        .dw fm_voice_data_default                  ; index 0 (= dummy for MML @0)")
+    for mml_voice_num in range(1, max_table_voice + 1):
+        voice_index = mml_voice_num - 1
+        if voice_index in voices:
+            lines.append(
+                f"        .dw voice{voice_index}_data                    "
+                f"; index {mml_voice_num} (= MML @{mml_voice_num:03d})"
+            )
+        else:
+            # ADR-0072 plan v7 LR-2: undefined voice_num gets fm_voice_data_default safe entry
+            lines.append(
+                f"        .dw fm_voice_data_default                  "
+                f"; index {mml_voice_num} (= MML @{mml_voice_num:03d} undefined, safe default)"
+            )
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -818,9 +857,23 @@ def main(argv: list[str] | None = None) -> int:
         fffile_voices = parse_fffile_directive(source, mml_path)
         inline_voices, _voice_lines = parse_voice_definitions(source)
         merged_voices = merge_voices_with_priority(inline_voices, fffile_voices)
+        # LR-2 mitigation: pre-scan MML for @N references to size voice_table correctly
+        # (= prevents driver overread when MML refs > defined voices)
+        referenced_voice_nums = scan_voice_references(source)
+        max_ref_voice = max(referenced_voice_nums) if referenced_voice_nums else 0
+        # Warn on referenced-but-undefined voices
+        for ref_num in sorted(referenced_voice_nums):
+            voice_index = ref_num - 1
+            if voice_index not in merged_voices:
+                print(
+                    f"warning: voice {ref_num:03d} referenced in MML but not defined "
+                    f"in inline or #FFFile, voice_table[{ref_num}] emitted as "
+                    f"safe/default entry (= driver overread prevention per LR-2)",
+                    file=sys.stderr,
+                )
         args.output_voice_table.parent.mkdir(parents=True, exist_ok=True)
         args.output_voice_table.write_text(
-            format_voice_table_only(merged_voices),
+            format_voice_table_only(merged_voices, max_ref_voice=max_ref_voice),
             encoding="utf-8",
         )
         return 0
