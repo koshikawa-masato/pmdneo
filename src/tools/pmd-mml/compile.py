@@ -467,16 +467,26 @@ def parse_fffile_directive(source: str, mml_path: Path) -> dict[int, list[int]]:
                 file=sys.stderr,
             )
             return {}
-        if len(data) == 0 or len(data) % FFFILE_RECORD_SIZE != 0:
+        if len(data) == 0:
             print(
-                f"warning: #FFFile '{fffile_name}' malformed "
-                f"(size {len(data)} not multiple of {FFFILE_RECORD_SIZE}), "
-                f"ignoring entire file",
+                f"warning: #FFFile '{fffile_name}' empty (= 0 byte), "
+                f"ignoring entire file, using MML inline voices only",
                 file=sys.stderr,
             )
             return {}
-        voice_count = len(data) // FFFILE_RECORD_SIZE
-        for voice_index in range(voice_count):
+        # ADR-0072 post-ε main agent autonomous task 1:
+        # partial-success malformed handling = parse complete records + skip trailing
+        # partial record only (= ADR-0072 AXIS-4 CONDITIONAL nh carry resolve)
+        complete_records = len(data) // FFFILE_RECORD_SIZE
+        trailing_bytes = len(data) % FFFILE_RECORD_SIZE
+        if trailing_bytes != 0:
+            print(
+                f"warning: #FFFile '{fffile_name}' partial = "
+                f"{complete_records} complete record(s) + {trailing_bytes} trailing byte(s), "
+                f"using {complete_records} complete record(s) only, skipping trailing partial record",
+                file=sys.stderr,
+            )
+        for voice_index in range(complete_records):
             offset = voice_index * FFFILE_RECORD_SIZE
             voice_data = list(data[offset:offset + FFFILE_VOICE_DATA_SIZE])
             fffile_voices[voice_index] = voice_data
@@ -749,15 +759,26 @@ def scan_voice_references(source: str) -> set[int]:
 
     Used by format_voice_table_only() to determine voice_table range = max(referenced N)
     + emit safe/empty entries for unset voice_nums (= driver overread prevention).
+
+    ADR-0072 post-ε main agent autonomous task 2:
+    - Skip PMD comment lines (= `;` 始まり) fully (= round 2 nh-1 反映)
+    - Strip trailing comment (= `;` 以降) before scanning to avoid `; @999` false positive
+    - #FFFile directive line continues to be fully skipped (= filename 内 digit 誤検出回避 carry)
     """
     refs: set[int] = set()
     for line in source.splitlines():
         stripped = line.strip()
-        # Skip #FFFile directive lines (= contain '#FFFile' = uppercase) to avoid
-        # accidental capture of filename digits as voice refs
+        # Skip empty + PMD comment line fully (= `;` 始まり)
+        if not stripped or stripped.startswith(";"):
+            continue
+        # Skip #FFFile directive line fully (= filename digit false positive carry)
         if stripped.lower().startswith("#fffile"):
             continue
-        for m in VOICE_REF_RE.finditer(stripped):
+        # Strip trailing `;` comment (= part body 中の `B @1 c4 ; comment` で `; ...` 内 @N 除外)
+        # NOTE: `#` is NOT a trailing comment marker for voice ref scan (= `#FFFile` already handled、
+        # `#` 始まり directive 系は part body には現れない設計、 trailing comment は `;` 限定)
+        code_part = stripped.split(";", 1)[0]
+        for m in VOICE_REF_RE.finditer(code_part):
             voice_num = int(m.group(1))
             if voice_num >= 1:
                 refs.add(voice_num)
