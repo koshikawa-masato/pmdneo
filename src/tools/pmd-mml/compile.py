@@ -45,6 +45,17 @@ VOICE_SLOT_RE = re.compile(
     r"^[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)"
     r"[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]+(\d+)[ \t]*(?:[;#].*)?$"
 )
+# ADR-0072 plan v7: #FFFile directive support for build-side voice resolution.
+# Same-folder external FM voice file reference, .FF binary format = 32 byte/voice
+# (= 25 byte register-major voice data + 7 byte voice name).
+FFFILE_DIRECTIVE_RE = re.compile(r"^#FFFile\s+(\S+)\s*(?:[;].*)?$", re.IGNORECASE)
+FFFILE_RECORD_SIZE = 32
+FFFILE_VOICE_DATA_SIZE = 25
+# ADR-0072 plan v7 LR-2 mitigation: pre-scan MML for `@N` voice references in part body
+# (= NOT voice definitions which are caught by VOICE_HEADER_RE).
+# Used by --voice-only mode to determine max voice_num requiring voice_table entry,
+# preventing driver overread when MML references undefined voice number.
+VOICE_REF_RE = re.compile(r"@(\d+)\b")
 
 NOTE_BASE = {
     "c": 0,
@@ -421,6 +432,83 @@ def read_mml_source(path: Path) -> str:
     )
 
 
+def parse_fffile_directive(source: str, mml_path: Path) -> dict[int, list[int]]:
+    """Parse #FFFile directive from MML source and load external FM voice file.
+
+    ADR-0072 plan v7 build-side voice resolution:
+    - Processed BEFORE general '#' comment stripping (= LR-1 mitigation)
+    - Resolves filename relative to MML file directory
+    - .FF format = 32 byte/voice = 25 byte register-major + 7 byte voice name
+    - voice_num is positional (= 0, 1, 2, ... sequential)
+    - Returns {} on missing/malformed file (= MF-4 safe default)
+    """
+    fffile_voices: dict[int, list[int]] = {}
+    for line in source.splitlines():
+        m = FFFILE_DIRECTIVE_RE.match(line.strip())
+        if m is None:
+            continue
+        fffile_name = m.group(1).strip()
+        # Resolve relative to MML file dir (= LR-3: distinct from PMDDOTNET outFFFileBuf)
+        external_ff_path = mml_path.parent / fffile_name
+        if not external_ff_path.exists():
+            print(
+                f"warning: #FFFile '{fffile_name}' not found "
+                f"(resolved as {external_ff_path}), "
+                f"ignoring entire file, using MML inline voices only",
+                file=sys.stderr,
+            )
+            return {}
+        try:
+            data = external_ff_path.read_bytes()
+        except OSError as e:
+            print(
+                f"warning: #FFFile '{fffile_name}' read error: {e}, "
+                f"ignoring entire file",
+                file=sys.stderr,
+            )
+            return {}
+        if len(data) == 0 or len(data) % FFFILE_RECORD_SIZE != 0:
+            print(
+                f"warning: #FFFile '{fffile_name}' malformed "
+                f"(size {len(data)} not multiple of {FFFILE_RECORD_SIZE}), "
+                f"ignoring entire file",
+                file=sys.stderr,
+            )
+            return {}
+        voice_count = len(data) // FFFILE_RECORD_SIZE
+        for voice_index in range(voice_count):
+            offset = voice_index * FFFILE_RECORD_SIZE
+            voice_data = list(data[offset:offset + FFFILE_VOICE_DATA_SIZE])
+            fffile_voices[voice_index] = voice_data
+        return fffile_voices
+    return fffile_voices
+
+
+def merge_voices_with_priority(
+    inline_voices: dict[int, list[int]],
+    fffile_voices: dict[int, list[int]],
+) -> dict[int, list[int]]:
+    """ADR-0072 plan v7 MF-2 priority: MML inline > #FFFile > unset.
+
+    - Same voice_num in both: MML inline wins + warning
+    - Only #FFFile: use #FFFile as fallback
+    - Neither: caller handles via fm_voice_data_default fallback
+    """
+    merged: dict[int, list[int]] = {}
+    for n in set(inline_voices.keys()) | set(fffile_voices.keys()):
+        if n in inline_voices:
+            merged[n] = inline_voices[n]
+            if n in fffile_voices:
+                print(
+                    f"warning: voice {n+1:03d} defined in both MML and #FFFile, "
+                    f"using MML version",
+                    file=sys.stderr,
+                )
+        else:
+            merged[n] = fffile_voices[n]
+    return merged
+
+
 def parse_voice_definitions(source: str) -> tuple[dict[int, list[int]], set[int]]:
     voices: dict[int, list[int]] = {}
     skip_lines: set[int] = set()
@@ -651,14 +739,146 @@ def write_outputs(
     wrapper_path.write_text(format_wrapper(songs, out_dir, wrapper_path), encoding="utf-8")
 
 
+def scan_voice_references(source: str) -> set[int]:
+    """ADR-0072 plan v7 LR-2 mitigation: pre-scan MML for `@N` voice references.
+
+    Returns set of MML voice numbers (= 1-based) referenced anywhere in MML.
+    Voice definitions (= `@NNN alg fbl` header form) are NOT excluded here intentionally
+    since their voice_num must also be in voice_table for driver lookup.
+    Part body usage (= `B @1 v15 c4`) and voice definition both produce voice_num references.
+
+    Used by format_voice_table_only() to determine voice_table range = max(referenced N)
+    + emit safe/empty entries for unset voice_nums (= driver overread prevention).
+    """
+    refs: set[int] = set()
+    for line in source.splitlines():
+        stripped = line.strip()
+        # Skip #FFFile directive lines (= contain '#FFFile' = uppercase) to avoid
+        # accidental capture of filename digits as voice refs
+        if stripped.lower().startswith("#fffile"):
+            continue
+        for m in VOICE_REF_RE.finditer(stripped):
+            voice_num = int(m.group(1))
+            if voice_num >= 1:
+                refs.add(voice_num)
+    return refs
+
+
+def format_voice_table_only(voices: dict[int, list[int]], max_ref_voice: int = 0) -> str:
+    """ADR-0072 plan v7 --voice-only mode: emit voice_table.inc only (= no part data).
+
+    PMDNEO compile.py + PMDDotNET MML opcode emit convention:
+    - MML `@N` (= 1-based) emits `0xFF N` (= no subtraction in compile.py:269 `out.extend([command_byte, value])`)
+    - driver `comat` reads voice_num from opcode + lookups `voice_table[voice_num]`
+    - parse_voice_definitions internally stores `@N` as `voice_index = N - 1` (0-based)
+    - So voice_table[voice_num] must map to internal voice{voice_num - 1}_data
+
+    Generated voice_table layout (= PMDDotNET MML emit `0xFF N` direct lookup):
+    - voice_table[0] = fm_voice_data_default (= dummy placeholder for 0-based MML @0 unused)
+    - voice_table[N] = voice{N - 1}_data for MML @N (= 1-based opcode → 0-based label)
+    - Missing voices use fm_voice_data_default fallback
+
+    Used by build-poc.sh PMDDOTNET_MML path to populate voice_table without
+    running full compile.py compilation flow (= part data comes from PMDDotNET .M).
+    """
+    lines = [
+        ";;; ADR-0072 plan v7 build-side voice resolution (= compile.py --voice-only output)",
+        ";;; voice data extracted from MML inline @N defs + #FFFile external voice file",
+        ";;; voice_table[N] maps PMDDotNET MML @N opcode (= 1-based) → voice{N-1}_data internal label",
+    ]
+    # ADR-0072 plan v7 LR-2 mitigation: voice_table range = max(defined voice_num, referenced @N)
+    # to prevent driver `comat` lookup overread when MML references undefined voice number.
+    max_defined_voice = max(voices) if voices else -1  # voice_index (0-based)
+    max_defined_mml_num = max_defined_voice + 1 if max_defined_voice >= 0 else 0  # 1-based
+    max_table_voice = max(max_defined_mml_num, max_ref_voice)  # 1-based MML voice_num
+
+    if voices:
+        # Emit voice{voice_index}_data labels (0-based internal storage)
+        for voice_index in range(max_defined_voice + 1):
+            data = voices.get(voice_index)
+            if data is None:
+                continue
+            lines.append(f"voice{voice_index}_data:")
+            for slot in range(4):
+                slot_data = data[slot * 6 : slot * 6 + 6]
+                bytes_text = ", ".join(f"0x{value:02X}" for value in slot_data)
+                lines.append(f"        .db {bytes_text}   ; slot{slot + 1}")
+            lines.append(f"        .db 0x{data[24]:02X}                                   ; ALG/FBL")
+    # voice_table[N] = voice{N-1}_data (= 1-based MML opcode direct lookup、 plan v7 fix)
+    # voice_table[0] = dummy (= MML @0 not used in standard usage)
+    # voice_table[1..max_table_voice] = defined voice or fm_voice_data_default
+    # = LR-2 mitigation: emit up to max(referenced @N) to prevent driver overread
+    lines.append("voice_table:")
+    lines.append("        .dw fm_voice_data_default                  ; index 0 (= dummy for MML @0)")
+    for mml_voice_num in range(1, max_table_voice + 1):
+        voice_index = mml_voice_num - 1
+        if voice_index in voices:
+            lines.append(
+                f"        .dw voice{voice_index}_data                    "
+                f"; index {mml_voice_num} (= MML @{mml_voice_num:03d})"
+            )
+        else:
+            # ADR-0072 plan v7 LR-2: undefined voice_num gets fm_voice_data_default safe entry
+            lines.append(
+                f"        .dw fm_voice_data_default                  "
+                f"; index {mml_voice_num} (= MML @{mml_voice_num:03d} undefined, safe default)"
+            )
+    lines.append("")
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Compile PMDNEO Phase 12a-2 MML to .mn part binaries")
     parser.add_argument("input_mml", type=Path, nargs="+")
     parser.add_argument("-o", "--output", type=Path, help="compat: output dir, or wrapper .inc path")
     parser.add_argument("--out-dir", type=Path, help="directory for generated .mn part binaries")
     parser.add_argument("--wrapper", type=Path, help="generated wrapper .inc path")
+    # ADR-0072 plan v7 build-side voice resolution mode (= PMDDOTNET_MML path)
+    parser.add_argument(
+        "--voice-only", action="store_true",
+        help="ADR-0072 plan v7: emit voice_table.inc only (= no .mn part data), "
+             "MML inline + #FFFile voices resolved",
+    )
+    parser.add_argument(
+        "--output-voice-table", type=Path,
+        help="ADR-0072 plan v7: output path for voice_table.inc (= --voice-only mode)",
+    )
     args = parser.parse_args(argv)
 
+    # ADR-0072 plan v7 --voice-only mode
+    if args.voice_only:
+        if args.output_voice_table is None:
+            parser.error("--voice-only requires --output-voice-table")
+        if len(args.input_mml) != 1:
+            parser.error("--voice-only accepts exactly one input MML file")
+        mml_path = args.input_mml[0]
+        source = read_mml_source(mml_path)
+        # LR-1 mitigation: parse #FFFile BEFORE general voice parsing (= '#' strip safe)
+        fffile_voices = parse_fffile_directive(source, mml_path)
+        inline_voices, _voice_lines = parse_voice_definitions(source)
+        merged_voices = merge_voices_with_priority(inline_voices, fffile_voices)
+        # LR-2 mitigation: pre-scan MML for @N references to size voice_table correctly
+        # (= prevents driver overread when MML refs > defined voices)
+        referenced_voice_nums = scan_voice_references(source)
+        max_ref_voice = max(referenced_voice_nums) if referenced_voice_nums else 0
+        # Warn on referenced-but-undefined voices
+        for ref_num in sorted(referenced_voice_nums):
+            voice_index = ref_num - 1
+            if voice_index not in merged_voices:
+                print(
+                    f"warning: voice {ref_num:03d} referenced in MML but not defined "
+                    f"in inline or #FFFile, voice_table[{ref_num}] emitted as "
+                    f"safe/default entry (= driver overread prevention per LR-2)",
+                    file=sys.stderr,
+                )
+        args.output_voice_table.parent.mkdir(parents=True, exist_ok=True)
+        args.output_voice_table.write_text(
+            format_voice_table_only(merged_voices, max_ref_voice=max_ref_voice),
+            encoding="utf-8",
+        )
+        return 0
+
+    # Standard full compile mode (= backward-compat, PMDDOTNET_MML 未使用 path)
     out_dir, wrapper_path = resolve_output_paths(args, parser)
     songs: list[tuple[str, list[tuple[str, list[int]]], dict[int, list[int]]]] = []
     for input_mml in args.input_mml:
