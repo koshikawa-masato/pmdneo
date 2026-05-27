@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-27",
-    "schemaVersion": "static/generated@5c08c73",
+    "schemaVersion": "static/generated@a41c755",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "5c08c73b5974458d162865587d282e1fdafe160b",
-      "shortSha": "5c08c73",
-      "date": "2026-05-27T15:09:04+09:00",
-      "message": "docs(dashboard): ADR-0073 sprint γ PR3 = PR #157 MERGED at `e6c9442` 完走 final maintenance = 0073 行 status final update + Codex Rescue impl-review 2 round chain approve + atomic 1 セット規律 15 回目適用完走記録",
+      "sha": "a41c755c62be4228282f6a34b607d72153372e54",
+      "shortSha": "a41c755",
+      "date": "2026-05-27T15:31:42+09:00",
+      "message": "docs(adr-0073)+impl: sprint γ runtime functional verify ALL PASS = δ-5 primary success metric -29.59 dBFS (= ADR-0072 ε -76 dBFS quiet 根本治療達成、 +46.41 dB 改善) + 4 build matrix B1-B4 + .lst predicate 6 件 + δ-1〜δ-7 ALL PASS + fixture LF→CRLF 変換 main agent direct fix-up (= PMDDotNET parser encoding 想定)",
       "author": "masato.koshikawa",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/5c08c73b5974458d162865587d282e1fdafe160b"
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/a41c755c62be4228282f6a34b607d72153372e54"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
