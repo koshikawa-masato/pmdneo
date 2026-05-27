@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-27",
-    "schemaVersion": "static/generated@e6c9442",
+    "schemaVersion": "static/generated@5c08c73",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "e6c9442918ebb405edbda0d76f292ca6a4a0ba80",
-      "shortSha": "e6c9442",
-      "date": "2026-05-27T15:07:45+09:00",
-      "message": "Merge pull request #157 from koshikawa-masato/wip-adr-0073-gamma-driver-patch",
-      "author": "koshikawa-masato",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/e6c9442918ebb405edbda0d76f292ca6a4a0ba80"
+      "sha": "5c08c73b5974458d162865587d282e1fdafe160b",
+      "shortSha": "5c08c73",
+      "date": "2026-05-27T15:09:04+09:00",
+      "message": "docs(dashboard): ADR-0073 sprint γ PR3 = PR #157 MERGED at `e6c9442` 完走 final maintenance = 0073 行 status final update + Codex Rescue impl-review 2 round chain approve + atomic 1 セット規律 15 回目適用完走記録",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/5c08c73b5974458d162865587d282e1fdafe160b"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
