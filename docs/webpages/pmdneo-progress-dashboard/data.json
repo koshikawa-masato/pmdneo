@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-27",
-    "schemaVersion": "static/generated@25bd095",
+    "schemaVersion": "static/generated@b50e2c2",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "25bd095fe076559cbf2fb497326eb4cac979e1f5",
-      "shortSha": "25bd095",
-      "date": "2026-05-27T17:40:16+09:00",
-      "message": "Merge pull request #160 from koshikawa-masato/wip-adr-0074-beta-plan-v2",
-      "author": "koshikawa-masato",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/25bd095fe076559cbf2fb497326eb4cac979e1f5"
+      "sha": "b50e2c2038298410e7877edc4885998aaa637bd2",
+      "shortSha": "b50e2c2",
+      "date": "2026-05-27T17:41:10+09:00",
+      "message": "docs(dashboard): ADR-0074 sprint β PR2 = PR #160 MERGED at `25bd095` 完走 final maintenance = 0074行 status final update（sprint β plan iteration完走 + Codex Rescue plan review 4 round chain approve + atomic 1セット規律 18回目適用完走 + candidate 4実装前提具体化完了）",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/b50e2c2038298410e7877edc4885998aaa637bd2"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
