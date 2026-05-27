@@ -223,6 +223,37 @@ if [[ -n "${PMDDOTNET_MML:-}" ]]; then
     } >> "$TEMPLATE_DIR/song_data.inc"
     echo "  pmddotnet_song.m <- $(basename "$PMDDOTNET_OUT") ($(wc -c < "$TEMPLATE_DIR/pmddotnet_song.m" | tr -d ' ') byte)"
     rm -rf "$PMDDOTNET_TMPDIR"
+
+    # ADR-0072 plan v7 build-side voice resolution (= MF-3 Option B):
+    # PMDDotNET .M binary に voice table inline emit されない (= γ impl phase finding)
+    # ため compile.py --voice-only で MML 内 voice 定義 + #FFFile 外部 voice file を抽出
+    # + voice_table_pmddotnet.inc 生成 + song_data.inc の既存 empty `voice_table:` block 削除
+    # + 新 voice_table_pmddotnet.inc を append。
+    # driver source 完全 no-touch、 production sha256 invariant 維持 (= flag-off で
+    # 本 block 実行されない = byte-identical)。
+    echo
+    echo "=== ADR-0072 plan v7: build-side voice resolution (= #FFFile support) ==="
+    python3 "$PMDNEO_ROOT/src/tools/pmd-mml/compile.py" --voice-only \
+        --output-voice-table "$TEMPLATE_DIR/voice_table_pmddotnet.inc" \
+        "$PMDDOTNET_MML"
+    if [[ ! -f "$TEMPLATE_DIR/voice_table_pmddotnet.inc" ]]; then
+        echo "ERROR: voice_table_pmddotnet.inc 生成失敗" >&2
+        exit 2
+    fi
+    # song_data.inc 内の既存 empty `voice_table:` block を削除 (= 末尾までを一旦削除)
+    # macOS BSD sed + GNU sed 両対応の portable invocation (= `-i.bak` + 後で .bak 削除)
+    sed -i.bak '/^voice_table:$/,$d' "$TEMPLATE_DIR/song_data.inc"
+    rm -f "$TEMPLATE_DIR/song_data.inc.bak"
+    # pmddotnet_song line + generated voice_table を再度 append (= 順序は pmddotnet_song 先 → voice_table 後)
+    {
+        echo ""
+        echo ";; ADR-0016 step 3b carry: PMDDotNET .M binary incbin"
+        echo "pmddotnet_song: .incbin \"pmddotnet_song.m\""
+        echo ""
+        echo ";; ADR-0072 plan v7: build-side voice resolution generated (= compile.py --voice-only)"
+        cat "$TEMPLATE_DIR/voice_table_pmddotnet.inc"
+    } >> "$TEMPLATE_DIR/song_data.inc"
+    echo "  voice_table_pmddotnet.inc <- compile.py --voice-only (MML inline + #FFFile)"
 fi
 
 echo
