@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-28",
-    "schemaVersion": "static/generated@0a5ed17",
+    "schemaVersion": "static/generated@5ecb9df",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "0a5ed173654e2007c9795b2c7bba9378c89816db",
-      "shortSha": "0a5ed17",
-      "date": "2026-05-28T00:27:06+09:00",
-      "message": "Merge pull request #161 from koshikawa-masato/wip-adr-0074-gamma-runtime-selection-impl",
-      "author": "koshikawa-masato",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/0a5ed173654e2007c9795b2c7bba9378c89816db"
+      "sha": "5ecb9df1c50d85575027e2214c3347b218384fa9",
+      "shortSha": "5ecb9df",
+      "date": "2026-05-28T00:29:22+09:00",
+      "message": "docs(dashboard): ADR-0074 sprint γ PR3 round 1 revise = PR #161 MERGED at `0a5ed17` 完走 final maintenance = 0074行 status final update（sprint γ candidate 4 runtime selection path implementation 完走 + NH-1 (B) 採用 = 正規 preflight path B3 確立 + B4 補助確認扱い格下げ + driver 完全 untouched mandate strict carry + Codex Rescue impl-review chain = round 1 escalate-to-user → user 明示判断 (B) 採用 → round 1 revise → round 2 retry approve 全 12 軸 PASS + must-fix 0 + atomic 1セット規律 19回目適用完走）",
+      "author": "masato.koshikawa",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/5ecb9df1c50d85575027e2214c3347b218384fa9"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
