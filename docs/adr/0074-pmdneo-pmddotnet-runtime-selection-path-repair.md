@@ -1,0 +1,355 @@
+# ADR-0074: PMDNEO PMDDOTNET_MML runtime selection path repair (= 指定 MML を MAME runtime で本当に起動できる経路の設計 plan)
+
+## 平易日本語 3 軸 (= ADR 起票時 mandate 規律 = memory `feedback_adr_filing_plain_context_required.md` literal carry)
+
+### 1. 何の問題を解くための ADR か
+
+PMDDOTNET_MML で指定した MML が build artifact (= `vendor/ngdevkit-examples/00-template/pmddotnet_song.m`) には入っていても、 **MAME runtime では `song_table[0] = test01.mml` が再生されていた**。 これにより:
+
+- ADR-0065 δ preflight (= 2026-05-27 staggered fixture preflight v2) で「指定 fixture 由来 WAV」 が証明できない infrastructure issue を検出 = user audition「G g」 = test01.mml の FM E (= g4 連続) audible だった可能性
+- ADR-0072 ε「voice opcode dispatch + #FFFile support 完了」 + ADR-0073 ε「driver FM volume scaling semantics repair 完了」 の runtime audio verify (= γ runtime functional verify -29.59 dBFS 等) が **指定 fixture 由来かを証明できない state** = ADR-0058 §決定 1 mandate「A-J は全 build mode で default 固定、 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 と矛盾する infrastructure assumption で立てられていた可能性
+
+### 2. 何を実装・検証するのか
+
+PMDDOTNET_MML で指定した song を **runtime から明示的に選択・起動できる経路** を設計する:
+
+- main.c (= M68K side) / song_data.inc (= driver-side song_table) / driver (= cmd handler) のどこで song 選択するかを比較
+- 最小 touch で「指定 MML が鳴っている」 を **trace + WAV segment で機械的に証明** できる方式を決定
+- ADR-0058 §決定 1 mandate との衝突を明示 + 整合 path 提案
+- production sha256 (= `b15883fe...`) 維持戦略 (= guarded change pattern or preflight build mode 導入)
+- 既存 ADR-0072/0073 ε wording への影響整理 (= **wording 訂正・撤回判断は user judgment scope = 自走しない**)
+
+本 sprint α scope = **doc-only plan sprint**、 driver / build / vendor / fixture / 既存 verify 完全不変。 実装着手は β plan approve + user 明示 GO 経由限定。
+
+### 3. 完了すると何が次に進められるのか
+
+- ADR-0065 δ session preflight を **正しくやり直せる** (= staggered fixture が runtime で再生される機械的証明後、 part-by-part dispatch verify 可能)
+- ADR-0072 / ADR-0073 ε の runtime verify が **本当に PMDDOTNET_MML 由来だったか再確認** できる (= wording 訂正・撤回判断は user 介入 mandatory)
+- user audition / δ session / candidate 評価 / aesthetic approve には **進まない** (= 本 ADR-0074 完走後も user 介入 mandatory)
+
+---
+
+- 状態: **Draft** (= 2026-05-27 43rd session 起票、 sprint α plan sprint scope = touch 範囲候補比較 + rollback + sha256 影響 + 既存 ADR wording 影響整理 + Codex Rescue plan review 投入準備 doc-only sprint。 user 明示 mandate「いきなり実装ではなく、 まず doc/plan sprint として起票、 ADR-0058 §決定 1 mandate と衝突する可能性があるので慎重 plan 化」 mandate 経路、 ADR-0073 ε Accepted (= PR #158 MERGED at `d33166f`) 完走後の audio quiet 問題 follow-up = ADR-0065 δ preflight v2 (= 2026-05-27 43rd session 末) で発覚した infrastructure issue (= preflight-staggered.mml が runtime で再生されず test01.mml audio measurement だった evidence) repair sprint)
+- 起票日: 2026-05-27
+- 起票者: 越川将人 (M.Koshikawa) (= 主軸 Claude Code 経由、 user 明示 mandate「PMDDOTNET_MML runtime selection path repair の ADR 起票 plan を作る + option A test01.mml 一時置換は採用しない (= production 経路の確認であり PMDDOTNET_MML 経路の証明にならない) + option B K/L-Q 限定は FM/SSG preflight に不足 + option C 相当 runtime selection path repair を plan 化 + doc-only plan / touch 範囲 / rollback / sha256 影響 / 既存 ADR wording 影響整理 + ADR-0058 §決定 1 mandate 衝突明示 + user audition / δ session に勝手に進まない + ADR-0072/0073 wording 訂正・撤回 user 判断なしに行わない」 mandate 経路)
+- 関連 ADR:
+  - **ADR-0058** (= roadmap ② v2 dispatcher、 §決定 1「A-J は全 build mode で default 固定、 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 literal、 本 ADR-0074 で **衝突明示 + 整合 path 提案 mandatory**)
+  - **ADR-0072** (= driver-PMDDOTNET voice opcode data delivery repair、 ε Accepted、 「voice opcode dispatch + #FFFile support 完了」 wording = K + L-Q 経路 context 推定 = **本 ADR-0074 plan 後 wording 訂正候補 = user 判断軸**)
+  - **ADR-0073** (= driver FM volume scaling semantics repair、 ε Accepted、 「FM volume scaling repair 完了」 wording = test01.mml 経路 audio measurement で +46.41 dB 改善確認 = **本 ADR-0074 plan 後 wording 訂正候補 = user 判断軸**)
+  - **ADR-0065** (= roadmap ⑥ audition、 δ session preflight v2 で本 infrastructure issue 発覚)
+  - **ADR-0069** (= A-J distinctness、 ADR-0058 §決定 1 context carry)
+  - **ADR-0016** (= step 3c PMDDOTNET 経路、 `PMDNEO_USE_PMDDOTNET` flag `pmdneo_load_m` 入力 label 切替)
+  - **ADR-0041** (= Claude Code 併走運用、 §決定 5 `design_judgment_needed` escalation = wording 訂正・撤回判断は user judgment scope)
+- 関連 memory:
+  - `feedback_adr_filing_plain_context_required.md` (= ADR 起票時平易 3 軸 mandate)
+  - `feedback_adr_0065_delta_audition_pre_offer_required.md` (= δ session 5 軸提示 mandate、 本 ADR-0074 完走後も carry)
+  - `feedback_metric_pass_is_not_aesthetic_pass.md` (= metric pass ≠ aesthetic approve)
+  - `feedback_main_agent_engineering_responsibility.md` (= user judgment scope = 不可逆 / 設計判断、 wording 訂正は user 介入 mandatory)
+  - `feedback_doc_governance_two_systems.md` (= immutable history mandate、 ADR-0072/0073 historical record literal 書換禁止)
+  - `feedback_codex_layer2_review_no_commit_authority.md` (= review-only 6 件)
+  - `feedback_pr_merge_branch_delete_atomic.md` (= atomic 1 セット規律、 17 回目適用予定)
+
+## 背景 (= infrastructure issue detection 経緯)
+
+### detection 経緯 (= 2026-05-27 43rd session 末 ADR-0065 δ preflight v2)
+
+ADR-0073 ε Accepted (= PR #158 MERGED at `d33166f`) 完走後、 user 明示 GO で ADR-0065 δ session preflight 再開。 main agent 1 回目 preflight = 既存 candidate (= SAMPLE2.MML + l-q-rhythm-song.mml 等) 評価 → user mandate「既存 candidate 評価でない、 driver per-part dispatch 確認用 staggered fixture」 receive → preflight v2 = staggered fixture `src/test-fixtures/adr-0065/preflight-staggered.mml` 作成 → MAME runtime + wav + trace。
+
+### user audition + main agent finding 不整合
+
+| 軸 | main agent preflight v2 report | user 実 audition |
+|---|---|---|
+| FM B (= ch 2) c4 (= 0-4 秒) | -1.63 dBFS audible | inaudible |
+| FM C (= ch 3) d4 (= 4-8 秒) | -1.51 dBFS audible | inaudible |
+| FM E (= ch 5) e4 (= 8-12 秒) | -2.65 dBFS audible | g4 audible? |
+| FM F (= ch 6) f4 (= 12-16 秒) | -28.85 dBFS weak | inaudible |
+| SSG G g4 (= 16-20 秒) | -16.35 dBFS audible | g4 audible |
+| SSG H a4 (= 20-24 秒) | -inf silent | inaudible |
+| SSG I b4 (= 24-28 秒) | -inf silent | inaudible |
+
+→ user 実 audition は **「G g4 のみ audible、 他は inaudible」**。 main agent report の「FM B/C audible」 は test01.mml の **FM B (= c4 連続) + C (= e4 連続)** audio で、 user が 30 秒 record 中聴いた「g 音」 は test01.mml の **FM E (= g4 連続)** audio だった可能性 (= SSG G ではなく FM E が「g 音」 source)。
+
+### infrastructure 切り分け literal
+
+1. **main.c L67** = `*REG_SOUND = 9 + PMDNEO_SONG;` = sound cmd 9 + N で `nmi_cmd_select_song` (= driver L937-940) → `driver_song_id = N` store
+2. **main.c L89** = `*REG_SOUND = 5;` = sound cmd 5 で `nmi_cmd_5_init_mml_song` 起動 = song dispatch trigger
+3. **driver L3486 `load_song_part_addr`** = `song_table[driver_song_id × 20 + part_idx × 2]` で part address load
+4. **song_data.inc L43-54** = song_table = song0_part_a〜z (= test01) + song1_part_a〜z (= test02)、 **`pmddotnet_song` は song_table 未登録** = `cmd 9 + N` 経由起動不可
+5. **driver L1902-1905** = `PMDDOTNET_MML mode では pmddotnet_song の K part offset (= file byte 21-22) から body addr を計算` + `pmdneo_mn_direct_load_k_part_addr` = **K + L-Q part のみ pmddotnet_song 経由 dispatch**
+6. **ADR-0058 §決定 1 mandate** = 「A-J は全 build mode で default 固定、 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 literal
+
+### evidence summary
+
+PMDDOTNET_MML build mode で:
+- **A-J (= FM 6 + SSG 3 + ADPCM-B = 10 part) = song_table[0] = test01.mml が play**
+- **K + L-Q (= rhythm + ADPCM-A 6 ch) = pmddotnet_song の K + L-Q part offset 経由 override**
+
+→ preflight-staggered.mml の FM B/C/E/F + SSG G/H/I 全 part は **runtime で test01.mml に上書き** = 「指定 fixture 由来 audio」 ではない。
+
+## 決定 (= plan v1 draft、 Codex Rescue plan review iteration で確定)
+
+### 決定 1: ADR-0074 scope = PMDDOTNET_MML runtime selection path repair に限定
+
+#### scope IN (= 本 ADR-0074 で repair)
+
+- (1) PMDDOTNET_MML 指定 fixture を MAME runtime から **明示的に選択・起動** できる経路の設計
+- (2) 経路 candidate (= main.c / song_data.inc / driver) の比較 + 最小 touch path 確定
+- (3) 「指定 MML が鳴っている」 を **trace + WAV segment で機械的に証明** できる方式の設計
+- (4) ADR-0058 §決定 1 mandate との **衝突明示 + 整合 path** 提案
+- (5) production sha256 (= `b15883fe...`) 維持戦略 (= guarded change or preflight build mode 導入)
+- (6) 既存 ADR-0072/0073 ε wording への影響整理 (= **wording 訂正・撤回判断は user judgment scope = 自走しない**)
+
+#### scope OUT (= 別 ADR future、 本 ADR-0074 では touch しない)
+
+- (a) **実装着手** = sub-sprint γ で別 PR、 本 sprint α は plan only
+- (b) **ADR-0072/0073 ε wording 訂正・撤回** = user judgment scope (= ADR-0041 §決定 5 escalation 軸)
+- (c) **user audition / δ session / candidate 評価** = ADR-0065 ε δ session scope、 user 介入 mandatory
+- (d) **aesthetic approve** = user judgment scope
+- (e) **ADR-0058 §決定 1 mandate 自体の変更** = user judgment scope (= 設計不可逆判断)
+
+### 決定 2: sub-sprint chain plan = α/β/γ/δ/ε 5 段 (= ADR-0073 precedent literal 継承)
+
+| sub-sprint | scope | user 介入 | 完了判定 | driver/runtime touch |
+|---|---|---|---|---|
+| **α (= 本 sprint)** | plan v1 draft + 5 重点 mandate (= scope + touch 範囲候補 + rollback + sha256 + 既存 ADR wording 影響) + Codex Rescue plan review 投入 | optional (= main agent autonomous + Codex Rescue review-only) | 本 PR1 起票時完了 = ADR doc 起票 + Codex review 5 必須軸 approve | なし (= doc-only) |
+| β | plan iteration = Codex Rescue plan review chain + touch 範囲確定 + rollback + sha256 維持戦略 + ADR-0058 §決定 1 整合 path | optional (= main agent autonomous + Codex Rescue review) | plan approve | なし (= doc-only) |
+| **γ** | runtime selection path implementation = 確定 touch (= main.c + song_data.inc + driver いずれか or 複合) + 機械的証明 fixture 作成 + 4 build matrix verify | **user 明示 GO mandatory point** (= ADR-0058 §決定 1 衝突する可能性 = 設計判断軸、 ADR-0041 §決定 5 escalation 該当) | impl 完了 + 4 build matrix PASS + 「指定 fixture 由来 audio」 機械的証明 evidence 取得 | あり (= scope IN routine + build infra のみ、 guarded change or preflight build mode 配下) |
+| δ | runtime functional verify = staggered fixture が runtime 再生される機械的証明 + trace + WAV segment 一致 confirm + ADR-0072/0073 reverify scope | optional | δ verify findings literal record | なし (= MAME render only) |
+| **ε** | Accepted milestone + 「PMDDOTNET_MML runtime selection path repair 完了」 wording 解禁 (= 併記必須 mandatory) + ADR-0072/0073 ε wording 訂正・撤回判断は user judgment scope mandate carry | **user 明示 GO mandatory** | Accepted + wording 解禁 + 残課題 record | なし (= doc-only) |
+
+### 決定 3: touch 範囲 candidate (= sprint β で確定、 sprint α では候補列挙)
+
+#### candidate 1: song_table 拡張 + main.c PMDNEO_SONG=N で起動 (= 最 minimum)
+
+- `vendor/ngdevkit-examples/00-template/song_data.inc` 改修 = `song_table` に `pmddotnet_song` 関連 entry (= 20 part 分の literal address、 ただし pmddotnet_song は part offset table 内蔵 binary blob = literal address direct 困難)
+- 代替 = `pmddotnet_song_part_a/b/.../z` 20 個 literal label を pmddotnet_song.m 内 part offset から build-poc.sh で生成 + song_table に entry 追加
+- main.c PMDNEO_SONG=2 (= 新規 song slot) で起動可能
+- driver 内 logic 変更 minimum (= song_table 経由 既存経路 carry)
+- ADR-0058 §決定 1 mandate との関係 = song_table[2] 経路は ADR-0058 §決定 1 「A-J test01 default」 mandate を **bypass** (= song_table[2] は新 slot)、 ただし mandate literal「PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 自体への影響不明 = 整理必要
+
+#### candidate 2: driver cmd handler 改修 + PMDDOTNET 経路 song を別 cmd id 経由起動
+
+- driver 内に新規 cmd handler 追加 (= 例 = cmd 0x40+N で pmddotnet_song 起動)
+- main.c で対応 cmd 送信
+- driver 内 routine 追加 = guarded change 必要 (= production binary 影響あり)
+- 大きな改修 = ADR-0058 §決定 1 mandate と直接衝突 (= driver routine 自体に新 song 起動 path 追加 = mandate 変更該当)
+
+#### candidate 3: build-poc.sh + song_data.inc 改修 + PMDDOTNET 経路 song を ngdevkit-examples 内に song として組み込む
+
+- build-poc.sh PMDDOTNET_MML 経路で song_data.inc 内 song_table を **動的拡張** (= 既存 song0/1 + pmddotnet_song_part_a〜z を song 2 として append)
+- main.c PMDNEO_SONG=2 で起動
+- candidate 1 と類似だが build infra 側で song_table 拡張を全自動化
+- driver / production binary への影響 = guarded change `.if PMDNEO_USE_PMDDOTNET` 配下で song_table 拡張 = production binary `b15883fe...` 維持 (= flag-off では song_table 拡張なし)
+- ADR-0058 §決定 1 mandate との関係 = candidate 1 と同等 (= mandate bypass、 ただし mandate 自体は不変)
+
+#### candidate 4: preflight 専用 build mode 導入 (= TEST_MODE_PMDDOTNET_SONG_SELECT flag 等)
+
+- driver 内 + build infra 側に新 `TEST_MODE_PMDDOTNET_SONG_SELECT` flag 導入 (= 既存 TEST_MODE_AXIS_G_INT 等の precedent 同形)
+- flag=0 (= production default) = 既存 logic 完全保存 (= sha256 byte-identical 維持)
+- flag=1 (= preflight build) = pmddotnet_song を song_table 拡張 + main.c PMDNEO_SONG=N で起動可能
+- ADR-0058 §決定 1 mandate との関係 = flag=0 では mandate 完全 carry、 flag=1 では preflight 専用 = mandate 例外条件として承認可能性
+
+### 決定 4: production sha256 維持戦略 (= candidate 4 推奨 path)
+
+production sha256 = `b15883fe59804a201e13d0c05f083c1c3dd31fbfb1efd193b34d550d18f561e4` **維持 mandate** (= ADR-0073 ε で確定 active baseline、 dashboard production baseline section literal carry)。
+
+candidate 4 (= preflight 専用 build mode) を採用すれば:
+- flag=0 default = production binary 完全不変 (= sha256 byte-identical)
+- flag=1 preflight build = song_table 拡張 + main.c PMDNEO_SONG=N path = preflight 専用
+- 4 build matrix B1-B4 verify pattern (= ADR-0071/0072/0073 precedent literal 継承)
+
+### 決定 5: ADR-0058 §決定 1 mandate との衝突明示 + 整合 path
+
+#### ADR-0058 §決定 1 mandate literal
+
+「A-J は全 build mode で default 固定、 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 literal。 これは PMDDOTNET_MML build 時の A-J part dispatch を test01.mml に固定する mandate。
+
+#### 衝突分析
+
+candidate 1/3/4 (= song_table 拡張経路) は **「PMDDOTNET 経路全 part を song_table[2] 等の新 slot に登録 + N=2 で起動」** で、 ADR-0058 §決定 1 mandate の literal text 自体は **不変** (= 既存 song_table[0]/[1] = test01/test02 の A-J test01 default carry)、 ただし「PMDDOTNET_MML 経路の song 起動 path」 自体は新 slot 経由で別 dispatch = mandate の **意図** との整合性は要 user 判断。
+
+#### 整合 path 提案 (= candidate 4 推奨)
+
+- **preflight 専用 build mode** = `TEST_MODE_PMDDOTNET_SONG_SELECT=1` 時のみ song_table 拡張 + 新 dispatch path active
+- ADR-0058 §決定 1 mandate = production default (= flag=0) で完全 carry = mandate 不変
+- preflight build (= flag=1) は **ADR-0058 §決定 1 mandate 例外条件** として **本 ADR-0074 内で literal 例外明示** (= 既存 mandate を撤回せず、 「preflight build mode 例外」 として共存)
+- user judgment scope = (a) 整合 path 承認 / (b) ADR-0058 §決定 1 mandate 自体変更要望 / (c) preflight 経路自体不採用 (= 別 path 模索) = β plan review iteration で user 確認
+
+### 決定 6: 既存 ADR-0072/0073 ε wording への影響整理 (= user judgment scope mandate carry)
+
+#### ADR-0072 ε wording = 「voice opcode dispatch + #FFFile support 完了」
+
+本 ADR-0074 で確定する事項:
+- ADR-0072 ε で確立した「voice opcode dispatch」 経路は **K + L-Q part dispatch (= ADR-0058 §決定 1 mandate carry)** での voice opcode literal 想定だった可能性 ⇄ ADR-0072 fixture `test-voice-load.mml` は FM A-F 経路で voice opcode 書いた = **mismatch**
+- ADR-0072 γ runtime verify で「reg 0x40=0x11 (= voice 001 OP1 TL=17)」 観測 = test01.mml に voice 001 ないため、 別経路 (= init phase default voice load?) で観測した可能性
+
+→ wording 訂正候補 (= 「voice opcode dispatch FM 経路は infrastructure 未確立」 等の併記必須化) = **user judgment scope** = 本 ADR-0074 では wording 訂正・撤回 **判断しない** + ADR-0074 ε Accepted 後に user に再評価判断仰ぐ。
+
+#### ADR-0073 ε wording = 「driver FM volume scaling repair 完了」
+
+本 ADR-0074 で確定する事項:
+- ADR-0073 γ runtime functional verify で「wav RMS = -29.59 dBFS (= +46.41 dB 改善)」 観測 = **test01.mml 経路 audio measurement** = driver patch (= fix A/B/C) 自体の effect 観測は real、 ただし「PMDDOTNET_MML 由来 audio」 ではない
+- driver patch (= comv + fm_volume_hook + pmdneo5_init_part) 自体の logic change は test01.mml audio output に effect = real measurement
+
+→ wording 訂正候補 (= 「test01.mml 経路 audio measurement、 PMDDOTNET_MML 経路 FM part audio verify は infrastructure 未確立」 等の併記必須化) = **user judgment scope** = 本 ADR-0074 では wording 訂正・撤回 **判断しない** + ADR-0074 ε Accepted 後に user に再評価判断仰ぐ。
+
+#### immutable history mandate carry (= memory `feedback_doc_governance_two_systems.md`)
+
+ADR-0072/0073 既存 §決定 + Annex + 改訂履歴 + 平易要約 = **書換禁止 mandate**。 wording 訂正は新規 §決定 (= ADR-0074 内 or 別 ADR) + supersede pointer 経由 indirect 訂正 (= ADR-0072 plan v3 Annex β-3-3 / ADR-0073 plan v3 Annex β-3-3 agent 1/agent 2 finding 誤記訂正 precedent 同形)。
+
+### 決定 7: rollback condition (= ADR-0073 §決定 6 18 condition + ADR-0074 固有 condition)
+
+ADR-0073 sprint ε §決定 6 18 condition + 共通原則 **完全継承**。 ADR-0074 固有追加 condition (= sprint β plan review iteration で literal 確定):
+
+- **#19 ADR-0058 §決定 1 mandate との根本衝突 finding** = β plan review で「preflight 専用 build mode 経路でも ADR-0058 §決定 1 mandate 違反不可避」 finding → sub-sprint halt + user 明示 GO 必須 (= 設計判断軸)
+- **#20 production sha256 mandate 違反 risk** = γ impl 段階で `b15883fe...` byte-identical 維持不可能 finding → 即 sub-sprint halt + revert
+- **#21 ADR-0072/0073 ε wording 訂正・撤回 main agent 自走 risk** = δ runtime verify 結果で「ADR-0072/0073 ε wording が偽」 evidence が出ても、 wording 訂正・撤回は **user judgment scope** = 自走で訂正・撤回しない (= 違反すれば immediate halt + user escalation)
+
+#### 共通原則 (= ADR-0069 §決定 5 + ADR-0071/0072/0073 完全継承)
+
+destructive git 操作禁止 (= `git revert` のみ採用)、 軽微 fix-up (= 連鎖 commit) + sub-sprint 単位 halt + ADR 全体 halt 3 段使い分け。
+
+### 決定 8: 表記制約 + 解禁表現候補
+
+#### ADR-0074 起票時点 (= 本 sprint α、 PR1 doc-only)
+
+- **使用可**:
+  - 「ADR-0074 sprint α 起票 = plan sprint 完了」
+  - 「PMDDOTNET_MML runtime selection path repair の plan 設計開始」
+  - 「infrastructure issue (= test01.mml 混入) を機械的に切り分け確定」
+- **禁止維持 (= 起票時点)**:
+  - 「PMDDOTNET_MML runtime selection path repair 完了」 (= ADR-0074 ε Accepted 後解禁)
+  - 「指定 fixture 由来 audio 機械的証明達成」 (= γ runtime verify ALL PASS 後解禁)
+  - 「ADR-0072 ε wording 訂正完了」 / 「ADR-0073 ε wording 訂正完了」 (= user judgment scope、 自走で訂正しない)
+  - 「(d) audition gate 達成 / roadmap ⑥ audition 完了 / production-ready 全体達成 / 軸 B 完成 / 軸 G 完成 / 本番 cmd 切替完了」 (= 各 user 明示 GO 必須)
+
+#### ADR-0074 ε Accepted 後 (= 解禁候補)
+
+- 「**PMDDOTNET_MML runtime selection path repair 完了**」 (= 併記必須 mandatory = (i) preflight 専用 build mode 経路、 production binary 不変 + (ii) ADR-0058 §決定 1 mandate carry + (iii) ADR-0072/0073 ε wording 訂正・撤回 user judgment scope (= 自走しない) + (iv) audition gate 達成ではない + (v) production-ready 全体達成ではない + (vi) 軸 B 完成ではない + (vii) 軸 G 完成ではない + (viii) 本番 cmd 切替完了ではない)
+- 「ADR-0074 ε Accepted」
+
+## verify gate (= 本 PR1 sprint α scope = doc-only、 spec consistency check)
+
+- gate 1: ADR doc 整合性 (= 平易 3 軸先頭 + 8 決定 literal + Codex Rescue review 5 必須軸)
+- gate 2: ADR-0058 §決定 1 mandate との衝突明示 + 整合 path 提案 literal
+- gate 3: production sha256 維持戦略 (= candidate 4 preflight 専用 build mode 推奨 path literal)
+- gate 4: 既存 ADR-0072/0073 ε wording 影響整理 (= user judgment scope mandate carry)
+- gate 5: dashboard 0074 行 add (= status + scope + dependency literal)
+- gate 6: 改訂履歴 起票 entry append (= append only mandate 厳守)
+- gate 7: 平易要約 6 構造 (= memory `feedback_explanation_style.md` 整合)
+- gate 8: branch 運用 4 条規律 (= PR 先 default `wip-pmddotnet-opnb-extension` + merge atomic + close 不要時削除 + 保持対象 3 type 不可触)
+
+## Codex Rescue plan review 5 必須軸 (= user 明示 mandate literal carry)
+
+1. **PMDDOTNET_MML 指定 fixture が runtime で本当に起動できる設計か** = candidate 4 preflight 専用 build mode 経路で song_table 拡張 + main.c PMDNEO_SONG=N path が機能する設計妥当性
+2. **test01.mml 混入を機械的に排除できるか** = song_table[0] = test01 を bypass + 新 slot 経由 dispatch で混入排除可能か
+3. **trace と WAV segment で「この WAV はこの fixture 由来」 と証明できるか** = 機械的証明 method literal (= time-staggered fixture + per-channel register write timeline + segment RMS 一致 confirm)
+4. **ADR-0058 §決定 1 との衝突を明示しているか** = 衝突明示 + 整合 path 提案 (= preflight 例外条件) literal
+5. **user audition / δ session に勝手に進んでいないか** = scope OUT 明示 + 禁止 mandate literal carry
+
+## review-only mandate 6 件 (= 冒頭 literal 強調)
+
+1. no commit
+2. no file change
+3. no branch
+4. no merge
+5. no GitHub write
+6. return judgment + findings only
+
+## Annex α: plan v1 draft = touch 範囲 candidate 比較 + 推奨 path
+
+### α-1: candidate 1-4 比較 table
+
+| candidate | infrastructure 変更 | production sha256 影響 | ADR-0058 §決定 1 影響 | preflight 経路 確立 | 推奨 |
+|---|---|---|---|---|---|
+| 1 = song_table 拡張 + main.c PMDNEO_SONG=N | song_data.inc 改修 (= ~20 line 追加) + main.c 改修 (= PMDNEO_SONG=2 デフォルト か別 path) + build-poc.sh 改修 (= part offset → literal address 生成) | 影響あり (= song_table 拡張で binary size 変化) | mandate bypass (= 新 slot 経由) | ○ | × (= sha256 mandate 違反) |
+| 2 = driver cmd handler 改修 | driver routine 追加 + main.c cmd 改修 | 影響あり (= driver routine 追加) | mandate 直接衝突 (= driver 内 song 起動 path 追加) | ○ | × (= driver 改修 + mandate 衝突) |
+| 3 = build-poc.sh + song_data.inc 動的拡張 | build infra 改修 + song_table 動的拡張 | 影響あり (= 同上) | mandate bypass | ○ | △ (= sha256 mandate 違反) |
+| **4 = preflight 専用 build mode (= TEST_MODE_PMDDOTNET_SONG_SELECT flag)** | **driver `.equ TEST_MODE_PMDDOTNET_SONG_SELECT, 0` flag 追加 + build infra sed 置換 + song_data.inc 動的拡張 (= flag=1 時のみ) + main.c PMDNEO_SONG=2 (= flag=1 時のみ)** | **flag=0 default = 完全不変 (= sha256 byte-identical 維持)** | **flag=0 default = mandate 完全 carry**、 flag=1 preflight 専用 = mandate 例外条件 (= 整合 path 提案) | ○ | **○ (= 推奨)** |
+
+### α-2: 推奨 path = candidate 4 = preflight 専用 build mode 導入
+
+#### 設計 outline
+
+1. driver source `src/driver/standalone_test.s` 内 `.equ TEST_MODE_PMDDOTNET_SONG_SELECT, 0` 新規 flag 追加 (= 既存 TEST_MODE_AXIS_G_INT / TEST_MODE_MUTE_FIXTURE 等の precedent 同形)
+2. build.mk 内 sed 置換 logic 追加 (= ADR-0016 step 3c-2 precedent 同形 = `ifeq ($(TEST_MODE_PMDDOTNET_SONG_SELECT),1) → s/, 0/, 1/`)
+3. build-poc.sh 内 PMDDOTNET_MML 経路で `TEST_MODE_PMDDOTNET_SONG_SELECT=1` set + song_data.inc に pmddotnet_song を song_table[2] として追加生成 (= part offset table 経由 literal address 列計算 + song_table append、 flag=0 default では従来通り)
+4. main.c に `PMDNEO_SONG=2` 経路 (= ng_center_text 文字列追加程度)
+5. preflight 用 fixture (= staggered MML) を PMDDOTNET_MML 経由 build + `PMDNEO_SONG=2` で起動 + MAME runtime 再生
+
+#### sha256 維持戦略
+
+- flag=0 default (= production build) = 完全不変 (= `b15883fe...` byte-identical 維持)
+- flag=1 preflight build = m1 binary 別 sha256 (= 期待値 record + verify)
+- 4 build matrix B1-B4 pattern (= ADR-0071/0072/0073 precedent literal 継承):
+  - (B1) production baseline = `b15883fe...`
+  - (B2) post-patch flag=0 = (B1) byte-identical
+  - (B3) flag=1 preflight pre-impl = (B1) 同等 (= まだ flag=1 path 未実装)
+  - (B4) flag=1 preflight post-impl = 別 sha256 (= flag=1 path active で binary 変化)
+
+#### 機械的証明 method
+
+- preflight fixture = time-staggered single-note MML (= ADR-0065 δ preflight v2 type、 各 part 4 秒/slot × 7 part = 28 秒 total)
+- MAME runtime + wav + trace 取得
+- trace per-channel register write timeline = 時間帯 ↔ part 対応 confirm
+- WAV segment RMS = 時間帯別 audible/silent 一致 confirm
+- 「この WAV はこの fixture 由来」 = trace + segment + fixture MML byte-level diff (= test01.mml と異なる literal content)
+
+## Annex β / γ / δ / ε: placeholder (= 後続 sub-sprint fill 予定)
+
+## 改訂履歴
+
+- 2026-05-27: ADR-0074 起票 (= sprint α plan sprint 完了 + Annex α plan v1 draft literal + Codex Rescue plan review 5 必須軸投入準備) = Draft、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 PR1 doc-only sprint = ADR-0065 δ preflight v2 (= 2026-05-27 43rd session 末) で発覚した infrastructure issue (= PMDDOTNET_MML build artifact は ROM 内に存在するが MAME runtime では song_table[0] = test01.mml が再生されていた = ADR-0058 §決定 1 mandate「A-J test01 default、 K + L-Q のみ PMDDOTNET」 carry confirmed) repair plan、 base anchor `wip-pmddotnet-opnb-extension@99f2d6f`、 user 明示 mandate「option A test01.mml 一時置換は採用しない (= production 経路の確認であり PMDDOTNET_MML 経路の証明にならない) + option B K/L-Q 限定は FM/SSG preflight に不足 + option C 相当 runtime selection path repair を plan 化 + doc-only plan / touch 範囲 / rollback / sha256 影響 / 既存 ADR wording 影響整理 + ADR-0058 §決定 1 mandate 衝突明示 + user audition / δ session 進めない + ADR-0072/0073 wording 訂正・撤回 user 判断なしに行わない」 mandate 経路。 touch 範囲候補 4 件比較 (= candidate 1 song_table 拡張 / candidate 2 driver cmd handler 改修 / candidate 3 build-poc.sh + song_data.inc 動的拡張 / candidate 4 preflight 専用 build mode `TEST_MODE_PMDDOTNET_SONG_SELECT` flag) + 推奨 path = candidate 4 (= flag=0 default で production binary 完全不変 + flag=1 で song_table 拡張 + main.c PMDNEO_SONG=2 起動 + ADR-0058 §決定 1 mandate 例外条件 = 整合 path、 既存 TEST_MODE_AXIS_G_INT / TEST_MODE_MUTE_FIXTURE precedent 同形)、 sub-sprint chain α/β/γ/δ/ε 5 段 plan (= ADR-0073 precedent literal 継承)、 rollback condition = ADR-0073 §決定 6 18 condition 継承 + ADR-0074 固有 #19 ADR-0058 §決定 1 mandate 根本衝突 finding + #20 production sha256 mandate 違反 risk + #21 ADR-0072/0073 ε wording 訂正・撤回 main agent 自走 risk literal、 Codex Rescue plan review 5 必須軸 (= user 明示 mandate literal carry) = (1) PMDDOTNET_MML 指定 fixture runtime 起動設計妥当性 + (2) test01.mml 混入機械的排除 + (3) WAV + trace で「この WAV はこの fixture 由来」 機械的証明 + (4) ADR-0058 §決定 1 衝突明示 + (5) user audition / δ session に勝手に進んでいないか、 review-only mandate 6 件 literal、 後続 = sprint β = Codex Rescue plan review chain + plan iteration + touch 範囲確定、 sprint γ = 実装 user 明示 GO 必須、 ADR-0072/0073 ε wording 訂正・撤回 = ADR-0074 ε Accepted 後 user 判断仰ぐ (= 本 ADR-0074 では訂正・撤回しない mandate carry)。
+
+## 平易要約
+
+### sprint α PR1 context section (= 2026-05-27 43rd session、 ADR-0074 起票 plan sprint)
+
+#### やりたいこと
+
+PMDDOTNET_MML で指定した MML を、 MAME runtime で本当に起動できる経路を作る plan を立てる。 今は build artifact に MML が入っていても、 runtime では test01.mml が再生されていた。 これを解かないと、 ADR-0065 δ preflight も ADR-0072/0073 の runtime verify も「指定 fixture 由来」 と証明できない。 本 sprint α は plan のみ、 実装はしない。
+
+#### 前提
+
+- ADR-0073 ε Accepted 完走済 (= PR #158 MERGED at `d33166f`) = 「PMDNEO driver FM volume scaling semantics repair 完了」 wording 解禁、 ただし test01.mml 経路 audio measurement だった可能性 = user judgment scope
+- ADR-0058 §決定 1 mandate「A-J は全 build mode で default 固定、 PMDDOTNET_MML 経路でも MML 関与は K + L-Q のみ」 literal carry
+- production sha256 `b15883fe...` 維持 mandate carry
+- ADR-0065 δ preflight / δ session / candidate 評価 / user audition は本 ADR-0074 完走後の user 判断軸
+
+#### やったこと
+
+1. infrastructure issue (= test01.mml 混入) を機械的に切り分け確定
+2. touch 範囲 candidate 4 件比較 (= 1 song_table 拡張 / 2 driver cmd 改修 / 3 build infra 動的拡張 / 4 preflight 専用 build mode)
+3. 推奨 path = candidate 4 = `TEST_MODE_PMDDOTNET_SONG_SELECT` flag 導入 (= 既存 TEST_MODE_AXIS_G_INT precedent 同形)
+4. sub-sprint chain α/β/γ/δ/ε 5 段 plan (= ADR-0073 precedent 継承)
+5. rollback condition (= 18 condition + #19/#20/#21 ADR-0074 固有)
+6. ADR-0058 §決定 1 mandate 衝突明示 + 整合 path 提案 (= preflight 例外条件)
+7. 既存 ADR-0072/0073 ε wording 影響整理 (= user judgment scope mandate carry)
+8. Codex Rescue plan review 5 必須軸 (= user 明示 mandate literal carry)
+9. ADR doc 起票 (= 平易 3 軸先頭 + 8 決定 + Annex α plan v1 + 改訂履歴 + 平易要約)
+10. dashboard 0074 行 add
+
+#### 結果
+
+ADR-0074 sprint α plan sprint 起票 Draft 完了 = touch 範囲候補比較 + 推奨 path (= candidate 4) + rollback + sha256 維持戦略 + ADR-0058 §決定 1 衝突明示 + 既存 ADR wording 影響整理 + Codex Rescue 5 必須軸 literal 固定。
+
+#### 解釈
+
+- ADR-0073 ε Accepted 後、 ADR-0065 δ preflight 再開試行で **infrastructure issue (= PMDDOTNET_MML runtime selection path 不在)** が発覚
+- 解決 path = candidate 4 (= preflight 専用 build mode flag) で **production binary 不変 + flag=1 preflight build で PMDDOTNET 経路 runtime 起動可能** = ADR-0058 §決定 1 mandate carry + 例外条件として整合
+- ADR-0072/0073 ε wording 訂正・撤回判断は **user judgment scope** = 本 ADR-0074 では訂正・撤回しない、 ADR-0074 ε Accepted 後に user に再評価判断仰ぐ
+
+#### 次
+
+- 本 PR1 = doc-only 起票 → Codex Rescue plan review 5 必須軸投入 → approve loop → main agent 経路 merge (= atomic 1 セット規律 17 回目適用予定 = PR #142+...+#158+本 ε PR)
+- sprint β = plan iteration + Codex Rescue plan review chain + touch 範囲確定 (= candidate 4 詳細化 or 他案検討)
+- **sprint γ 着手 = user 明示 GO mandatory** (= ADR-0058 §決定 1 mandate 衝突 risk + sha256 維持戦略確定 + 設計判断軸 = ADR-0041 §決定 5 escalation)
+- sprint δ = runtime functional verify = staggered fixture が runtime 再生される機械的証明
+- sprint ε = Accepted milestone + 「PMDDOTNET_MML runtime selection path repair 完了」 wording 解禁 (= 併記必須 mandatory) + ADR-0072/0073 ε wording 訂正・撤回 = user 判断軸
+
+#### 重要 insight (= 本 sprint α 確立)
+
+1. ADR-0058 §決定 1 mandate は production binary level で **正しく機能している** (= A-J test01 default literal carry)、 ただし PMDDOTNET_MML 経路 runtime selection path 自体は infrastructure 上 **未整備**
+2. ADR-0072/0073 ε で確立した「PMDDotNET 経路 audio verify」 は **test01.mml 経路 audio measurement** だった可能性 = user judgment scope = ADR-0074 ε Accepted 後再評価
+3. preflight 専用 build mode (= candidate 4) は **production binary 不変 + ADR-0058 §決定 1 mandate carry + 例外条件として整合** の 3 軸両立 path = 推奨
+4. user audition / δ session / aesthetic approve は本 ADR-0074 完走後の user 判断軸 = 自走しない mandate carry
