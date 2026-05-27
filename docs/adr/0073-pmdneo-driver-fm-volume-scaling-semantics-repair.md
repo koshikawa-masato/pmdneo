@@ -557,20 +557,977 @@ agent 1-4 結果の統合で **仮説 A reject 確定**、 root cause = **driver
 7. **音量問題を threshold calibration だけで済ませない** = 真の root cause = driver semantics divergence、 threshold 緩和では本質解決にならない
 8. **production sha256 が変わる driver patch 無断 commit 禁止** = 本 PR1 doc-only、 driver patch は β approve + user 明示 GO 後 γ で commit
 
-## Annex β-1: repair plan v1 (= sprint β scope = Codex Rescue plan review 対象、 本 sprint α では placeholder)
+## Annex β-1: repair plan v1 (= sprint β round 1 投入 target、 Codex Rescue plan review 対象)
 
-sprint β で fill 予定:
-- fix A/B/C 採用案確定 (= 単独 vs 組合せ、 推奨 = A+B 必須 + C optional)
-- allowed-touch literal 詳細化 (= 修理対象 routine line range + guarded change syntax `.if PMDNEO_USE_PMDDOTNET` 配下限定)
-- 4 build matrix verify command literal (= ADR-0071/0072 precedent template)
-- δ verify gate δ-1〜δ-7 literal (= primary success = δ-5 Layer 1 PASS)
-- Codex Rescue plan review 重点軸 (= 仮説 B+C+D 統合 driver-side fix 妥当性 + sha256 維持可否 + allowed-touch limited + verify plan 実効化 + ADR-0072 既存機能 regression 防止)
+### β-1-1: plan v1 採用案 = fix A + fix B + fix C 全 3 件統合 (= guarded change 配下限定)
 
-## Annex β-2 / β-3 / β-4 / β-5: placeholder (= sprint β round 2/3/4/5 iteration、 fill 予定)
+| fix | 採用判断 | 根拠 |
+|---|---|---|
+| **fix A** = `comv` 二重 v→V 変換 削除 | **採用 mandatory** | PMD V4.8s + PMDDotNET の `comv` (= `PMD.ASM:3406-3411` + `PMD.cs:4813-4829`) は byte 直接 store + v_to_V 変換 compile 時 1 回のみ、 PMDNEO `comv` line 3984 `call pmdneo_v_to_V_convert` 二重適用は明らかな bug |
+| **fix B** = `fm_volume_hook` を PMD V4.8s `volset_slot` 数式 port + per-alg carrier mask 経由 | **採用 mandatory** | replace 数式 `TL = 0x7F - V/2` は voice TL を完全無視、 全 4 op 一律書込で ALG=0-6 voice 音色設計破壊、 PMD V4.8s `volset_slot` (= `PMD.ASM:4709-4724`) additive + carrier mask の line-by-line port が PMD MML 音量 semantics 完全継承 path |
+| **fix C** = `pmdneo5_init_part` default vol 0x0F → 108 guarded override | **採用 conditional** (= fix A 適用後の意味整合性確保) | 現状 default = 0x0F (= 15、 v scale 想定) は `comv` 二重変換 bug と組み合わせで偶然動いていた、 fix A 適用後は byte 直接 store のため default = 15 だと `fm_volume_hook` srl → 7 → TL=0x78 (= -90 dB ≈ mute) で v cmd 不在 fixture 静音化 regression risk、 fix C で default = 108 (= V byte semantics 整合) override が必要 |
+
+### β-1-2: 採用判断の literal 補足
+
+**fix A 単独不可**:
+- fix A 適用後の `comv` = byte 直接 store
+- byte = PMDDotNET emit `0xFD 0x7A` (= V=125 fmvol[15])
+- `fm_volume_hook` 既存数式 `0x7F - V/2 = 0x7F - 62 = 0x41 = -48.75 dB` = 結局 carrier attenuation
+- fix B が voice TL additive semantic 復元しない限り audio audible 改善限定的
+
+**fix B 単独不可**:
+- fix B 適用後の `fm_volume_hook` = voice TL + ~V additive
+- `comv` 二重変換 bug で V byte が常時 127 (= v16 丸め) に丸まる
+- `~127 = 0` → voice TL + 0 - 0x80 (saturate) → final TL = voice TL (= 妥当だが v 値段階制御失効)
+- fix A が二重変換解消しない限り MML v0-v15 段階制御失効
+
+**fix C 単独不可**:
+- fix C のみは fix A/B 未適用で root cause 完全未解消
+- default vol 108 にしても `comv` 二重変換 + `fm_volume_hook` replace 数式が voice TL=0 carrier を上書きする bug は残存
+
+**結論**: **fix A + fix B 必須統合 + fix C conditional (= fix A consequence による意味整合性確保)** = sprint γ 着手判断時に **「fix A+B+C 統合実装」 で確定推奨**。
+
+### β-1-3: fix A 実装案 literal
+
+**対象 routine** = `comv` (= `src/driver/standalone_test.s:3972-4003`)、 line range 32 行。
+
+**修正方式** = guarded change `.if PMDNEO_USE_PMDDOTNET` binary toggle (= memory `feedback_sdas_if_no_value_comparison.md` 整合):
+
+```
+comv:
+        call    pmdneo_part_fetch_byte
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix A: PMDDotNET 経路は byte 直接 store (= PMD V4.8s comv:3406-3411 semantic port)
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+.else
+        ;; 既存 PMDNEO 経路 (= v scale 想定の v→V 変換 + V scale shift)
+        ld      b, a
+        ld      a, PART_OFF_V_SCALE(ix)
+        add     a, b
+        jp      p, _pmdneo_comv_scale_pos
+        xor     a
+_pmdneo_comv_scale_pos:
+        cp      #17
+        jr      c, _pmdneo_comv_scale_ok
+        ld      a, #16
+_pmdneo_comv_scale_ok:
+        call    pmdneo_v_to_V_convert
+        ld      b, a
+        ld      a, PART_OFF_VOLUME_SHIFT(ix)
+        or      a
+        jp      p, _pmdneo_comv_shift_pos
+        neg
+        ld      c, a
+        ld      a, b
+        sub     c
+        jr      nc, _pmdneo_comv_shift_ok
+        xor     a
+        jr      _pmdneo_comv_shift_ok
+_pmdneo_comv_shift_pos:
+        add     a, b
+        jr      nc, _pmdneo_comv_shift_ok
+        ld      a, #0xFF
+_pmdneo_comv_shift_ok:
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+.endif
+```
+
+**意義**:
+- flag-on (= PMDDotNET 経路) = byte 直接 store + v_to_V_convert 削除 = PMD V4.8s 同 semantics
+- flag-off (= production 経路) = 既存 logic 完全保存 = production sha256 `457a237c...` byte-identical 維持
+
+**患部分離 expected diff (= byte 単位)**:
+- flag-off binary = byte-identical (= 期待値 0 byte diff)
+- flag-on binary = comv routine 短縮 = 推定 ~25 byte 減 (= 既存 ~32 byte → fix 後 ~7 byte 部分)
+
+### β-1-4: fix B 実装案 literal
+
+**対象 routine** = `fm_volume_hook` (= `src/driver/standalone_test.s:4472-4529`)、 line range 58 行。
+
+**修正方式** = guarded change 配下で新規 helper routine `fm_volume_hook_pmddotnet` additive + 既存 `fm_volume_hook` 内 flag dispatch + 新規 `fm_carrier_table` data (= ALG 8 値 mask table、 PMD V4.8s `PMD.ASM:7958-7964` literal port)。
+
+**新規 data table** (= `fm_carrier_table`、 8 byte additive、 0x0610 セクション末尾):
+
+```
+fm_carrier_table:
+        ;; ADR-0073 fix B: per-ALG carrier slot mask (= PMD V4.8s PMD.ASM:7958-7964 port、 bit 7-4 = OP4/OP3/OP2/OP1 mask)
+        .db     0b10000000      ; ALG=0: OP4 のみ carrier
+        .db     0b10000000      ; ALG=1: OP4 のみ carrier
+        .db     0b10000000      ; ALG=2: OP4 のみ carrier
+        .db     0b10000000      ; ALG=3: OP4 のみ carrier
+        .db     0b10100000      ; ALG=4: OP4 + OP2 carrier
+        .db     0b11100000      ; ALG=5: OP4 + OP3 + OP2 carrier
+        .db     0b11100000      ; ALG=6: OP4 + OP3 + OP2 carrier
+        .db     0b11110000      ; ALG=7: 全 4 op carrier
+```
+
+**新規 helper routine** (= `fm_volume_hook_pmddotnet`、 0x0610 セクション末尾 additive):
+
+```
+fm_volume_hook_pmddotnet:
+        ;; ADR-0073 fix B: PMD V4.8s volset_slot 数式 port + per-alg carrier mask 経由
+        ;; 入力: ix = PART_OFF_*、 PART_OFF_VOLUME(ix) = V byte (= 0-127)
+        ;; 副作用: voice data の per-op TL を参照、 carrier op のみ TL register write
+        ld      a, PART_OFF_VOLUME(ix)
+        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算 (= 既存経路継承)
+        cpl                             ; A = ~V = 0xFF - V (= PMD V4.8s NOT(volume) semantic)
+        ld      e, a                    ; E = ~V
+        ;; ALG 取得 + carrier mask lookup
+        call    pmdneo_get_voice_ptr    ; HL = voice data 先頭 (= 新規 helper、 別途実装 or 既存 ptr 経路再利用)
+        ld      a, PART_OFF_FM_ALG(ix)  ; A = ALG (= 0-7、 voice load 時 cache 想定 or voice data 末尾 byte read)
+        and     #0x07
+        ld      l, a
+        ld      h, #0
+        ld      bc, fm_carrier_table
+        add     hl, bc
+        ld      d, (hl)                 ; D = carrier mask (= bit 7-4 = OP4/3/2/1)
+        ;; 各 op (= slot 0-3) について carrier mask bit 確認 → voice TL fetch → additive → TL write
+        ;; (= 詳細展開は plan v2 以降の fix B 細部詳細化で literal、 概念は PMD V4.8s volset_slot per-op loop port)
+        ;; ... (= per-op loop = 4 反復、 各 slot で carrier mask bit & 1 == 1 → voice TL + ~V - 0x80 saturate → ym2610_write_port_*)
+        ret
+```
+
+**既存 `fm_volume_hook` 修正** (= guarded change dispatch):
+
+```
+fm_volume_hook:
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B: PMD V4.8s volset_slot semantics port 経路へ dispatch
+        jp      fm_volume_hook_pmddotnet
+.else
+        ;; 既存 PMDNEO 経路 (= TL replace 数式 + 全 4 op 一律書込、 ALG=7 全 op carrier 想定)
+        ld      a, PART_OFF_VOLUME(ix)
+        call    pmdneo_fade_scale
+        srl     a
+        ld      l, a
+        ld      a, #0x7F
+        sub     l
+        ld      c, a
+        ;; ... (= 既存 4 op 一律書込 logic 完全保存)
+        ret
+.endif
+```
+
+**意義**:
+- flag-on = voice TL additive + per-alg carrier mask 経由 = voice 音色設計保存 + carrier-only TL write
+- flag-off = 既存 logic 完全保存 = production sha256 byte-identical 維持
+
+**患部分離 expected diff (= byte 単位)**:
+- flag-off binary = byte-identical (= 期待値 0 byte diff)
+- flag-on binary = `fm_volume_hook_pmddotnet` additive (= 推定 ~80 byte) + `fm_carrier_table` data (= 8 byte) = 合計 ~88 byte 増
+
+**latent risk**:
+- `pmdneo_get_voice_ptr` 経路は plan v2 以降で literal 詳細化必要 (= voice data の格納位置 + ALG byte offset)
+- `PART_OFF_FM_ALG` cache offset 新規追加判定 = part_workarea offset extension risk = ADR-0058 v2 PartWork 不可触 mandate 抵触 risk → voice data 末尾 reg 0xB0 byte (= byte index 24) を都度 read する経路推奨
+
+### β-1-5: fix C 実装案 literal
+
+**対象 routine** = `pmdneo5_init_part` (= `src/driver/standalone_test.s:3481-3505`)、 line range 25 行。
+
+**修正方式** = guarded change 配下 PART_OFF_VOLUME store 直前で `c` override:
+
+```
+pmdneo5_init_part:
+        push    hl
+        push    bc
+        call    pmdneo_part_ix_from_part
+        pop     bc
+        pop     hl
+        ld      d, a
+        ;; ... (= 既存 PART_OFF_ADDR / LOOP / LEN / GATE / TRANSPOSE / FLAGS / OCTAVE init 完全保存)
+        ld      PART_OFF_CH_IDX(ix), b
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix C: PMD V4.8s default vol 108 (= PMD.ASM:558 mov volume[di],108) port、
+        ;; fix A 適用後 byte 直接 store のため v scale 15 → V byte semantics 整合要
+        ld      c, #108
+.endif
+        ld      PART_OFF_VOLUME(ix), c
+        ;; ... (= 既存 VOLUME_SHIFT / V_SCALE / chip_type 分岐 完全保存)
+```
+
+**意義**:
+- flag-on = default vol = 108 (= PMD V4.8s + PMDDotNET 同 default = V byte semantics 整合)
+- flag-off = caller 渡し `c = #0x0F = 15` そのまま (= v scale 想定 既存 logic 保存)
+- 患部分離 = caller 側 (= line 1093, 1096, 1099, 1172, 1754-1834 等 ~14 site) は touch しない = blast radius 単一 site 内に閉じる
+
+**患部分離 expected diff (= byte 単位)**:
+- flag-off binary = byte-identical (= 期待値 0 byte diff)
+- flag-on binary = 5 byte 増 (= `ld c, #108` = 2 byte + .if/.endif 0 byte)
+
+### β-1-6: allowed-touch literal (= γ PR3 想定対象 file 確定)
+
+#### 修正対象 (= γ で touch)
+
+- **`src/driver/standalone_test.s`**:
+  - line 3481-3505 `pmdneo5_init_part` (= fix C guarded change 5 byte 増 in flag-on)
+  - line 3972-4003 `comv` (= fix A guarded change、 既存 logic を `.else` 配下に完全保存)
+  - line 4472-4529 `fm_volume_hook` (= fix B guarded change dispatch + 既存 logic を `.else` 配下に完全保存)
+  - 0x0610 セクション末尾 (= `fm_carrier_table` 8 byte data + `fm_volume_hook_pmddotnet` ~80 byte routine additive)
+- **`src/test-fixtures/adr-0073/`** (= 新規 directory、 ADR-0069 §決定 3-d「新規 fixture MML 例外的許可」 precedent 継承):
+  - `test-volume-baseline.mml` (= voice 001 + v15 + l4 c4 等 minimal、 PMDDotNET 経由 build + audio render baseline)
+  - `verify-volume-scaling.sh` (= TL register write trace gate + sha256 4 build matrix + audio rms threshold)
+- **`docs/adr/0073-pmdneo-driver-fm-volume-scaling-semantics-repair.md`** (= 本 ADR doc、 Annex β-2 以降 fill + 改訂履歴 + 平易要約 update)
+- **`docs/parallel-axes-dashboard.md`** (= 0073 行 status update + escalation 履歴 entry append)
+
+#### 不可触対象 (= γ で完全 untouched)
+
+- ADR-0048 軸 G ε partial state placement (= 0xFD32-0xFD38) 完全不変
+- ADR-0026 §決定 3/4 K dispatch L ch 固定占有 完全不変
+- ADR-0051 `pmdneo_ssg_tone_sync` (= reg 0x07 RMW 唯一 owner) 完全不変
+- ADR-0058 `pmdneo_v2_*` 系 routine body 完全不変
+- ADR-0067〜0072 既存 Annex 本文 (= immutable history、 memory `feedback_doc_governance_two_systems.md`) 完全不変
+- 既存 verify script (= ADR-0049〜0072 全 verify gate) regression-free
+- 既存 fixture MML (= ADR-0067/0068/0069/0072 PR で commit 済) 完全不変
+- vendor (= `vendor/pmd48s/` + `vendor/PMDDotNET/` + `vendor/ngdevkit-examples/`) 完全不変
+- `src/tools/pmd-mml/compile.py` (= ADR-0072 で touch、 本 ADR-0073 では完全不変 = build-side voice resolution 機能 regression 防止)
+- `scripts/build-poc.sh` (= ADR-0072 で touch、 本 ADR-0073 では完全不変)
+- `pmdneo5_init_part` の caller 側 (= line 1093, 1096, 1099, 1172, 1754-1834 等 ~14 site の `ld c, #0x0F`) = fix C は単一 site (= init_part 内 guarded override) のみ、 caller side untouched
+- `comV` routine (= line 4005-4009) = 既に byte 直接 store の正しい経路、 完全不変
+- `pmdneo_v_to_V_convert` (= line 3671-3702) + `v_to_V_fm` table (= line 5703-5704) = 削除しない (= flag-off 経路で使用) = 完全不変
+- 退避 branch `wip-dashboard-progress-heatmap-from-a8b8cc5` + scope-out branch `wip-dashboard-coverage` + `docs/dashboard/` untracked + user 別作業 = 完全 untouched
+
+### β-1-7: production sha256 維持戦略 (= 4 build matrix verify)
+
+production sha256 = `457a237cd696e09bc99f707d13bc8851c75faf7225eee5e0d4c7111980ca9092` **維持 mandate**、 全 fix は `.if PMDNEO_USE_PMDDOTNET ... .endif` guarded change 配下限定。
+
+#### 4 build matrix (= ADR-0071/0072 precedent literal 継承)
+
+| build | flag | fixture | 期待 sha256 |
+|---|---|---|---|
+| **(B1) production baseline** | `PMDNEO_USE_PMDDOTNET=0` | no PMDDOTNET_MML | == `457a237c...` byte-identical |
+| **(B2) post-patch flag-off** | `PMDNEO_USE_PMDDOTNET=0` + ADR-0073 patch 全適用 | no PMDDOTNET_MML | == (B1) byte-identical (= guarded change flag-off 完全無効化) |
+| **(B3) flag-on pre-patch** | `PMDNEO_USE_PMDDOTNET=1` + ADR-0072 ε state (= 本 ADR-0073 patch 未適用) | `src/test-fixtures/adr-0073/test-volume-baseline.mml` 経由 PMDDOTNET_MML | ADR-0072 ε baseline (= sha256 別値、 voice opcode dispatch 機能あり + volume scaling bug 残存 = audio -76 dBFS quiet 期待) |
+| **(B4) flag-on post-patch** | `PMDNEO_USE_PMDDOTNET=1` + ADR-0073 patch 全適用 | 同上 | (B3) と diff = ADR-0073 patch byte 量のみ (= 推定 ~70 byte 増 net = fix A: -25 + fix B: +88 + fix C: +5 + 0x0610 セクション末尾 additive) + audio audible 改善 (= wav RMS > -60 dBFS expected) |
+
+#### 検証 command literal (= scripts/build-poc.sh 経由)
+
+```
+# (B1) production baseline
+PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+sha256sum build/ipl/rom.p1  # expected: 457a237cd696e09bc99f707d13bc8851c75faf7225eee5e0d4c7111980ca9092
+
+# (B2) post-patch flag-off byte-identical
+PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+sha256sum build/ipl/rom.p1  # expected: 同上 byte-identical
+
+# (B3) flag-on pre-patch (= ADR-0072 ε state)
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=src/test-fixtures/adr-0073/test-volume-baseline.mml scripts/build-poc.sh
+sha256sum build/ipl/rom.p1  # ADR-0072 ε baseline 記録 = 別値
+
+# (B4) flag-on post-patch (= ADR-0073 patch 全適用)
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=src/test-fixtures/adr-0073/test-volume-baseline.mml scripts/build-poc.sh
+sha256sum build/ipl/rom.p1  # (B3) と diff = ADR-0073 patch byte 量のみ
+diff <(z80dasm build/ipl/rom.p1) <(z80dasm <B3 build/ipl/rom.p1>)  # 患部 routine のみ diff
+```
+
+#### `.lst` predicate (= 4 件、 ADR-0071/0072 precedent 継承)
+
+- predicate 1 = `fm_carrier_table` symbol assemble PASS (= 0x0610 セクション末尾配置確認)
+- predicate 2 = `fm_volume_hook_pmddotnet` symbol assemble PASS (= 同上)
+- predicate 3 = 既存 `comv` / `fm_volume_hook` / `pmdneo5_init_part` routine body の `.else` 配下が byte-identical 維持 (= production 経路保護)
+- predicate 4 = 既存 symbol table 順序不変 (= `comv` / `fm_volume_hook` / `pmdneo5_init_part` / `pmdneo_v_to_V_convert` / `v_to_V_fm` / `comV` 全 symbol 維持)
+
+### β-1-8: verify gate literal (= γ build verify + δ functional verify)
+
+#### γ build verify (= production sha256 維持 + 4 build matrix PASS)
+
+- gate γ-1: 4 build matrix B1-B4 PASS (= β-1-7 §)
+- gate γ-2: production sha256 `457a237c...` byte-identical 維持 (= (B1)/(B2) で)
+- gate γ-3: `.lst` predicate 4 件 PASS (= β-1-7 §)
+- gate γ-4: ADR-0051 owner contract untouched (= `pmdneo_ssg_tone_sync` 完全不変、 reg 0x07 RMW 唯一 owner 維持)
+- gate γ-5: 既存 verify script ALL PASS (= ADR-0049〜0072 regression-free = 18+ verify script transitively)
+
+#### δ functional verify (= 実音成立確認 + ADR-0072 機能 regression 防止)
+
+- gate δ-1: voice register trace = MAME ymfm-trace `reg 0x40/0x44/0x48/0x4C` write timeline 確認 = voice 001 OP4 (= reg 0x4C) carrier TL=0 (= max output) 維持 post-`fm_volume_hook_pmddotnet` (= fix B 経路、 carrier-only write 確認)
+- gate δ-2: modulator TL untouched = voice 001 OP1/OP2/OP3 (= reg 0x40/0x44/0x48) TL=17/25/38 (= voice data exact 値) post-`fm_volume_hook_pmddotnet` (= fix B carrier mask 経路、 modulator 上書き発生せず)
+- gate δ-3: voice opcode dispatch regression-free (= ADR-0072 既存機能 regression 防止 = `comat` routine + voice_table 1-based offset + #FFFile support all functional、 voice 001 TL=0x11/0x19 voice data load 確認)
+- gate δ-4: 既存 18+ verify script regression-free (= ADR-0049〜0072 全 verify gate transitively PASS、 ADR-0071/0072 δ verify pattern 継承)
+- gate **δ-5: `scripts/analyze-audition-wav.py` engineering gate 4 層 ALL PASS** = **特に Layer 1 WAV hygiene = wav RMS > -60 dBFS で audio audible confirm** = **primary success metric** (= ADR-0072 ε -76 dBFS quiet の根本治療 confirm)
+- gate δ-6: ADR-0050 fade factor 経路継承 = `pmdneo_fade_scale` (= fade_level=64 passthrough) 経路 untouched 確認 = ADR-0050 β fade scale 経路 regression-free
+- gate δ-7: MML v0-v15 段階制御回復確認 = test fixture で v0 → ほぼ silent / v8 → 中庸 / v15 → max output に対応する TL register trace + audio RMS dBFS 段階性確認 (= fix A 二重変換解消 evidence)
+
+### β-1-9: rollback condition (= sprint α §決定 6 17 condition 継承 + β plan v1 refinement)
+
+ADR-0071 §決定 6 11 condition + ADR-0072 §決定 6 #12/#13 + sprint α §決定 6 #14/#15/#16/#17 = 計 17 condition **完全継承**。
+
+β plan v1 refinement (= γ impl 時の trigger 条件具体化):
+
+- **#14 audio audible regression on default voice trigger 具体化** = ADR-0073 γ impl 後 既存 `src/test-fixtures/adr-0072/test-voice-load.mml` で `scripts/analyze-audition-wav.py` Layer 1 rms 悪化 (= ADR-0072 ε -76 dBFS より更に低下、 例えば -80 dBFS) → 即 sub-sprint halt + revert + design 再評価
+- **#15 δ-5 Layer 1 FAIL on ADR-0073 new fixture trigger 具体化** = `src/test-fixtures/adr-0073/test-volume-baseline.mml` Layer 1 rms ≤ -60 dBFS = primary success metric 未達 → 1 retry → 再 FAIL なら sub-sprint halt + 仮説 priority 再評価
+- **#16 ADR-0072 既存機能 regression trigger 具体化** = ADR-0073 γ impl 後 MAME ymfm-trace で `reg 0x40 = 0x11` (= voice 001 OP1 TL=17 exact load、 ADR-0072 ε で確認済 baseline) が消失 or `voice_table[1] = voice0_data` 1-based offset 経路 broken → 即 sub-sprint halt + revert + ADR-0072 ε state baseline 再確認
+- **#17 fix A/B/C 単独実装の追加 finding 由来 pivot 必要性発覚 trigger 具体化** = β plan iteration で fix A+B+C 統合適用 (= 本 plan v1) では root cause 解消不可能と判明時 (= 例: fix B 内 `pmdneo_get_voice_ptr` 経路実装不可能 finding) → user 明示 GO 必須 + 別 fix path 採用判断 (= main agent 自走では実施しない)
+
+#### 共通原則 (= ADR-0069 §決定 5 + ADR-0071 §決定 6 + ADR-0072 §決定 6 + sprint α §決定 6 完全継承)
+
+- 軽微 fix-up (= condition #2 / #4 / #8a / #8b) = 連鎖 commit fix-up
+- sub-sprint 単位 halt (= condition #1 / #3 / #5 / #6 / #7 / #9 / #14 / #15 / #16) = ADR-0065 β PR3 halt precedent 同形
+- ADR-0073 全体 halt (= condition #10 / #17) = Draft 維持 + 全 sub-sprint rollback record + 後続 ADR dependency update
+- **destructive git 操作禁止** = `git reset --hard` / `git push --force` / `git checkout --` 等は user 明示なし禁止、 `git revert` のみ採用
+
+### β-1-10: Codex Rescue plan review 重点軸 (= sprint β round 1 投入 mandate)
+
+| 軸 | scope literal |
+|---|---|
+| **AXIS-R1: root cause correctness** | sprint α Annex α-1〜α-6 確定 root cause 3 件 + (+) default vol mismatch が plan v1 fix A/B/C で **完全 cover** + literal source 整合 (= driver source / PMD V4.8s / PMDDotNET ground truth literal) |
+| **AXIS-R2: fix correctness (= 3 件統合妥当性)** | fix A 単独不可 + fix B 単独不可 + fix C conditional 論理 (= β-1-2 §) が妥当 + PMD V4.8s `volset_slot` 数式 + carrier mask 経路 port が PMD MML 音量 semantics 完全継承 path |
+| **AXIS-R3: allowed-touch limited** | γ で touch する file が `src/driver/standalone_test.s` 3 routine guarded change + 0x0610 セクション末尾 additive + 新規 fixture + 新規 verify script + doc/dashboard のみ + 不可触対象 全 untouched mandate 反映 |
+| **AXIS-R4: sha256 維持可否** | guarded change `.if PMDNEO_USE_PMDDOTNET ... .endif` 配下限定 + flag-off byte-identical 保証 + 4 build matrix B1-B4 spec + .lst predicate 4 件 + production baseline `457a237c...` 維持 mandate |
+| **AXIS-R5: ADR-0072 既存機能 regression 防止** | δ-3 gate (= voice opcode dispatch + voice_table 1-based offset + #FFFile support functional 維持) + #16 rollback condition trigger 具体化 + ADR-0072 で touch した compile.py + build-poc.sh は本 ADR-0073 で完全不変 mandate |
+| **AXIS-R6: fix B implementation feasibility** | `pmdneo_get_voice_ptr` 経路 + `PART_OFF_FM_ALG` cache offset 新規追加 vs voice data 末尾 reg 0xB0 都度 read + per-op loop 詳細展開 + carrier mask bit & 1 == 1 → voice TL + ~V - 0x80 saturate → ym2610_write_port_* logic feasibility (= ADR-0058 v2 PartWork 不可触 mandate 抵触なし) |
+| **AXIS-R7: verify gate executability** | δ-1〜δ-7 gate spec が MAME ymfm-trace + analyze-audition-wav.py + 既存 verify script で機械実行可能 + γ-1〜γ-5 build verify spec が scripts/build-poc.sh + z80dasm で機械実行可能 |
+| **AXIS-R8: rollback condition triggerability** | 17 condition + β plan v1 refinement #14/#15/#16/#17 trigger 具体化が γ impl 後 machine-detect 可能 + sub-sprint halt + revert 手順 literal |
+
+#### Codex Rescue review-only mandate 6 件 (= 冒頭 literal 強調)
+
+1. no commit
+2. no file change
+3. no branch
+4. no merge
+5. no GitHub write
+6. return judgment + findings only (= approve / revise + must-fix / nice-to-have / latent-risk + per-axis verdict)
+
+placeholder response (= 「バックグラウンドで実行中です」 等) 禁止 = 機械復旧 rule cancel + 1 retry 適用 (= memory `feedback_long_running_hang_auto_recovery_rule.md` + `feedback_codex_rescue_always_monitor.md`)。
+
+## Annex β-2: repair plan v2 (= sprint β round 1 Codex revise 反映 + must-fix 4 + nh 2 + lr 2 全反映、 round 2 投入 target、 plan v1 supersede)
+
+### β-2-0: round 1 Codex Rescue plan review 結果 + plan v1 supersede pointer
+
+**round 1 (= agentId `a5f9c31df62103a6a`、 elapsed 約 4m 31s) judgment = revise** + 4 must-fix + 2 nice-to-have + 2 latent-risk + 越権操作なし confirmed:
+
+| 軸 | 結果 |
+|---|---|
+| AXIS-R1 root cause correctness | PASS |
+| AXIS-R2 fix correctness 3 件統合妥当性 | **FAIL** (= MF-1) |
+| AXIS-R3 allowed-touch limited | **FAIL** (= MF-2) |
+| AXIS-R4 sha256 維持可否 | **FAIL** (= MF-3) |
+| AXIS-R5 ADR-0072 既存機能 regression 防止 | PASS |
+| AXIS-R6 fix B implementation feasibility | **FAIL** (= MF-2 carry) |
+| AXIS-R7 verify gate executability | **FAIL** (= MF-4) |
+| AXIS-R8 rollback condition triggerability | **FAIL** (= #15/#17 carry) |
+
+**plan v1 supersede**: 本 Annex β-2 plan v2 が plan v1 (= Annex β-1) を **完全 supersede** (= memory `feedback_doc_governance_two_systems.md` immutable history mandate 整合 = plan v1 は immutable carry、 本 plan v2 が round 1 finding 反映 ground truth)。
+
+### β-2-1: plan v2 = round 1 must-fix 4 件反映 + fix A+B+C 統合採用 carry
+
+| MF | 反映内容 | 該当 sub-section |
+|---|---|---|
+| **MF-1** = fix C FM part 限定 | `pmdneo5_init_part` 内 `ld c, #108` override を chip_type=FM 判定後限定 (= `cp #PART_SSG1` 経由分岐、 SSG/PCM/ADPCM-A/Rhythm/FM3EXT untouched) | β-2-4 |
+| **MF-2** = fix B voice data 再取得設計 | SRAM 0xFD62-0xFD6D (= 12 byte free region) 内 FM 6 ch 用 voice ptr cache 配置 + `comat` 内 voice ptr 保存追加 + `fm_volume_hook_pmddotnet` 内 ch_idx → ptr lookup、 `PART_OFF_INSTRUMENT` 流用回避 (= LR-1 mitigation)、 ADR-0058 v2 PartWork 不可触 mandate 抵触なし、 allowed-touch 拡張 = `comat` も guarded change touch 対象 | β-2-3 / β-2-5 |
+| **MF-3** = sha256 target artifact 修正 | `build/ipl/rom.p1` ❌ → **`vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1`** ✅ (= main agent 直接 verify confirmed = `457a237c...` 完全一致) | β-2-6 |
+| **MF-4** = verify command 実行可能化 | B1-B4 sha256 + diff + δ-5 WAV RMS + δ-7 v0-v15 trace/RMS の executor literal command 固定 (= placeholder なし) | β-2-7 |
+
+### β-2-2: fix A 実装案 v2 (= plan v1 β-1-3 unchanged literal carry、 supersede pointer only)
+
+plan v1 β-1-3 `comv` (= line 3972-4003) guarded change literal は **plan v2 で完全保持** (= `.if PMDNEO_USE_PMDDOTNET` 配下 byte 直接 store + `.else` 配下既存 logic 完全保存)。 must-fix 影響なし、 carry。
+
+### β-2-3: fix B 実装案 v2 (= round 1 MF-2 + AXIS-R6 反映 = voice ptr cache 設計確定)
+
+**SRAM voice ptr cache 配置** (= 新規 equ 7 件、 PMDDOTNET 経路限定):
+
+```
+;; ADR-0073 fix B v2 (= MF-2 反映): FM ch 別 current voice ptr cache、
+;; 0xFD62-0xFD6D (= 12 byte) free region 占有、 PMDDOTNET 経路限定 (= guarded change 配下)
+.equ    driver_pmddotnet_fm_voice_ptr_ch0,  0xFD62
+.equ    driver_pmddotnet_fm_voice_ptr_ch1,  0xFD64
+.equ    driver_pmddotnet_fm_voice_ptr_ch2,  0xFD66
+.equ    driver_pmddotnet_fm_voice_ptr_ch3,  0xFD68
+.equ    driver_pmddotnet_fm_voice_ptr_ch4,  0xFD6A
+.equ    driver_pmddotnet_fm_voice_ptr_ch5,  0xFD6C
+.equ    driver_pmddotnet_fm_voice_ptr_base, 0xFD62
+```
+
+**SRAM 占有 verify** (= main agent 直接 confirm):
+- 既存 SRAM map = 0xFD20-0xFD61 (= PNE + ppc_scratch + audition + v2 markers + adpcmb_shim + ppc_bit7_scratch) + 0xFD79+ (= pmdneo_v2_partwork_base)
+- **0xFD62-0xFD78 = 23 byte free region** (= ADR-0072 plan v3 driver-side fix 全 revert で未使用)
+- 12 byte 占有 (= 0xFD62-0xFD6D) で 11 byte 残余 (= 0xFD6E-0xFD78) carry
+
+**`comat` 内 voice ptr 保存追加** (= line 4419-4439 への guarded change additive、 FM path 限定):
+
+```
+comat:
+        call    pmdneo_part_fetch_byte    ; A = voice index (0-based)
+        ld      c, a
+        ld      a, PART_OFF_CHIP_TYPE(ix)
+        cp      #2
+        jp      z, comat_pcm
+        or      a
+        jp      nz, comat_done
+        ld      l, c
+        ld      h, #0
+        add     hl, hl
+        ld      de, #voice_table
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)
+        ex      de, hl                    ; HL = voiceN_data address
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B v2: FM ch 別 voice ptr cache 保存
+        push    hl
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #6                        ; FM ch 0-5 のみ cache
+        jr      nc, _pmdneo_comat_no_cache
+        sla     a                         ; A = ch_idx * 2
+        ld      c, a
+        ld      b, #0
+        ld      hl, #driver_pmddotnet_fm_voice_ptr_base
+        add     hl, bc                    ; HL = cache addr
+        pop     de                        ; DE = voice ptr
+        ld      (hl), e
+        inc     hl
+        ld      (hl), d
+        ex      de, hl                    ; HL = voice ptr 復元
+        jr      _pmdneo_comat_set
+_pmdneo_comat_no_cache:
+        pop     hl
+_pmdneo_comat_set:
+.endif
+        ld      b, PART_OFF_CH_IDX(ix)
+        call    pmdneo_fm_voice_set
+comat_done:
+        ret
+```
+
+**`fm_volume_hook_pmddotnet` 内 voice ptr 再取得 logic** (= plan v1 β-1-4 refinement、 概念展開):
+
+- step 1: PART_OFF_CH_IDX → cache addr lookup (= base + ch_idx*2)
+- step 2: cache addr → DE = voice ptr 復元
+- step 3: voice ptr + 24 → reg 0xB0 byte (ALG/FBL) fetch → A = ALG (0-7)
+- step 4: fm_carrier_table[ALG] → carrier mask (= bit 7-4 = OP4/3/2/1)
+- step 5: PART_OFF_VOLUME → pmdneo_fade_scale (= ADR-0050 β passthrough) → ~V (= cpl)
+- step 6: per-op unrolled loop (slot 0-3) = mask bit 確認 → voice TL fetch (= voice ptr + 4 + slot) → additive (= voice TL + ~V - 0x80 saturate) → ym2610_write_port_* (reg 0x40 + slot*4 + ch index、 ch < 3 → port A、 ch >= 3 → port B)
+
+**詳細 Z80 assembly literal** は γ impl 時に展開 (= plan v2 では概念 + ~120 byte 推定で acknowledge、 γ 時に refine)。
+
+**LR-1 mitigation**:
+- `PART_OFF_INSTRUMENT` (= offset 31、 ADPCM-A voice idx) **流用しない** = SRAM 0xFD62-0xFD6D 別領域採用で semantic 混同回避 confirmed
+
+**LR-2 acknowledge**:
+- fix A で PMDDotNET path `PART_OFF_V_SCALE` / `PART_OFF_VOLUME_SHIFT` bypass = `comvshift_up/down` (= line 4011-4037) は本 ADR-0073 で touch しない
+- δ-7 内に v+/v- emit verify gate 追加 (= LR-2 mitigation) = `bash scripts/build-poc.sh --emit-bytes-only src/test-fixtures/adr-0073/test-v-shift-coverage.mml | grep -E "0xDE\|0xDD"` で emit 確認、 emit あれば #18 rollback condition trigger (= γ scope 拡張 user 明示 GO 必須)、 emit なければ scope-out OK
+
+**patch byte estimate v2** (= NH-2 反映):
+- fix A: ~25 byte 減
+- fix B: `fm_volume_hook_pmddotnet` ~120 byte + `fm_carrier_table` 8 byte = ~128 byte 増
+- fix B comat additive: ~25 byte 増
+- fix C: ~8 byte 増 (= chip_type 判定込み)
+- 新規 SRAM equ: 0 byte (= equ は size 占有なし、 cache 実体は 12 byte SRAM 占有)
+- **合計 patch byte 量推定 = ~136 byte 増 net** (= plan v1 70 byte 推定から +66 byte 増)
+
+### β-2-4: fix C 実装案 v2 (= round 1 MF-1 反映 = FM part 限定)
+
+**修正方式** = `pmdneo5_init_part` line 3481-3505 内 PART_OFF_VOLUME store 直前に **chip_type=FM 先行判定**:
+
+```
+pmdneo5_init_part:
+        push    hl
+        push    bc
+        call    pmdneo_part_ix_from_part
+        pop     bc
+        pop     hl
+        ld      d, a                      ; D = part_id
+        ld      PART_OFF_ADDR(ix), l
+        ld      PART_OFF_ADDR+1(ix), h
+        xor     a
+        ld      PART_OFF_LOOP(ix), a
+        ld      PART_OFF_LOOP+1(ix), a
+        ld      PART_OFF_LEN(ix), a
+        ld      PART_OFF_GATE(ix), a
+        ld      PART_OFF_TRANSPOSE(ix), a
+        ld      PART_OFF_FLAGS(ix), a
+        ld      a, #4
+        ld      PART_OFF_OCTAVE(ix), a
+        ld      PART_OFF_CH_IDX(ix), b
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix C v2 (= MF-1 反映): FM part 限定 default vol 108、
+        ;; SSG/PCM/ADPCM-A/Rhythm/FM3EXT は caller 渡し c carry
+        ld      a, d                      ; A = part_id
+        cp      #PART_SSG1                ; part_id < 6 (= FM1-FM6) のみ override
+        jr      nc, _pmdneo5_init_part_vol_default
+        ld      c, #108                   ; FM default vol 108 (= PMD V4.8s PMD.ASM:558 port)
+_pmdneo5_init_part_vol_default:
+.endif
+        ld      PART_OFF_VOLUME(ix), c
+        xor     a
+        ld      PART_OFF_VOLUME_SHIFT(ix), a
+        ld      PART_OFF_V_SCALE(ix), a
+        ld      a, d
+        ;; ... (= 既存 chip_type 分岐 完全保存)
+```
+
+**注意**:
+- `PART_FM1`〜`PART_FM6` (= 0-5) = `cp #PART_SSG1=6` で `jr nc` 経由 FM 確定、 override 適用
+- `PART_SSG1`〜`PART_PCM` (= 6-9)、 `PART_PCMA_K`〜`PART_PCMA_Q` (= 10-16)、 `PART_FM3EXT_X`〜`PART_FM3EXT_Z` (= 17-19) = `jr nc` で skip、 caller 渡し `c=#0x0F` carry
+- FM3EXT は ADR-0006 §H literal で「当面 mute」 + chip_type=FM 扱いだが volume 影響なし (= mute)、 override 不要
+
+**patch byte 量推定**: 8 byte 増 (= ld a,d + cp #6 + jr nc + ld c,#108 + label)
+
+### β-2-5: allowed-touch literal v2 (= round 1 MF-2 反映 = fix B comat scope 拡張)
+
+#### 修正対象 (= γ で touch)
+
+- **`src/driver/standalone_test.s`**:
+  - line 3481-3505 `pmdneo5_init_part` (= fix C v2 guarded change ~8 byte 増 in flag-on)
+  - line 3972-4003 `comv` (= fix A guarded change、 plan v1 unchanged)
+  - **line 4419-4439 `comat`** (= fix B v2 新規 scope = guarded change additive voice ptr cache 保存 ~25 byte 増 in flag-on)
+  - line 4472-4529 `fm_volume_hook` (= fix B guarded change dispatch、 plan v1 unchanged)
+  - 0x0610 セクション末尾 (= `fm_carrier_table` 8 byte + `fm_volume_hook_pmddotnet` ~120 byte additive)
+  - SRAM equ 新規 7 件 (= `driver_pmddotnet_fm_voice_ptr_chN` × 6 + base、 0xFD62-0xFD6D = 12 byte 占有 in PMDDOTNET 経路)
+- **`src/test-fixtures/adr-0073/`** (= 新規 directory):
+  - `test-volume-baseline.mml`
+  - `test-v-shift-coverage.mml` (= LR-2 mitigation gate fixture)
+  - `verify-volume-scaling.sh` (= 4 build matrix + TL trace + audio rms threshold gate)
+- `docs/adr/0073-pmdneo-driver-fm-volume-scaling-semantics-repair.md` (= 本 ADR doc maintenance)
+- `docs/parallel-axes-dashboard.md` (= 0073 行 + escalation 履歴)
+
+#### 不可触対象 (= plan v1 β-1-6 carry + plan v2 追加)
+
+plan v1 β-1-6 不可触 list **完全 carry** + 追加:
+- `PART_OFF_INSTRUMENT` (= offset 31、 ADPCM-A voice idx) 完全不変 (= LR-1 mitigation)
+- `comvshift_up` / `comvshift_down` / `comvscale_up` / `comvscale_down` (= line 4011-4048) **完全不変** (= LR-2 scope-out、 verify gate で coverage 確認のみ)
+- `pmdneo_fm_voice_set` (= line 1315 周辺) 完全不変 (= fix B は新規 hook additive で対応)
+
+### β-2-6: production sha256 維持戦略 v2 (= round 1 MF-3 反映 = artifact path 修正)
+
+production sha256 = `457a237cd696e09bc99f707d13bc8851c75faf7225eee5e0d4c7111980ca9092` **維持 mandate**、 active artifact = **`vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1`** (= main agent 直接 verify、 plan v1 `build/ipl/rom.p1` 誤りを fix)。
+
+#### 4 build matrix verify (= MF-3 + MF-4 反映)
+
+| build | flag | fixture | 期待 sha256 |
+|---|---|---|---|
+| **(B1) production baseline** | `PMDNEO_USE_PMDDOTNET=0` | no PMDDOTNET_MML | == `457a237c...` byte-identical |
+| **(B2) post-patch flag-off** | `PMDNEO_USE_PMDDOTNET=0` + ADR-0073 patch 全適用 | no PMDDOTNET_MML | == (B1) byte-identical |
+| **(B3) flag-on pre-patch** | `PMDNEO_USE_PMDDOTNET=1` + ADR-0072 ε state | `src/test-fixtures/adr-0073/test-volume-baseline.mml` | ADR-0072 ε baseline (= 別値、 γ impl 時記録) |
+| **(B4) flag-on post-patch** | `PMDNEO_USE_PMDDOTNET=1` + ADR-0073 patch 全適用 | 同上 | (B3) と diff = ADR-0073 patch byte のみ |
+
+#### 検証 command literal v2 (= 全 placeholder 排除、 機械実行可能)
+
+```bash
+# (B1) production baseline
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1
+# 期待 = 457a237cd696e09bc99f707d13bc8851c75faf7225eee5e0d4c7111980ca9092
+
+# (B2) post-patch flag-off byte-identical
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=0 scripts/build-poc.sh
+sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1
+# 期待 = (B1) と byte-identical
+
+# (B3) flag-on pre-patch (= γ impl 前に ADR-0072 ε state で record)
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=src/test-fixtures/adr-0073/test-volume-baseline.mml scripts/build-poc.sh
+sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1 > /tmp/adr-0073-b3-sha256.txt
+cp vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1 /tmp/adr-0073-b3.m1
+
+# (B4) flag-on post-patch
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=src/test-fixtures/adr-0073/test-volume-baseline.mml scripts/build-poc.sh
+sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1 > /tmp/adr-0073-b4-sha256.txt
+
+# (B3) vs (B4) diff (= 患部 routine のみ確認)
+z80dasm /tmp/adr-0073-b3.m1 > /tmp/adr-0073-b3.asm
+z80dasm vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1 > /tmp/adr-0073-b4.asm
+diff /tmp/adr-0073-b3.asm /tmp/adr-0073-b4.asm
+# 期待 = comv + comat + fm_volume_hook + pmdneo5_init_part + fm_carrier_table + fm_volume_hook_pmddotnet のみ diff
+```
+
+#### `.lst` predicate v2 (= 5 件、 plan v1 4 件 + voice ptr cache predicate 追加)
+
+- predicate 1 = `fm_carrier_table` symbol assemble PASS + 0x0610 セクション末尾配置確認
+- predicate 2 = `fm_volume_hook_pmddotnet` symbol assemble PASS
+- predicate 3 = 新規 SRAM equ 7 件 assemble PASS
+- predicate 4 = 既存 `comv` / `fm_volume_hook` / `pmdneo5_init_part` / `comat` routine body の `.else` 配下 byte-identical 維持
+- predicate 5 = 既存 symbol table 順序不変
+
+### β-2-7: verify gate literal v2 (= round 1 MF-4 反映 = executor command 固定)
+
+#### γ build verify (= plan v1 β-1-8 unchanged + sha256 artifact path 修正)
+
+- gate γ-1〜γ-5 (= plan v1 carry + sha256 artifact 修正 + .lst predicate 5 件)
+
+#### δ functional verify literal command (= 各 gate executor 経路固定)
+
+- **gate δ-1**: voice register TL trace
+  ```bash
+  mame -seconds_to_run 5 -trace /tmp/adr-0073-d1-ymfm.tsv neogeo
+  grep -E "^[0-9]+\s+A\s+4C" /tmp/adr-0073-d1-ymfm.tsv | head -10
+  # 期待 = reg 0x4C (OP4 carrier) = 0x00 (= voice 001 TL=0 max output 維持)
+  ```
+- **gate δ-2**: modulator TL voice data exact 維持
+  ```bash
+  grep -E "^[0-9]+\s+A\s+(40|44|48)\s" /tmp/adr-0073-d1-ymfm.tsv | head -10
+  # 期待 = reg 0x40=0x11 (OP1 TL=17) + reg 0x44=0x19 (OP2 TL=25) + reg 0x48=0x26 (OP3 TL=38)
+  ```
+- **gate δ-3**: ADR-0072 既存機能 voice opcode dispatch regression-free
+  ```bash
+  # voice 001 load 経路 confirm (= ADR-0072 ε baseline と同 trace)
+  diff <(grep -E "^[0-9]+\s+A\s+(30|40|50|60|70|80|B0)" /tmp/adr-0073-d1-ymfm.tsv) <(grep -E "^[0-9]+\s+A\s+(30|40|50|60|70|80|B0)" /tmp/adr-0072-eps-ymfm.tsv)
+  # 期待 = voice load 経路 trace は ADR-0072 ε baseline と一致 (= modulator/carrier 計算の追加 write のみ post-hook で差分)
+  ```
+- **gate δ-4**: 既存 18+ verify script regression-free
+  ```bash
+  for sh in $(find src/test-fixtures -name "verify-*.sh" -path "*adr-00[0-9][0-9]*"); do
+      bash "$sh" || echo "FAIL: $sh"
+  done
+  # 期待 = ALL PASS (= ADR-0049〜0072 全 verify gate)
+  ```
+- **gate δ-5 (= primary success metric)**: `scripts/analyze-audition-wav.py` engineering gate 4 層 ALL PASS
+  ```bash
+  mame -seconds_to_run 5 -wavwrite /tmp/adr-0073-d5.wav neogeo
+  python3 scripts/analyze-audition-wav.py /tmp/adr-0073-d5.wav --layer 1
+  # 期待 = Layer 1 PASS = wav RMS > -60 dBFS (= ADR-0072 ε -76 dBFS の根本治療 confirm)
+  # JSON output 全 4 layer = pass mandate
+  ```
+- **gate δ-6**: ADR-0050 fade factor 経路継承
+  ```bash
+  # fade_level memory probe (= MAME debugger 経由 or z80-mem-trace)
+  # 期待 = pmdneo_v2_fade_level (= 0xFD39) = 64 (= 無減衰) 維持
+  ```
+- **gate δ-7**: MML v0-v15 段階制御回復確認 + v+/v- coverage gate (= LR-2 mitigation)
+  ```bash
+  for v in 0 8 15; do
+      sed "s/v15/v${v}/" src/test-fixtures/adr-0073/test-volume-baseline.mml > /tmp/adr-0073-v${v}.mml
+      make -C vendor/ngdevkit-examples/00-template clean
+      PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML=/tmp/adr-0073-v${v}.mml scripts/build-poc.sh
+      mame -seconds_to_run 3 -wavwrite /tmp/adr-0073-d7-v${v}.wav neogeo
+      python3 scripts/analyze-audition-wav.py /tmp/adr-0073-d7-v${v}.wav --layer 1 --rms-only
+  done
+  # 期待 = v0 ≈ -90 dBFS / v8 ≈ -30〜-40 dBFS / v15 ≈ -10 dBFS (= 段階性)
+  # v+/v- emit coverage check
+  bash scripts/build-poc.sh --emit-bytes-only src/test-fixtures/adr-0073/test-v-shift-coverage.mml | grep -E "0xDE|0xDD"
+  # 期待 = emit なし (= PMDDotNET 経路で v+/v- 未使用) → LR-2 scope-out OK
+  # 期待 = emit あり → #18 rollback condition trigger (= γ scope 拡張 user 明示 GO 必須)
+  ```
+
+### β-2-8: rollback condition v2 (= plan v1 β-1-9 unchanged + plan v2 #18 追加)
+
+plan v1 β-1-9 17 condition + refinement trigger **完全 carry** + 1 condition 追加:
+
+| # | trigger 具体化 |
+|---|---|
+| **#14** | audio audible regression on default voice = `test-voice-load.mml` Layer 1 rms 悪化 → 即 halt + revert |
+| **#15** | δ-5 Layer 1 FAIL on `test-volume-baseline.mml` = wav RMS ≤ -60 dBFS、 1 retry → 再 FAIL なら halt |
+| **#16** | ADR-0072 既存機能 regression = `reg 0x40=0x11` 消失 or `voice_table[1]` 経路 broken → 即 halt + revert |
+| **#17** | fix A+B+C 統合不可 finding 由来 pivot = γ impl で voice ptr cache 設計欠陥 or per-op loop 実装不可能 finding → user 明示 GO 必須 |
+| **#18 (new)** | LR-2 v+/v- coverage FAIL = δ-7 で PMDDotNET 経路 `0xDE`/`0xDD` opcode emit 確認 + `comvshift_*` saturate 未対応で regression → γ scope 拡張 user 明示 GO 必須 |
+
+**合計 18 condition** + 4 段 stop action + 3 段 responsibility + destructive git 禁止 (= `git revert` のみ)。
+
+### β-2-9: Annex β-3 / β-4 / β-5 placeholder 整理 (= round 1 NH-1 反映)
+
+旧 plan v1 末尾の `## Annex β-2 / β-3 / β-4 / β-5: placeholder` 重複 header (= 2 件) は本 plan v2 で `## Annex β-2` literal fill した結果 supersede。 後続 round 3/4/5 用 placeholder は **単一化** = `## Annex β-3 / β-4 / β-5: placeholder (= sprint β round 3/4/5 iteration、 fill 予定)`。
+
+### β-2-10: Codex Rescue plan review round 2 投入 mandate
+
+#### round 2 重点 review 軸 (= plan v1 8 軸 carry + plan v2 反映確認軸 追加)
+
+- AXIS-R1〜R8 (= plan v1 carry)
+- **AXIS-R9 (= 新規)**: round 1 must-fix 4 + nh 2 + lr 2 全反映 confirm
+  - MF-1 fix C FM part 限定 = β-2-4 §
+  - MF-2 fix B voice data 再取得設計 (= SRAM cache + comat 保存 + helper lookup) = β-2-3 / β-2-5 §
+  - MF-3 sha256 artifact path = β-2-6 §
+  - MF-4 verify command literal = β-2-7 §
+  - NH-1 placeholder header 整理 = β-2-9 §
+  - NH-2 fix B byte estimate (= ~136 byte 増 net) = β-2-3 §
+  - LR-1 `PART_OFF_INSTRUMENT` 流用回避 (= SRAM 別領域) = β-2-3 §
+  - LR-2 v+/v- coverage acknowledge (= #18 condition + δ-7 emit verify) = β-2-7 / β-2-8 §
+
+#### review-only mandate 6 件 literal carry (= round 1 同)
+
+## Annex β-3: repair plan v3 (= sprint β round 2 retry Codex revise 反映 + must-fix 4 + lr 1 全反映、 round 3 投入 target、 plan v2 supersede)
+
+### β-3-0: round 2 retry Codex Rescue plan review 結果 + plan v2 supersede pointer
+
+**round 2 attempt 1 (= agentId `a2bcaf558e1d7cdde`、 elapsed 2m 32s) = placeholder response** (= 「バックグラウンドで Codex layer 2 review task を起動しました」 のみ、 実 review 不実施) = 機械復旧 rule cancel + 1 retry 適用 (= 過去 ADR-0071 plan round 4 + ADR-0072 plan round 4 + ADR-0072 impl round 2 + ADR-0065 β PR3 impl round 1 同 pattern 5 回目)。
+
+**round 2 retry (= agentId `a605d14a0e3eb0c34`、 elapsed 約 4m 36s) judgment = revise** + 4 must-fix (= 全 new) + 0 nh + 1 latent-risk (= new) + 越権操作なし confirmed:
+
+| 軸 | 結果 |
+|---|---|
+| AXIS-R1 root cause correctness | **FAIL** (= MF-new-1 byte literal 矛盾) |
+| AXIS-R2 fix correctness | PASS |
+| AXIS-R3 allowed-touch limited | PASS |
+| AXIS-R4 sha256 維持可否 | PASS |
+| AXIS-R5 ADR-0072 既存機能 regression 防止 | PASS |
+| AXIS-R6 fix B implementation feasibility | **FAIL** (= MF-new-2 default voice load 経路 cache 未初期化) |
+| AXIS-R7 verify gate executability | **FAIL** (= MF-new-3 実 CLI 不一致) |
+| AXIS-R8 rollback condition triggerability | **FAIL** (= MF-new-4 + #18 emit verify 実行不能) |
+| AXIS-R9 round 1 finding 全反映 confirm | **FAIL** (= MF-4 反映 PARTIAL FAIL + LR-2 反映 PARTIAL FAIL = R7/R8 FAIL と同体) |
+
+**plan v2 supersede**: 本 Annex β-3 plan v3 が plan v2 (= Annex β-2) を **完全 supersede** (= memory `feedback_doc_governance_two_systems.md` immutable history mandate 整合 = plan v2 は immutable carry、 本 plan v3 が round 2 retry finding 反映 ground truth)。
+
+### β-3-1: plan v3 = round 2 retry must-fix 4 件 + lr 1 件反映
+
+| MF/LR | 反映内容 | 該当 sub-section |
+|---|---|---|
+| **MF-new-1** = v15 byte literal 矛盾修正 | ADR α-2 agent 2 finding 内「`fmvol[15] = 127-0x05 = 0x7A = 122`」 は **誤記**、 正は **`fmvol[15] = 127-0x02 = 0x7D = 125`** (= `fmvol[14]=122`)、 driver `v_to_V_fm` line 5704 実値 = `85, 87, 90, 93, 95, 98, 101, 103, 106, 109, 111, 114, 117, 119, 122, 125, 127` で **v15=125** 確定 = main agent 直接 verify confirmed、 α-2 = immutable history mandate で書換禁止 → plan v3 内 supersede note 追記で対応 (= ADR-0072 plan v3 Annex β-3-3 で agent 1 finding 誤記訂正 precedent 同形) | β-3-3 |
+| **MF-new-2** = fix B voice ptr cache default voice load 経路対応 | `pmdneo_fm_voice_set_default` (= line 1311-1313) = init-time default voice load 経路、 `@`/`comat` を通らない、 plan v2 では voice ptr cache 未初期化問題、 default voice + v cmd で fm_volume_hook_pmddotnet が未定義 cache lookup → 破滅的 regression risk、 対策 = `pmdneo_fm_voice_set_default` allowed-touch 追加 + guarded change cache 初期化 | β-3-3 |
+| **MF-new-3** = δ-5 / δ-7 executor command 実 CLI 整合 | `analyze-audition-wav.py` 実 CLI = `--wav --trace --expected --output-json --output-report` mandatory、 `--layer 1` / `--rms-only` 不在 + `build-poc.sh --emit-bytes-only` 不在 (= `--chip` のみ)、 plan v2 δ-5 / δ-7 command 修正必要 = main agent 直接 verify confirmed | β-3-7 |
+| **MF-new-4** = δ-4 / #18 fail-fast / machine-detect 可能化 | `\|\| echo "FAIL: $sh"` は exit code 反映なし、 #18 emit 判定も `build-poc.sh --emit-bytes-only` 不在で実行不能、 修正 = `set -euo pipefail` + 明示 exit code + jq exit code + xxd grep emit verify | β-3-7 / β-3-8 |
+| **LR-new-1** = ADR-0072 ε baseline 生成 command 追加 | plan v2 β-2-7 δ-3 gate `/tmp/adr-0072-eps-ymfm.tsv` baseline 参照あるが生成手順なし = stale file 参照 risk、 修正 = γ verify gate 内で baseline 生成 (= git stash + checkout 78a1087 + build + MAME trace + checkout return + git stash pop) | β-3-7 |
+
+### β-3-2: fix A 実装案 v3 (= plan v2 β-2-2 unchanged carry、 supersede pointer only)
+
+plan v2 β-2-2 `comv` (= line 3972-4003) guarded change literal は **plan v3 で完全保持** (= round 2 retry AXIS-R1 byte literal 矛盾は α-2 supersede note + plan v3 訂正で対応、 fix A 実装案自体は影響なし、 byte 直接 store は V byte 値 122/125/127 いずれでも正しい semantics 復元)。
+
+### β-3-3: fix B 実装案 v3 (= MF-new-1 + MF-new-2 反映)
+
+#### MF-new-1 反映 = α-2 supersede note (= ADR α-2 immutable carry + plan v3 で誤記訂正)
+
+**α-2 既存 literal record の誤記** (= immutable history、 plan v3 で supersede note のみ):
+> α-2 軸 1: `work.bx = mml_seg.fmvol[15] = 127-0x05 = 0x7A = 122` ← **誤記**
+
+**plan v3 訂正 ground truth**:
+- `fmvol[]` table 17 entry **v0=85 / v1=87 / v2=90 / v3=93 / v4=95 / v5=98 / v6=101 / v7=103 / v8=106 / v9=109 / v10=111 / v11=114 / v12=117 / v13=119 / v14=122 / v15=125 / v16=127** (= byte-identical PMD V4.8s + PMDDotNET + PMDNEO、 driver `v_to_V_fm` line 5704 実値 = main agent 直接 verify confirmed)
+- **`mml_seg.fmvol[15] = 127-0x02 = 0x7D = 125`** (= v15 値) = α-3 agent 3 finding 軸 2 record と整合
+- α-2 軸 1 「`fmvol[15] = 127-0x05 = 0x7A = 122`」 は **誤記 = supersede**、 正は `fmvol[14] = 127-0x05 = 0x7A = 122` (= v14 値) + **`fmvol[15] = 127-0x02 = 0x7D = 125`** (= v15 値)
+- **PMDDotNET 経路 `v15` emit byte 訂正** = `vseta() → vset() → vset2()` で `work.bx = mml_seg.fmvol[15] = 125 = 0x7D` → **emit byte sequence = `0xFD 0x7D`** (= 旧 plan v2 「0xFD 0x7A」 誤記訂正)
+
+**root cause logic 影響**: byte literal 訂正後 (= 122 → 125) も `comv` 二重変換 bug は同根 (= 122/125/127 等いずれも `cp #17` clamp で v16=127 に丸まる)、 ADR-0073 root cause (= 二重 v→V 変換 + voice TL replace + carrier mask 不在) は **byte literal 訂正後も unchanged**。
+
+#### MF-new-2 反映 = `pmdneo_fm_voice_set_default` cache 初期化追加
+
+**問題**: plan v2 β-2-3 で voice ptr cache 書込が `comat` (= `@N` opcode handler) のみ、 `pmdneo_fm_voice_set_default` (= line 1311-1313、 init-time `init_chip_ch2_voice` 経由 default voice load) は別経路で cache 未初期化 → `fm_volume_hook_pmddotnet` で `driver_pmddotnet_fm_voice_ptr_chN` cache lookup → undefined value (= 0x0000 or random) → 未定義 memory address access → 破滅的 regression。
+
+**修正実装 literal** = `pmdneo_fm_voice_set_default` allowed-touch 追加 + guarded change cache 初期化:
+
+```
+pmdneo_fm_voice_set_default:
+        ld      hl, #fm_voice_data_default
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B v3 (= MF-new-2 反映): default voice load 経路 voice ptr cache 初期化
+        push    hl
+        ld      a, b                ; A = ch_idx (= caller 設定)
+        cp      #6                  ; FM ch 0-5 のみ cache (= ch 6+ は SSG/PCM、 safety)
+        jr      nc, _pmdneo_fmvs_default_no_cache
+        sla     a                   ; A = ch_idx * 2
+        ld      e, a
+        ld      d, #0
+        ld      hl, #driver_pmddotnet_fm_voice_ptr_base
+        add     hl, de              ; HL = cache addr
+        ex      de, hl              ; DE = cache addr
+        pop     hl                  ; HL = fm_voice_data_default 復元
+        push    hl
+        ld      a, l
+        ld      (de), a             ; cache[ch_idx*2] = LSB
+        inc     de
+        ld      a, h
+        ld      (de), a             ; cache[ch_idx*2+1] = MSB
+_pmdneo_fmvs_default_no_cache:
+        pop     hl
+.endif
+        jp      pmdneo_fm_voice_set
+```
+
+**patch byte estimate v3 更新**:
+- fix A: ~25 byte 減
+- fix B `fm_volume_hook_pmddotnet`: ~120 byte + `fm_carrier_table` 8 byte
+- fix B `comat` additive: ~25 byte
+- **fix B `pmdneo_fm_voice_set_default` additive (= new MF-new-2 反映): ~30 byte 増**
+- fix C: ~8 byte 増
+- **合計 patch byte 量推定 = ~166 byte 増 net** (= plan v2 136 byte 推定から +30 byte 増)
+
+**LR-1 mitigation carry** (= `PART_OFF_INSTRUMENT` 流用回避、 SRAM 別領域採用) = plan v2 unchanged carry。
+
+### β-3-4: fix C 実装案 v3 (= plan v2 β-2-4 unchanged carry、 supersede pointer only)
+
+plan v2 β-2-4 `pmdneo5_init_part` (= line 3481-3505) FM part 限定 guarded override literal は **plan v3 で完全保持** (= round 2 retry AXIS-R2 PASS、 fix C v2 妥当性 confirmed)。 patch byte 8 byte 増 unchanged carry。
+
+### β-3-5: allowed-touch literal v3 (= MF-new-2 反映 = `pmdneo_fm_voice_set_default` scope 追加)
+
+#### 修正対象 (= γ で touch) v3
+
+- **`src/driver/standalone_test.s`**:
+  - **line 1311-1313 `pmdneo_fm_voice_set_default`** (= fix B v3 新規 scope = guarded change additive cache 初期化 ~30 byte 増 in flag-on) **= new in plan v3**
+  - line 3481-3505 `pmdneo5_init_part` (= fix C v3 guarded change ~8 byte 増、 plan v2 carry)
+  - line 3972-4003 `comv` (= fix A guarded change、 plan v1/v2 carry)
+  - line 4419-4439 `comat` (= fix B guarded change additive ~25 byte 増、 plan v2 carry)
+  - line 4472-4529 `fm_volume_hook` (= fix B guarded change dispatch、 plan v1/v2 carry)
+  - 0x0610 セクション末尾 (= `fm_carrier_table` 8 byte + `fm_volume_hook_pmddotnet` ~120 byte additive)
+  - SRAM equ 新規 7 件 (= `driver_pmddotnet_fm_voice_ptr_chN` × 6 + base、 0xFD62-0xFD6D = 12 byte 占有 in PMDDOTNET 経路)
+- `src/test-fixtures/adr-0073/`:
+  - `test-volume-baseline.mml`
+  - `test-v-shift-coverage.mml`
+  - **`expected-events.json`** (= MF-new-3 反映 = analyze-audition-wav.py `--expected` 引数用 expected event spec) **= new in plan v3**
+  - `verify-volume-scaling.sh` (= fail-fast `set -euo pipefail` + executor command literal、 plan v3 で全 gate machine-detect 可能)
+- `docs/adr/0073-pmdneo-driver-fm-volume-scaling-semantics-repair.md` (= 本 ADR doc maintenance)
+- `docs/parallel-axes-dashboard.md` (= 0073 行 + escalation 履歴)
+
+#### 不可触対象 (= plan v2 β-2-5 carry)
+
+plan v2 β-2-5 不可触 list **完全 carry** = ADR-0048 軸 G ε partial state placement + ADR-0026 §決定 3/4 + ADR-0051 owner contract + ADR-0058 v2 PartWork + ADR-0067〜0072 既存 Annex + 既存 verify script + 既存 fixture + vendor + `compile.py` + `build-poc.sh` + `comV` routine + `pmdneo_v_to_V_convert` + `v_to_V_fm` table + `pmdneo5_init_part` caller 側 + `pmdneo_fm_voice_set` (= line 1315 周辺) + `comvshift_up/down` + `comvscale_up/down` + 退避 branch + scope-out branch + user 別作業。
+
+### β-3-6: production sha256 維持戦略 v3 (= plan v2 β-2-6 carry + .lst predicate 6 件更新)
+
+artifact = `vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` carry。 4 build matrix B1-B4 verify command carry。 patch byte 量 ~166 byte 増 net (= plan v2 136 byte から +30 byte 増)。
+
+**`.lst` predicate v3** (= 6 件、 plan v2 5 件 + `pmdneo_fm_voice_set_default` guarded change predicate 追加):
+1. `fm_carrier_table` symbol assemble PASS
+2. `fm_volume_hook_pmddotnet` symbol assemble PASS
+3. 新規 SRAM equ 7 件 assemble PASS
+4. 既存 `comv` / `fm_volume_hook` / `pmdneo5_init_part` / `comat` routine body の `.else` 配下 byte-identical 維持
+5. **`pmdneo_fm_voice_set_default` の `.else` 配下 byte-identical 維持** (= new in plan v3)
+6. 既存 symbol table 順序不変
+
+### β-3-7: verify gate literal v3 (= MF-new-3 + MF-new-4 + LR-new-1 反映)
+
+**実 CLI ground truth** (= main agent direct verify):
+- `analyze-audition-wav.py --help` = `--wav --trace --expected --output-json --output-report` mandatory、 `--baseline` optional
+- `build-poc.sh` = `--chip ym2610|ym2610b` のみ
+
+#### δ functional verify literal command v3 (= 実 CLI 整合 + fail-fast + baseline 生成)
+
+```bash
+#!/usr/bin/env bash
+# src/test-fixtures/adr-0073/verify-volume-scaling.sh
+set -euo pipefail
+ADR0073_DIR="src/test-fixtures/adr-0073"
+TMPDIR="${TMPDIR:-/tmp}/adr-0073"
+mkdir -p "$TMPDIR"
+
+# LR-new-1: ADR-0072 ε state baseline 動的生成
+git stash --include-untracked
+git checkout 78a1087  # ADR-0072 ε state
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML="$ADR0073_DIR/test-volume-baseline.mml" scripts/build-poc.sh
+mame -seconds_to_run 5 -trace "$TMPDIR/baseline-adr-0072-eps-ymfm.tsv" neogeo
+git checkout wip-pmddotnet-opnb-extension
+git stash pop
+
+# gate δ-1: voice register TL trace (= post-patch B4)
+mame -seconds_to_run 5 -trace "$TMPDIR/d1-ymfm.tsv" neogeo
+grep -qE "^[0-9]+\s+A\s+4C\s+0x00" "$TMPDIR/d1-ymfm.tsv" || \
+    { echo "FAIL: δ-1 OP4 TL=0 max output 未維持" >&2; exit 1; }
+
+# gate δ-2: modulator TL voice data exact 維持
+grep -qE "^[0-9]+\s+A\s+40\s+0x11" "$TMPDIR/d1-ymfm.tsv" || { echo "FAIL: δ-2 OP1 TL=17" >&2; exit 1; }
+grep -qE "^[0-9]+\s+A\s+44\s+0x19" "$TMPDIR/d1-ymfm.tsv" || { echo "FAIL: δ-2 OP2 TL=25" >&2; exit 1; }
+grep -qE "^[0-9]+\s+A\s+48\s+0x26" "$TMPDIR/d1-ymfm.tsv" || { echo "FAIL: δ-2 OP3 TL=38" >&2; exit 1; }
+
+# gate δ-3: ADR-0072 ε baseline voice load regression-free
+diff <(grep -E "^[0-9]+\s+A\s+(30|50|60|70|80|B0)\s" "$TMPDIR/baseline-adr-0072-eps-ymfm.tsv" | awk '{print $2, $3}') \
+     <(grep -E "^[0-9]+\s+A\s+(30|50|60|70|80|B0)\s" "$TMPDIR/d1-ymfm.tsv" | awk '{print $2, $3}') \
+     || { echo "FAIL: δ-3 voice load regression vs ADR-0072 ε baseline" >&2; exit 1; }
+
+# gate δ-4: 既存 verify script regression-free (= fail-fast)
+for sh in $(find src/test-fixtures -name "verify-*.sh" -path "*adr-00[0-9][0-9]*"); do
+    bash "$sh" || { echo "FAIL: δ-4 $sh" >&2; exit 1; }
+done
+
+# gate δ-5 (= primary success metric): analyze-audition-wav.py 4 層 gate ALL PASS
+mame -seconds_to_run 5 -wavwrite "$TMPDIR/d5.wav" -trace "$TMPDIR/d5-trace.tsv" neogeo
+python3 scripts/analyze-audition-wav.py \
+    --wav "$TMPDIR/d5.wav" \
+    --trace "$TMPDIR/d5-trace.tsv" \
+    --expected "$ADR0073_DIR/expected-events.json" \
+    --output-json "$TMPDIR/d5-analysis.json" \
+    --output-report "$TMPDIR/d5-report.md"
+jq -e '.layers["1_wav_hygiene"].status == "pass"' "$TMPDIR/d5-analysis.json" || \
+    { echo "FAIL: δ-5 Layer 1 status != pass" >&2; exit 1; }
+
+# gate δ-6: ADR-0050 fade_level passthrough (= 0xFD39 = 64 = 0x40)
+mame -seconds_to_run 2 -debug -execute "wpset 0xFD39,1,r" neogeo 2>&1 | tee "$TMPDIR/d6-mem.log" | grep -q "0xFD39.*0x40" || \
+    { echo "FAIL: δ-6 fade_level != 0x40" >&2; exit 1; }
+
+# gate δ-7: MML v0-v15 段階制御 + v+/v- coverage gate
+for v in 0 8 15; do
+    sed "s/v15/v${v}/" "$ADR0073_DIR/test-volume-baseline.mml" > "$TMPDIR/v${v}.mml"
+    make -C vendor/ngdevkit-examples/00-template clean
+    PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML="$TMPDIR/v${v}.mml" scripts/build-poc.sh
+    mame -seconds_to_run 3 -wavwrite "$TMPDIR/d7-v${v}.wav" -trace "$TMPDIR/d7-v${v}-trace.tsv" neogeo
+    python3 scripts/analyze-audition-wav.py \
+        --wav "$TMPDIR/d7-v${v}.wav" \
+        --trace "$TMPDIR/d7-v${v}-trace.tsv" \
+        --expected "$ADR0073_DIR/expected-events.json" \
+        --output-json "$TMPDIR/d7-v${v}.json" \
+        --output-report "$TMPDIR/d7-v${v}.md"
+done
+rms_v0=$(jq -r '.layers["1_wav_hygiene"].metrics.rms_dbfs' "$TMPDIR/d7-v0.json")
+rms_v8=$(jq -r '.layers["1_wav_hygiene"].metrics.rms_dbfs' "$TMPDIR/d7-v8.json")
+rms_v15=$(jq -r '.layers["1_wav_hygiene"].metrics.rms_dbfs' "$TMPDIR/d7-v15.json")
+awk "BEGIN { exit !($rms_v0 < $rms_v8 && $rms_v8 < $rms_v15) }" || \
+    { echo "FAIL: δ-7 RMS 段階性 v0=$rms_v0 v8=$rms_v8 v15=$rms_v15" >&2; exit 1; }
+
+# δ-7 v+/v- emit coverage (= LR-2 mitigation)
+make -C vendor/ngdevkit-examples/00-template clean
+PMDNEO_USE_PMDDOTNET=1 PMDDOTNET_MML="$ADR0073_DIR/test-v-shift-coverage.mml" scripts/build-poc.sh
+xxd vendor/ngdevkit-examples/00-template/template/pmddotnet_song.m > "$TMPDIR/d7-vshift-hex.txt"
+if grep -qE "(^|[^0-9a-f])(de|dd)([^0-9a-f]|$)" "$TMPDIR/d7-vshift-hex.txt"; then
+    echo "WARN: δ-7 v+/v- opcode emit detected = #18 rollback trigger candidate" >&2
+    exit 2  # #18 trigger = γ scope 拡張 user 明示 GO 必須
+fi
+
+echo "δ-1〜δ-7 ALL PASS"
+exit 0
+```
+
+### β-3-8: rollback condition v3 (= plan v2 β-2-8 carry + #18 trigger 実行可能化更新)
+
+plan v2 β-2-8 **18 condition 完全 carry**、 #1〜#13 = ADR-0071 §決定 6 + ADR-0072 §決定 6 + ADR-0069 §決定 5 from inheritance、 #14〜#18 = ADR-0073 固有。 各 condition の trigger executable command:
+
+#### #1〜#13 trigger pointer (= ADR-0071/0072/0069 source 完全継承、 ADR-0073 で新規 trigger logic 追加なし):
+
+| # | trigger source | 実行可能 command |
+|---|---|---|
+| **#1** production sha256 mismatch | active baseline `457a237c...` byte 違い (= ADR-0071 §決定 6 #1 / ADR-0072 §決定 6 #1 / ADR-0069 §決定 5 #1) | `sha256sum vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` 比較 (= β-3-7 § gate γ-2 同経路) → 不一致時 即 halt + revert |
+| **#2** sub-agent worktree base ref mismatch (= ADR-0069 §決定 5 #2、 軽微 fix-up 対象) | preflight pwd / HEAD 不一致 | sub-agent preflight 4 件 check (= memory `feedback_subagent_isolation_worktree_base_ref_mismatch.md` 9 件 guard) → fail-fast 即 restart |
+| **#3** vendor 改変 (= ADR-0069 §決定 5 #3) | `vendor/` directory 変更 | `git diff --name-only vendor/` 空 confirm → 違反時 即 halt + revert |
+| **#4** doc 内 typo / 誤記 (= ADR-0069 §決定 5 #4、 軽微 fix-up 対象) | wording stale | Codex Rescue review finding → 連鎖 commit fix-up (= rollback ではない) |
+| **#5** ADR-0048 軸 G ε partial state placement 違反 (= ADR-0069 §決定 5 #5) | 0xFD32-0xFD38 touch | `.lst` symbol table + grep `0xFD3[2-8]` → 違反時 即 halt + revert |
+| **#6** ADR-0026 §決定 3/4 K dispatch L ch 固定占有 違反 (= ADR-0069 §決定 5 #6) | `pmdneo_rhythm_event_trigger` body modify | `git diff src/driver/standalone_test.s` で該当 routine 行 untouched confirm → 違反時 即 halt + revert |
+| **#7** ADR-0051 `pmdneo_ssg_tone_sync` reg 0x07 RMW owner contract 違反 (= ADR-0069 §決定 5 #7) | `pmdneo_ssg_tone_sync` body modify | `git diff` で該当行 untouched confirm → 違反時 即 halt + revert |
+| **#8a** 軽微 wording fix-up (= ADR-0069 §決定 5 #8a) | minor typo carry | 連鎖 commit fix-up |
+| **#8b** Codex retrospective review finding fix-up (= ADR-0069 §決定 5 #8b) | retrospective revise | 連鎖 commit fix-up |
+| **#9** ADR-0058 v2 PartWork 不可触 mandate 違反 (= ADR-0069 §決定 5 #9) | PART_OFF 新規 field 追加 | `grep "^.equ.*PART_OFF" src/driver/standalone_test.s` 既存 field 数同一 confirm → 違反時 即 halt + revert |
+| **#10** ADR 全体 halt = scope 変更 / design 大幅 pivot (= ADR-0069 §決定 5 #10) | sub-sprint chain 全体 revert 必要 | user 明示 GO 必須 + Draft 維持 + 全 sub-sprint rollback record |
+| **#11** destructive git 操作 trigger (= ADR-0069 §決定 5 #11) | `git reset --hard` / `git push --force` / `git checkout --` 等 | user 明示なし禁止、 `git revert` のみ採用 |
+| **#12** voice load failure on PMDDOTNET path (= ADR-0072 §決定 6 #12) | MAME ymfm-trace で voice register writes 0 件 | `grep -E "^[0-9]+\s+A\s+(30\|40\|50\|60\|70\|80\|B0)" /tmp/adr-0073/d1-ymfm.tsv \| wc -l` > 0 confirm → 0 件時 即 halt + revert |
+| **#13** audio silent persistence after γ impl (= ADR-0072 §決定 6 #13) | δ-5 Layer 1 silent | `jq -r '.layers["1_wav_hygiene"].metrics.rms_dbfs' d5-analysis.json` extremely low → 1 retry → 再 silent なら halt |
+
+#### #14〜#18 trigger 実行可能 command (= ADR-0073 固有):
+
+| # | trigger 実行可能 (= plan v3) |
+|---|---|
+| **#14** | `test-voice-load.mml` Layer 1 rms 悪化 = `jq -e '.layers["1_wav_hygiene"].metrics.rms_dbfs > -80' analysis.json` exit code != 0 (= ADR-0072 ε -76 dBFS より悪化) → 即 halt + revert |
+| **#15** | δ-5 Layer 1 FAIL = `jq -e '.layers["1_wav_hygiene"].status == "pass"' d5-analysis.json` exit code != 0、 1 retry → 再 FAIL なら halt |
+| **#16** | δ-3 voice load regression = `diff` exit code != 0 → 即 halt + revert |
+| **#17** | fix A+B+C 統合不可 finding 由来 pivot = γ impl design judgment 軸 |
+| **#18** | LR-2 v+/v- coverage = δ-7 emit verify exit code 2 (= `xxd ... \| grep -qE "(^\|[^0-9a-f])(de\|dd)([^0-9a-f]\|$)"` match) → γ scope 拡張 user 明示 GO 必須 |
+
+### β-3-9: Codex Rescue plan review round 3 投入 mandate
+
+#### round 3 重点 review 軸
+
+- AXIS-R1〜R9 carry
+- **AXIS-R10 (= 新軸)**: round 2 retry must-fix 4 + lr 1 全反映 confirm
+  - MF-new-1 反映: α-2 supersede note + v15 byte literal `0xFD 0x7D` (= 125) 訂正 (= β-3-3 §)
+  - MF-new-2 反映: `pmdneo_fm_voice_set_default` allowed-touch 追加 + cache 初期化 (= β-3-3 / β-3-5 §)
+  - MF-new-3 反映: δ-5 / δ-7 executor 実 CLI 整合 (= analyze-audition-wav.py + xxd v+/v- emit) (= β-3-7 §)
+  - MF-new-4 反映: δ-4 / #18 fail-fast = `set -euo pipefail` + jq exit code + xxd grep (= β-3-7 / β-3-8 §)
+  - LR-new-1 反映: ADR-0072 ε baseline 動的生成 command (= γ verify gate 内 git stash + checkout 78a1087 経路) (= β-3-7 §)
+
+#### review-only mandate 6 件 literal carry
+
+#### 期待 経験則
+- plan v3 doc-only plan review = 5-8 分 threshold carry
+- 8 分超過 = 機械復旧 rule cancel + 1 retry
+
+## Annex β-4 / β-5: placeholder (= sprint β round 4/5 iteration、 fill 予定)
 
 ## 改訂履歴
 
-- 2026-05-27: ADR-0073 起票 (= sprint α 完走 + Annex α 6 sub-section literal record + Annex β-1 plan v1 placeholder) = Draft、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 PR1 doc-only sprint = 5 並走 sub-agent investigation 5/5 success + 真の root cause 3 件 confirm (= driver FM volume scaling logic semantic divergence) + fix 候補 A/B/C 並列 record + driver touch β plan review approve 経由限定 mandate + scope-out 明示 (= user audition + ADR-0070 + 本番 cmd 切替 + #Volumedown 実装 + LFO/AMS/PMS scaling)。
+- 2026-05-27: ADR-0073 起票 (= sprint α 完走 + Annex α 6 sub-section literal record + Annex β-1 plan v1 placeholder) = Draft、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 PR1 doc-only sprint = 5 並走 sub-agent investigation 5/5 success + 真の root cause 3 件 confirm (= driver FM volume scaling logic semantic divergence) + fix 候補 A/B/C 並列 record + driver touch β plan review approve 経由限定 mandate + scope-out 明示 (= user audition + ADR-0070 + 本番 cmd 切替 + #Volumedown 実装 + LFO/AMS/PMS scaling)。 PR #155 MERGED at `91ad9be` + Codex Rescue plan review 1 round chain approve plan v1 (= agentId `ab9cae5deb4def312`、 elapsed 約 5m 13s) 全 8 軸 PASS + must-fix 0 + nh 1 + lr 1 + 越権操作なし confirmed + atomic 1 セット規律 13 回目適用完走。
+- 2026-05-27: ADR-0073 sprint β PR2 起票 (= Annex β-1 plan v1 placeholder → plan v1 literal fill = β-1-1〜β-1-10 10 sub-section)、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 PR2 doc-only sprint = fix A+B+C 統合採用判断 (= fix A 単独不可 + fix B 単独不可 + fix C conditional after fix A) + 各 fix 実装案 literal (= guarded change `.if PMDNEO_USE_PMDDOTNET ... .endif` 配下 = fix A `comv` 既存 logic を `.else` 配下に保存 + fix B 新規 routine `fm_volume_hook_pmddotnet` additive + carrier_table data + fix C `pmdneo5_init_part` 内 `ld c, #108` override) + allowed-touch literal 詳細化 (= `src/driver/standalone_test.s` 3 routine guarded change + 0x0610 セクション末尾 additive + 新規 fixture + 新規 verify script + doc/dashboard) + 4 build matrix B1-B4 verify command literal + .lst predicate 4 件 + δ-1〜δ-7 verify gate literal (= primary success = δ-5 Layer 1 PASS) + ADR-0072 既存機能 regression 防止 mandate + rollback 17 condition + β plan v1 refinement #14/#15/#16/#17 trigger 具体化 + Codex Rescue plan review 8 重点軸 (= AXIS-R1 root cause / AXIS-R2 fix correctness / AXIS-R3 allowed-touch / AXIS-R4 sha256 / AXIS-R5 ADR-0072 regression / AXIS-R6 fix B feasibility / AXIS-R7 verify executability / AXIS-R8 rollback triggerability)。 user mandate「driver patch にはまだ入らない + β scope = fix A/B/C 採用案確定 + γ は β approve 後 user 明示 GO 必須」。
+- 2026-05-27: ADR-0073 sprint β PR2 round 1 Codex Rescue plan review **revise** + must-fix 4 + nh 2 + lr 2 + 越権操作なし confirmed (= agentId `a5f9c31df62103a6a`、 elapsed 約 4m 31s、 doc-only plan review 経験則 5-8 分 threshold 内 = 妥当)、 per-axis verdict = AXIS-R1 PASS + AXIS-R2/R3/R4/R6/R7/R8 FAIL + AXIS-R5 PASS、 must-fix 4 件 = MF-1 fix C scope creep (= `pmdneo5_init_part` 共通 init 位置で SSG/PCM/ADPCM-A/Rhythm/FM3EXT も 108 にする risk、 FM part 限定要) + MF-2 fix B voice data 再取得設計欠落 (= `pmdneo_get_voice_ptr` 不在 + voice ptr/ALG cache 不在 = `comat` または `pmdneo_fm_voice_set` 側 touch 必要 = allowed-touch 拡張要) + MF-3 sha256 target artifact 誤り (= `build/ipl/rom.p1` → `vendor/ngdevkit-examples/00-template/build/rom/243-m1.m1` = active production baseline = main agent 直接 verify confirmed `457a237c...` 完全一致) + MF-4 verify command literal 不完全 (= B3/B4 diff + δ-5 WAV RMS + δ-7 v0-v15 trace executor command 固定要)、 nh 2 件 = NH-1 placeholder header `Annex β-2 / β-3 / β-4 / β-5` 重複 (= 2 件 line 896/898) + NH-2 fix B byte estimate 80 byte 再見積もり (= voice ptr 解決後)、 lr 2 件 = LR-1 `PART_OFF_INSTRUMENT` 流用時 ADPCM-A field 混同 (= SRAM 別領域採用で回避) + LR-2 fix A で PMDDotNET path `PART_OFF_V_SCALE`/`PART_OFF_VOLUME_SHIFT` bypass の v+/v- coverage 整合 (= δ-7 emit verify gate で acknowledge)、 main agent autonomous で plan v2 起草 (= Annex β-2 literal fill = β-2-0〜β-2-10 11 sub-section + plan v1 supersede pointer + SRAM 0xFD62-0xFD6D voice ptr cache 設計 + chip_type FM 限定 fix C + 新規 SRAM equ 7 件 + 新規 18 番 rollback condition #18 v+/v- coverage + Annex β-2/β-3/β-4/β-5 placeholder 単一化 + Codex Rescue round 2 投入 mandate)、 round 2 投入予定 (= AXIS-R9 = round 1 finding 全反映 confirm 新軸)。
+- 2026-05-27: ADR-0073 sprint β PR2 round 3 Codex Rescue plan review (= agentId `aeecb6ad50e314bd6`、 elapsed 約 3m 51s) **revise** + must-fix 2 + nh 0 + lr 0 + 越権操作なし confirmed = per-axis verdict round 3 = AXIS-R1 FAIL (= dashboard 0073 row stale `0xFD 0x7A` literal、 ADR 内 β-3-3 訂正済 = PASS だが dashboard carry 漏れ) + AXIS-R2/R3/R4/R5/R6/R7 PASS + AXIS-R8 FAIL (= #1〜#13 trigger executable command literal 不在、 ADR-0073 内に pointer or command table 必要) + AXIS-R9 PASS + AXIS-R10 FAIL (= MF-new-1 反映 dashboard side carry 漏れ = R1 と同体)、 must-fix 2 件 = MF-3-1 dashboard 0073 row stale byte literal 修正 (= `0xFD 0x7A` → `0xFD 0x7D`、 sprint α PR2 doc 起票時の inadvertent typo carry) + MF-3-2 rollback condition #1〜#13 trigger pointer 補強 (= ADR-0073 内 plan v3 β-3-8 §に #1〜#13 trigger source + 実行可能 command table 追加、 ADR-0071/0072/0069 from inheritance literal pointer)、 main agent autonomous で軽微 fix-up commit (= 連鎖 commit fix-up = ADR-0072 plan v7 軽量 wording 整合 precedent 同形、 plan v4 起草不要 = plan v3 内容妥当性 confirm 済 + wording stale 修正のみ)、 round 4 投入予定 (= 同 AXIS-R1〜R10 carry confirm)。
+- 2026-05-27: ADR-0073 sprint β PR2 round 2 Codex Rescue plan review chain = attempt 1 (= agentId `a2bcaf558e1d7cdde`、 elapsed 2m 32s) **placeholder response** (= 「バックグラウンドで Codex layer 2 review task を起動しました」 のみ、 実 review 不実施) = 機械復旧 rule cancel + 1 retry 適用 (= 過去 ADR-0071 plan round 4 + ADR-0072 plan round 4 + ADR-0072 impl round 2 + ADR-0065 β PR3 impl round 1 同 pattern 5 回目)、 retry (= agentId `a605d14a0e3eb0c34`、 elapsed 約 4m 36s) **revise** + must-fix 4 (= 全 new) + nh 0 + latent-risk 1 (= new) + 越権操作なし confirmed、 per-axis verdict = AXIS-R1 FAIL (= MF-new-1 byte literal 矛盾) + AXIS-R2/R3/R4/R5 PASS + AXIS-R6 FAIL (= MF-new-2 default voice load 経路 cache 未初期化) + AXIS-R7 FAIL (= MF-new-3 実 CLI 不一致) + AXIS-R8 FAIL (= MF-new-4 + #18 emit verify 実行不能) + AXIS-R9 FAIL (= MF-4/LR-2 反映 PARTIAL FAIL = R7/R8 FAIL と同体)、 must-fix 4 件 = MF-new-1 v15 byte literal 矛盾 (= ADR α-2 agent 2 finding 内「fmvol[15] = 127-0x05 = 0x7A = 122」 は誤記、 正は fmvol[15]=125 = main agent 直接 verify driver `v_to_V_fm` line 5704 実値 confirmed) + MF-new-2 fix B voice ptr cache default voice load 経路対応 (= `pmdneo_fm_voice_set_default` line 1311-1313 = init-time default voice load 経路、 `@`/`comat` を通らない、 plan v2 では voice ptr cache 未初期化問題、 default voice + v cmd で fm_volume_hook_pmddotnet 破滅的 regression risk、 allowed-touch 追加 + cache 初期化要) + MF-new-3 δ-5/δ-7 executor command 実 CLI 整合 (= `analyze-audition-wav.py --wav --trace --expected --output-json --output-report` mandatory、 `--layer 1`/`--rms-only` 不在 + `build-poc.sh --emit-bytes-only` 不在 = `--chip` のみ = main agent 直接 verify confirmed) + MF-new-4 δ-4/#18 fail-fast/machine-detect 可能化 (= `\|\| echo "FAIL"` は exit code 反映なし + #18 emit 判定実行不能 = `set -euo pipefail` + 明示 exit code + jq exit code + xxd grep emit verify 経由 fix-up)、 lr 1 件 = LR-new-1 `/tmp/adr-0072-eps-ymfm.tsv` baseline 生成 command 追加 (= γ verify gate 内 git stash + checkout 78a1087 + build + MAME trace + checkout return + git stash pop 経路 dynamic 生成)、 main agent autonomous で plan v3 起草 (= Annex β-3 literal fill = β-3-0〜β-3-9 10 sub-section + plan v2 supersede pointer + α-2 supersede note (= immutable history mandate 厳守 = ADR-0072 plan v3 Annex β-3-3 precedent 同形) + `pmdneo_fm_voice_set_default` allowed-touch 追加 + guarded change cache 初期化 + δ-5/δ-7 実 CLI 整合 verify command 完全 literal + fail-fast `set -euo pipefail` + ADR-0072 ε baseline 動的生成 command + .lst predicate 6 件更新 + patch byte 量 ~166 byte 増 net 更新 + Annex β-4/β-5 placeholder)、 round 3 投入予定 (= AXIS-R10 = round 2 retry must-fix/lr 全反映 confirm 新軸)。
 
 ## 平易要約
 
@@ -615,6 +1572,57 @@ PMDDotNET 経由 build した MML を MAME で再生したとき、 音量が小
 - sprint β = Annex β-1 plan v1 起草 + Codex Rescue plan review chain (= fix A/B/C 採用案確定 + allowed-touch literal 詳細化)
 - sprint β approve 後 = **user 明示 GO mandatory point** = γ driver patch impl 着手判断
 - sprint γ = driver-side fix (= guarded change `.if PMDNEO_USE_PMDDOTNET` 配下限定) + 4 build matrix verify + sha256 byte-identical 維持 confirm
+- sprint δ = MAME runtime functional verify + δ-5 engineering gate Layer 1 PASS = primary success metric
+- sprint ε = Accepted milestone + 「PMDNEO driver FM volume scaling semantics repair 完了」 wording 解禁 (= 併記必須 7 件)
+- ADR-0065 ε δ session 起票判断 = ADR-0073 ε Accepted 後 user 介入 mandatory
+- ADR-0066 / ADR-0070 候補 起票判断 = 各 user 明示 GO 必須
+
+### 平易要約 sprint β PR2 context section 追加 (= 2026-05-27 43rd session、 sprint β plan v1 起票)
+
+#### やりたいこと
+
+sprint α で確定した root cause 3 件 + (+) default vol mismatch に対する driver patch を γ で実装する前に、 fix A/B/C の **採用案確定** + 実装案 literal + allowed-touch + verify plan + rollback condition を sprint β plan v1 で literal 固定する。 driver patch 着手は β approve 後 user 明示 GO 経由 γ で別途。
+
+#### 前提
+
+- sprint α 完走 = PR #155 MERGED at `91ad9be` + Codex Rescue plan review 1 round approve 全 8 軸 PASS
+- 真の root cause 3 件確定 = driver-side semantic divergence
+- fix 候補 A/B/C 並列 record only (= sprint α では候補列挙、 sprint β で採用案確定)
+- production sha256 `457a237c...` 維持 mandate carry
+- ADR-0072 「driver no-touch mandate」 を覆す pivot = ADR-0041 §決定 5 `design_judgment_needed` escalation 軸該当 (= γ user 明示 GO mandatory point)
+- user mandate「β scope = fix A/B/C 採用案確定 + γ は β approve 後 user 明示 GO 経由」
+
+#### やったこと
+
+1. Annex β-1 plan v1 起草 = β-1-1〜β-1-10 10 sub-section literal fill
+2. fix A+B+C 統合採用判断 (= fix A 単独不可 + fix B 単独不可 + fix C conditional after fix A) literal 根拠記録
+3. 各 fix 実装案 literal (= guarded change `.if PMDNEO_USE_PMDDOTNET ... .endif` 配下、 既存 logic は `.else` 配下に完全保存)
+4. allowed-touch literal 詳細化 (= 修正対象 + 不可触対象)
+5. 4 build matrix B1-B4 verify command + .lst predicate 4 件
+6. δ-1〜δ-7 verify gate literal (= primary success = δ-5 Layer 1 PASS)
+7. rollback 17 condition + β plan v1 refinement trigger 具体化
+8. Codex Rescue plan review 8 重点軸 + review-only mandate 6 件 literal
+
+#### 結果
+
+- ADR-0073 sprint β plan v1 起票 Draft = Annex β-1 plan v1 literal 固定完了
+- fix A+B+C 統合採用判断 record (= γ で実装する fix 確定)
+- allowed-touch + verify gate + rollback condition + Codex review 重点軸 literal 全 fill
+- driver / vendor / verify / fixture 完全不変 (= 本 sprint β doc-only)
+- production sha256 `457a237c...` 維持期待 (= doc-only で build しない、 carry)
+
+#### 解釈
+
+- ADR-0072 「driver no-touch mandate」 を覆す pivot 判断は voice opcode data delivery 範疇限定の insight、 audio volume scaling 範疇では driver guarded change 経路必須 (= memory `project_pmdneo_adr_0072_initiated.md` 末尾 supersede insight 訂正 section 整合)
+- fix B の per-alg carrier mask 経路 (= PMD V4.8s `volset_slot` line-by-line port) が PMD MML 音量 semantics 完全継承の path
+- fix B implementation feasibility (= AXIS-R6 軸) = voice data 末尾 reg 0xB0 byte (= byte index 24) 都度 read で `PART_OFF_FM_ALG` cache offset 新規追加回避 + ADR-0058 v2 PartWork 不可触 mandate 抵触なし
+- guarded change pattern で flag-off byte-identical 保証 = production sha256 `457a237c...` 維持 + flag-on 経路で audio audible 改善 + flag-off + flag-on 経路独立性確保
+
+#### 次
+
+- sprint β PR2 = doc-only 起票 → Codex Rescue plan review chain 投入 → approve loop → main agent 経路 merge (= atomic 1 セット規律 14 回目適用予定)
+- sprint β approve 後 = **user 明示 GO mandatory point** = γ driver patch impl 着手判断
+- sprint γ = fix A+B+C 統合実装 (= guarded change 配下限定) + 4 build matrix verify + sha256 byte-identical 維持 confirm
 - sprint δ = MAME runtime functional verify + δ-5 engineering gate Layer 1 PASS = primary success metric
 - sprint ε = Accepted milestone + 「PMDNEO driver FM volume scaling semantics repair 完了」 wording 解禁 (= 併記必須 7 件)
 - ADR-0065 ε δ session 起票判断 = ADR-0073 ε Accepted 後 user 介入 mandatory
