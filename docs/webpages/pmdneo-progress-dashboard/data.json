@@ -3,16 +3,16 @@
     "title": "PMDNEO COVERAGE DASHBOARD",
     "subtitle": "PMD V4.8s 本家  ×  PMDNEO 自作 driver",
     "lastUpdated": "2026-05-27",
-    "schemaVersion": "static/generated@93d9e23",
+    "schemaVersion": "static/generated@fd9831d",
     "fillStatus": "STATIC generated from pages/pmdmml-coverage.html on push — auto-stamp: 2026-05-26 main 6474647",
     "repoUrl": "https://github.com/koshikawa-masato/pmdneo/tree/wip-pmddotnet-opnb-extension",
     "commit": {
-      "sha": "93d9e230384f1b0fbcf403e32e5969ef4729653c",
-      "shortSha": "93d9e23",
-      "date": "2026-05-27T12:52:21+09:00",
-      "message": "docs(dashboard): ADR-0073 sprint α = PR #155 MERGED at `91ad9be` 完走 final maintenance = 0073 行 status update + escalation 履歴 ADR-0073 entry 完走 wording 反映 + atomic 1 セット規律 13 回目適用完走記録",
-      "author": "masato.koshikawa",
-      "url": "https://github.com/koshikawa-masato/pmdneo/commit/93d9e230384f1b0fbcf403e32e5969ef4729653c"
+      "sha": "fd9831ddb7ff6c19121d1404ac853d7245e5328e",
+      "shortSha": "fd9831d",
+      "date": "2026-05-27T13:58:23+09:00",
+      "message": "Merge pull request #156 from koshikawa-masato/wip-adr-0073-beta-plan-v1",
+      "author": "koshikawa-masato",
+      "url": "https://github.com/koshikawa-masato/pmdneo/commit/fd9831ddb7ff6c19121d1404ac853d7245e5328e"
     },
     "autoUpdateStamp": "2026-05-26 main 6474647"
   },
