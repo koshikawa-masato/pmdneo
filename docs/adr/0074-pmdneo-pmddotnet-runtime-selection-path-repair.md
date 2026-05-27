@@ -346,7 +346,7 @@ endif
 
 | layer | flag literal | propagation 経路 |
 |---|---|---|
-| **build-poc.sh** | `TEST_MODE_PMDDOTNET_SONG_SELECT=1` env var (= PMDDOTNET_MML 経路で auto-set) | env → make var |
+| **build-poc.sh** | `TEST_MODE_PMDDOTNET_SONG_SELECT=1` env var（**caller明示指定必須、 build-poc.sh側 auto-set しない**= ADR-0072経路 K+L-Q only override carry を壊さないため、 preflight用 invocationのみ明示set） | env → make var |
 | **build.mk** | `TEST_MODE_PMDDOTNET_SONG_SELECT=1` make var | make var → sed expr |
 | **build infra (= sed 置換)** | `s/TEST_MODE_PMDDOTNET_SONG_SELECT, 0/TEST_MODE_PMDDOTNET_SONG_SELECT, 1/` | sed expr → standalone_test.preprocessed.s |
 | **driver (= sdasz80 assemble)** | `.equ TEST_MODE_PMDDOTNET_SONG_SELECT, 1` | preprocessed.s → assembled m1 binary |
@@ -368,8 +368,8 @@ endif
 |---|---|---|
 | **(B1) production baseline** | `PMDNEO_USE_PMDDOTNET=0` + `TEST_MODE_PMDDOTNET_SONG_SELECT=0` + no PMDDOTNET_MML | == `b15883fe...` byte-identical |
 | **(B2) post-patch flag-off** | 同上 + ADR-0074 patch 全適用 | == (B1) byte-identical (= `.if TEST_MODE_PMDDOTNET_SONG_SELECT` 配下 assemble skip) |
-| **(B3) flag-on pre-patch** | `PMDNEO_USE_PMDDOTNET=1` + `TEST_MODE_PMDDOTNET_SONG_SELECT=0` + PMDDOTNET_MML=staggered | ADR-0073 ε state baseline (= `b15883fe...` flag-off / 別 sha256 flag-on) |
-| **(B4) flag-on post-patch** | `PMDNEO_USE_PMDDOTNET=1` + `TEST_MODE_PMDDOTNET_SONG_SELECT=1` + PMDDOTNET_MML=staggered | (B3) と diff = ADR-0074 patch byte 量 + song_table 拡張 byte (= ~40 byte = 20 entries × 2 byte) |
+| **(B3) PMDDOTNET on + SONG_SELECT off pre-patch（round 2 NH-1反映）** | `PMDNEO_USE_PMDDOTNET=1` + `TEST_MODE_PMDDOTNET_SONG_SELECT=0` + PMDDOTNET_MML=staggered | ADR-0073 ε state baseline（PMDDOTNET on path の K+L-Q only override経路、 ADR-0058 §決定 1 mandate carry状態） |
+| **(B4) PMDDOTNET on + SONG_SELECT on post-patch（round 2 NH-1反映）** | `PMDNEO_USE_PMDDOTNET=1` + `TEST_MODE_PMDDOTNET_SONG_SELECT=1` + PMDDOTNET_MML=staggered | (B3)と diff = ADR-0074 patch byte量 + song_table拡張 byte（約40 byte = 20 entries × 2 byte literal）+ preflight runtime起動経路activeでstaggered fixture rendering可能 |
 
 ### β-3: TEST_MODE_PMDDOTNET_SONG_SELECT=1 時の runtime 起動経路 literal
 
@@ -394,28 +394,45 @@ main.c に新規追加なし = **既存 `9 + PMDNEO_SONG` 経路で PMDNEO_SONG=
 #endif
 ```
 
-#### song_data.inc 動的拡張 (= build-poc.sh PMDDOTNET_MML 経路で flag=1 時のみ)
+#### song_data.inc動的拡張（build-poc.sh PMDDOTNET_MML経路でflag=1時のみ、 round 2 MF-1反映）
 
-build-poc.sh 内 PMDDOTNET_MML block (= line 188-257) 拡張案:
+**重要: round 2 revise MF-1反映**= 既存`song_table:`block配下 `song1_part_z`直後にinsert必須。 末尾append（`>> song_data.inc`）だと`song_table[40..59]`連続参照不可能（既存`pmddotnet_song:`label が`song_table:`block直後にあるため、 song2 entries を末尾追加すると`song_table:`配列の連続性破壊）。 修正実装:
 
 ```bash
 if [[ -n "${PMDDOTNET_MML:-}" && "${TEST_MODE_PMDDOTNET_SONG_SELECT:-0}" == "1" ]]; then
     # ADR-0074 sprint γ: pmddotnet_song を song_table[2] 経由 runtime 起動可能化
-    # = pmdneo_mn_direct_load_k_part_addr 経路で K + L-Q part offset 解釈経由ではなく、
-    # song_table[40-59] = pmddotnet_song_part_a〜z literal address column 直接登録 で
-    # cmd 9 + 2 経由 standard song dispatch path 経由 runtime 起動。
+    # round 2 MF-2 反映: caller明示指定必須（build-poc.sh側auto-setしない、 ADR-0072経路K+L-Q only carry確保）
     python3 "$PMDNEO_ROOT/scripts/pmddotnet-song-table-entries.py" \
         --input "$TEMPLATE_DIR/pmddotnet_song.m" \
         --output "$TEMPLATE_DIR/pmddotnet_song_table_entries.inc" \
         --label-prefix song2_part
-    # song_data.inc 末尾 song_table block 拡張 (= 既存 song0/1 entries 完全不変、 song2 append のみ)
-    {
-        echo ""
-        echo ";; ADR-0074 sprint γ: PMDDOTNET_MML preflight song slot (= TEST_MODE_PMDDOTNET_SONG_SELECT=1)"
-        cat "$TEMPLATE_DIR/pmddotnet_song_table_entries.inc"
-    } >> "$TEMPLATE_DIR/song_data.inc"
+    # round 2 MF-1 反映: song_table:配下に挿入（既存song1_part_z直後）。
+    # 既存 sed 経路（ADR-0072 plan v7 `/^voice_table:$/,$d`）と同 pattern、 sed `/pattern/r file`で
+    # `.dw song1_part_q, song1_part_x, song1_part_y, song1_part_z` 行直後に挿入。
+    sed -i.bak '/        \.dw song1_part_q, song1_part_x, song1_part_y, song1_part_z$/r '"$TEMPLATE_DIR/pmddotnet_song_table_entries.inc" "$TEMPLATE_DIR/song_data.inc"
+    rm -f "$TEMPLATE_DIR/song_data.inc.bak"
+    # 既存song_table:配下に20件のsong2_part entriesが挿入され、 song_table[40..59]連続参照可能。
+    # song0_part_a〜z (= 0..19) + song1_part_a〜z (= 20..39) + song2_part_a〜z (= 40..59) で60 entries連続配置。
+    export PMDNEO_SONG=2  # = preflight専用song slot指定
 fi
 ```
+
+helper script`scripts/pmddotnet-song-table-entries.py`の生成出力（song_table:配下挿入想定）:
+
+```
+;; ADR-0074 sprint γ: PMDDOTNET_MML preflight song slot (= TEST_MODE_PMDDOTNET_SONG_SELECT=1)
+        .dw song2_part_a, song2_part_b, song2_part_c, song2_part_d
+        .dw song2_part_e, song2_part_f, song2_part_g, song2_part_h
+        .dw song2_part_i, song2_part_j, song2_part_k, song2_part_l
+        .dw song2_part_m, song2_part_n, song2_part_o, song2_part_p
+        .dw song2_part_q, song2_part_x, song2_part_y, song2_part_z
+;; song2_part_X label 定義（pmddotnet_song + 1 + part_X_offset、 .M binary part offset table parse 経由）
+song2_part_a == pmddotnet_song + 1 + <part_a_offset_from_pmddotnet_song.m>
+song2_part_b == pmddotnet_song + 1 + <part_b_offset_from_pmddotnet_song.m>
+;; ... 以下20件、 各part_X_offsetは.M binary L6080-6084のpart offset table経由実値
+```
+
+**LR-1反映mandate**: helper script内`pmddotnet_song + 1 + part_X_offset`計算は実装時に`.M binary byte origin`をverifier で固定確認mandate。 verifier method = `xxd pmddotnet_song.m | head -2`で先頭28 byte header確認 + offset_table_base = pmddotnet_song + 1 + extended_data_adr計算 + song2_part_X label resolve結果の byte-identical verify（γ-3 .lst predicate追加候補）。
 
 新規 helper script `scripts/pmddotnet-song-table-entries.py` (= sprint γ 実装範囲):
 
@@ -611,6 +628,7 @@ WAV segment analysis (= `scripts/segment-analyze.py` type):
 
 ## 改訂履歴
 
+- 2026-05-27: ADR-0074 sprint β PR2 round 2 Codex Rescue plan review (= agentId `ae8532559e5cda879`、 elapsed約3m 34s) **revise** + must-fix 2 + nh 1 + lr 1 + 越権操作なし confirmed = per-axis verdict round 2 = AXIS-RT-1/RT-2/AXIS-BETA-6 FAIL（song_table[40..59]連続性未保証 + build-poc.sh auto-set vs caller明示指定衝突）+ AXIS-RT-3/RT-4/RT-5/AXIS-BETA-7/AXIS-BETA-8 PASS、 must-fix 2件 = MF-1 song_table挿入位置literal化（既存song_table:配下 song1_part_z直後にinsert mandatory、 末尾append不可）+ MF-2 build-poc.sh auto-set vs caller明示指定一本化（caller明示指定採用= ADR-0072経路 K+L-Q only carry確保）、 nh 1件 = NH-1 B3/B4 wording区別（PMDDOTNET on + SONG_SELECT off/on 明示）、 lr 1件 = LR-1 helper script byte origin verifier mandate γ-3 .lst predicate追加候補、 main agent autonomous で軽微 fix-up commit（memory `feedback_main_agent_engineering_responsibility.md` literal「doc wording = Claude Code自分で直す」整合）= β-1 flag propagation表 + β-3 song_data.inc動的拡張 sed insert literal修正 + β-2 4 build matrix B3/B4 wording区別 + β-3 LR-1反映 helper script byte origin verifier mandate、 round 3投入予定（同 AXIS carry confirm + MF-1/MF-2/NH-1/LR-1反映確認）。
 - 2026-05-27: ADR-0074 sprint β PR2 起票 (= Annex β plan v2 literal fill = candidate 4 実装前提具体化 doc-only sprint)、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 user 明示 GO mandate「candidate 4 を実装前提まで具体化、 6 mandate point 曖昧禁止 = (1) TEST_MODE_PMDDOTNET_SONG_SELECT=0 で production binary 完全不変 + (2) flag=1 時のみ PMDDOTNET_MML 指定 song runtime 起動 + (3) main.c / song_data.inc / driver / build script どこを touch するか literal + (4) PMDNEO_SONG=2 等選択値の渡し方 + (5) test01.mml 混入機械的排除 + (6) trace + WAV segment で『この WAV は指定 fixture 由来』 証明方法 + δ session / candidate 評価に戻らない (= infrastructure repair scope carry)」 mandate 経路、 base anchor `wip-pmddotnet-opnb-extension@8c17821`。 Annex β fill 9 sub-section literal = β-0 user mandate carry + β-1 flag build → driver propagation 経路 (= driver `.equ` 配置 + build.mk sed expr 追加 = 既存 TEST_MODE_AXIS_G_INT precedent 同形) + β-2 production binary 完全不変 mandate (= flag=0 default + 4 build matrix B1-B4 verify pattern) + β-3 flag=1 時 runtime 起動経路 (= main.c PMDNEO_SONG=2 + driver_song_id=2 + song_table[2*20+part*2] dispatch、 driver routine 自体は完全不変、 既存 logic carry) + β-4 PMDNEO_SONG=2 渡し方 chain literal (= build-poc.sh env → build.mk make var → CFLAGS -DPMDNEO_SONG=2 → main.c → cmd 11 → driver_song_id=2) + β-5 test01.mml 混入機械的排除 3 段 (= driver_song_id=2 で song_table[0] unreachable + song_table[0..19] entries 完全不変 + part dispatch trace evidence) + β-6 trace + WAV segment 機械的証明 4 軸 (= time-staggered fixture 期待 audible window + per-channel register write timeline + segment RMS pattern + fixture byte-level uniqueness) + β-7 sprint γ 実装範囲 + allowed-touch literal (= 修正 file 4 件 = driver flag + build.mk + main.c + build-poc.sh + 新規 file 2 件 = pmddotnet-song-table-entries.py + src/test-fixtures/adr-0074/、 不可触対象 ADR-0048〜0073 全継承) + β-8 verify gate γ + δ literal (= 4 build matrix + .lst predicate 10 件 + δ-1〜δ-7 + δ-6 で ADR-0072/0073 ε wording validity question evidence collection (= ただし訂正・撤回判断は user 介入 mandatory)) + β-9 Codex Rescue plan review round 2 投入 mandate (= 5 必須軸 carry + AXIS-BETA-6/7/8 新軸)、 後続 = Codex Rescue plan review round 2 投入 + approve loop + main agent 経路 merge + atomic 1 セット規律 18 回目適用予定 (= PR #142+...+#159+本 β PR2)。
 - 2026-05-27: ADR-0074 起票 (= sprint α plan sprint 完了 + Annex α plan v1 draft literal + Codex Rescue plan review 5 必須軸投入準備) = Draft、 起票者: 越川将人 (= 主軸 Claude Code 経由)、 PR1 doc-only sprint = ADR-0065 δ preflight v2 (= 2026-05-27 43rd session 末) で発覚した infrastructure issue (= PMDDOTNET_MML build artifact は ROM 内に存在するが MAME runtime では song_table[0] = test01.mml が再生されていた = ADR-0058 §決定 1 mandate「A-J test01 default、 K + L-Q のみ PMDDOTNET」 carry confirmed) repair plan、 base anchor `wip-pmddotnet-opnb-extension@99f2d6f`、 user 明示 mandate「option A test01.mml 一時置換は採用しない (= production 経路の確認であり PMDDOTNET_MML 経路の証明にならない) + option B K/L-Q 限定は FM/SSG preflight に不足 + option C 相当 runtime selection path repair を plan 化 + doc-only plan / touch 範囲 / rollback / sha256 影響 / 既存 ADR wording 影響整理 + ADR-0058 §決定 1 mandate 衝突明示 + user audition / δ session 進めない + ADR-0072/0073 wording 訂正・撤回 user 判断なしに行わない」 mandate 経路。 touch 範囲候補 4 件比較 (= candidate 1 song_table 拡張 / candidate 2 driver cmd handler 改修 / candidate 3 build-poc.sh + song_data.inc 動的拡張 / candidate 4 preflight 専用 build mode `TEST_MODE_PMDDOTNET_SONG_SELECT` flag) + 推奨 path = candidate 4 (= flag=0 default で production binary 完全不変 + flag=1 で song_table 拡張 + main.c PMDNEO_SONG=2 起動 + ADR-0058 §決定 1 mandate 例外条件 = 整合 path、 既存 TEST_MODE_AXIS_G_INT / TEST_MODE_MUTE_FIXTURE precedent 同形)、 sub-sprint chain α/β/γ/δ/ε 5 段 plan (= ADR-0073 precedent literal 継承)、 rollback condition = ADR-0073 §決定 6 18 condition 継承 + ADR-0074 固有 #19 ADR-0058 §決定 1 mandate 根本衝突 finding + #20 production sha256 mandate 違反 risk + #21 ADR-0072/0073 ε wording 訂正・撤回 main agent 自走 risk literal、 Codex Rescue plan review 5 必須軸 (= user 明示 mandate literal carry) = (1) PMDDOTNET_MML 指定 fixture runtime 起動設計妥当性 + (2) test01.mml 混入機械的排除 + (3) WAV + trace で「この WAV はこの fixture 由来」 機械的証明 + (4) ADR-0058 §決定 1 衝突明示 + (5) user audition / δ session に勝手に進んでいないか、 review-only mandate 6 件 literal、 後続 = sprint β = Codex Rescue plan review chain + plan iteration + touch 範囲確定、 sprint γ = 実装 user 明示 GO 必須、 ADR-0072/0073 ε wording 訂正・撤回 = ADR-0074 ε Accepted 後 user 判断仰ぐ (= 本 ADR-0074 では訂正・撤回しない mandate carry)。
 
