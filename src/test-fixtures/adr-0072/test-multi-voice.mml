@@ -1,0 +1,30 @@
+#Title		ADR-0072 test-multi-voice patch (1) verify multi voice switch
+#Composer	PMDNEO ADR-0072 sprint γ impl
+
+; ADR-0072 patch (1) verify multi voice change + voice switch within same part
+; Exercises 2 voice definitions + @001 → @002 transition in mid-part
+; Expected: voice 1 and voice 2 register data loaded at correct timing
+
+; FM voice 1 (= simple alg 0 fbl 0)
+; nm alg fbl
+@001 000 000
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+; FM voice 2 (= alg 7 = distinct from voice 1)
+; nm alg fbl
+@002 007 000
+ 031 000 000 000 000 020 000 003 000 000
+ 031 000 000 000 000 020 000 004 000 000
+ 031 000 000 000 000 020 000 005 000 000
+ 031 000 000 000 000 020 000 006 000 000
+
+A	t120
+A	@001v15o4c4@002o4d4@001o4e4@002o4f4
+B	@002v15o4d4@001o4e4@002o4f4@001o4g4
+C	@001v15o4e4@002o4f4@001o4g4@002o4a4
+D	@002v15o4f4@001o4g4@002o4a4@001o4b4
+E	@001v15o4g4@002o4a4@001o4b4@002o5c4
+F	@002v15o4a4@001o4b4@002o5c4@001o5d4

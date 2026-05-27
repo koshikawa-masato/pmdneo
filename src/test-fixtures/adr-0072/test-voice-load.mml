@@ -1,0 +1,26 @@
+#Title		ADR-0072 test-voice-load patch (1) verify single voice
+#Composer	PMDNEO ADR-0072 sprint γ impl
+
+; ADR-0072 patch (1) = comat routine chip_type guard + PMDDOTNET inline voice table load verify
+; PMDDotNET emits @N as 0xFF N + voice definition as inline voice table (= [voice_num][25 byte data]...[0x00 0xFF] terminator)
+; Driver currently looks up voice_table[N] from compile.py separate label table; PMDDOTNET path needs inline voice loader
+;
+; This fixture exercises @001 voice change on each FM part with simple notes
+; Expected: voice 1 register data loaded to FM 0x30-0x9F + 0xB0 area per part
+
+; FM voice 1 (= simple alg 0 fbl 0)
+; nm alg fbl
+@001 000 000
+; ar  dr  sr  rr  sl  tl  ks  ml  dt ams
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+A	t120
+A	@001v15o4c4r4d4r4e4r4
+B	@001v15o4d4r4e4r4f4r4
+C	@001v15o4e4r4f4r4g4r4
+D	@001v15o4f4r4g4r4a4r4
+E	@001v15o4g4r4a4r4b4r4
+F	@001v15o4a4r4b4r4o5c4r4
