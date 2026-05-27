@@ -4668,7 +4668,15 @@ fm_volume_hook_pmddotnet:
         ld      c, a                    ; C = carrier mask (= bit 7-4 OP4/3/2/1)
         ;; V byte fetch + fade scale + ~V
         ld      a, PART_OFF_VOLUME(ix)
-        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算継承
+        ;; ADR-0073 fix B impl-review round 1 must-fix: pmdneo_fade_scale clobbers AF/BC/DE/HL
+        ;; (= line 2269 comment literal、 実装 L2271-2293 で C/DE/HL 上書き)、 C (carrier mask)
+        ;; + DE (voice ptr) を push/pop で preserve mandate (= flag-on runtime で per-slot loop が
+        ;; carrier mask + voice ptr 使用するため、 clobber すると undefined behavior)。
+        push    bc                      ; save C = carrier mask
+        push    de                      ; save DE = voice ptr
+        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算継承、 clobbers AF/BC/DE/HL
+        pop     de                      ; restore DE = voice ptr
+        pop     bc                      ; restore BC (= C = carrier mask)
         cpl                             ; A = ~V (= 0xFF - V、 PMD V4.8s NOT(volume) semantic)
         ld      b, a                    ; B = ~V
         ;; 各 slot (= OP1/OP2/OP3/OP4 = bit 4/5/6/7) について carrier mask 確認 → voice TL + ~V - 0x80 saturate → register write
