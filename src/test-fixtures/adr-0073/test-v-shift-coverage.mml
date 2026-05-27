@@ -1,0 +1,18 @@
+#Title		ADR-0073 test-v-shift-coverage = LR-2 mitigation gate
+#Composer	PMDNEO ADR-0073 sprint γ impl
+
+; ADR-0073 LR-2 mitigation gate fixture (= plan v3 β-3-8 #18 rollback condition trigger verify)
+; PMDDotNET 経路で v+/v- (= comvshift_up/down) opcode emit 確認用
+; 期待 = PMDDotNET .m binary 内 0xDE/0xDD opcode emit detect 経路で coverage gate 動作確認
+; emit あり (= xxd grep hit) → #18 rollback condition trigger (= γ scope 拡張 user 明示 GO 必須)
+; emit なし → LR-2 scope-out OK (= ADR-0073 plan v3 β-3-7 δ-7 v+/v- emit verify gate)
+
+@001 000 000
+ 031 000 000 000 000 017 000 001 000 000
+ 031 000 000 000 000 025 000 002 000 000
+ 031 000 000 000 000 038 000 001 000 000
+ 031 018 000 015 002 000 000 001 000 000
+
+A	t120
+A	@001v10o4c4v+3d4v-3e4r4
+B	@001v10o4d4v+3e4v-3f4r4

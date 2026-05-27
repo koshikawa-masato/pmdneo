@@ -290,6 +290,23 @@
         ;;   sdasz80 が byte 出力なし = m1 binary byte-identical 維持。
         .equ    pmdneo_v2_ppc_bit7_scratch,    0xFD61
 
+        ;; ADR-0073 fix B: FM ch 別 current voice ptr cache (= 0xFD62-0xFD6D 12 byte 占有、
+        ;; PMDDOTNET 経路限定 = guarded change `.if PMDNEO_USE_PMDDOTNET` 配下のみ参照、
+        ;; production (= flag-off) では未参照 unused .equ symbol = m1 binary byte-identical 維持)。
+        ;; `fm_volume_hook_pmddotnet` (= ADR-0073 fix B v3 PMD V4.8s volset_slot semantics port)
+        ;; が ch_idx → voice ptr cache lookup で voice data 末尾 reg 0xB0 byte (= ALG/FBL) を都度
+        ;; read し carrier mask 経由 per-op TL register write 経路で使用。 `comat` (= line 4419-4439)
+        ;; と `pmdneo_fm_voice_set_default` (= line 1311-1313) で書込、 caller 側 PartWork field
+        ;; 流用なし = ADR-0058 v2 PartWork 不可触 mandate 抵触なし、 `PART_OFF_INSTRUMENT` 流用なし
+        ;; = ADPCM-A field 混同回避 (= ADR-0073 plan v3 LR-1 mitigation)。
+        .equ    driver_pmddotnet_fm_voice_ptr_base, 0xFD62
+        .equ    driver_pmddotnet_fm_voice_ptr_ch0,  0xFD62
+        .equ    driver_pmddotnet_fm_voice_ptr_ch1,  0xFD64
+        .equ    driver_pmddotnet_fm_voice_ptr_ch2,  0xFD66
+        .equ    driver_pmddotnet_fm_voice_ptr_ch3,  0xFD68
+        .equ    driver_pmddotnet_fm_voice_ptr_ch4,  0xFD6A
+        .equ    driver_pmddotnet_fm_voice_ptr_ch5,  0xFD6C
+
         ;; ADR-0053 §決定 2 軸 B 実装 sprint 2 β: v2 SRAM sub-region 境界定数
         ;;   0xFD39-0xFFBF (= 647 byte free region) を v2 driver の SRAM sub-region
         ;;   3 区画へ正式分割する境界 anchor (= ADR-0053 §決定 2 案 A)。
@@ -1310,6 +1327,32 @@ pmdneo_fm_clear_ssg_eg_ch_loop:
 
 pmdneo_fm_voice_set_default:
         ld      hl, #fm_voice_data_default
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B v3 (= MF-new-2 反映): default voice load 経路で voice ptr cache 初期化。
+        ;; `init_chip_ch2_voice` (= line 1349-1363 caller) 経由 init-time default voice load は
+        ;; `comat` を通らないため、 `fm_volume_hook_pmddotnet` が voice ptr cache lookup する際
+        ;; 未初期化 random value 参照 → 破滅的 regression risk。 ch_idx 0-5 のみ cache、
+        ;; ch_idx >= 6 (= SSG/PCM、 safety) は skip。
+        push    hl
+        ld      a, b                ; A = ch_idx (= caller pre-set)
+        cp      #6
+        jr      nc, _pmdneo_fmvs_default_no_cache
+        sla     a                   ; A = ch_idx * 2
+        ld      e, a
+        ld      d, #0
+        ld      hl, #driver_pmddotnet_fm_voice_ptr_base
+        add     hl, de              ; HL = cache addr
+        ex      de, hl              ; DE = cache addr
+        pop     hl                  ; HL = fm_voice_data_default 復元
+        push    hl
+        ld      a, l
+        ld      (de), a             ; cache[ch_idx*2] = LSB
+        inc     de
+        ld      a, h
+        ld      (de), a             ; cache[ch_idx*2+1] = MSB
+_pmdneo_fmvs_default_no_cache:
+        pop     hl
+.endif
         jp      pmdneo_fm_voice_set
 
 pmdneo_fm_voice_set:
@@ -3498,6 +3541,17 @@ pmdneo5_init_part:
         ld      a, #4
         ld      PART_OFF_OCTAVE(ix), a
         ld      PART_OFF_CH_IDX(ix), b
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix C v2: FM part 限定 default vol 108 (= PMD V4.8s `PMD.ASM:558`
+        ;; `mov volume[di],108` port、 fix A 適用後 byte 直接 store semantics 整合)。
+        ;; SSG (= 6-8) / PCM (= 9) / ADPCM-A (= 10-16) / FM3EXT (= 17-19) untouched =
+        ;; caller 渡し c=#0x0F carry (= MF-1 反映 = chip_type=FM 判定経路、 plan v3 β-2-4)。
+        ld      a, d                ; A = part_id
+        cp      #PART_SSG1          ; part_id < 6 (= FM1-FM6) のみ override
+        jr      nc, _pmdneo5_init_part_vol_default
+        ld      c, #108
+_pmdneo5_init_part_vol_default:
+.endif
         ld      PART_OFF_VOLUME(ix), c
         xor     a
         ld      PART_OFF_VOLUME_SHIFT(ix), a
@@ -3971,6 +4025,14 @@ comt:
 
 comv:
         call    pmdneo_part_fetch_byte
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix A: PMDDotNET 経路は byte 直接 store (= PMD V4.8s `PMD.ASM:3406-3411`
+        ;; `comv: lodsb; mov volume[di],al; ret` semantic port)。 compile 済 V byte (= fmvol[]
+        ;; table 経由 0x55-0x7F 範囲) を二重 v→V 変換せずそのまま PART_OFF_VOLUME 格納。
+        ld      PART_OFF_VOLUME(ix), a
+        call    pmdneo_part_call_volume_hook
+        ret
+.else
         ld      b, a
         ld      a, PART_OFF_V_SCALE(ix)
         add     a, b
@@ -4001,6 +4063,7 @@ _pmdneo_comv_shift_ok:
         ld      PART_OFF_VOLUME(ix), a
         call    pmdneo_part_call_volume_hook
         ret
+.endif
 
 comV:
         call    pmdneo_part_fetch_byte
@@ -4433,6 +4496,33 @@ comat:
         inc     hl
         ld      d, (hl)
         ex      de, hl                    ; HL = voiceN_data address
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B v3 (= MF-new-2 反映): FM ch 別 voice ptr cache 保存。
+        ;; `fm_volume_hook_pmddotnet` (= ADR-0073 fix B PMD V4.8s volset_slot port) が
+        ;; ch_idx → cache lookup で voice data 末尾 reg 0xB0 byte (= ALG) を都度 read し
+        ;; carrier mask 経由 per-op TL register write 経路で使用するため、 voice load 時点で
+        ;; voice ptr を SRAM 0xFD62-0xFD6D 12 byte 領域 (= driver_pmddotnet_fm_voice_ptr_base+
+        ;; ch_idx*2) へ保存。 ch_idx 0-5 のみ (= safety = SSG/PCM は SSG 経路で skip 済)。
+        push    hl
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #6
+        jr      nc, _pmdneo_comat_no_cache
+        sla     a                         ; A = ch_idx * 2
+        ld      e, a
+        ld      d, #0
+        ld      hl, #driver_pmddotnet_fm_voice_ptr_base
+        add     hl, de                    ; HL = cache addr
+        ex      de, hl                    ; DE = cache addr
+        pop     hl                        ; HL = voice ptr
+        push    hl
+        ld      a, l
+        ld      (de), a                   ; cache[ch_idx*2] = LSB
+        inc     de
+        ld      a, h
+        ld      (de), a                   ; cache[ch_idx*2+1] = MSB
+_pmdneo_comat_no_cache:
+        pop     hl
+.endif
         ld      b, PART_OFF_CH_IDX(ix)
         call    pmdneo_fm_voice_set
 comat_done:
@@ -4470,6 +4560,12 @@ fnumset_fm_hook:
 ;; 4 op (= reg 0x40, 0x44, 0x48, 0x4C + ch index) 同期書込
 ;; ALG 7 全 op carrier 想定、 全 op 同 TL で audible 設定
 fm_volume_hook:
+.if PMDNEO_USE_PMDDOTNET
+        ;; ADR-0073 fix B v3: PMD V4.8s `volset_slot` 数式 + per-alg carrier mask 経路へ dispatch。
+        ;; 既存 (= flag-off) は ALG=7 全 op carrier 想定 hard-coded で voice TL を 4 op に同値書込、
+        ;; PMDDotNET 経路では voice TL additive + carrier mask 経由で voice 音色設計保存。
+        jp      fm_volume_hook_pmddotnet
+.endif
         ld      a, PART_OFF_VOLUME(ix)
         call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算混入 (= 案 b)
         srl     a                       ; A = V/2 (0-127)
@@ -4527,6 +4623,191 @@ fm_volume_hook_portb:
         ld      b, a
         call    ym2610_write_port_b
         ret
+
+.if PMDNEO_USE_PMDDOTNET
+;; ADR-0073 fix B v3: per-ALG carrier slot mask (= PMD V4.8s `PMD.ASM:7958-7964` literal port)
+;; bit 7-4 = OP4/OP3/OP2/OP1 carrier mask, bit 3-0 = unused
+fm_carrier_table:
+        .db     0b10000000      ; ALG=0: OP4 のみ carrier
+        .db     0b10000000      ; ALG=1: OP4 のみ carrier
+        .db     0b10000000      ; ALG=2: OP4 のみ carrier
+        .db     0b10000000      ; ALG=3: OP4 のみ carrier
+        .db     0b10100000      ; ALG=4: OP4 + OP2 carrier
+        .db     0b11100000      ; ALG=5: OP4 + OP3 + OP2 carrier
+        .db     0b11100000      ; ALG=6: OP4 + OP3 + OP2 carrier
+        .db     0b11110000      ; ALG=7: 全 4 op carrier
+
+;; ADR-0073 fix B v3: PMD V4.8s `volset_slot` 数式 port + per-alg carrier mask 経路。
+;; 入力: ix = PART_OFF_* address
+;; 出力: 各 carrier op に対し TL = saturate((~V + voice_TL) - 0x80) を YM2610 reg に write
+;; modulator op (= carrier mask bit clear) は voice TL untouched = 音色設計保存
+fm_volume_hook_pmddotnet:
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #6
+        ret     nc                      ; safety: FM ch 0-5 のみ (= SSG/PCM 経路は別 hook)
+        ;; voice ptr cache lookup
+        sla     a                       ; A = ch_idx * 2
+        ld      l, a
+        ld      h, #0
+        ld      de, #driver_pmddotnet_fm_voice_ptr_base
+        add     hl, de
+        ld      e, (hl)
+        inc     hl
+        ld      d, (hl)                 ; DE = voice ptr (= voiceN_data 先頭)
+        ;; ALG byte fetch (= voice[24] = reg 0xB0 ALG/FBL byte)
+        ld      hl, #24
+        add     hl, de
+        ld      a, (hl)
+        and     #0x07                   ; A = ALG (0-7)
+        ;; carrier mask lookup
+        ld      l, a
+        ld      h, #0
+        ld      bc, #fm_carrier_table
+        add     hl, bc
+        ld      a, (hl)
+        ld      c, a                    ; C = carrier mask (= bit 7-4 OP4/3/2/1)
+        ;; V byte fetch + fade scale + ~V
+        ld      a, PART_OFF_VOLUME(ix)
+        call    pmdneo_fade_scale       ; ADR-0050 β: fade factor 乗算継承
+        cpl                             ; A = ~V (= 0xFF - V、 PMD V4.8s NOT(volume) semantic)
+        ld      b, a                    ; B = ~V
+        ;; 各 slot (= OP1/OP2/OP3/OP4 = bit 4/5/6/7) について carrier mask 確認 → voice TL + ~V - 0x80 saturate → register write
+        ;; slot 0 (= OP1): mask bit 4 = 0x10, voice TL = voice[4+0], reg offset = 0
+        bit     4, c
+        jr      z, _fmvhp_skip_s0
+        ld      hl, #4
+        add     hl, de
+        ld      a, (hl)
+        add     a, b
+        jr      nc, _fmvhp_s0_nc
+        ld      a, #0xFF
+_fmvhp_s0_nc:
+        sub     #0x80
+        jr      nc, _fmvhp_s0_nb
+        xor     a
+_fmvhp_s0_nb:
+        ;; A = final TL value、 slot 0 = reg offset 0
+        push    bc
+        push    de
+        call    _fmvhp_write_s0
+        pop     de
+        pop     bc
+_fmvhp_skip_s0:
+        ;; slot 1 (= OP2): mask bit 5 = 0x20, voice TL = voice[4+1], reg offset = 4
+        bit     5, c
+        jr      z, _fmvhp_skip_s1
+        ld      hl, #5
+        add     hl, de
+        ld      a, (hl)
+        add     a, b
+        jr      nc, _fmvhp_s1_nc
+        ld      a, #0xFF
+_fmvhp_s1_nc:
+        sub     #0x80
+        jr      nc, _fmvhp_s1_nb
+        xor     a
+_fmvhp_s1_nb:
+        push    bc
+        push    de
+        call    _fmvhp_write_s1
+        pop     de
+        pop     bc
+_fmvhp_skip_s1:
+        ;; slot 2 (= OP3): mask bit 6 = 0x40, voice TL = voice[4+2], reg offset = 8
+        bit     6, c
+        jr      z, _fmvhp_skip_s2
+        ld      hl, #6
+        add     hl, de
+        ld      a, (hl)
+        add     a, b
+        jr      nc, _fmvhp_s2_nc
+        ld      a, #0xFF
+_fmvhp_s2_nc:
+        sub     #0x80
+        jr      nc, _fmvhp_s2_nb
+        xor     a
+_fmvhp_s2_nb:
+        push    bc
+        push    de
+        call    _fmvhp_write_s2
+        pop     de
+        pop     bc
+_fmvhp_skip_s2:
+        ;; slot 3 (= OP4): mask bit 7 = 0x80, voice TL = voice[4+3], reg offset = 12
+        bit     7, c
+        ret     z                       ; no slot 3 carrier = done
+        ld      hl, #7
+        add     hl, de
+        ld      a, (hl)
+        add     a, b
+        jr      nc, _fmvhp_s3_nc
+        ld      a, #0xFF
+_fmvhp_s3_nc:
+        sub     #0x80
+        jr      nc, _fmvhp_s3_nb
+        xor     a
+_fmvhp_s3_nb:
+        jp      _fmvhp_write_s3
+
+;; Per-slot TL register write helpers (= shared logic between slot blocks)
+;; 入力: A = final TL value, ix = PART_OFF_*
+;; 副作用: ym2610 reg write port A/B + reg = 0x40 + slot*4 + (ch or ch-3)
+_fmvhp_write_s0:
+        ld      c, a                    ; C = TL value
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #3
+        jr      nc, _fmvhp_w_s0_pb
+        add     a, #0x40
+        ld      b, a
+        jp      ym2610_write_port_a
+_fmvhp_w_s0_pb:
+        sub     #3
+        add     a, #0x40
+        ld      b, a
+        jp      ym2610_write_port_b
+
+_fmvhp_write_s1:
+        ld      c, a
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #3
+        jr      nc, _fmvhp_w_s1_pb
+        add     a, #0x44
+        ld      b, a
+        jp      ym2610_write_port_a
+_fmvhp_w_s1_pb:
+        sub     #3
+        add     a, #0x44
+        ld      b, a
+        jp      ym2610_write_port_b
+
+_fmvhp_write_s2:
+        ld      c, a
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #3
+        jr      nc, _fmvhp_w_s2_pb
+        add     a, #0x48
+        ld      b, a
+        jp      ym2610_write_port_a
+_fmvhp_w_s2_pb:
+        sub     #3
+        add     a, #0x48
+        ld      b, a
+        jp      ym2610_write_port_b
+
+_fmvhp_write_s3:
+        ld      c, a
+        ld      a, PART_OFF_CH_IDX(ix)
+        cp      #3
+        jr      nc, _fmvhp_w_s3_pb
+        add     a, #0x4C
+        ld      b, a
+        jp      ym2610_write_port_a
+_fmvhp_w_s3_pb:
+        sub     #3
+        add     a, #0x4C
+        ld      b, a
+        jp      ym2610_write_port_b
+.endif
 
 psg_keyon_hook:
         ld      b, PART_OFF_CH_IDX(ix)

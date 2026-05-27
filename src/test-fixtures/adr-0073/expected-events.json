@@ -1,0 +1,26 @@
+{
+  "_schema_version": "adr-0065-sprint-b-layer1-only",
+  "_description": "ADR-0073 fix A+B+C verify = δ-5 Layer 1 WAV hygiene primary success (= wav RMS > -60 dBFS)。 Layer 2 trace alignment は MAME runtime trace 取得 後の analysis、 本 fixture では Layer 1 audio audible confirm が primary success metric。",
+  "events": [
+    {
+      "channel": "FM_A",
+      "time_ms": 0,
+      "type": "note_on",
+      "note": "C4",
+      "expected_audible": true,
+      "_comment": "voice 001 ALG=0 carrier OP4 TL=0 + v15 で fix A+B+C 統合 = TL~2 (= PMD V4.8s semantics) で audible expected"
+    },
+    {
+      "channel": "FM_A",
+      "time_ms": 500,
+      "type": "note_off",
+      "_comment": "l4 + r4 cycle"
+    }
+  ],
+  "thresholds": {
+    "layer_1_wav_hygiene": {
+      "rms_dbfs_min": -60,
+      "_comment": "ADR-0073 primary success metric = wav RMS > -60 dBFS (= ADR-0072 ε -76 dBFS quiet の根本治療 confirm)"
+    }
+  }
+}
