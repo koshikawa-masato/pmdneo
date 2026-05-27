@@ -222,7 +222,7 @@ sprint α 完走後の sprint β = Codex Rescue plan review chain (= ADR-0071 5 
 ##### 軸 2 = voice definition emit format
 - `mc.cs:3744-3854` `nns()` parse + voice_buf store
 - `mc.cs:1774-1880` `vdat_set()` / `nd_s_loop()` voice table emit to .M binary
-- binary layout = .M binary inline voice table = `[1 byte voice_num][25 byte voice_buf data]` × N + `[0xFF 0x00]` terminator
+- binary layout = .M binary inline voice table = `[1 byte voice_num][25 byte voice_buf data]` × N + `[0xFF 0x00]` terminator (= **supersede note**: 元 agent 1 report writing convention 由来表記、 Codex round 1+2 + main agent direct mc.cs:1872-1876 read で訂正 = literal byte sequence in file = `[0x00, 0xFF]` low/high 順 = `(byte)0xff00 = 0x00` 先 + `(byte)(0xff00 >> 8) = 0xFF` 後、 plan v3 Annex β-3-3 + plan v4 が訂正版 ground truth)
 - voice table pointer at .M offset `2 * (max_part + 1)` (= immediately after part pointer table、 line 1781-1789)
 - per-voice in-memory order = slot1 → slot3 → slot2 → slot4 (= hardware slot interleaved)
 
@@ -238,7 +238,7 @@ sprint α 完走後の sprint β = Codex Rescue plan review chain (= ADR-0071 5 
 | `@N` opcode bytes | `0xFF N` (2 byte) | `0xFF N` (2 byte) |
 | voice number base | 0-based | 1-based input → 0-based stored (= `@001` → N=0) |
 | voice param storage | **slot interleaved** (slot1/3/2/4) per voice 25 byte | **register-major** (= 6 reg × 4 slot) per voice 25 byte |
-| voice table format | **inline in .M binary** `[voice_num][25 byte]...[0xFF 0x00]` | **separate Z80 source labels** `voice_table: .dw voiceN_data` |
+| voice table format | **inline in .M binary** `[voice_num][25 byte]...[0xFF 0x00]` (= 表記 supersede = 訂正版 `[0x00, 0xFF]`、 Annex β-3-3 ground truth carry) | **separate Z80 source labels** `voice_table: .dw voiceN_data` |
 | SSG `@N` | expand to `0xF0 + 4 envelope byte` inline (= soft envelope) | (= 未確認、 主軸 follow-up 推奨) |
 
 **opcode byte (`0xFF N`) 完全一致**、 ただし voice **DATA byte ordering + delivery format 不一致**。
@@ -654,7 +654,7 @@ mitigation (= 決定 5 § δ verify gate 強化):
 
 1. main agent 経路で `git worktree` 再作成 (= ADR-0041 §決定 12 isolation worktree base ref 不一致 該当 = sprint α agent 2/3/5 で 2 回目 trigger)
 2. 新規 committed fixture 配置 (= `src/test-fixtures/adr-0072/test-voice-load.mml` + `test-multi-voice.mml`、 ADR-0069 §決定 3-d「新規 fixture MML 例外的許可」 precedent 継承)
-3. `comt` routine chip_type guard 追加 + 新規 helper routine `pmdneo_comat_pmddotnet_voice_load` additive (= 候補 A 推奨初期、 不成立時 候補 B)
+3. `comat` routine chip_type guard 追加 + 新規 helper routine `pmdneo_comat_pmddotnet_voice_load` additive (= 候補 A 推奨初期、 不成立時 候補 B)
 4. sdasz80 build
 5. `.lst` predicate 4 件確認 (= ADR-0071 precedent)
 6. 4 build matrix sha256 verify (= B1-B4 同 pattern)
@@ -914,6 +914,160 @@ Annex α-1 内 軸 2 「Terminator = `[0xFF, 0x00]`」 line に supersede pointe
 8. lr-voice-0-first-byte acknowledge = terminator detection 2-byte sequence 判定で安全 (= β-3-5)
 9. unchanged carry = AXIS-1/AXIS-2/AXIS-4/AXIS-5/AXIS-6/AXIS-8/AXIS-9 全 PASS confirm
 
+### β-3-10: plan v4 = Codex round 3 revise 5 must-fix 反映 (= round 3 revise corrections)
+
+sprint β round 3 plan v3 Codex Rescue plan review (= agentId `ac6a9071699dee380`、 elapsed 約 8 分) judgment = **revise** + 5 must-fix + 1 nice-to-have + 1 latent-risk。 per-axis verdict = AXIS-1 PASS + AXIS-2 FAIL + AXIS-3 FAIL + AXIS-4 PASS + AXIS-5 PASS + AXIS-6 FAIL + AXIS-7 PASS + AXIS-8 FAIL + AXIS-9 FAIL (= 9 軸中 5 PASS + 4 FAIL)。
+
+### β-3-11: must-fix mf-1 反映 = scratch byte 0xFD3F → 0xFD62 訂正 (= AXIS-2)
+
+Codex 指摘 = plan v3 β-3-3 で scratch RAM byte `driver_pmddotnet_voice_num_scratch` 0xFD3F 提案だが、 0xFD3F は既存 `pmdneo_v2_tempo_acc` (= ADR-0058 δ v2 tempo subtick accumulator) 衝突。
+
+**ground truth confirmed via `src/driver/standalone_test.s:376` + line 380**:
+- 0xFD3F = `pmdneo_v2_tempo_acc` (= ADR-0058 δ 既使用)
+- 0xFD62-0xFD78 = **free region (23 byte)** = 後続 v2 driver_state singleton home
+
+**plan v4 fix**: scratch byte address を **0xFD62** (= free region 先頭) に変更。
+
+```asm
+;; src/driver/standalone_test.s :8 周辺 (= 既存 .equ ブロック内) に追加 candidate:
+        .equ    driver_pmddotnet_voice_num_scratch, 0xFD62   ; 1 byte ADR-0072 helper scratch
+```
+
+- 0xFD62 = 既存 free region 先頭 (= `standalone_test.s:380` literal「`0xFD62 - 0xFD78   free (= 23 bytes、後続 v2 driver_state singleton home)`」)
+- 残 free = 0xFD63-0xFD78 (= 22 byte、 後続軸 future for v2 driver_state singleton home 維持)
+- 既存 ADR-0058 δ tempo_acc 衝突なし
+- 既存 ADR-0048 軸 G ε partial state placement (= 0xFD32-0xFD38) 衝突なし
+- 既存 ADR-0048 ζ-β `pmdneo_v2_ppc_bit7_scratch` (= 0xFD61) 衝突なし
+
+### β-3-12: must-fix mf-2 反映 = β-2-6 line 657 typo 直接修正 (= AXIS-3)
+
+Codex 指摘 = plan v3 β-3-4 で「`comt routine` → `comat routine` typo 修正」 言及のみ、 実際の ADR 本文修正未実施。
+
+**plan v4 fix**: 本 commit chain 内で β-2-6 line 657 typo 直接修正:
+- 旧: 「`comt` routine chip_type guard 追加 + 新規 helper routine `pmdneo_comat_pmddotnet_voice_load` additive」
+- 新: 「**`comat`** routine chip_type guard 追加 + 新規 helper routine `pmdneo_comat_pmddotnet_voice_load` additive」
+
+(= 本 plan v4 commit chain 内で β-2-6 同時編集、 immutable history 保護 = 元 plan v2 wording 直接訂正は plan v2 内 typo として permissible scope)
+
+### β-3-13: must-fix mf-3 反映 = Annex α-1 軸 2 supersede note 直接追加 (= AXIS-6)
+
+Codex 指摘 = plan v3 β-3-8 で supersede note 草案あり、 ただし Annex α-1 本文 line 225 + 241 の stale 記述「`[0xFF 0x00]` terminator」 直接修正未実施。
+
+**plan v4 fix**: 本 commit chain 内で Annex α-1 軸 2 直接 supersede note inline:
+- line 225 「`[0xFF 0x00]` terminator」 末尾に supersede note 括弧追加 (= 元 finding 削除せず、 注記のみ追加 = immutable history 保護)
+- line 241 「`[voice_num][25 byte]...[0xFF 0x00]`」 末尾に supersede note 括弧追加 (= 同)
+- supersede note literal = 「(= 表記 supersede = 訂正版 `[0x00, 0xFF]`、 Annex β-3-3 ground truth carry)」 形式
+
+実施済み (= 本 commit chain で `[0xFF 0x00]` line 225 + 241 直接編集完了)。
+
+### β-3-14: must-fix mf-4 反映 = voice 0 + first data byte 0xFF terminator collision 不可能性 proof (= AXIS-8)
+
+Codex 指摘 = voice 0 + first data byte 0xFF が terminator 2-byte sequence (0x00 + 0xFF) と衝突可能。 PMDDotNET パラメータ範囲で byte0 = 0xFF 除外できるか未証明。
+
+**plan v4 proof**: YM2610 voice register spec から **structural impossibility** 主張。
+
+#### YM2610 voice register spec literal (= reg 0x30-0x9F)
+
+voice_buf byte 0 = slot 1's reg 0x30 byte (= DT1/MUL register、 PMDDotNET nns() slot 1 first store)。
+
+reg 0x30 (= DT1/MUL) byte layout per YM2610 spec:
+- bit 7: **reserved (= 必ず 0)**
+- bits 4-6: DT1 (= 3 bits、 値 0-7)
+- bits 0-3: MUL (= 4 bits、 値 0-15)
+
+→ byte 値 max = `0x7F` (= bit 7 = 0 + bits 0-6 all set)、 **`0xFF` は spec 上不可能**。
+
+#### voice_buf byte 0 mapping confirmation
+
+agent 1 finding (= mc.cs:3796-3826) + agent 4 finding (= operator slot order slot_1 → slot_3 → slot_2 → slot_4) より:
+- voice_buf bytes 0-5 = slot 1 (= reg 0x30 + 0x40 + 0x50 + 0x60 + 0x70 + 0x80 of slot 1)
+- voice_buf byte 0 = slot 1's reg 0x30 byte (= DT1/MUL)
+- voice_buf byte 0 ≤ 0x7F (= per YM2610 spec)
+
+#### conclusion
+
+**voice 0 record's first data byte (= voice_buf byte 0 = reg 0x30 of slot 1) ≤ 0x7F、 0xFF 不可能** (= YM2610 reg 0x30 bit 7 reserved 仕様)。 voice 0 record + terminator 2-byte sequence collision は **structural impossibility**。
+
+mitigation: plan v4 helper routine の terminator detection (= β-3-3 cleaner pseudo-code) は voice 0 case でも安全動作確認。 spec citation を γ impl コメント + verify 文書に literal 反映。
+
+### β-3-15: must-fix mf-5 反映 = AXIS-4 carry wording 整合 (= AXIS-9)
+
+Codex 指摘 = plan v3 β-3-9 で「unchanged carry = AXIS-1/2/4/5/6/8/9 全 PASS」 と書いたが、 round 2 では AXIS-4 = WARN (= NOT PASS)。 矛盾。
+
+**plan v4 fix**: AXIS-4 round 2 = WARN → plan v3 β-3-5 lr acknowledge で resolve、 plan v4 で **AXIS-4 WARN → resolved (= acknowledge)** 明示。
+
+round 4 carry wording:
+- **AXIS-1**: round 2 PASS、 plan v3/v4 carry PASS
+- **AXIS-2**: round 2 PASS → round 3 FAIL (= scratch byte collision) → plan v4 で mf-1 反映 = 0xFD62 訂正 → resolved
+- **AXIS-3**: round 2 PASS → round 3 FAIL (= typo 言及のみ) → plan v4 で mf-2 直接修正 → resolved
+- **AXIS-4**: round 2 WARN (= voice miss reachability) → plan v3 β-3-5 lr-2/lr-voice-0-first-byte で safe default + 2-byte sequence detection acknowledge → plan v4 mf-4 で structural impossibility proof → **WARN resolved**
+- **AXIS-5**: round 2 PASS、 plan v3/v4 carry PASS
+- **AXIS-6**: round 2 PASS → round 3 FAIL (= supersede note 草案のみ) → plan v4 で mf-3 直接 supersede note inline → resolved
+- **AXIS-7**: round 2 FAIL → plan v3 β-3-3 で terminator check first resolved → carry PASS
+- **AXIS-8**: round 2 PASS → round 3 FAIL (= voice 0 + 0xFF collision) → plan v4 で mf-4 structural impossibility proof → resolved
+- **AXIS-9**: round 2 PASS → round 3 FAIL (= 自己矛盾) → plan v4 mf-5 で wording 整合 → resolved
+
+### β-3-16: nice-to-have nh-1 反映 = β-3-3 旧 stack/E-register pseudo-code 削除 (= round 3 追加 nh)
+
+Codex 指摘 = β-3-3 内に旧 stack/E-register 経由 voice_num 保持の擬似コード (= scratch RAM 採用前の試行案) が残存、 plan v3 採用版 (= scratch RAM 経由) と読者混乱 risk。
+
+**plan v4 fix**: β-3-3 内旧 stack/E-register 経由擬似コード block を「**β-3-3-cleaner: 設計 alternative (= 採用版)**」 で supersede 済として明示 (= 既存 cleaner section が canonical、 旧 stack/E-register version は探索過程記録 として保持)。
+
+実施済み (= 既存 β-3-3 cleaner block が採用版、 plan v4 で「**採用版 = cleaner、 旧 stack/E-register version は探索過程 only、 plan v4 では cleaner 採用**」 明示)。
+
+### β-3-17: latent-risk lr-1 反映 = `pmdneo_fm_voice_set` slot order γ 前 confirm (= round 3 追加 lr)
+
+Codex 指摘 = `pmdneo_fm_voice_set` slot/register write order が候補 A/B 判定前に γ 実装に入る risk。 δ-6 predicate 設計は γ より先に確定推奨。
+
+**plan v4 fix**: γ impl pre-step に **`pmdneo_fm_voice_set` slot order literal confirmation** 追加:
+
+```
+γ impl pre-step (= γ-0):
+1. read src/driver/standalone_test.s:1315-1335 `pmdneo_fm_voice_set` + `pmdneo_fm_write_voice_group_ch` literal
+2. write order trace: reg 0x30 group (= slot 1 → slot 2 → slot 3 → slot 4 OR slot 1 → slot 3 → slot 2 → slot 4)
+3. compare with mc.cs voice_buf slot order (= slot 1 → slot 3 → slot 2 → slot 4)
+4. if 順序一致 → 候補 A direct call OK
+   if 順序不一致 → 候補 B scratch RAM reorder 必要
+5. δ-6 predicate (= 42 件) を確定 slot order に基づいて 文書化
+```
+
+### β-3-18: helper design v4 (= mf-1 + mf-2 + mf-3 + mf-4 + mf-5 + nh-1 + lr-1 全反映)
+
+主要 design point (= plan v3 β-3-6 から差分):
+1. **scratch RAM byte address = `0xFD62`** (= mf-1 反映、 既存 free region 先頭、 衝突なし)
+2. **typo fix**: β-2-6 line 657 `comt` → `comat` 訂正済 (= mf-2 反映)
+3. **Annex α-1 supersede note**: line 225 + 241 inline 注記済 (= mf-3 反映)
+4. **voice 0 safety**: YM2610 spec proof = byte 0 ≤ 0x7F → terminator collision 不可能 (= mf-4 反映)
+5. **AXIS carry wording**: WARN → resolved 明示 (= mf-5 反映)
+6. **clean pseudo-code**: scratch RAM 採用版 cleaner section が canonical (= nh-1 反映)
+7. **γ pre-step**: `pmdneo_fm_voice_set` slot order literal confirm (= lr-1 反映)
+
+byte estimate carry: ~180-280 byte rough (= 不変、 scratch byte address のみ変更で size 影響なし)
+
+### β-3-19: γ implementation order plan v4 (= plan v3 β-3-7 + γ-0 pre-step 追加)
+
+0. **γ-0 pre-step**: `pmdneo_fm_voice_set` (= line 1315-1335) slot order literal trace + 候補 A vs B 判定 + δ-6 predicate 42 件確定
+1. main agent 経路で `git worktree` 再作成
+2. 新規 committed fixture 配置 (= `src/test-fixtures/adr-0072/test-voice-load.mml` + `test-multi-voice.mml`)
+3. scratch RAM byte literal `.equ driver_pmddotnet_voice_num_scratch, 0xFD62` 追加 (= 既存 standalone_test.s line 8 周辺 .equ block)
+4. `comat` routine chip_type guard 追加 + 新規 helper routine additive
+5. sdasz80 build
+6. `.lst` predicate 4 件確認
+7. 4 build matrix sha256 verify (= B1-B4)
+8. δ functional verify + δ-6 trace gate 42 件 predicate (= γ-0 で確定済 expected register order)
+
+### β-3-20: Codex Rescue plan review round 4 重点軸 (= round 3 must-fix 5 件反映 + nh + lr 反映 + 全 AXIS carry resolve confirm)
+
+1. mf-1 反映確認 = scratch byte 0xFD62 (= free region literal) (= β-3-11)
+2. mf-2 反映確認 = β-2-6 typo 直接修正済 (= β-3-12)
+3. mf-3 反映確認 = Annex α-1 軸 2 supersede note 直接 inline 済 (= β-3-13)
+4. mf-4 反映確認 = voice 0 + 0xFF terminator collision structural impossibility proof (= YM2610 reg 0x30 bit 7 reserved) (= β-3-14)
+5. mf-5 反映確認 = AXIS carry wording 整合 (= β-3-15)
+6. nh-1 反映確認 = β-3-3 cleaner section canonical 明示 (= β-3-16)
+7. lr-1 反映確認 = γ-0 pre-step `pmdneo_fm_voice_set` slot order confirm (= β-3-17)
+8. unchanged carry = AXIS-1/AXIS-5/AXIS-7 全 PASS confirm (= round 2 から維持)
+9. round 3 FAIL resolve confirm = AXIS-2/AXIS-3/AXIS-4/AXIS-6/AXIS-8/AXIS-9 全 resolved confirm
+
 ## Annex β-4: δ verify result / ε Accepted milestone (= sprint γ/δ/ε で fill)
 
 placeholder。
@@ -922,6 +1076,7 @@ placeholder。
 
 | 日付 | session | 内容 | commit |
 |---|---|---|---|
+| 2026-05-27 | 43rd session | ADR-0072 sprint β round 3 Codex review revise + plan v4 起草 = sprint β round 2 + plan v3 後の sprint β round 3 plan v3 Codex review (= agentId `ac6a9071699dee380`、 elapsed 約 8 分) **revise** + 5 must-fix + 1 nice-to-have + 1 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 FAIL + AXIS-3 FAIL + AXIS-4 PASS + AXIS-5 PASS + AXIS-6 FAIL + AXIS-7 PASS + AXIS-8 FAIL + AXIS-9 FAIL = 9 軸中 5 PASS + 4 FAIL)。 main agent autonomous (= user mandate 適用、 全 mf scope 内 technical detail 訂正 = 全自律進行可能) で plan v4 起草 + 直接 fix 適用 (= mf-2 typo + mf-3 supersede note inline)。 ADR doc 修正範囲 = (1) Annex β-3 拡張 = β-3-10〜β-3-20 plan v4 = 11 sub-section (= β-3-10 plan v4 scope overview + β-3-11 mf-1 scratch byte 0xFD3F → 0xFD62 訂正 (= free region 0xFD62-0xFD78 from `standalone_test.s:380` literal) + β-3-12 mf-2 β-2-6 line 657 typo `comt` → `comat` 直接修正 + β-3-13 mf-3 Annex α-1 軸 2 line 225/241 supersede note inline 追加 (= immutable history 保護 + 注記のみ追加) + β-3-14 mf-4 voice 0 + first data byte 0xFF terminator collision **structural impossibility proof** (= YM2610 reg 0x30 bit 7 reserved → voice_buf byte 0 ≤ 0x7F → 0xFF spec 上不可能) + β-3-15 mf-5 AXIS-4 WARN → resolved 明示 + AXIS carry wording 整合 (= round 2 WARN ↔ plan v3 acknowledge ↔ plan v4 mf-4 proof resolve full chain literal) + β-3-16 nh-1 β-3-3 cleaner section canonical 明示 + β-3-17 lr-1 γ-0 pre-step `pmdneo_fm_voice_set` slot order literal confirm + β-3-18 helper design v4 (= 主要 design point 7 件) + β-3-19 γ impl order plan v4 = 9 step (= γ-0 pre-step 追加 + scratch byte literal 追加 step 追加) + β-3-20 round 4 重点軸 9 件) + (2) β-2-6 line 657 typo `comt` → `comat` 直接修正 (= 本 commit chain 内同時実施) + (3) Annex α-1 軸 2 line 225 + 241 supersede note inline 直接追加 (= 本 commit chain 内同時実施、 immutable history 保護 = 元 finding 削除せず、 注記のみ追加) + (4) 改訂履歴 sprint β round 3 + plan v4 entry append (= 本 entry、 append only mandate 厳守) + (5) dashboard 0072 行 status update placeholder (= 別 commit で同時実施)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts / 既存 Annex α-1〜α-6 + β-1 + β-2 + β-3-1〜β-3-9 (= immutable history、 ただし α-1 軸 2 line 225/241 supersede note inline と β-2-6 line 657 typo fix のみ追加可) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= sprint β round 3 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 3 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 4 on Annex β-3 plan v4 (= 9 重点軸 = mf-1〜mf-5 反映確認 + nh-1 反映 + lr-1 反映 + unchanged AXIS carry + round 3 FAIL resolve confirm) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 + 新規 fixture + γ-0 pre-step + scratch RAM byte address 0xFD62 mandate)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v4 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 sprint β round 2 Codex review revise + plan v3 起草 = sprint β round 1 + plan v2 後の sprint β round 2 plan v2 Codex review (= agentId `a65c98ab79db416f1`、 elapsed 約 4 分) **revise** + 2 must-fix + 3 nice-to-have + 3 latent-risk + per-axis verdict (= AXIS-1 PASS + AXIS-2 PASS + AXIS-3 FAIL + AXIS-4 WARN + AXIS-5 PASS + AXIS-6 PASS + AXIS-7 FAIL + AXIS-8 PASS + AXIS-9 PASS = 9 軸中 7 PASS + 1 WARN + 1 FAIL、 round 1 比大幅改善)。 main agent autonomous (= user mandate 適用、 mf-A/mf-B 全 technical detail 訂正 + scope 内 = 全自律進行可能) で plan v3 起草。 ADR doc 修正範囲 = (1) Annex β-3 新規追加 = plan v3 = 9 sub-section (= β-3-1 scope + must-fix overview + β-3-2 mf-A B preservation + reload from `PART_OFF_CH_IDX(ix)` offset 24 literal + β-3-3 mf-B terminator check first + voice_num scratch RAM byte 経由保持 design + β-3-4 nh-1/nh-2/nh-3 反映 + 追加 nh-typo + nh-δ-6-predicate (= 42 件 voice data byte ↔ register order 照合) + nh-γ-byte-update + β-3-5 lr-1/lr-2/lr-3 acknowledge + 追加 lr-stale-α + lr-voice-A-slot-order + lr-voice-0-first-byte + β-3-6 helper design v3 literal + scratch RAM byte `driver_pmddotnet_voice_num_scratch` 0xFDxx γ impl で literal 確定 + β-3-7 γ impl order plan v3 = 8 step + scratch RAM byte literal address 確定 step 追加 + β-3-8 Annex α-1 軸 2 supersede note 追加 (= terminator 表記訂正、 immutable history 保護維持 + 注記のみ追加) + β-3-9 Codex round 3 重点軸 9 件) + (2) 改訂履歴 sprint β round 2 + plan v3 entry append (= 本 entry、 append only mandate 厳守) + (3) dashboard 0072 行 status update placeholder (= 別 commit で同時実施)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts / 既存 Annex α-1〜α-6 + β-1 + β-2 (= immutable history、 ただし α-1 軸 2 supersede note のみ追加可) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= sprint β round 2 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 1/2 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 3 on Annex β-3 plan v3 (= 9 重点軸 = mf-A/mf-B 反映確認 + nh-typo/nh-δ-6-predicate/nh-γ-byte-update + lr-stale-α/lr-voice-A-slot-order/lr-voice-0-first-byte + AXIS unchanged carry) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 + 新規 fixture + scratch RAM byte literal address 確定 mandate)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default。 | (= 本 plan v3 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 sprint β round 1 Codex review revise + plan v2 起草 = sprint α 完走 + 起票 Draft 後の sprint β round 1 plan v1 Codex review (= agentId `a27e5cf2ade7b3234`、 elapsed 4m29s) **revise** + 2 must-fix + 3 nice-to-have + 3 latent-risk + per-axis verdict (= AXIS-1 WARN + AXIS-2 FAIL + AXIS-3 PASS + AXIS-4 FAIL + AXIS-5 PASS)。 main agent autonomous (= user mandate「sha256 維持崩れ / allowed-touch 拡張 / 別 ADR scope 変更時のみ user 判断」 適用、 mf-1/mf-2 全 technical detail 訂正 + scope 内 = 全自律進行可能) で plan v2 起草。 ADR doc 修正範囲 = (1) Annex β-2 新規追加 = plan v2 = 7 sub-section (= β-2-1 scope 不変 carry + must-fix overview + β-2-2 mf-1 chip_type guard 追加 = `comat` 内 `PART_OFF_CHIP_TYPE(ix)` check + CHIP_TYPE=2 → `comat_pcm` 既存維持 + FM=0 only PMDDOTNET helper dispatch + SSG/other no-op (= scope OUT (2) literal) + β-2-3 mf-2 voice record format 訂正 = ground truth from mc.cs:1838-1880 `nd_s_loop` literal = sparse emit `[1 byte voice_num][25 byte voice data]` (= `prg_num[bx] != 0` 時のみ) + terminator `[0x00, 0xFF]` low/high 順 (= mc.cs:1872-1876 (byte)0xff00 + (byte)(0xff00 >> 8) literal) + ALG/FB offset = byte 24 of voice record (= driver `pmdneo_fm_voice_set` line 1315-1320 `ld de,#24` + `add hl,de` + `ld c,(hl)` literal 整合、 NOT +21 = plan v1 誤り) + β-2-4 helper routine `pmdneo_comat_pmddotnet_voice_load` design v2 literal (= scan loop + match + safe default + register contract preserve IX/IY + clobber A/B/C/D/E/H/L + 候補 A 直接 `pmdneo_fm_voice_set` call + 候補 B slot reorder scratch RAM 経由 = γ impl で確定) + β-2-5 lr-1/lr-2/lr-3 acknowledge + mitigation = slot order verify + voice 0 vs terminator detection 順序 + δ-5 + δ-6 両方 PASS が success 条件 + β-2-6 γ impl order plan v2 = 7 step (= worktree 再作成 + 新規 fixture 配置 + chip_type guard + helper routine + sdasz80 build + .lst predicate + 4 build matrix B1-B4 + δ functional + **δ-6 trace gate 強化**) + β-2-7 Codex round 2 重点軸 9 件 (= mf-1/mf-2 反映 + nh-1/nh-2/nh-3 反映 + lr-1/lr-2/lr-3 acknowledge + AXIS-3/AXIS-5 unchanged carry confirm)) + (2) 改訂履歴 sprint β round 1 + plan v2 entry append (= 本 entry、 append only mandate 厳守 = 既存 起票 entry の後ろに append、 chronological order 正常維持) + (3) dashboard 0072 行 status update placeholder (= 別 commit で同時実施、 fix-up separate commit pattern carry)。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0048 軸 G ε partial state placement / ADR-0026 §決定 3/4 / ADR-0041〜0071 本文 + Annex / 既存 scripts / 既存 Annex α-1〜α-6 + β-1 (= immutable history) / `wip-dashboard-coverage` branch + `docs/dashboard/` untracked / 退避 branch / 集約 branch 上 user 別作業 = 全完全 untouched。 production sha256 = `457a237c...` 維持期待 (= sprint β round 1 doc-only iteration で build しない、 carry)。 commit chain = 単一 commit (= 本 commit、 ADR-0071 sprint β round 1 fix-up precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` (= PR #154 base) + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review round 2 on Annex β-2 plan v2 (= 9 重点軸 = mf-1/mf-2 反映確認 + nh-1/nh-2/nh-3 反映 + lr-1/lr-2/lr-3 acknowledge + AXIS-3/AXIS-5 unchanged carry) + Monitor 30s polling 死活管理 default + 機械復旧 rule literal 適用 default + 経験則 retry default + approve loop + main agent 経路 merge + atomic 1 セット 12 回目 + memory + dashboard maintenance + γ sub-sprint impl 着手 (= worktree 再作成 + 新規 fixture 配置 mandate)、 sub-sprint γ/δ/ε 起票判断 = main agent autonomous default、 user 判断 = sha256 維持崩れ / allowed-touch 拡張 (= 既 ADR pattern 外への拡張) / 別 ADR scope 変更時のみ。 | (= 本 plan v2 commit chain 内 commit 1) |
 | 2026-05-27 | 43rd session | ADR-0072 起票 Draft = PMDNEO driver-PMDDOTNET voice opcode data delivery repair sprint (= sprint α scope = root cause investigation 完走 + 5 並走 sub-agent investigation (= 2 agent success via `git show` workaround + 3 agent preflight FAIL on worktree base ref mismatch 9 件 guard re-trigger 2 回目) + Annex α 6 sub-section literal record (= α-1 agent 1 finding + α-2 agent 4 finding + α-3 main agent direct analysis on allowed-touch/sha256 framework + α-4/α-5/α-6 preflight fail literal record) + Annex β-1 plan v1 起草 + sub-sprint chain α/β/γ/δ/ε 5 段 plan literal、 ADR-0071 ε Accepted 後 δ verify で発見した voice opcode @N PMDDOTNET 経路未解釈 (= ADR-0071 §決定 1 scope OUT (5) literal 該当) の engineering repair sprint、 user 明示「voice opcode @N PMDDOTNET 経路解釈 follow-up sprint が自然 + Claude Code 主担当 + まず root cause 調査 + allowed-touch/sha256 方針を先に明記 + Codex Rescue plan review 必須 + user audition / δ 再開には進まない」 mandate 経路、 真の root cause = voice opcode emit 形式は PMD V4.8s + PMDDotNET で byte-identical (= `0xFF N` 2-byte) + driver `comat` handler 既存 (= line 4419)、 真の問題 = driver の voice_table lookup が compile.py 経路 separate label table を expect、 PMDDOTNET 経路 inline voice table (= pmddotnet_song.m 内 slot-interleaved 25 byte format) を読まない設計、 推奨修理経路 = (a) driver-side guarded change (= ADR-0071 precedent 同 pattern)、 production sha256 = `457a237c...` 維持期待 (= 本 sprint α doc-only で build しない、 carry))。 ADR doc 修正範囲 = (1) ADR-0072 file 新規 (= 8 決定 + verify gate + Annex α 6 sub-section + Annex β-1 plan v1 + Annex β-2/3/4 placeholder + 改訂履歴 + 平易要約) + (2) dashboard 0072 行 add + (3) dashboard escalation 履歴 ADR-0072 entry 追加 + (4) memory + MEMORY.md = merge 後 main agent direct。 driver / 既存 verify script / 既存 fixture MML / vendor / 既存 build flag / ADR-0041〜0071 本文 + Annex / 既存 scripts 完全不変。 commit chain = 単一 commit (= 本 commit、 ADR-0071 起票 precedent 同 pattern)。 branch 運用 4 条規律 = (1) PR 先 default `wip-pmddotnet-opnb-extension` + (2) merge atomic 12 回目適用予定 + (3) close 不要時削除 想定なし + (4) 保持対象 3 type 不可触 confirmed。 後続 = Codex layer 2 plan review on Annex β-1 plan v1 (= user 明示 5 重点軸 = driver-side fix 仮説 + 真 root cause confirmed + sha256 維持可否 + allowed-touch limited + verify plan 実効化) + approve loop + main agent 経路 merge + atomic 1 セット 12 回目適用予定 + memory + dashboard maintenance + γ sub-sprint impl 着手判断 (= main agent autonomous default)。 | (= 本起票 commit chain 内 commit 1) |
